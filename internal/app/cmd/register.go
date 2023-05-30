@@ -91,10 +91,7 @@ const (
 )
 
 var defaultLabels = []string{
-	"ubuntu-latest:docker://node:16-bullseye",
-	"ubuntu-22.04:docker://node:16-bullseye", // There's no node:16-bookworm yet
-	"ubuntu-20.04:docker://node:16-bullseye",
-	"ubuntu-18.04:docker://node:16-buster",
+	"docker:docker://node:16-bullseye",
 }
 
 type registerInputs struct {
@@ -162,7 +159,7 @@ func (r *registerInputs) assignToNext(stage registerStage, value string) registe
 		}
 
 		if validateLabels(r.CustomLabels) != nil {
-			log.Infoln("Invalid labels, please input again, leave blank to use the default labels (for example, ubuntu-20.04:docker://node:16-bullseye,ubuntu-18.04:docker://node:16-buster,linux_arm:host)")
+			log.Infoln("Invalid labels, please input again, leave blank to use the default labels (for example, docker:docker://node:16-bullseye,linux_arm:host)")
 			return StageInputCustomLabels
 		}
 		return StageWaitingForRegistration
@@ -227,7 +224,7 @@ func printStageHelp(stage registerStage) {
 		hostname, _ := os.Hostname()
 		log.Infof("Enter the runner name (if set empty, use hostname: %s):\n", hostname)
 	case StageInputCustomLabels:
-		log.Infoln("Enter the runner labels, leave blank to use the default labels (comma-separated, for example, ubuntu-20.04:docker://node:16-bullseye,ubuntu-18.04:docker://node:16-buster,linux_arm:host):")
+		log.Infoln("Enter the runner labels, leave blank to use the default labels (comma-separated, for example, docker:docker://node:16-bullseye,linux_arm:host):")
 	case StageWaitingForRegistration:
 		log.Infoln("Waiting for registration...")
 	}
