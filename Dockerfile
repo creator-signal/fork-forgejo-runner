@@ -1,15 +1,16 @@
-#Build stage
-FROM golang:1.21-alpine3.18 AS build-env
-
-RUN apk --no-cache add build-base git
+FROM golang:1.21-alpine3.18 as builder
+# Do not remove `git` here, it is required for getting runner version when executing `make build`
+RUN apk add --no-cache make git
 
 COPY . /srv
 WORKDIR /srv
-RUN make build
+
+RUN make clean && make build
 
 FROM alpine:3.18
-LABEL maintainer="contact@forgejo.org"
+RUN apk add --no-cache git bash tini
 
-COPY --from=build-env /srv/forgejo-runner /bin/forgejo-runner
+COPY --from=builder /srv/forgejo-runner /usr/local/bin/forgejo-runner
+COPY scripts/run.sh /opt/act/run.sh
 
-ENTRYPOINT ["/bin/forgejo-runner"]
+ENTRYPOINT ["/sbin/tini","--","/opt/act/run.sh"]
