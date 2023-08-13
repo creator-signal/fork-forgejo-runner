@@ -1,7 +1,7 @@
 #Build stage
 FROM golang:1.20-alpine3.18 AS build-env
 
-RUN apk --no-cache add build-base git
+RUN apk --no-cache add build-base git tini
 
 COPY . /srv
 WORKDIR /srv
