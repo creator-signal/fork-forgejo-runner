@@ -11,5 +11,6 @@ FROM alpine:3.18
 LABEL maintainer="contact@forgejo.org"
 
 COPY --from=build-env /srv/forgejo-runner /bin/forgejo-runner
+COPY scripts/run.sh /opt/act/run.sh
 
-ENTRYPOINT ["/bin/forgejo-runner"]
+ENTRYPOINT ["/sbin/tini","--","/opt/act/run.sh"]
