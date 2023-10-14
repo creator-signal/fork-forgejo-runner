@@ -10,15 +10,10 @@ The Forgejo runner depends on [a fork of ACT](https://code.forgejo.org/forgejo/a
 
 Assuming the modifications to the [Forgejo runner](https://code.forgejo.org/forgejo/runner) are pushed to a fork in a branch named `wip-runner-change`, a pull request will verify it compiles and the binary is sane (running `forgejo-runner --version`). It will not verify that it is able to properly run jobs when connected to a live Forgejo instance.
 
-For end to end testing, a branch should be pushed to a fork of the [setup-forgejo action](https://code.forgejo.org/actions/setup-forgejo) with a [modification to the tests](https://code.forgejo.org/actions/setup-forgejo/src/commit/ae7f03683b7b05c7d9c6aaeacaf27843de0366a4/.forgejo/workflows/integration.yml#L10-L19), similar to:
+For end to end testing, a branch should be pushed to a fork of the [setup-forgejo action](https://code.forgejo.org/actions/setup-forgejo) where the changes from the following command are committed:
 
-```yaml
-#
-# Uncomment the following for a shortcut to debugging the Forgejo runner.
-# It will build the runner from a designated repository and branch instead of
-# downloading it from a canonical release.
-#
-./forgejo-test-helper.sh build_runner https://code.forgejo.org/earl-warren/runner wip-runner-change
+```sh
+utils/upgrade-runner.sh https://code.forgejo.org/earl-warren/runner @wip-runner-change
 ```
 
 Where https://code.forgejo.org/earl-warren/runner is the URL of the Forgejo runner fork and `wip-runner-change` is the branch where the changes under test were pushed. When they do the `wip-runner-change` branch can be discarded.
