@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -ex
+
+setup_forgejo=$1
+setup_forgejo_pr=$2
+runner_pr=$3
+
+url=$(jq --raw-output .head.repo.html_url < $runner_pr)
+test "$url" != null
+branch=$(jq --raw-output .head.ref < $runner_pr)
+test "$branch" != null
+cd $setup_forgejo
+./utils/upgrade-runner.sh $url @$branch

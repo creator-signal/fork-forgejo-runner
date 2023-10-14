@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - closed
+jobs:
+  cascade:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cascading-pr@v1
+        with:
+          origin-url: ${{ env.GITHUB_SERVER_URL }}
+          origin-repo: forgejo/runner
+          origin-token: ${{ secrets.CASCADING_PR_ORIGIN }}
+          origin-pr: ${{ github.event.pull_request.number }}
+          destination-url: ${{ env.GITHUB_SERVER_URL }}
+          destination-repo: actions/setup-forgejo
+          destination-branch: main
+          destination-token: ${{ secrets.CASCADING_PR_DESTINATION }}
+          update: .forgejo/cascading-pr-setup-forgejo
