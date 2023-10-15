@@ -10,13 +10,7 @@ The Forgejo runner depends on [a fork of ACT](https://code.forgejo.org/forgejo/a
 
 Assuming the modifications to the [Forgejo runner](https://code.forgejo.org/forgejo/runner) are pushed to a fork in a branch named `wip-runner-change`, a pull request will verify it compiles and the binary is sane (running `forgejo-runner --version`). It will not verify that it is able to properly run jobs when connected to a live Forgejo instance.
 
-For end to end testing, a branch should be pushed to a fork of the [setup-forgejo action](https://code.forgejo.org/actions/setup-forgejo) where the changes from the following command are committed:
-
-```sh
-utils/upgrade-runner.sh https://code.forgejo.org/earl-warren/runner @wip-runner-change
-```
-
-Where https://code.forgejo.org/earl-warren/runner is the URL of the Forgejo runner fork and `wip-runner-change` is the branch where the changes under test were pushed. When they do the `wip-runner-change` branch can be discarded.
+For end to end testing, a [workflow](https://code.forgejo.org/forgejo/runner/src/branch/main/.forgejo/workflows/cascade-setup-forgejo.yml) will create a [cascading-pr](https://code.forgejo.org/actions/cascading-pr/) in [setup-forgejo](https://code.forgejo.org/actions/setup-forgejo/pulls) and wait for its success.
 
 The runner can be released by merging the `wip-runner-change` branch and by pushing a new tag, for instance `v10.2.3`. For more information see the [documentation that details this release process](https://forgejo.org/docs/next/developer/RELEASE/#forgejo-runner-publication) in the Forgejo infrastructure. Once published, the [setup-forgejo](https://code.forgejo.org/actions/setup-forgejo/) action can be updated to default to this latest version knowing it already passed integration tests.
 
