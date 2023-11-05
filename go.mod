@@ -92,4 +92,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/nektos/act => code.forgejo.org/cascading-pr/act v1.11.1-0.20231105132536-527ee522c243
+replace github.com/nektos/act => code.forgejo.org/cascading-pr/act v1.11.1-0.20231105143711-15ff9a5646ce
