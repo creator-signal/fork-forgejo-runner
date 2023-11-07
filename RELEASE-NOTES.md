@@ -1,5 +1,9 @@
 # Release Notes
 
+## 3.0.3
+
+* Update [code.forgejo.org/forgejo/act v1.13.0](https://code.forgejo.org/forgejo/runner/pulls/106) to keep up with github.com/nektos/act
+
 ## 3.0.2
 
 * Update [code.forgejo.org/forgejo/act v1.12.0](https://code.forgejo.org/forgejo/runner/pulls/106) to upgrade the node installed in the LXC container to node20

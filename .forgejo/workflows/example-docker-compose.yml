@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - 'main'
-  pull_request_target:
+  pull_request:
 
 jobs:
   example-docker-compose:
@@ -34,7 +34,7 @@ jobs:
           cd examples/docker-compose
           secret=$(openssl rand -hex 20)
           sed -i -e "s/{SHARED_SECRET}/$secret/" compose-forgejo-and-runner.yml
-          cli="docker compose -f compose-forgejo-and-runner.yml -f compose-demo-workflow.yml"
+          cli="docker compose --progress quiet -f compose-forgejo-and-runner.yml -f compose-demo-workflow.yml"
           #
           # Launch
           #
@@ -42,19 +42,21 @@ jobs:
           #
           # Wait for the demo workflow to complete
           #
-          $cli ps --help
           success='DEMO WORKFLOW SUCCESS'
           failure='DEMO WORKFLOW FAILURE'
           for delay in $(seq 60) ; do
-            $cli logs -n 10 demo-workflow > /tmp/out
+            $cli logs demo-workflow > /tmp/out
             grep --quiet "$success" /tmp/out && break
             grep --quiet "$failure" /tmp/out && break
             $cli ps --all
             tail /tmp/out
             sleep 10
           done
-          if ! grep --quiet "$success" /tmp/out ; then
-            echo ==========================================
-            $cli logs
-            exit 1
-          fi
+          tail /tmp/out
+          grep --quiet "$success" /tmp/out
+
+      - name: docker compose logs
+        if: always()
+        run: |
+          cd examples/docker-compose
+          docker compose -f compose-forgejo-and-runner.yml -f compose-demo-workflow.yml logs
