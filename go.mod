@@ -92,4 +92,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/nektos/act => code.forgejo.org/earl-warren/act v0.0.0-20240311083055-490288dbbe9f
+replace github.com/nektos/act => code.forgejo.org/earl-warren/act v0.0.0-20240311101033-0a41e2be4bab
