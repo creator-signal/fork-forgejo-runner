@@ -14,6 +14,8 @@ jobs:
           POSTGRES_PASSWORD: postgres
     steps:
     - run: |
+       set -x
+       cat /etc/hosts
        apt-get update -qq
        apt-get install -y -qq  postgresql-client
        PGPASSWORD=postgres psql -h pgsql -U postgres -c '\dt' test
