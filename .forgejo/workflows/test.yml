@@ -19,6 +19,8 @@ jobs:
     name: build and test
     if: github.repository_owner != 'forgejo-integration' && github.repository_owner != 'forgejo-experimental' && github.repository_owner != 'forgejo-release'
     runs-on: docker
+    container:
+      image: code.forgejo.org/oci/debian:bookworm
 
     services:
       forgejo:
