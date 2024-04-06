@@ -39,7 +39,7 @@ Creating docker-compose_docker-in-docker_1 ... done
 Creating docker-compose_forgejo_1          ... done
 Creating docker-compose_runner-register_1  ... done
 ...
-docker-in-docker_1  | time="2023-08-24T10:22:15.023338461Z" level=warning msg="WARNING: API is accessible on http://0.0.0.0:2375
+docker-in-docker_1  | time="2023-08-24T10:22:15.023338461Z" level=warning msg="WARNING: API is accessible on http://0.0.0.0:2376
 ...
 forgejo_1           | 2023/08/24 10:22:14 ...s/graceful/server.go:75:func1() [D] Starting server on tcp:0.0.0.0:3000 (PID: 19)
 ...
@@ -58,12 +58,14 @@ To login the Forgejo instance:
 
 ## Tests workflow
 
-The `compose-demo-workflow.yml` compose file runs a demo workflow to
-verify the `Forgejo runner` can pick up a task from the Forgejo instance
+The `compose-demo-workflow.yml` compose file runs two demo workflows:
+* one to verify the `Forgejo runner` can pick up a task from the Forgejo instance
 and run it to completion.
+* one to verify docker can be run inside the `Forgejo runner` container's.
 
-A new repository is created in root/test with the following workflow
-in `.forgejo/workflows/demo.yml`:
+A new repository is created in root/test with the following workflows:
+
+#### `.forgejo/workflows/demo.yml`:
 
 ```yaml
 on: [push]
@@ -72,6 +74,17 @@ jobs:
     runs-on: docker
     steps:
       - run: echo All Good
+```
+
+#### `.forgejo/workflows/demo_docker.yml`
+
+```yaml
+on: [push]
+jobs:
+  test_docker:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: docker info
 ```
 
 A wait loop expects the status of the check associated with the
