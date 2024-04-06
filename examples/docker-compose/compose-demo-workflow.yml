@@ -20,6 +20,7 @@ services:
       git init --initial-branch=main ;
       mkdir -p .forgejo/workflows ;
       echo "{ on: [push], jobs: { test: { runs-on: docker, steps: [ {uses: actions/checkout@v4}, { run: echo All Good } ] } } }" > .forgejo/workflows/demo.yml ;
+      echo "{ on: [push], jobs: { test_docker: { runs-on: ubuntu-22.04, steps: [ { run: docker info } ] } } }" > .forgejo/workflows/demo_docker.yml ;
       git add . ;
       git config user.email root@example.com ;
       git config user.name username ;
