@@ -37,7 +37,7 @@ services:
       bash -c '
       /bin/s6-svscan /etc/s6 &
       sleep 10 ;
-      su -c "forgejo forgejo-cli actions register --secret {SHARED_SECRET} --labels docker --version 3.3.0" git ;
+      su -c "forgejo forgejo-cli actions register --secret {SHARED_SECRET} --labels docker,ubuntu-22.04 --version 3.3.0" git ;
       su -c "forgejo admin user create --admin --username root --password {ROOT_PASSWORD} --email root@example.com" git ;
       sleep infinity
       '
@@ -68,6 +68,7 @@ services:
         forgejo-runner create-runner-file --connect --instance http://forgejo:3000 --name runner --secret {SHARED_SECRET} && break ;
         sleep 1 ;
       done ;
+      sed -e 's|"labels": null|"labels": [\n    "docker:docker://alpine:3.18",\n    "ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04"\n  ]|' .runner ;
       forgejo-runner generate-config > config.yml ;
       sed -i -e "s|network: .*|network: host|" config.yml ;
       sed -i -e "s|^  envs:$$|  envs:\n    DOCKER_HOST: tcp://docker:2376\n    DOCKER_TLS_VERIFY: 1\n    DOCKER_CERT_PATH: /certs/client|" config.yml ;
