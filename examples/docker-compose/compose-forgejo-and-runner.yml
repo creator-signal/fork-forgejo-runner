@@ -16,12 +16,20 @@
 
 version: "3"
 
+volumes:
+  docker_certs:
+
 services:
 
   docker-in-docker:
     image: docker:dind
-    privileged: true
-    command: [ "dockerd", "-H", "tcp://0.0.0.0:2375", "--tls=false" ]
+    hostname: docker  # Must set hostname as TLS certificates are only valid for docker or localhost
+    privileged: true  
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+      DOCKER_HOST: docker-in-docker
+    volumes:
+      - docker_certs:/certs
 
   forgejo:
     image: codeberg.org/forgejo/forgejo:1.21
@@ -50,7 +58,7 @@ services:
       - docker-in-docker
       - forgejo
     environment:
-      DOCKER_HOST: tcp://docker-in-docker:2375
+      DOCKER_HOST: tcp://docker-in-docker:2376
     volumes:
       - /srv/runner-data:/data
     user: 0:0
@@ -72,10 +80,13 @@ services:
       - docker-in-docker
       - forgejo
     environment:
-      DOCKER_HOST: tcp://docker-in-docker:2375
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: "1"
     depends_on:
       runner-register:
         condition: service_completed_successfully
     volumes:
       - /srv/runner-data:/data
+      - docker_certs:/certs
     command: "forgejo-runner --config config.yml daemon"
