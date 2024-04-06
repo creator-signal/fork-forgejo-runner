@@ -14,8 +14,6 @@
 # Replace {ROOT_PASSWORD} with a secure password
 #
 
-version: "3"
-
 volumes:
   docker_certs:
 
