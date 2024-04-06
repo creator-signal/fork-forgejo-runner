@@ -66,7 +66,7 @@ services:
         forgejo-runner create-runner-file --connect --instance http://forgejo:3000 --name runner --secret {SHARED_SECRET} && break ;
         sleep 1 ;
       done ;
-      sed -e 's|"labels": null|"labels": [\n    "docker:docker://alpine:3.18",\n    "ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04"\n  ]|' .runner ;
+      sed -i -e "s|\"labels\": null|\"labels\": [\n    \"docker:docker://alpine:3.18\",\n    \"ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04\"\n  ]|" .runner ;
       forgejo-runner generate-config > config.yml ;
       sed -i -e "s|network: .*|network: host|" config.yml ;
       sed -i -e "s|^  envs:$$|  envs:\n    DOCKER_HOST: tcp://docker:2376\n    DOCKER_TLS_VERIFY: 1\n    DOCKER_CERT_PATH: /certs/client|" config.yml ;
