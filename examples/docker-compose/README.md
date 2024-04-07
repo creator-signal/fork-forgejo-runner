@@ -61,7 +61,7 @@ To login the Forgejo instance:
 The `compose-demo-workflow.yml` compose file runs two demo workflows:
 * one to verify the `Forgejo runner` can pick up a task from the Forgejo instance
 and run it to completion.
-* one to verify docker can be run inside the `Forgejo runner` container's.
+* one to verify docker can be run inside the `Forgejo runner` container.
 
 A new repository is created in root/test with the following workflows:
 
