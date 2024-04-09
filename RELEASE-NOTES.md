@@ -1,5 +1,11 @@
 # Release Notes
 
+## 3.4.2
+
+* [Fix the precedence of labels](https://code.forgejo.org/forgejo/runner/pulls/178): those found in config.yml have precedence over those found in the .runner file.
+* [Fix the docker compose example](https://code.forgejo.org/forgejo/runner/pulls/175) to workaround the race on labels.
+* [Fix the kubernetes dind example](https://code.forgejo.org/forgejo/runner/pulls/169).
+
 ## 3.4.1
 
 * Fixes a regression introduced in 3.4.0 by which a job with no image explicitly set would
