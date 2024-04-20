@@ -20,11 +20,21 @@ WORKDIR /srv
 RUN make clean && make build
 
 FROM docker.io/library/alpine:3.18
-LABEL maintainer="contact@forgejo.org"
-
+ARG RELEASE_VERSION
 RUN apk add --no-cache git bash
 
 COPY --from=build-env /srv/forgejo-runner /bin/forgejo-runner
+
+LABEL maintainer="contact@forgejo.org" \
+      org.opencontainers.image.authors="Forgejo" \
+      org.opencontainers.image.url="https://forgejo.org" \
+      org.opencontainers.image.documentation="https://forgejo.org/docs/latest/admin/actions/#forgejo-runner" \
+      org.opencontainers.image.source="https://code.forgejo.org/forgejo/runner" \
+      org.opencontainers.image.version="${RELEASE_VERSION}" \
+      org.opencontainers.image.vendor="Forgejo" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="Forgejo Runner" \
+      org.opencontainers.image.description="A runner for Forgejo Actions."
 
 ENV HOME=/data
 
