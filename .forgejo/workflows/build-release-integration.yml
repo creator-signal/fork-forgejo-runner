@@ -85,3 +85,6 @@ jobs:
           done
 
           docker pull ${{ steps.forgejo.outputs.host-port }}/root/runner:$version
+
+          docker inspect ${{ steps.forgejo.outputs.host-port}}/root/runner:$version > labels.json
+          python3 .forgejo/labelscompare.py
