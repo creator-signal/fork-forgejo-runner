@@ -6,6 +6,7 @@
 * [Fix the docker compose example](https://code.forgejo.org/forgejo/runner/pulls/175) to workaround the race on labels.
 * [Fix the kubernetes dind example](https://code.forgejo.org/forgejo/runner/pulls/169).
 * [Rewrite ::group:: and ::endgroup:: commands like github](https://code.forgejo.org/forgejo/runner/pulls/183).
+* [Added opencontainers labels to the image](https://code.forgejo.org/forgejo/runner/pulls/195)
 
 ## 3.4.1
 
