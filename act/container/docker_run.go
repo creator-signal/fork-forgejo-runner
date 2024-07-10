@@ -192,48 +192,31 @@ func (cr *containerReference) Remove() common.Executor {
 	).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) inspect(ctx context.Context) (container.InspectResponse, error) {
+func (cr *containerReference) GetHealth(ctx context.Context) ContainerHealth {
 	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
-	if err != nil {
-		err = fmt.Errorf("service %v: %s", cr.input.NetworkAliases, err)
-	}
-	return resp, err
-}
-
-func (cr *containerReference) IsHealthy(ctx context.Context) (time.Duration, error) {
-	resp, err := cr.inspect(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return cr.isHealthy(ctx, resp)
-}
-
-func (cr *containerReference) isHealthy(ctx context.Context, resp container.InspectResponse) (time.Duration, error) {
 	logger := common.Logger(ctx)
+	if err != nil {
+		logger.Errorf("failed to query container health %s", err)
+		return ContainerHealthUnHealthy
+	}
 	if resp.Config == nil || resp.Config.Healthcheck == nil || resp.State == nil || resp.State.Health == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
-		logger.Debugf("no container health check defined, hope for the best")
-		return 0, nil
+		logger.Debugf("no container health check defined")
+		return ContainerHealthHealthy
 	}
 
+	logger.Infof("container health of %s (%s) is %s", cr.id, resp.Config.Image, resp.State.Health.Status)
 	switch resp.State.Health.Status {
-	case container.Starting:
-		wait := resp.Config.Healthcheck.Interval
-		if wait <= 0 {
-			wait = time.Second
-		}
-		logger.Infof("service %v: container health check %s (%s) is starting, waiting %v", cr.input.NetworkAliases, cr.id, resp.Config.Image, wait)
-		return wait, nil
-	case container.Healthy:
-		logger.Infof("service %v: container health check %s (%s) is healthy", cr.input.NetworkAliases, cr.id, resp.Config.Image)
-		return 0, nil
-	case container.Unhealthy:
-		return 0, fmt.Errorf("service %v: container health check %s (%s) is not healthy", cr.input.NetworkAliases, cr.id, resp.Config.Image)
-	default:
-		return 0, fmt.Errorf("service %v: unexpected health status %s (%s) %v", cr.input.NetworkAliases, cr.id, resp.Config.Image, resp.State.Health.Status)
+	case "starting":
+		return ContainerHealthStarting
+	case "healthy":
+		return ContainerHealthHealthy
+	case "unhealthy":
+		return ContainerHealthUnHealthy
 	}
+	return ContainerHealthUnHealthy
 }
 
-func (cr *containerReference) ReplaceLogWriter(stdout, stderr io.Writer) (io.Writer, io.Writer) {
+func (cr *containerReference) ReplaceLogWriter(stdout io.Writer, stderr io.Writer) (io.Writer, io.Writer) {
 	out := cr.input.Stdout
 	err := cr.input.Stderr
 

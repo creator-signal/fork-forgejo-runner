@@ -328,7 +328,9 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "services", "push", "", platforms, secrets},
 		{workdir, "services-with-container", "push", "", platforms, secrets},
 		{workdir, "mysql-service-container-with-health-check", "push", "", platforms, secrets},
-		{workdir, "mysql-service-container-premature-terminate", "push", "service [maindb]", platforms, secrets},
+
+		// local remote action overrides
+		{workdir, "local-remote-action-overrides", "push", "", platforms, secrets},
 	}
 
 	for _, table := range tables {

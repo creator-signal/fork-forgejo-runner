@@ -494,11 +494,11 @@ func (e *HostEnvironment) GetRunnerContext(_ context.Context) map[string]any {
 	}
 }
 
-func (e *HostEnvironment) IsHealthy(ctx context.Context) (time.Duration, error) {
-	return 0, nil
+func (e *HostEnvironment) GetHealth(ctx context.Context) ContainerHealth {
+	return ContainerHealthHealthy
 }
 
-func (e *HostEnvironment) ReplaceLogWriter(stdout, _ io.Writer) (io.Writer, io.Writer) {
+func (e *HostEnvironment) ReplaceLogWriter(stdout io.Writer, _ io.Writer) (io.Writer, io.Writer) {
 	org := e.StdOut
 	e.StdOut = stdout
 	return org, org

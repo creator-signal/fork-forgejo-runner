@@ -762,20 +762,27 @@ func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 	}
 }
 
-func waitForServiceContainer(ctx context.Context, c container.ExecutionsEnvironment) error {
-	for {
-		wait, err := c.IsHealthy(ctx)
-		if err != nil {
-			return err
+func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment) common.Executor {
+	return func(ctx context.Context) error {
+		sctx, cancel := context.WithTimeout(ctx, time.Minute*5)
+		defer cancel()
+		health := container.ContainerHealthStarting
+		delay := time.Second
+		for i := 0; ; i++ {
+			health = c.GetHealth(sctx)
+			if health != container.ContainerHealthStarting || i > 30 {
+				break
+			}
+			time.Sleep(delay)
+			delay *= 2
+			if delay > 10*time.Second {
+				delay = 10 * time.Second
+			}
 		}
-		if wait == time.Duration(0) {
+		if health == container.ContainerHealthHealthy {
 			return nil
 		}
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(wait):
-		}
+		return fmt.Errorf("service container failed to start")
 	}
 }
 
@@ -783,9 +790,7 @@ func (rc *RunContext) waitForServiceContainers() common.Executor {
 	return func(ctx context.Context) error {
 		execs := []common.Executor{}
 		for _, c := range rc.ServiceContainers {
-			execs = append(execs, func(ctx context.Context) error {
-				return waitForServiceContainer(ctx, c)
-			})
+			execs = append(execs, rc.waitForServiceContainer(c))
 		}
 		return common.NewParallelExecutor(len(execs), execs...)(ctx)
 	}
