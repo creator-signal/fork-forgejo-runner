@@ -1,6 +1,6 @@
 FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
 
-FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.21-alpine3.18 as build-env
+FROM --platform=$BUILDPLATFORM docker.io/library/golang:1.22-alpine3.18 as build-env
 
 #
 # Transparently cross compile for the target platform
