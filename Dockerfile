@@ -19,7 +19,7 @@ WORKDIR /srv
 
 RUN make clean && make build
 
-FROM docker.io/library/alpine:3.18
+FROM docker.io/library/alpine:3.20
 ARG RELEASE_VERSION
 RUN apk add --no-cache git bash
 
