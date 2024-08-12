@@ -7,7 +7,7 @@ require (
 	code.gitea.io/gitea-vet v0.2.3-0.20230113022436-2b1561217fa5
 	connectrpc.com/connect v1.16.2
 	github.com/avast/retry-go/v4 v4.5.0
-	github.com/docker/docker v24.0.7+incompatible
+	github.com/docker/docker v24.0.9+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-isatty v0.0.20
