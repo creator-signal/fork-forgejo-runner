@@ -1,6 +1,6 @@
 module gitea.com/gitea/act_runner
 
-go 1.21
+go 1.21.13
 
 require (
 	code.gitea.io/actions-proto-go v0.4.0
