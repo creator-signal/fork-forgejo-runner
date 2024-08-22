@@ -1,6 +1,6 @@
 FROM --platform=$BUILDPLATFORM code.forgejo.org/oci/tonistiigi/xx AS xx
 
-FROM --platform=$BUILDPLATFORM code.forgejo.org/oci/golang:1.21-alpine3.19 as build-env
+FROM --platform=$BUILDPLATFORM code.forgejo.org/oci/golang:1.23-alpine3.20 as build-env
 
 #
 # Transparently cross compile for the target platform
@@ -19,7 +19,7 @@ WORKDIR /srv
 
 RUN make clean && make build
 
-FROM code.forgejo.org/oci/alpine:3.19
+FROM code.forgejo.org/oci/alpine:3.20
 ARG RELEASE_VERSION
 RUN apk add --no-cache git bash
 
