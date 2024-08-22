@@ -196,6 +196,10 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		if inputsRaw, ok := preset.Event["inputs"]; ok {
 			inputs, _ = inputsRaw.(map[string]string)
 		}
+	} else {
+		// If the inputs are not set, make sure it is not nil.
+		// Otherwise the runner will fail to parse the workflow.
+		inputs = make(map[string]string)
 	}
 
 	runnerConfig := &runner.Config{
