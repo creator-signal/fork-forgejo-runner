@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 
 	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
 	"connectrpc.com/connect"
@@ -23,8 +24,10 @@ import (
 type createRunnerFileArgs struct {
 	Connect      bool
 	InstanceAddr string
-	Secret       string
 	Name         string
+	Labels       string
+	Secret       string
+	SecretFile   string
 }
 
 func createRunnerFileCmd(ctx context.Context, configFile *string) *cobra.Command {
@@ -38,9 +41,10 @@ func createRunnerFileCmd(ctx context.Context, configFile *string) *cobra.Command
 	cmd.Flags().BoolVar(&argsVar.Connect, "connect", false, "tries to connect to the instance using the secret (Forgejo v1.21 instance or greater)")
 	cmd.Flags().StringVar(&argsVar.InstanceAddr, "instance", "", "Forgejo instance address")
 	cmd.MarkFlagRequired("instance")
-	cmd.Flags().StringVar(&argsVar.Secret, "secret", "", "secret shared with the Forgejo instance via forgejo-cli actions register")
-	cmd.MarkFlagRequired("secret")
+	cmd.Flags().StringVar(&argsVar.Labels, "labels", "", "Runner tags, comma separated")
 	cmd.Flags().StringVar(&argsVar.Name, "name", "", "Runner name")
+	cmd.Flags().StringVar(&argsVar.Secret, "secret", "", "secret shared with the Forgejo instance via forgejo-cli actions register")
+	cmd.Flags().StringVar(&argsVar.SecretFile, "secret-file", "", "secret shared with the Forgejo instance via forgejo-cli actions register, read from this file")
 
 	return cmd
 }
@@ -87,6 +91,8 @@ func ping(cfg *config.Config, reg *config.Registration) error {
 
 func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, configFile *string) func(cmd *cobra.Command, args []string) error {
 	return func(*cobra.Command, []string) error {
+		var secret string
+
 		log.SetLevel(log.DebugLevel)
 		log.Info("Creating runner file")
 
@@ -98,11 +104,22 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 			return fmt.Errorf("invalid configuration: %w", err)
 		}
 
-		if err := validateSecret(args.Secret); err != nil {
+		if args.Secret != "" {
+			secret = args.Secret
+		} else if args.SecretFile != "" {
+			secretFromFile, err := os.ReadFile(args.SecretFile)
+			if err != nil {
+				return fmt.Errorf("reading secret file: %w", err)
+			}
+			secret = strings.TrimSpace(string(secretFromFile))
+		} else {
+			return fmt.Errorf("you need to provide either --secret or --secret-file")
+		}
+		if err := validateSecret(secret); err != nil {
 			return err
 		}
 
-		uuid, err := uuidFromSecret(args.Secret)
+		uuid, err := uuidFromSecret(secret)
 		if err != nil {
 			return err
 		}
@@ -113,11 +130,17 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 			log.Infof("Runner name is empty, use hostname '%s'.", name)
 		}
 
+		labels := make([]string, 0)
+		if args.Labels != "" {
+			labels = strings.Split(args.Labels, ",")
+		}
+
 		reg := &config.Registration{
 			Name:    name,
 			UUID:    uuid,
-			Token:   args.Secret,
+			Token:   secret,
 			Address: args.InstanceAddr,
+			Labels:  labels,
 		}
 
 		//
