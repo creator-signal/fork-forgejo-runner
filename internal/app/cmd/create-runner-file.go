@@ -25,7 +25,6 @@ type createRunnerFileArgs struct {
 	Connect      bool
 	InstanceAddr string
 	Name         string
-	Labels       string
 	Secret       string
 	SecretFile   string
 }
@@ -41,7 +40,6 @@ func createRunnerFileCmd(ctx context.Context, configFile *string) *cobra.Command
 	cmd.Flags().BoolVar(&argsVar.Connect, "connect", false, "tries to connect to the instance using the secret (Forgejo v1.21 instance or greater)")
 	cmd.Flags().StringVar(&argsVar.InstanceAddr, "instance", "", "Forgejo instance address")
 	cmd.MarkFlagRequired("instance")
-	cmd.Flags().StringVar(&argsVar.Labels, "labels", "", "Runner tags, comma separated")
 	cmd.Flags().StringVar(&argsVar.Name, "name", "", "Runner name")
 	cmd.Flags().StringVar(&argsVar.Secret, "secret", "", "secret shared with the Forgejo instance via forgejo-cli actions register")
 	cmd.Flags().StringVar(&argsVar.SecretFile, "secret-file", "", "secret shared with the Forgejo instance via forgejo-cli actions register, read from this file")
@@ -130,17 +128,11 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 			log.Infof("Runner name is empty, use hostname '%s'.", name)
 		}
 
-		labels := make([]string, 0)
-		if args.Labels != "" {
-			labels = strings.Split(args.Labels, ",")
-		}
-
 		reg := &config.Registration{
 			Name:    name,
 			UUID:    uuid,
 			Token:   secret,
 			Address: args.InstanceAddr,
-			Labels:  labels,
 		}
 
 		//
