@@ -150,7 +150,7 @@ func Test_runCreateRunnerFileFromSecretFile(t *testing.T) {
 	//
 	ctx := context.Background()
 	cmd := createRunnerFileCmd(ctx, &configFile)
-	output, err := executeCommand(ctx, cmd, "--connect", "--secretfile", secretFile, "--instance", instance, "--name", name)
+	output, err := executeCommand(ctx, cmd, "--connect", "--secret-file", secretFile, "--instance", instance, "--name", name)
 	assert.NoError(t, err)
 	assert.EqualValues(t, "", output)
 
