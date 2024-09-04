@@ -140,9 +140,9 @@ func Test_runCreateRunnerFileFromSecretFile(t *testing.T) {
 	secretFile := dir + "/secretfile"
 	f, err := os.OpenFile(secretFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	assert.NoError(t, err)
-	_, err := f.WriteString(secret)
+	_, err = f.WriteString(secret)
 	assert.NoError(t, err)
-	err := f.Close()
+	err = f.Close()
 	assert.NoError(t, err)
 
 	//
