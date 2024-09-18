@@ -6,8 +6,8 @@ After=docker.service
 [Service]
 ExecStart=forgejo-runner daemon
 ExecReload=/bin/kill -s HUP $MAINPID
-User=runner
-WorkingDirectory=/home/runner
+User=runner # This user must be created first
+WorkingDirectory=/home/runner # This directory must be created first
 Restart=on-failure
 TimeoutSec=0
 RestartSec=10
