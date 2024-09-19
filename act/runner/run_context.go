@@ -1108,6 +1108,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 	ghc := &model.GithubContext{
 		Event:            make(map[string]interface{}),
 		Workflow:         rc.Run.Workflow.Name,
+		RunAttempt:       rc.Config.Env["GITHUB_RUN_ATTEMPT"],
 		RunID:            rc.Config.Env["GITHUB_RUN_ID"],
 		RunNumber:        rc.Config.Env["GITHUB_RUN_NUMBER"],
 		Actor:            rc.Config.Actor,
@@ -1134,6 +1135,10 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 	if rc.JobContainer != nil {
 		ghc.EventPath = rc.JobContainer.GetActPath() + "/workflow/event.json"
 		ghc.Workspace = rc.JobContainer.ToContainerPath(rc.Config.Workdir)
+	}
+
+	if ghc.RunAttempt == "" {
+		ghc.RunAttempt = "1"
 	}
 
 	if ghc.RunID == "" {
@@ -1294,6 +1299,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	}
 	env["CI"] = "true"
 	set("WORKFLOW", github.Workflow)
+	set("RUN_ATTEMPT", github.RunAttempt)
 	set("RUN_ID", github.RunID)
 	set("RUN_NUMBER", github.RunNumber)
 	set("ACTION", github.Action)
