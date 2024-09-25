@@ -28,6 +28,8 @@ jobs:
       - name: run the example
         run: |
           set -x
+          mkdir -p /srv/runner-data
+          chown 1000:1000 /srv/runner-data
           cd examples/docker-compose
           secret=$(openssl rand -hex 20)
           sed -i -e "s/{SHARED_SECRET}/$secret/" compose-forgejo-and-runner.yml
@@ -35,7 +37,7 @@ jobs:
           #
           # Launch Forgejo & the runner
           #
-          $cli up -d
+          $cli up -d --remove-orphans
           for delay in $(seq 60) ; do test -f /srv/runner-data/.runner && break ; sleep 30 ; done
           test -f /srv/runner-data/.runner
           #

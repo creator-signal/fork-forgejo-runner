@@ -40,8 +40,10 @@ ENV HOME=/data
 
 USER 1000:1000
 
+COPY --chmod=555 entrypoint.sh /entrypoint.sh
+
 WORKDIR /data
 
 VOLUME ["/data"]
 
-CMD ["/bin/forgejo-runner"]
+ENTRYPOINT ["/entrypoint.sh"]
