@@ -39,8 +39,11 @@ jobs:
           # Launch Forgejo & the runner
           #
           $cli up -d
-          for delay in $(seq 60) ; do test -f /srv/runner-data/.runner && break ; sleep 30 ; done
-          test -f /srv/runner-data/.runner
+            for delay in $(seq 60) ; do
+            test -f ./forgejo-runner/runner.json && break
+            sleep 30
+            done
+          test -f ./forgejo-runner/runner.json
           #
           # Run the demo workflow
           #
@@ -56,11 +59,11 @@ jobs:
             grep --quiet "$success" /tmp/out && break
             grep --quiet "$failure" /tmp/out && break
             $cli ps --all
-            $cli logs --tail=20 runner-daemon demo-workflow
+            $cli logs --tail=20 forgejo-runner demo-workflow
             sleep 30
           done
           grep --quiet "$success" /tmp/out
-          $cli logs runner-daemon > /tmp/runner.log
+          $cli logs forgejo-runner > /tmp/runner.log
           grep --quiet 'Start image=code.forgejo.org/oci/node:20-bookworm' /tmp/runner.log
 
       - name: full docker compose logs
