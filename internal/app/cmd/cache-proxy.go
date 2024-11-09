@@ -1,5 +1,5 @@
-// Copyright 2023 The Gitea Authors. All rights reserved.
-// SPDX-License-Identifier: MIT
+// Copyright 2024 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 package cmd
 
@@ -11,20 +11,19 @@ import (
 
 	"gitea.com/gitea/act_runner/internal/pkg/config"
 
-	"github.com/nektos/act/pkg/artifactcache"
-	"github.com/nektos/act/pkg/artifactproxy"
+	"github.com/nektos/act/pkg/cacheproxy"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 type cacheProxyArgs struct {
-	Dir        string
+	repoName   string
+	targetHost string
 	selfHost   string
 	selfPort   uint16
-	targetHost string
 }
 
-func runCacheProxy(ctx context.Context, configFile *string, proxyArgs *cacheProxyArgs) func(cmd *cobra.Command, args []string) error {
+func runCacheProxy(_ context.Context, configFile *string, proxyArgs *cacheProxyArgs) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadDefault(*configFile)
 		if err != nil {
@@ -33,23 +32,25 @@ func runCacheProxy(ctx context.Context, configFile *string, proxyArgs *cacheProx
 
 		initLogging(cfg)
 
-		// cacheArgs has higher priority
-		dir = proxyArgs.Dir
-		host = proxyArgs.Host
-		port = proxyArgs.Port
+		reponame := proxyArgs.repoName
+		target := proxyArgs.targetHost
+		host := proxyArgs.selfHost
+		port := proxyArgs.selfPort
+		cacheSecret := "deadbeef"
 
-		artifactproxy.StartHandler()
-		cacheHandler, err := artifactcache.StartHandler(
-			dir,
+		cacheHandler, err := cacheproxy.StartHandler(
+			reponame,
+			target,
 			host,
 			port,
+			cacheSecret,
 			log.StandardLogger().WithField("module", "cache_request"),
 		)
 		if err != nil {
 			return err
 		}
 
-		log.Infof("cache server is listening on %v", cacheHandler.ExternalURL())
+		log.Infof("cache proxy is listening on %v", cacheHandler.ExternalURL())
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)

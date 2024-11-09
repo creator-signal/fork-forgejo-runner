@@ -87,6 +87,20 @@ func Execute(ctx context.Context) {
 	cacheCmd.Flags().Uint16VarP(&cacheArgs.Port, "port", "p", 0, "Port of the cache server")
 	rootCmd.AddCommand(cacheCmd)
 
+	// ./act_runner cache-proxy
+	var proxyArgs cacheProxyArgs
+	cacheProxyCmd := &cobra.Command{
+		Use:   "cache-proxy",
+		Short: "(internal) Start a cache proxy for the cache action",
+		Args:  cobra.MaximumNArgs(0),
+		RunE:  runCacheProxy(ctx, &configFile, &proxyArgs),
+	}
+	cacheProxyCmd.Flags().StringVarP(&proxyArgs.repoName, "repo", "r", "", "Repository to target")
+	cacheProxyCmd.Flags().StringVarP(&proxyArgs.targetHost, "targetHost", "t", "", "Host of the cache server to target")
+	cacheProxyCmd.Flags().StringVarP(&proxyArgs.selfHost, "selfHost", "s", "", "Host of this cache proxy")
+	cacheProxyCmd.Flags().Uint16VarP(&proxyArgs.selfPort, "selfPort", "p", 0, "Port of this cache proxy")
+	rootCmd.AddCommand(cacheProxyCmd)
+
 	// hide completion command
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
