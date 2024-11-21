@@ -71,6 +71,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 				cfg.Cache.Dir,
 				cfg.Cache.Host,
 				cfg.Cache.Port,
+				cfg.Cache.Secret,
 				log.StandardLogger().WithField("module", "cache_request"),
 			)
 			if err != nil {

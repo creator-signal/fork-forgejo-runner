@@ -52,6 +52,7 @@ func runCacheServer(ctx context.Context, configFile *string, cacheArgs *cacheSer
 			dir,
 			host,
 			port,
+			cfg.Cache.Secret,
 			log.StandardLogger().WithField("module", "cache_request"),
 		)
 		if err != nil {
