@@ -65,7 +65,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 	}
 	if cfg.Cache.Enabled == nil || *cfg.Cache.Enabled {
 		if cfg.Cache.ExternalServer != "" {
-			envs["ACTIONS_CACHE_URL"] = cfg.Cache.ExternalServer
+			envs["ACTIONS_CACHE_URL"] = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
 		} else {
 			cacheHandler, err := artifactcache.StartHandler(
 				cfg.Cache.Dir,
@@ -78,7 +78,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 				log.Errorf("cannot init cache server, it will be disabled: %v", err)
 				// go on
 			} else {
-				envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL() + "/"
+				envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL()
 			}
 		}
 	}
@@ -183,6 +183,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		giteaRuntimeToken = preset.Token
 	}
 	r.envs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
+	r.computeCacheServerUrl(preset.Repository, preset.RunID)
 
 	eventJSON, err := json.Marshal(preset.Event)
 	if err != nil {
