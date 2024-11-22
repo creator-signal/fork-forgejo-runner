@@ -16,6 +16,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/docker/docker/api/types/container"
 	"github.com/nektos/act/pkg/artifactcache"
+	"github.com/nektos/act/pkg/cacheproxy"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
@@ -37,6 +38,8 @@ type Runner struct {
 	client client.Client
 	labels labels.Labels
 	envs   map[string]string
+
+	cacheProxy *cacheproxy.Handler
 
 	runningTasks sync.Map
 }
@@ -63,11 +66,14 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 	for k, v := range cfg.Runner.Envs {
 		envs[k] = v
 	}
+
+	var cacheProxy *cacheproxy.Handler
 	if cfg.Cache.Enabled == nil || *cfg.Cache.Enabled {
 		if cfg.Cache.ExternalServer != "" {
+			// TODO: The external server setup has not been proxified yet
 			envs["ACTIONS_CACHE_URL"] = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
 		} else {
-			cacheHandler, err := artifactcache.StartHandler(
+			cacheServer, err := artifactcache.StartHandler(
 				cfg.Cache.Dir,
 				cfg.Cache.Host,
 				cfg.Cache.Port,
@@ -78,7 +84,16 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 				log.Errorf("cannot init cache server, it will be disabled: %v", err)
 				// go on
 			} else {
-				envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL()
+				cacheProxy, err = cacheproxy.StartHandler(
+					cacheServer.ExternalURL(),
+					cfg.Cache.Host,
+					cfg.Cache.Port,
+					cfg.Cache.Secret,
+					log.StandardLogger().WithField("module", "cache_proxy"),
+				)
+				if err != nil {
+					log.Errorf("cannot init cache proxy, cache will be disabled: %v", err)
+				}
 			}
 		}
 	}
@@ -93,11 +108,12 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 	envs["GITEA_ACTIONS_RUNNER_VERSION"] = ver.Version()
 
 	return &Runner{
-		name:   reg.Name,
-		cfg:    cfg,
-		client: cli,
-		labels: ls,
-		envs:   envs,
+		name:       reg.Name,
+		cfg:        cfg,
+		client:     cli,
+		labels:     ls,
+		envs:       envs,
+		cacheProxy: cacheProxy,
 	}
 }
 
