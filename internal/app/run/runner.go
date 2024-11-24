@@ -82,7 +82,6 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 			)
 			if err != nil {
 				log.Errorf("cannot init cache server, it will be disabled: %v", err)
-				// go on
 			} else {
 				cacheProxy, err = cacheproxy.StartHandler(
 					cacheServer.ExternalURL(),
