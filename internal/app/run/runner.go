@@ -202,7 +202,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	r.envs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
 
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-	cacheWorkflowData := r.cacheProxy.CreateWorkflowData(preset.RepositoryOwner, preset.Repository, preset.RunID, timestamp)
+	cacheWorkflowData := r.cacheProxy.CreateWorkflowData(preset.Repository, preset.RunID, timestamp)
 	cacheWorkflowId, err := r.cacheProxy.AddWorkflow(cacheWorkflowData)
 	if err == nil {
 		defer r.cacheProxy.RemoveWorkflow(cacheWorkflowId)
