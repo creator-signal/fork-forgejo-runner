@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -90,6 +91,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 					cfg.Cache.Secret,
 					log.StandardLogger().WithField("module", "cache_proxy"),
 				)
+				envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
 				if err != nil {
 					log.Errorf("cannot init cache proxy, cache will be disabled: %v", err)
 				}
@@ -198,7 +200,15 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		giteaRuntimeToken = preset.Token
 	}
 	r.envs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
-	r.computeCacheServerUrl(preset.Repository, preset.RunID)
+
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	cacheWorkflowData := r.cacheProxy.CreateWorkflowData(preset.RepositoryOwner, preset.Repository, preset.RunID, timestamp)
+	cacheWorkflowId, err := r.cacheProxy.AddWorkflow(cacheWorkflowData)
+	if err == nil {
+		defer r.cacheProxy.RemoveWorkflow(cacheWorkflowId)
+		baseURL := r.envs["ACTIONS_CACHE_URL"]
+		r.envs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s", baseURL, cacheWorkflowId)
+	}
 
 	eventJSON, err := json.Marshal(preset.Event)
 	if err != nil {
