@@ -22,7 +22,7 @@ on:
 
 jobs:
   publish:
-    runs-on: self-hosted
+    runs-on: lxc-bullseye
     if: secrets.DOER != '' && secrets.FORGEJO != '' && secrets.TO_OWNER != '' && secrets.FROM_OWNER != '' && secrets.TOKEN != ''
     steps:
       - uses: actions/checkout@v4

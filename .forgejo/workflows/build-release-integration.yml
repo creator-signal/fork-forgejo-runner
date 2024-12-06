@@ -18,7 +18,7 @@ on:
 
 jobs:
   release-simulation:
-    runs-on: self-hosted
+    runs-on: lxc-bullseye
     if: github.repository_owner != 'forgejo-integration' && github.repository_owner != 'forgejo-release'
     steps:
       - uses: actions/checkout@v4

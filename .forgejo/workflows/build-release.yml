@@ -17,7 +17,7 @@ on:
 
 jobs:
   release:
-    runs-on: self-hosted
+    runs-on: lxc-bullseye
     # root is used for testing, allow it
     if: secrets.ROLE == 'forgejo-integration' || github.repository_owner == 'root'
     steps:
