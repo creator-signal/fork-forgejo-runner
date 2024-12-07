@@ -194,20 +194,27 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		preset.Token = t
 	}
 
+	// Clone the runner default envs into a local envs map
+	var runEnvs = make(map[string]string)
+	for id, v := range r.envs {
+		runEnvs[id] = v
+	}
+
 	giteaRuntimeToken := taskContext["gitea_runtime_token"].GetStringValue()
 	if giteaRuntimeToken == "" {
 		// use task token to action api token for previous Gitea Server Versions
 		giteaRuntimeToken = preset.Token
 	}
-	r.envs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
+	runEnvs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
 
+	// Register the run with the cacheproxy and modify the CACHE_URL
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	cacheRunData := r.cacheProxy.CreateRunData(preset.Repository, preset.RunID, timestamp)
 	cacheRunId, err := r.cacheProxy.AddRun(cacheRunData)
 	if err == nil {
 		defer r.cacheProxy.RemoveRun(cacheRunId)
-		baseURL := r.envs["ACTIONS_CACHE_URL"]
-		r.envs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s", baseURL, cacheRunId)
+		baseURL := runEnvs["ACTIONS_CACHE_URL"]
+		runEnvs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s", baseURL, cacheRunId)
 	}
 
 	eventJSON, err := json.Marshal(preset.Event)
@@ -239,7 +246,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		ForceRebuild:               r.cfg.Container.ForceRebuild,
 		LogOutput:                  true,
 		JSONLogger:                 false,
-		Env:                        r.envs,
+		Env:                        runEnvs,
 		Secrets:                    task.Secrets,
 		GitHubInstance:             strings.TrimSuffix(r.client.Address(), "/"),
 		AutoRemove:                 true,
