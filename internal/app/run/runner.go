@@ -217,7 +217,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		NoSkipCheckout:             true,
 		PresetGitHubContext:        preset,
 		EventJSON:                  string(eventJSON),
-		ContainerNamePrefix:        fmt.Sprintf("GITEA-ACTIONS-TASK-%d", task.Id),
+		ContainerNamePrefix:        fmt.Sprintf("FORGEJO-ACTIONS-TASK-%d", task.Id),
 		ContainerMaxLifetime:       maxLifetime,
 		ContainerNetworkMode:       container.NetworkMode(r.cfg.Container.Network),
 		ContainerNetworkEnableIPv6: r.cfg.Container.EnableIPv6,
