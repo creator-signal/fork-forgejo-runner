@@ -82,7 +82,7 @@ require (
 	github.com/skeema/knownhosts v1.2.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/timshannon/bolthold v0.0.0-20210913165410-232392fc8a6a // indirect
+	github.com/timshannon/bolthold v0.0.0-20240314194003-30aac6950928 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
@@ -102,4 +102,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/nektos/act => code.forgejo.org/forgejo/act v1.22.2
+replace github.com/nektos/act => code.forgejo.org/forgejo/act v1.22.3-0.20241209170231-3842eeec8d7d
