@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -71,6 +72,7 @@ func Test_runCreateRunnerFile(t *testing.T) {
 	configFile := dir + "/config.yml"
 	runnerFile := dir + "/.runner"
 	cfg, err := config.LoadDefault("")
+	require.NoError(t, err)
 	cfg.Runner.File = runnerFile
 	yamlData, err := yaml.Marshal(cfg)
 	assert.NoError(t, err)
