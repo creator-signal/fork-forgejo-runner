@@ -2,14 +2,14 @@ name: checks
 on:
   push:
     branches:
-      - 'main'
+      - "main"
   pull_request:
 
 env:
-  FORGEJO_HOST_PORT: 'forgejo:3000'
-  FORGEJO_ADMIN_USER: 'root'
-  FORGEJO_ADMIN_PASSWORD: 'admin1234'
-  FORGEJO_RUNNER_SECRET: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+  FORGEJO_HOST_PORT: "forgejo:3000"
+  FORGEJO_ADMIN_USER: "root"
+  FORGEJO_ADMIN_PASSWORD: "admin1234"
+  FORGEJO_RUNNER_SECRET: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
   FORGEJO_SCRIPT: |
     /bin/s6-svscan /etc/s6 & sleep 10 ; su -c "forgejo admin user create --admin --username $FORGEJO_ADMIN_USER --password $FORGEJO_ADMIN_PASSWORD --email root@example.com" git && su -c "forgejo forgejo-cli actions register --labels docker --name therunner --secret $FORGEJO_RUNNER_SECRET" git && sleep infinity
   GOPROXY: https://goproxy.io,direct
@@ -20,7 +20,7 @@ jobs:
     if: github.repository_owner != 'forgejo-integration' && github.repository_owner != 'forgejo-experimental' && github.repository_owner != 'forgejo-release'
     runs-on: docker
     container:
-      image: 'code.forgejo.org/oci/ci:1'
+      image: "code.forgejo.org/oci/ci:1"
 
     services:
       forgejo:
@@ -33,8 +33,8 @@ jobs:
           FORGEJO_ADMIN_PASSWORD: ${{ env.FORGEJO_ADMIN_PASSWORD }}
           FORGEJO_RUNNER_SECRET: ${{ env.FORGEJO_RUNNER_SECRET }}
         cmd:
-          - 'bash'
-          - '-c'
+          - "bash"
+          - "-c"
           - ${{ env.FORGEJO_SCRIPT }}
 
     steps:
@@ -55,6 +55,11 @@ jobs:
           fi
 
       - run: make vet
+
+      - name: install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2
+
+      - run: make golangci-lint
 
       - run: make build
 
@@ -78,7 +83,6 @@ jobs:
     runs-on: lxc-bookworm
 
     steps:
-
       - uses: actions/checkout@v4
 
       - uses: https://code.forgejo.org/actions/download-artifact@v3
