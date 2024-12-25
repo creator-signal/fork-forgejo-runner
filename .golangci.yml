@@ -26,12 +26,8 @@ linters:
   fast: false
 
 run:
-  go: 1.18
+  go: "1.23"
   timeout: 10m
-  skip-dirs:
-    - node_modules
-    - public
-    - web_src
 
 linters-settings:
   stylecheck:
@@ -72,16 +68,20 @@ linters-settings:
       - name: modifies-value-receiver
   gofumpt:
     extra-rules: true
-    lang-version: "1.18"
   depguard:
     # TODO: use depguard to replace import checks in gitea-vet
-    list-type: denylist
-    # Check the list against standard lib.
-    include-go-root: true
-    packages-with-error-message:
-      - github.com/unknwon/com: "use gitea's util and replacements"
+    rules:
+      main:
+        list-mode: lax
+        deny:
+          - pkg: github.com/unknwon/com
+            desc: "use gitea's util and replacements"
 
 issues:
+  exclude-dirs:
+    - node_modules
+    - public
+    - web_src
   exclude-rules:
     # Exclude some linters from running on tests files.
     - path: _test\.go
@@ -143,7 +143,7 @@ issues:
         - dupl
     - linters:
         - misspell
-      text: '`Unknwon` is a misspelling of `Unknown`'
+      text: "`Unknwon` is a misspelling of `Unknown`"
     - path: models/update.go
       linters:
         - unused
