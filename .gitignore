@@ -15,3 +15,7 @@ dist
 
 # Jetbrains IDE
 .idea
+.devenv
+.envrc
+.direnv
+.pre-commit-config.yaml
