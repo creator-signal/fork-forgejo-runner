@@ -21,7 +21,7 @@ services:
       git config user.name username ;
       git commit -m demo ;
       while : ; do
-        git push --set-upstream --force http://root:{ROOT_PASSWORD}@forgejo:3000/root/test main && break ;
+        git push --set-upstream --force http://root:ROOT_PASSWORD@forgejo:3000/root/test main && break ;
         sleep 5 ;
       done ;
       sha=`git rev-parse HEAD` ;

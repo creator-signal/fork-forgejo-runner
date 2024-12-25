@@ -13,7 +13,7 @@
 #
 # Replace ${RUNNER_TOKEN} with the token obtained from the Forgejo web interface.
 #
-# Replace {ROOT_PASSWORD} with a secure password.
+# Replace ROOT_PASSWORD with a secure password.
 #
 volumes:
   docker_certs:
@@ -48,7 +48,7 @@ services:
       bash -c '
       /bin/s6-svscan /etc/s6 &
       sleep 10 ;
-      su -c "forgejo admin user create --admin --username root --password {ROOT_PASSWORD} --email root@example.com" git ;
+      su -c "forgejo admin user create --admin --username root --password ROOT_PASSWORD --email root@example.com" git ;
       su -c "forgejo forgejo-cli actions register --secret {SHARED_SECRET}" git ;
       sleep infinity
       '
@@ -74,19 +74,20 @@ services:
       - forgejo
       - docker-in-docker
     environment:
-      CONFIG_FILE: config.yml # defaults to /data/config.yml
-
-      DOCKER_HOST: "tcp://docker:2376" # defaults to tcp://docker:2376
-      DOCKER_CERT_PATH: "/certs/client" # defaults to /certs/client
-      DOCKER_TLS_VERIFY: "1" # defaults to 1
-      DOCKER_PRIVILEGED: "true" # defaults to false for security reasons
-
       FORGEJO_URL: ${FORGEJO_URL} # defaults to http://forgejo:3000
       FORGEJO_SECRET: "{SHARED_SECRET}" # shared secret, must match Forgejo's, overrides RUNNER_TOKEN
-
-      RUNNER_FILE: .runner # defaults to /data/runner.json
-      RUNNER_NAME: runner-daemon # defaults to forgejo-runner, used for registration
       RUNNER_TOKEN: ${RUNNER_TOKEN} # token obtained from Forgejo web interface
 
-      DEBUG: "true" # defaults to false, set to true to enable debug logging
-      SKIP_WAIT: "false" # defaults to false, set to true to skip the 10 second wait to allow for forgejo and docker-in-docker to start
+      # Docker Daemon Configs, needed for docker-in-docker
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_TLS_VERIFY: 1
+      DOCKER_CERT_PATH: /certs/client
+
+      # Runner Configs
+      RUNNER__log__LEVEL: "debug"
+      RUNNER__container__PRIVILEGED: "true"
+      RUNNER__runner__LABELS: |
+        docker:docker://code.forgejo.org/oci/node:20-bookworm
+
+      DEBUG: "true"
+      SKIP_WAIT: "false"

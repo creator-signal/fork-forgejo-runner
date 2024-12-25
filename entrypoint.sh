@@ -2,7 +2,7 @@
 
 set -e
 
-# Technically not nessecary but it cleans up the logs from having token/secret values
+# Technically not necessary, but it cleans up the logs from having token/secret values
 run_command() {
   local cmd="$@"
   # Replace any --token <value> or --secret <value> with [REDACTED]
@@ -26,92 +26,65 @@ fi
 
 # Handle if `command` is passed, as command appends arguments to the entrypoint
 if [ "$#" -gt 0 ]; then
-    run_command $@
-    exit
+  run_command $@
+  exit
 fi
 
-# Handle and alter the config file
-if [[ -z "${CONFIG_FILE}" ]]; then
-  echo "CONFIG_FILE is not set"
-  CONFIG_FILE="/data/config.yml"
-fi
-CONFIG_ARG="--config ${CONFIG_FILE}"
+# Set default values (if needed)
+RUNNER__runner__FILE="${RUNNER__runner__FILE:-/data/runner.json}"
+RUNNER__CONFIG_FILE="${RUNNER__CONFIG_FILE:-/data/runner.yml}"
+
+ENV_FILE="${ENV_FILE:-/data/.env}"
+# Set config arguments
+CONFIG_ARG="--config ${RUNNER__CONFIG_FILE}"
+# Show config variables
 decho "CONFIG: ${CONFIG_ARG}"
 
-DOCKER_HOST=${DOCKER_HOST:-"tcp://docker:2367"}
-DOCKER_CERT_PATH=${DOCKER_CERT_PATH:-"/certs/client"}
-DOCKER_TLS_VERIFY=${DOCKER_TLS_VERIFY:-1}
-decho "DOCKER_HOST: ${DOCKER_HOST}"
-decho "DOCKER_CERT_PATH: ${DOCKER_CERT_PATH}"
-decho "DOCKER_TLS_VERIFY: ${DOCKER_TLS_VERIFY}"
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-  echo "Creating ${CONFIG_FILE}"
-  run_command "forgejo-runner generate-config > ${CONFIG_FILE}"
-
-  # Remove test environment variables if they exist in the config file
-  sed -i "/^    A_TEST_ENV_NAME_1:/d" ${CONFIG_FILE}
-  sed -i "/^    A_TEST_ENV_NAME_2:/d" ${CONFIG_FILE}
-
-  # Apply default values for docker
-  sed -i "/^  labels:/c\  labels: [\"docker:docker://code.forgejo.org/oci/node:20-bookworm\", \"ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04\"]" ${CONFIG_FILE}
-  sed -i "/^  network:/c\  network: host" ${CONFIG_FILE}
-
-  if [[ "${DOCKER_PRIVILEGED}" == "true" ]]; then
-    sed -i "/^  privileged:/c\  privileged: true" ${CONFIG_FILE}
-    sed -i "/^  options:/c\  options: -v /certs/client:/certs/client:ro" ${CONFIG_FILE}
-    sed -i "/^  valid_volumes:/c\  valid_volumes:\n    - /certs/client" ${CONFIG_FILE}
-
-    sed -i "/^  envs:/c\  envs:\n    DOCKER_HOST: ${DOCKER_HOST}\n    DOCKER_TLS_VERIFY: ${DOCKER_TLS_VERIFY}\n    DOCKER_CERT_PATH: ${DOCKER_CERT_PATH}" ${CONFIG_FILE}
-  fi
-
+# Generate config if not found
+if [[ ! -f "${RUNNER__CONFIG_FILE}" ]]; then
+  echo "Creating ${RUNNER__CONFIG_FILE}"
+  run_command "forgejo-runner generate-config > ${RUNNER__CONFIG_FILE}"
 fi
 
-ENV_FILE=${ENV_FILE:-"/data/.env"}
-decho "ENV_FILE: ${ENV_FILE}"
-sed -i "/^  env_file:/c\  env_file: ${ENV_FILE}" ${CONFIG_FILE}
+# Use environment variables directly in the config, no need for sed edits
+decho "Using config from: ${RUNNER__CONFIG_FILE}"
+decho "Using environment file: ${ENV_FILE}"
 
+# Set extra arguments from environment variables
 EXTRA_ARGS=""
-if [[ ! -z "${RUNNER_LABELS}" ]]; then
-  EXTRA_ARGS="${EXTRA_ARGS} --labels ${RUNNER_LABELS}"
+if [[ -n "${RUNNER__container__LABELS}" ]]; then
+  EXTRA_ARGS="${EXTRA_ARGS} --labels ${RUNNER__container__LABELS}"
 fi
 decho "EXTRA_ARGS: ${EXTRA_ARGS}"
-
-# Set the runner file
-RUNNER_FILE=${RUNNER_FILE:-"runner.json"} # use json so editors know how to highlight
-decho "RUNNER_FILE: ${RUNNER_FILE}"
-sed -i "/^  file:/c\  file: ${RUNNER_FILE}" ${CONFIG_FILE}
 
 if [[ "${SKIP_WAIT}" != "true" ]]; then
   echo "Waiting 10s to allow other services to start up..."
   sleep 10
 fi
 
-if [[ ! -s "${RUNNER_FILE}" ]]; then
-  touch ${RUNNER_FILE}
+# Try to register the runner
+if [[ ! -s "${RUNNER__runner__FILE}" ]]; then
+  touch ${RUNNER__runner__FILE}
   try=$((try + 1))
   success=0
   decho "try: ${try}, success: ${success}"
 
-  # The point of this loop is to make it simple, when running both forgejo-runner and gitea in docker,
-  # for the forgejo-runner to wait a moment for gitea to become available before erroring out.  Within
-  # the context of a single docker-compose, something similar could be done via healthchecks, but
-  # this is more flexible.
   while [[ $success -eq 0 ]] && [[ $try -lt ${MAX_REG_ATTEMPTS:-10} ]]; do
-    if [[ ! -z "${FORGEJO_SECRET}" ]]; then
+    if [[ -n "${FORGEJO_SECRET}" ]]; then
       run_command forgejo-runner create-runner-file --connect \
-    --instance "${FORGEJO_URL:-http://forgejo:3000}" \
-    --name "${RUNNER_NAME:-$(hostname)}" \
-    --secret "${FORGEJO_SECRET}" \
-    ${CONFIG_ARG}\
-    ${EXTRA_ARGS} 2>&1 | tee /tmp/reg.log
+        --instance "${FORGEJO_URL:-http://forgejo:3000}" \
+        --name "${RUNNER__NAME:-$(hostname)}" \
+        --secret "${FORGEJO_SECRET}" \
+        ${CONFIG_ARG} \
+        ${EXTRA_ARGS} 2>&1 | tee /tmp/reg.log
     else
       run_command forgejo-runner register \
-    --instance "${FORGEJO_URL:-http://forgejo:3000}" \
-    --name "${RUNNER_NAME:-$(hostname)}" \
-    --token "${RUNNER_TOKEN}" \
-    --no-interactive \
-    ${CONFIG_ARG}\
-    ${EXTRA_ARGS} 2>&1 | tee /tmp/reg.log
+        --instance "${FORGEJO_URL:-http://forgejo:3000}" \
+        --name "${RUNNER__NAME:-$(hostname)}" \
+        --token "${RUNNER_TOKEN}" \
+        --no-interactive \
+        ${CONFIG_ARG} \
+        ${EXTRA_ARGS} 2>&1 | tee /tmp/reg.log
     fi
     cat /tmp/reg.log | grep -E 'connection successful|registered successfully' >/dev/null
     if [[ $? -eq 0 ]]; then

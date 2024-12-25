@@ -1,2 +1,3 @@
 Dockerfile
 forgejo-runner
+/examples/docker-compose/srv/
