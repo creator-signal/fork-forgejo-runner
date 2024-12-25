@@ -4,6 +4,7 @@ GOFMT ?= gofumpt -l
 DIST := dist
 DIST_DIRS := $(DIST)/binaries $(DIST)/release
 GO ?= go
+GOLANGCI_LINT ?= golangci-lint
 SHASUM ?= shasum -a 256
 HAS_GO = $(shell hash $(GO) > /dev/null 2>&1 && echo "GO" || echo "NOGO" )
 XGO_PACKAGE ?= src.techknowlogick.com/xgo@latest
@@ -105,6 +106,14 @@ test: fmt-check
 vet:
 	@echo "Running go vet..."
 	@$(GO) vet $(GO_PACKAGES_TO_VET)
+
+.PHONY: golangci-lint
+golangci-lint:
+	@echo "Running golangci-lint"
+	@$(GOLANGCI_LINT) run ./...
+
+.PHONY: lint
+lint: fmt-check vet golangci-lint
 
 install: $(GOFILES)
 	$(GO) install -v -tags '$(TAGS)' -ldflags '$(EXTLDFLAGS)-s -w $(LDFLAGS)'
