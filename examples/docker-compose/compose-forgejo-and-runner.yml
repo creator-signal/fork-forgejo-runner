@@ -70,9 +70,6 @@ services:
     depends_on:
       - docker-in-docker
       - forgejo
-    links:
-      - forgejo
-      - docker-in-docker
     environment:
       FORGEJO_URL: ${FORGEJO_URL} # defaults to http://forgejo:3000
       FORGEJO_SECRET: "{SHARED_SECRET}" # shared secret, must match Forgejo's, overrides RUNNER_TOKEN
