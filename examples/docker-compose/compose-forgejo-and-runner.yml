@@ -18,17 +18,12 @@
 volumes:
   docker_certs:
 
-networks:
-  forgejo:
-
 services:
   docker-in-docker:
     image: code.forgejo.org/oci/docker:dind
     hostname: docker # Must set hostname for both internal DNS and TLS to work as certs are only valid for docker and localhost
     restart: unless-stopped
     privileged: true
-    networks:
-      - forgejo
     environment:
       DOCKER_TLS_CERTDIR: "/certs" # set to "" to disable the use of TLS, also manually update existing runner configs to use port 2375
       DOCKER_HOST: "docker" # remove aswell to disable TLS
@@ -38,8 +33,6 @@ services:
   forgejo:
     image: codeberg.org/forgejo/forgejo:1.21
     hostname: forgejo
-    networks:
-      - forgejo
     volumes:
       - /srv/forgejo-data:/data
     ports:
@@ -71,8 +64,6 @@ services:
     build: ../../
     user: "1000" # defaults to 1000,
     restart: unless-stopped # needed for fixing file ownership on restart
-    networks:
-      - forgejo
     volumes:
       - /srv/runner-data:/data
       - docker_certs:/certs
