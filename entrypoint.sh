@@ -62,6 +62,8 @@ if [[ "${SKIP_WAIT}" != "true" ]]; then
   sleep 10
 fi
 
+FORGEJO_URL="${FORGEJO_URL:-http://forgejo:3000}"
+
 # Try to register the runner
 if [[ ! -s "${RUNNER__runner__FILE}" ]]; then
   touch ${RUNNER__runner__FILE}
@@ -72,14 +74,14 @@ if [[ ! -s "${RUNNER__runner__FILE}" ]]; then
   while [[ $success -eq 0 ]] && [[ $try -lt ${MAX_REG_ATTEMPTS:-10} ]]; do
     if [[ -n "${FORGEJO_SECRET}" ]]; then
       run_command forgejo-runner create-runner-file --connect \
-        --instance "${FORGEJO_URL:-http://forgejo:3000}" \
+        --instance "${FORGEJO_URL}" \
         --name "${RUNNER__NAME:-$(hostname)}" \
         --secret "${FORGEJO_SECRET}" \
         ${CONFIG_ARG} \
         ${EXTRA_ARGS} 2>&1 | tee /tmp/reg.log
     else
       run_command forgejo-runner register \
-        --instance "${FORGEJO_URL:-http://forgejo:3000}" \
+        --instance "${FORGEJO_URL}" \
         --name "${RUNNER__NAME:-$(hostname)}" \
         --token "${RUNNER_TOKEN}" \
         --no-interactive \
