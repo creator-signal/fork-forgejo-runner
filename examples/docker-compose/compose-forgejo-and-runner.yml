@@ -70,6 +70,9 @@ services:
     depends_on:
       - docker-in-docker
       - forgejo
+    links:
+      - docker-in-docker
+      - forgejo
     environment:
       FORGEJO_URL: ${FORGEJO_URL} # defaults to http://forgejo:3000
       FORGEJO_SECRET: "{SHARED_SECRET}" # shared secret, must match Forgejo's, overrides RUNNER_TOKEN
@@ -85,6 +88,6 @@ services:
       RUNNER__container__PRIVILEGED: "true"
       RUNNER__runner__LABELS: |
         docker:docker://code.forgejo.org/oci/node:20-bookworm
-
+        ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04
       DEBUG: "true"
       SKIP_WAIT: "false"
