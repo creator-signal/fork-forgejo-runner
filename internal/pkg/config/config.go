@@ -173,15 +173,5 @@ func LoadDefault(file string) (*Config, error) {
 	// Load environment variables at the end to allow for overriding the default values.
 	loadEnvVars(cfg)
 
-	// Write the state of the config, including default values, to a debug file.
-	debugFile := file + ".debug.yml"
-	content, err := yaml.Marshal(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("marshal config to debug file %q: %w", debugFile, err)
-	}
-	if err := os.WriteFile(debugFile, content, 0644); err != nil {
-		return nil, fmt.Errorf("write debug config file %q: %w", debugFile, err)
-	}
-
 	return cfg, nil
 }
