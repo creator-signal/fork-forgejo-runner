@@ -52,6 +52,15 @@ func Execute(ctx context.Context) {
 	}
 	rootCmd.AddCommand(daemonCmd)
 
+	// ./act_runner job
+	jobCmd := &cobra.Command{
+		Use:   "one-job",
+		Short: "Run only one job",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runJob(ctx, &configFile),
+	}
+	rootCmd.AddCommand(jobCmd)
+
 	// ./act_runner exec
 	rootCmd.AddCommand(loadExecCmd(ctx))
 
