@@ -1,6 +1,6 @@
 # Release Notes
 
-## 6.0.2
+## 6.1.0
 
 * [Add `[container].force_rebuild` config option](https://code.forgejo.org/forgejo/runner/pulls/406) to force rebuilding of local docker images, even if they are already present.
 
