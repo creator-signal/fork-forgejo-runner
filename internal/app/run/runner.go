@@ -214,7 +214,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	if err == nil {
 		defer r.cacheProxy.RemoveRun(cacheRunId)
 		baseURL := runEnvs["ACTIONS_CACHE_URL"]
-		runEnvs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s", baseURL, cacheRunId)
+		runEnvs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s/", baseURL, cacheRunId)
 	}
 
 	eventJSON, err := json.Marshal(preset.Event)
