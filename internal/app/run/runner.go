@@ -5,6 +5,8 @@ package run
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -74,11 +76,22 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 			// TODO: The external server setup has not been proxified yet
 			envs["ACTIONS_CACHE_URL"] = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
 		} else {
+			cacheSecret := cfg.Cache.Secret
+			if cacheSecret == "" {
+				// The cacheSecret wasn't set in the config, generate one on the spot
+				secretBytes := make([]byte, 64)
+				_, err := rand.Read(secretBytes)
+				if err != nil {
+					log.Errorf("failed to generate random bytes, this should not happen")
+				}
+				cacheSecret = hex.EncodeToString(secretBytes)
+			}
+
 			cacheServer, err := artifactcache.StartHandler(
 				cfg.Cache.Dir,
 				cfg.Cache.Host,
 				cfg.Cache.Port,
-				cfg.Cache.Secret,
+				cacheSecret,
 				log.StandardLogger().WithField("module", "cache_request"),
 			)
 			if err != nil {
@@ -88,7 +101,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 					cacheServer.ExternalURL(),
 					cfg.Cache.Host,
 					cfg.Cache.Port,
-					cfg.Cache.Secret,
+					cacheSecret,
 					log.StandardLogger().WithField("module", "cache_proxy"),
 				)
 				envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
