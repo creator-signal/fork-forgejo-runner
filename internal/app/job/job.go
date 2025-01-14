@@ -67,7 +67,6 @@ func (j *Job) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 	resp, err := j.client.FetchTask(reqCtx, connect.NewRequest(&runnerv1.FetchTaskRequest{
 		TasksVersion: v,
 	}))
-
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			log.WithError(err).Debugf("shutdown, fetch task canceled")

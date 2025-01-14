@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"gitea.com/gitea/act_runner/internal/app/job"
 	"os"
 	"strings"
 
@@ -14,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"gitea.com/gitea/act_runner/internal/app/job"
 	"gitea.com/gitea/act_runner/internal/app/run"
 	"gitea.com/gitea/act_runner/internal/pkg/client"
 	"gitea.com/gitea/act_runner/internal/pkg/config"
