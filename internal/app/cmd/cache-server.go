@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
@@ -17,9 +19,10 @@ import (
 )
 
 type cacheServerArgs struct {
-	Dir  string
-	Host string
-	Port uint16
+	Dir    string
+	Host   string
+	Port   uint16
+	Secret string
 }
 
 func runCacheServer(ctx context.Context, configFile *string, cacheArgs *cacheServerArgs) func(cmd *cobra.Command, args []string) error {
@@ -32,9 +35,10 @@ func runCacheServer(ctx context.Context, configFile *string, cacheArgs *cacheSer
 		initLogging(cfg)
 
 		var (
-			dir  = cfg.Cache.Dir
-			host = cfg.Cache.Host
-			port = cfg.Cache.Port
+			dir    = cfg.Cache.Dir
+			host   = cfg.Cache.Host
+			port   = cfg.Cache.Port
+			secret = cfg.Cache.Secret
 		)
 
 		// cacheArgs has higher priority
@@ -47,12 +51,26 @@ func runCacheServer(ctx context.Context, configFile *string, cacheArgs *cacheSer
 		if cacheArgs.Port != 0 {
 			port = cacheArgs.Port
 		}
+		if cacheArgs.Secret != "" {
+			secret = cacheArgs.Secret
+		}
+
+		if secret == "" {
+			// no cache secret was specified, generate one
+			secretBytes := make([]byte, 64)
+			_, err := rand.Read(secretBytes)
+			if err != nil {
+				log.Errorf("Failed to generate random bytes, this should not happen")
+			}
+			secret = hex.EncodeToString(secretBytes)
+			log.Infof("cache server is using secret %s", secret)
+		}
 
 		cacheHandler, err := artifactcache.StartHandler(
 			dir,
 			host,
 			port,
-			cfg.Cache.Secret,
+			secret,
 			log.StandardLogger().WithField("module", "cache_request"),
 		)
 		if err != nil {

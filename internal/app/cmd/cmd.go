@@ -85,6 +85,7 @@ func Execute(ctx context.Context) {
 	cacheCmd.Flags().StringVarP(&cacheArgs.Dir, "dir", "d", "", "Cache directory")
 	cacheCmd.Flags().StringVarP(&cacheArgs.Host, "host", "s", "", "Host of the cache server")
 	cacheCmd.Flags().Uint16VarP(&cacheArgs.Port, "port", "p", 0, "Port of the cache server")
+	cacheCmd.Flags().StringVarP(&cacheArgs.Secret, "secret", "", "", "Shared cache secret")
 	rootCmd.AddCommand(cacheCmd)
 
 	// hide completion command
