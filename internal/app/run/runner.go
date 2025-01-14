@@ -72,44 +72,9 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 
 	var cacheProxy *cacheproxy.Handler
 	if cfg.Cache.Enabled == nil || *cfg.Cache.Enabled {
-		if cfg.Cache.ExternalServer != "" {
-			// TODO: The external server setup has not been proxified yet
-			envs["ACTIONS_CACHE_URL"] = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
-		} else {
-			cacheSecret := cfg.Cache.Secret
-			if cacheSecret == "" {
-				// The cacheSecret wasn't set in the config, generate one on the spot
-				secretBytes := make([]byte, 64)
-				_, err := rand.Read(secretBytes)
-				if err != nil {
-					log.Errorf("failed to generate random bytes, this should not happen")
-				}
-				cacheSecret = hex.EncodeToString(secretBytes)
-			}
-
-			cacheServer, err := artifactcache.StartHandler(
-				cfg.Cache.Dir,
-				cfg.Cache.Host,
-				cfg.Cache.Port,
-				cacheSecret,
-				log.StandardLogger().WithField("module", "cache_request"),
-			)
-			if err != nil {
-				log.Errorf("cannot init cache server, it will be disabled: %v", err)
-			} else {
-				cacheProxy, err = cacheproxy.StartHandler(
-					cacheServer.ExternalURL(),
-					cfg.Cache.Host,
-					cfg.Cache.Port,
-					cacheSecret,
-					log.StandardLogger().WithField("module", "cache_proxy"),
-				)
-				envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
-				if err != nil {
-					log.Errorf("cannot init cache proxy, cache will be disabled: %v", err)
-				}
-			}
-		}
+		cacheProxy = setupCache(cfg, envs)
+	} else {
+		cacheProxy = nil
 	}
 
 	// set artifact gitea api
@@ -129,6 +94,65 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 		envs:       envs,
 		cacheProxy: cacheProxy,
 	}
+}
+
+func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler {
+	var cacheUrl string
+	var cacheSecret string
+
+	if cfg.Cache.ExternalServer == "" {
+		// No external cache server was specified, start internal cache server
+		cacheSecret = cfg.Cache.Secret
+
+		if cacheSecret == "" {
+			// no cache secret was specified, generate one
+			secretBytes := make([]byte, 64)
+			_, err := rand.Read(secretBytes)
+			if err != nil {
+				log.Errorf("Failed to generate random bytes, this should not happen")
+			}
+			cacheSecret = hex.EncodeToString(secretBytes)
+		}
+
+		cacheServer, err := artifactcache.StartHandler(
+			cfg.Cache.Dir,
+			cfg.Cache.Host,
+			cfg.Cache.Port,
+			cacheSecret,
+			log.StandardLogger().WithField("module", "cache_request"),
+		)
+
+		if err != nil {
+			log.Error("Could not start the cache server, cache will be disabled")
+			return nil
+		}
+
+		cacheUrl = cacheServer.ExternalURL()
+	} else {
+		// An external cache server was specified, use its url
+		cacheSecret = cfg.Cache.Secret
+
+		if cacheSecret == "" {
+			log.Error("A cache secret must be specified to use an external cache server, cache will be disabled")
+			return nil
+		}
+
+		cacheUrl = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
+	}
+
+	cacheProxy, err := cacheproxy.StartHandler(
+		cacheUrl,
+		cfg.Cache.Host,
+		cfg.Cache.Port,
+		cacheSecret,
+		log.StandardLogger().WithField("module", "cache_proxy"),
+	)
+	if err != nil {
+		log.Errorf("cannot init cache proxy, cache will be disabled: %v", err)
+	}
+
+	envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
+	return cacheProxy
 }
 
 func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
