@@ -5,8 +5,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
@@ -56,14 +54,9 @@ func runCacheServer(ctx context.Context, configFile *string, cacheArgs *cacheSer
 		}
 
 		if secret == "" {
-			// no cache secret was specified, generate one
-			secretBytes := make([]byte, 64)
-			_, err := rand.Read(secretBytes)
-			if err != nil {
-				log.Errorf("Failed to generate random bytes, this should not happen")
-			}
-			secret = hex.EncodeToString(secretBytes)
-			log.Infof("cache server is using secret %s", secret)
+			// no cache secret was specified, panic
+			log.Error("no cache secret was specified, exiting.")
+			return nil
 		}
 
 		cacheHandler, err := artifactcache.StartHandler(
