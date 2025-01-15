@@ -143,7 +143,7 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 	cacheProxy, err := cacheproxy.StartHandler(
 		cacheUrl,
 		cfg.Cache.Host,
-		cfg.Cache.Port,
+		cfg.Cache.ProxyPort,
 		cacheSecret,
 		log.StandardLogger().WithField("module", "cache_proxy"),
 	)
@@ -152,6 +152,10 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 	}
 
 	envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
+	if cfg.Cache.ActionsCacheUrlOverride != "" {
+		envs["ACTIONS_CACHE_URL"] = cfg.Cache.ActionsCacheUrlOverride
+	}
+
 	return cacheProxy
 }
 

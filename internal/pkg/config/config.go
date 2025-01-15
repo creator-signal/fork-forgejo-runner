@@ -37,12 +37,14 @@ type Runner struct {
 
 // Cache represents the configuration for caching.
 type Cache struct {
-	Enabled        *bool  `yaml:"enabled"`         // Enabled indicates whether caching is enabled. It is a pointer to distinguish between false and not set. If not set, it will be true.
-	Dir            string `yaml:"dir"`             // Dir specifies the directory path for caching.
-	Host           string `yaml:"host"`            // Host specifies the caching host.
-	Port           uint16 `yaml:"port"`            // Port specifies the caching port.
-	ExternalServer string `yaml:"external_server"` // ExternalServer specifies the URL of external cache server
-	Secret         string `yaml:"secret"`          // Shared secret to secure caches.
+	Enabled                 *bool  `yaml:"enabled"`                    // Enabled indicates whether caching is enabled. It is a pointer to distinguish between false and not set. If not set, it will be true.
+	Dir                     string `yaml:"dir"`                        // Dir specifies the directory path for caching.
+	Host                    string `yaml:"host"`                       // Host specifies the caching host.
+	Port                    uint16 `yaml:"port"`                       // Port specifies the caching port.
+	ProxyPort               uint16 `yaml:"proxy_port"`                 // ProxyPort specifies the cache proxy port.
+	ExternalServer          string `yaml:"external_server"`            // ExternalServer specifies the URL of external cache server
+	ActionsCacheUrlOverride string `yaml:"actions_cache_url_override"` // Allows the user to override the ACTIONS_CACHE_URL passed to the workflow containers
+	Secret                  string `yaml:"secret"`                     // Shared secret to secure caches.
 }
 
 // Container represents the configuration for the container.
