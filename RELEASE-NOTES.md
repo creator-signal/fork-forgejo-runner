@@ -1,5 +1,14 @@
 # Release Notes
 
+## 6.1.0
+
+* [Add `[container].force_rebuild` config option](https://code.forgejo.org/forgejo/runner/pulls/406) to force rebuilding of local docker images, even if they are already present.
+* [Add new `--one-job` flag](https://code.forgejo.org/forgejo/runner/pulls/423) to execute a previously configured runner, execute one task if it exists and exit. Motivation [here](https://code.forgejo.org/forgejo/runner/issues/422)
+
+## 6.0.1
+
+* [Fixes a regression](https://code.forgejo.org/forgejo/runner/issues/425) that was introduced in version 6.0.0 by which the `[container].options` config file setting was ignored.
+
 ## 6.0.0
 
 * Security: the container options a job is allowed to specify are limited to a [predefined allow list](https://forgejo.org/docs/next/user/actions/#jobsjob_idcontaineroptions).
