@@ -38,7 +38,7 @@ spec:
       # https://forgejo.org/docs/v1.21/admin/actions/#offline-registration
       initContainers:
         - name: runner-register
-          image: code.forgejo.org/forgejo/runner:5.0.4
+          image: code.forgejo.org/forgejo/runner:6.0.1
           command: ["forgejo-runner", "register", "--no-interactive", "--token", $(RUNNER_SECRET), "--name", $(RUNNER_NAME), "--instance", $(FORGEJO_INSTANCE_URL)]
           env:
             - name: RUNNER_NAME
@@ -61,7 +61,7 @@ spec:
               mountPath: /data
       containers:
       - name: runner
-        image: code.forgejo.org/forgejo/runner:5.0.4
+        image: code.forgejo.org/forgejo/runner:6.0.1
         command: ["sh", "-c", "while ! nc -z localhost 2376 </dev/null; do echo 'waiting for docker daemon...'; sleep 5; done; forgejo-runner daemon"]
         env:
         - name: DOCKER_HOST

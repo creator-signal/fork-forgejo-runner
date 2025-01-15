@@ -80,8 +80,9 @@ A new repository is created in root/test with the following workflows:
 on: [push]
 jobs:
   test:
-    runs-on: docker
+    runs-on: node-bookworm
     steps:
+      - uses: https://code.forgejo.org/actions/checkout@v4
       - run: echo All Good
 ```
 
@@ -91,7 +92,7 @@ jobs:
 on: [push]
 jobs:
   test_docker:
-    runs-on: ubuntu-22.04
+    runs-on: docker-cli
     steps:
       - run: docker info
 ```
