@@ -1,5 +1,9 @@
 # Release Notes
 
+## 6.2.0
+
+* The `container.options` [allows `--hostname`](https://forgejo.org/docs/next/user/actions/#jobsjob_idcontaineroptions).
+
 ## 6.1.0
 
 * [Add `[container].force_rebuild` config option](https://code.forgejo.org/forgejo/runner/pulls/406) to force rebuilding of local docker images, even if they are already present.
