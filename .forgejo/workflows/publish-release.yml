@@ -1,17 +1,16 @@
 # SPDX-License-Identifier: MIT
 #
-# https://forgejo.octopuce.forgejo.org/forgejo-release/runner
+# https://invisible.forgejo.org/forgejo/runner
 #
 #  Copies & sign a release from code.forgejo.org/forgejo-integration/runner to code.forgejo.org/forgejo/runner
 #
-#  ROLE: forgejo-release
-#  FORGEJO: https://code.forgejo.org
-#  FROM_OWNER: forgejo-integration
-#  TO_OWNER: forgejo
-#  DOER: release-team
-#  TOKEN: <generated from codeberg.org/release-team>
-#  GPG_PRIVATE_KEY: <XYZ>
-#  GPG_PASSPHRASE: <ABC>
+#  vars.FORGEJO: https://code.forgejo.org
+#  vars.FROM_OWNER: forgejo-integration
+#  vars.TO_OWNER: forgejo
+#  vars.DOER: release-team
+#  secrets.TOKEN: <generated from code.forgejo.org/release-team>
+#  secrets.GPG_PRIVATE_KEY: <XYZ>
+#  secrets.GPG_PASSPHRASE: <ABC>
 #
 name: publish
 
@@ -23,25 +22,25 @@ on:
 jobs:
   publish:
     runs-on: lxc-bookworm
-    if: secrets.DOER != '' && secrets.FORGEJO != '' && secrets.TO_OWNER != '' && secrets.FROM_OWNER != '' && secrets.TOKEN != ''
+    if: vars.DOER != '' && vars.FORGEJO != '' && vars.TO_OWNER != '' && vars.FROM_OWNER != '' && secrets.TOKEN != ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: https://data.forgejo.org/actions/checkout@v4
 
       - name: copy & sign
-        uses: https://code.forgejo.org/forgejo/forgejo-build-publish/publish@v5.3.1
+        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/publish@v5.3.1
         with:
-          from-forgejo: ${{ secrets.FORGEJO }}
-          to-forgejo: ${{ secrets.FORGEJO }}
-          from-owner: ${{ secrets.FROM_OWNER }}
-          to-owner: ${{ secrets.TO_OWNER }}
+          from-forgejo: ${{ vars.FORGEJO }}
+          to-forgejo: ${{ vars.FORGEJO }}
+          from-owner: ${{ vars.FROM_OWNER }}
+          to-owner: ${{ vars.TO_OWNER }}
           repo: "runner"
           release-notes: "See https://code.forgejo.org/forgejo/runner/src/branch/main/RELEASE-NOTES.md#{ANCHOR}"
           ref-name: ${{ github.ref_name }}
           sha: ${{ github.sha }}
           container-suffixes: " "
           from-token: ${{ secrets.TOKEN }}
-          to-doer: ${{ secrets.DOER }}
+          to-doer: ${{ vars.DOER }}
           to-token: ${{ secrets.TOKEN }}
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          verbose: ${{ secrets.VERBOSE }}
+          verbose: ${{ vars.VERBOSE }}
