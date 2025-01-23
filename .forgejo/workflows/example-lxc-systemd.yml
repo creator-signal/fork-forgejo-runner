@@ -1,0 +1,132 @@
+# SPDX-License-Identifier: MIT
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+
+env:
+  SERIAL: "30"
+  LIFETIME: "60"
+  SYSTEMD_OPTIONS: "--no-pager --full"
+
+jobs:
+  example-lxc-systemd:
+    if: github.repository_owner != 'forgejo-integration' && github.repository_owner != 'forgejo-experimental' && github.repository_owner != 'forgejo-release'
+    runs-on: lxc-bookworm
+    steps:
+       - uses: https://data.forgejo.org/actions/checkout@v4
+
+       - name: forgejo-runner-service.sh dependencies
+         # run before setup-forgejo because it installs LXC and
+         # this would do nothing (false positive if a bug sneaks in)
+         run: |
+          set -x
+          cd examples/lxc-systemd
+          VERBOSE=true ./forgejo-runner-service.sh dependencies
+          lxc-ls
+
+       - id: forgejo
+         uses: https://data.forgejo.org/actions/setup-forgejo@v2.0.7
+         with:
+           user: root
+           password: admin1234
+           binary: https://code.forgejo.org/forgejo/forgejo/releases/download/v7.0.12/forgejo-7.0.12-linux-amd64
+           # must be the same as LXC_IPV4_PREFIX in examples/lxc-systemd/forgejo-runner-service.sh
+           lxc-ip-prefix: 10.105.7
+
+       - name: forgejo-runner-service.sh env
+         run: |
+           set -x
+           # this Forgejo instance needs to be reachable from within the LXC
+           # container created by forgejo-runner-service.sh
+           url=http://root:admin1234@${{ steps.forgejo.outputs.host-port }}
+           docker ps --all
+           export PATH=$(dirname /tmp/*/forgejocli):$PATH
+           token=$(su -c 'forgejocli -- actions generate-runner-token' forgejo)
+           cat > /tmp/env <<EOF
+             export INPUTS_SERIAL=${{ env.SERIAL }}
+             export INPUTS_FORGEJO=$url
+             export INPUTS_TOKEN=$token
+             export INPUTS_LIFETIME=${{ env.LIFETIME }}
+             export VERBOSE=true
+           EOF
+
+       - name: forgejo-runner-service.sh create
+         run: |
+           eval $(cat /tmp/env)
+           set -x
+           ./examples/lxc-systemd/forgejo-runner-service.sh install_runner
+           ./examples/lxc-systemd/forgejo-runner-service.sh lxc_create
+           ./examples/lxc-systemd/forgejo-runner-service.sh inside ensure_configuration_and_registration
+           ./examples/lxc-systemd/forgejo-runner-service.sh service_create
+
+       - name: forgejo-runner-service.sh assert
+         run: |
+           eval $(cat /tmp/env)
+           set -x
+
+           runner=/etc/forgejo-runner/$INPUTS_SERIAL/.runner
+           cat $runner
+           test "$(hostname)-${{ env.SERIAL }}" = $(jq -r .name < $runner)
+
+           config=/etc/forgejo-runner/$INPUTS_SERIAL/config.yml
+           cat $config
+           grep --quiet data.forgejo.org $config
+
+           env=/etc/forgejo-runner/$INPUTS_SERIAL/env
+           cat $env
+           grep --quiet INPUTS_SERIAL=$INPUTS_SERIAL $env
+           echo VERBOSE=true >> $env
+
+           service=/etc/systemd/system/forgejo-runner@.service
+           cat $service
+
+       - name: forgejo-runner-service.sh start / stop
+         run: |
+           set -x
+           serial=${{ env.SERIAL }}
+           all="${{ env.SYSTEMD_OPTIONS }}"
+
+           systemctl start forgejo-runner@$serial
+           systemctl $all status forgejo-runner@$serial
+           started_running=/etc/forgejo-runner/$serial/started-running
+           killed_gracefully=/etc/forgejo-runner/$serial/killed-gracefully
+           stopped_gracefully=/etc/forgejo-runner/$serial/stopped-gracefully
+           retry --delay 5 --times 20 cp -a $started_running /tmp/first-run
+           retry --delay 1 --times 30 grep --quiet 'Starting runner daemon' /var/log/forgejo-runner/$serial.log
+           systemctl stop forgejo-runner@$serial
+           ! systemctl $all status forgejo-runner@$serial
+           ls -l /etc/forgejo-runner/$serial
+           test -f $killed_gracefully
+           test -f $stopped_gracefully
+
+           systemctl start forgejo-runner@$serial
+           retry --delay 5 --times 20 cp -a $started_running /tmp/second-run
+           ! test -f $killed_gracefully
+           ! test -f $stopped_gracefully
+           lifetime=${{ env.LIFETIME }}
+           # give it time to restart at least once
+           ls -l /etc/forgejo-runner/$serial
+           sleep $lifetime ; sleep $lifetime
+           ls -l /etc/forgejo-runner/$serial
+           ! test -f $killed_gracefully
+           ! test -f $stopped_gracefully
+           retry --delay 5 --times 20 cp -a $started_running /tmp/third-run
+           systemctl stop forgejo-runner@$serial
+           ls -l /etc/forgejo-runner/$serial
+           test -f $killed_gracefully
+           test -f $stopped_gracefully
+
+           ls -l /tmp/*-run
+           test /tmp/first-run -ot /tmp/second-run
+           test /tmp/second-run -ot /tmp/third-run
+
+       - name: forgejo-runner-service.sh status & destroy
+         if: always()
+         run: |
+           eval $(cat /tmp/env)
+           set -x
+           cat /var/log/forgejo-runner/${{ env.SERIAL }}.log || true
+           journalctl ${{ env.SYSTEMD_OPTIONS }} --unit forgejo-runner@${{ env.SERIAL }} || true
+           ./examples/lxc-systemd/forgejo-runner-service.sh lxc_destroy
