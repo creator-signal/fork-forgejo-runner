@@ -1,5 +1,9 @@
 # Release Notes
 
+## 6.2.1
+
+* LXC [templates are updated if needed](https://code.forgejo.org/forgejo/act/pulls/102).
+
 ## 6.2.0
 
 * The `container.options` [allows `--hostname`](https://forgejo.org/docs/next/user/actions/#jobsjob_idcontaineroptions).
