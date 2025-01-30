@@ -29,6 +29,27 @@ jobs:
           VERBOSE=true ./forgejo-runner-service.sh dependencies
           lxc-ls
 
+       - name: forgejo-runner-service.sh upgrade
+         run: |
+           set -x
+
+           bin=/usr/local/bin
+           scripts="lxc-helpers.sh lxc-helpers-lib.sh forgejo-runner-service.sh"
+
+           # make the existing scripts different, as if originating from a previous release
+           rm -f $bin/*.backup
+           for script in $scripts; do
+              echo '# something' >> $bin/$script
+           done
+
+           cd examples/lxc-systemd
+           VERBOSE=true ./forgejo-runner-service.sh upgrade 1.2.3 $(pwd)/forgejo-runner-service.sh
+
+           for script in $scripts; do
+              ! grep --quiet something $bin/$script
+              grep --quiet something $bin/$script.backup
+           done
+
        - id: forgejo
          uses: https://data.forgejo.org/actions/setup-forgejo@v2.0.7
          with:

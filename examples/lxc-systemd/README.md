@@ -13,7 +13,22 @@ forgejo-runner-service.sh installs a [Forgejo runner](https://forgejo.org/docs/n
 
 ## Installation or upgrade
 
+### Installation
+
 - `sudo wget -O /usr/local/bin/forgejo-runner-service.sh https://code.forgejo.org/forgejo/runner/raw/branch/main/examples/lxc-systemd/forgejo-runner-service.sh && sudo chmod +x /usr/local/bin/forgejo-runner-service.sh`
+
+### Upgrade
+
+> **Warning** runners will not be upgraded immediately, the upgrade will happen when they restart (at `$INPUTS_LIFETIME` intervals).
+
+The following will be upgraded:
+
+- `forgejo-runner-service.sh` will replace itself with the version found at `https://code.forgejo.org/forgejo/runner/src/tag/vX.Y.Z/examples/lxc-systemd/forgejo-runner-service.sh`
+- `lxc-helpers*.sh` will be replaced with the version pinned in `forgejo-runner-service.sh`
+
+Upgrade to the version X.Y.Z (e.g 6.2.1):
+
+- `forgejo-runner-service.sh upgrade X.Y.Z`
 
 ## Description
 

@@ -20,6 +20,7 @@ trap "rm -fr $TMPDIR" EXIT
 : ${INPUTS_TOKEN:=}
 : ${INPUTS_FORGEJO:=https://code.forgejo.org}
 : ${INPUTS_LIFETIME:=7d}
+: ${INPUTS_LXC_HELPERS_VERSION:=1.0.3}
 : ${INPUTS_RUNNER_VERSION:=6.2.1}
 
 : ${KILL_AFTER:=21600} # 6h == 21600
@@ -59,26 +60,50 @@ function config_inotify() {
   $SUDO sysctl -p
 }
 
+function install_or_update_lxc_helpers() {
+  for lxc_helper in lxc-helpers.sh lxc-helpers-lib.sh; do
+    local new=$TMPDIR/$lxc_helper
+    local existing=/usr/local/bin/$lxc_helper
+    curl --fail -sS -o $new https://code.forgejo.org/forgejo/lxc-helpers/raw/tag/v${INPUTS_LXC_HELPERS_VERSION}/$lxc_helper
+    if ! test -f $existing || ! cmp --quiet $existing $new; then
+      if test -f $existing; then
+        $SUDO mv $existing $existing.backup
+      fi
+      $SUDO mv $new $existing
+      $SUDO chmod +x $existing
+    fi
+  done
+}
+
+function install_or_update_self() {
+  local bin=/usr/local/bin/$SELF_FILENAME
+
+  if ! cmp --quiet $SELF $bin; then
+    if test -f $bin; then
+      $SUDO mv $bin $bin.backup
+    fi
+    $SUDO cp -a $SELF $bin
+  fi
+}
+
+function install_self() {
+  install_or_update_self
+}
+
 function dependencies() {
   if ! which curl jq retry >/dev/null; then
     export DEBIAN_FRONTEND=noninteractive
     $SUDO apt-get update -qq
     $SUDO apt-get install -y -qq curl jq retry
   fi
-  if ! which lxc-helpers.sh >/dev/null; then
-    $SUDO curl --fail -sS -o /usr/local/bin/lxc-helpers-lib.sh https://code.forgejo.org/forgejo/lxc-helpers/raw/branch/main/lxc-helpers-lib.sh
-    $SUDO curl --fail -sS -o /usr/local/bin/lxc-helpers.sh https://code.forgejo.org/forgejo/lxc-helpers/raw/branch/main/lxc-helpers.sh
-    $SUDO chmod +x /usr/local/bin/lxc-helpers*.sh
-  fi
-  if ! which lxc-ls >/dev/null; then
-    $SUDO lxc-helpers.sh lxc_install_lxc_inside $LXC_IPV4_PREFIX $LXC_IPV6_PREFIX
-  fi
   if ! which yq >/dev/null; then
     $SUDO curl -L --fail -sS -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_arm64
     $SUDO chmod +x /usr/local/bin/yq
   fi
-  if ! cmp $SELF /usr/local/bin/$SELF_FILENAME; then
-    cp -a $SELF /usr/local/bin/$SELF_FILENAME
+  install_self
+  install_or_update_lxc_helpers
+  if ! which lxc-ls >/dev/null; then
+    $SUDO lxc-helpers.sh lxc_install_lxc_inside $LXC_IPV4_PREFIX $LXC_IPV6_PREFIX
   fi
 }
 
@@ -323,6 +348,22 @@ function main() {
   service_create
   lxc_create
   inside ensure_configuration_and_registration
+}
+
+function upgrade() {
+  run_in_copy upgrade_safely "$@"
+}
+
+function upgrade_safely() {
+  local version="${1:-$INPUTS_RUNNER_VERSION}"
+  local upgrade="${2:-$TMPDIR/$SELF_FILENAME}"
+
+  if ! test -f $upgrade; then
+    curl --fail -sS -o $upgrade https://code.forgejo.org/forgejo/runner/raw/tag/v$version/examples/lxc-systemd/forgejo-runner-service.sh
+  fi
+  chmod +x $upgrade
+  $upgrade install_or_update_lxc_helpers
+  $upgrade install_or_update_self
 }
 
 #
