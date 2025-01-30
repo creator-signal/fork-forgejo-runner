@@ -20,7 +20,7 @@ trap "rm -fr $TMPDIR" EXIT
 : ${INPUTS_TOKEN:=}
 : ${INPUTS_FORGEJO:=https://code.forgejo.org}
 : ${INPUTS_LIFETIME:=7d}
-: ${INPUTS_RUNNER_VERSION:=6.2.0}
+: ${INPUTS_RUNNER_VERSION:=6.2.1}
 
 : ${KILL_AFTER:=21600} # 6h == 21600
 NODEJS_VERSION=20
