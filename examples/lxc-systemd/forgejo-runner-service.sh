@@ -362,6 +362,7 @@ function upgrade_safely() {
     curl --fail -sS -o $upgrade https://code.forgejo.org/forgejo/runner/raw/tag/v$version/examples/lxc-systemd/forgejo-runner-service.sh
   fi
   chmod +x $upgrade
+  $upgrade install_runner
   $upgrade install_or_update_lxc_helpers
   $upgrade install_or_update_self
 }
