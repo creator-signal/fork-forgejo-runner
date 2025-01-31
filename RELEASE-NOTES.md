@@ -1,5 +1,9 @@
 # Release Notes
 
+## 6.2.2
+
+* LXC systemd service unit example script [learned how to upgrade](https://code.forgejo.org/forgejo/runner/pulls/475).
+
 ## 6.2.1
 
 * LXC [templates are updated if needed](https://code.forgejo.org/forgejo/act/pulls/102).
