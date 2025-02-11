@@ -48,7 +48,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		}
 		for _, matrix := range matricxes {
 			job := job.Clone()
-			evaluator := NewExpressionEvaluator(NewInterpeter(id, origin.GetJob(id), matrix, pc.gitContext, results, pc.vars))
+			evaluator := NewExpressionEvaluator(NewInterpeter(id, origin.GetJob(id), matrix, pc.gitContext, results, pc.vars, nil))
 			if job.Name == "" {
 				job.Name = nameWithMatrix(id, matrix)
 			} else {

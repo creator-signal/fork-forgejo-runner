@@ -702,3 +702,48 @@ func TestStepUsesHash(t *testing.T) {
 		})
 	}
 }
+
+func TestReadWorkflow_Concurrency(t *testing.T) {
+	for _, testCase := range []struct {
+		expected *RawConcurrency
+		err      string
+		snippet  string
+	}{
+		{
+			expected: nil,
+			snippet:  "# nothing",
+		},
+		{
+			expected: &RawConcurrency{Group: "${{ github.workflow }}-${{ github.ref }}", CancelInProgress: ""},
+			snippet:  "concurrency: { group: \"${{ github.workflow }}-${{ github.ref }}\" }",
+		},
+		{
+			expected: &RawConcurrency{Group: "example-group", CancelInProgress: "true"},
+			snippet:  "concurrency: { group: example-group, cancel-in-progress: true }",
+		},
+	} {
+		t.Run(testCase.snippet, func(t *testing.T) {
+			yaml := fmt.Sprintf(`
+name: name-455
+on: push
+%s
+jobs:
+  valid-JOB-Name-455:
+    runs-on: docker
+    steps:
+      - run: echo hi
+`, testCase.snippet)
+
+			workflow, err := ReadWorkflow(strings.NewReader(yaml), true)
+			if testCase.err != "" {
+				assert.ErrorContains(t, err, testCase.err)
+			} else {
+				assert.NoError(t, err, "read workflow should succeed")
+
+				concurrency := workflow.RawConcurrency
+				// assert.NoError(t, err)
+				assert.Equal(t, testCase.expected, concurrency)
+			}
+		})
+	}
+}

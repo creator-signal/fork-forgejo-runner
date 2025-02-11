@@ -1,0 +1,10 @@
+name: test
+jobs:
+  job1:
+    name: job1
+    runs-on: linux
+    steps:
+      - run: uname -a
+    concurrency:
+      group: major-tests
+      cancel-in-progress: "true"

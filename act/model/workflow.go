@@ -25,7 +25,8 @@ type Workflow struct {
 	Jobs     map[string]*Job   `yaml:"jobs"`
 	Defaults Defaults          `yaml:"defaults"`
 
-	RawNotifications yaml.Node `yaml:"enable-email-notifications"`
+	RawNotifications yaml.Node       `yaml:"enable-email-notifications"`
+	RawConcurrency   *RawConcurrency `yaml:"concurrency"` // For Gitea
 }
 
 // On events for the workflow
@@ -805,4 +806,29 @@ func (w *Workflow) Notifications() (bool, error) {
 	default:
 		return false, fmt.Errorf("enable-email-notifications: unknown type: %v", w.RawNotifications.Kind)
 	}
+}
+
+// For Gitea
+// RawConcurrency represents a workflow concurrency or a job concurrency with uninterpolated options
+type RawConcurrency struct {
+	Group            string `yaml:"group,omitempty"`
+	CancelInProgress string `yaml:"cancel-in-progress,omitempty"`
+	RawExpression    string `yaml:"-,omitempty"`
+}
+
+type objectConcurrency RawConcurrency
+
+func (r *RawConcurrency) UnmarshalYAML(n *yaml.Node) error {
+	if err := n.Decode(&r.RawExpression); err == nil {
+		return nil
+	}
+	return n.Decode((*objectConcurrency)(r))
+}
+
+func (r *RawConcurrency) MarshalYAML() (interface{}, error) {
+	if r.RawExpression != "" {
+		return r.RawExpression, nil
+	}
+
+	return (*objectConcurrency)(r), nil
 }

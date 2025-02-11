@@ -1,0 +1,9 @@
+name: test
+jobs:
+  job1:
+    runs-on: linux
+    concurrency:
+      group: ${{ github.workflow }}
+      cancel-in-progress: ${{ !contains(github.ref, 'release/')}}
+    steps:
+      - run: uname -a

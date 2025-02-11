@@ -339,3 +339,118 @@ func TestParseMappingNode(t *testing.T) {
 		})
 	}
 }
+
+func TestEvaluateConcurrency(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            model.RawConcurrency
+		group            string
+		cancelInProgress bool
+	}{
+		{
+			name: "basic",
+			input: model.RawConcurrency{
+				Group:            "group-name",
+				CancelInProgress: "true",
+			},
+			group:            "group-name",
+			cancelInProgress: true,
+		},
+		{
+			name:             "undefined",
+			input:            model.RawConcurrency{},
+			group:            "",
+			cancelInProgress: false,
+		},
+		{
+			name: "group-evaluation",
+			input: model.RawConcurrency{
+				Group: "${{ github.workflow }}-${{ github.ref }}",
+			},
+			group:            "test_workflow-main",
+			cancelInProgress: false,
+		},
+		{
+			name: "cancel-evaluation-true",
+			input: model.RawConcurrency{
+				Group:            "group-name",
+				CancelInProgress: "${{ !contains(github.ref, 'release/')}}",
+			},
+			group:            "group-name",
+			cancelInProgress: true,
+		},
+		{
+			name: "cancel-evaluation-false",
+			input: model.RawConcurrency{
+				Group:            "group-name",
+				CancelInProgress: "${{ contains(github.ref, 'release/')}}",
+			},
+			group:            "group-name",
+			cancelInProgress: false,
+		},
+		{
+			name: "event-evaluation",
+			input: model.RawConcurrency{
+				Group: "user-${{ github.event.commits[0].author.username }}",
+			},
+			group:            "user-someone",
+			cancelInProgress: false,
+		},
+		{
+			name: "arbitrary-var",
+			input: model.RawConcurrency{
+				Group: "${{ vars.eval_arbitrary_var }}",
+			},
+			group:            "123",
+			cancelInProgress: false,
+		},
+		{
+			name: "arbitrary-input",
+			input: model.RawConcurrency{
+				Group: "${{ inputs.eval_arbitrary_input }}",
+			},
+			group:            "456",
+			cancelInProgress: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			group, cancelInProgress, err := EvaluateConcurrency(
+				&test.input,
+				"job-id",
+				nil, // job
+				map[string]any{
+					"workflow": "test_workflow",
+					"ref":      "main",
+					"event": map[string]interface{}{
+						"commits": []interface{}{
+							map[string]interface{}{
+								"author": map[string]interface{}{
+									"username": "someone",
+								},
+							},
+							map[string]interface{}{
+								"author": map[string]interface{}{
+									"username": "someone-else",
+								},
+							},
+						},
+					},
+				}, // gitCtx
+				map[string]*JobResult{
+					"job-id": {},
+				}, // results
+				map[string]string{
+					"eval_arbitrary_var": "123",
+				}, // vars
+				map[string]any{
+					"eval_arbitrary_input": "456",
+				}, // inputs
+			)
+			assert.NoError(t, err)
+			assert.EqualValues(t, test.group, group)
+			assert.EqualValues(t, test.cancelInProgress, cancelInProgress)
+		})
+	}
+}
