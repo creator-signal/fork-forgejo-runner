@@ -1,5 +1,7 @@
 ## Docker compose with docker-in-docker
 
+> **Warning** this example is just what it is: an example. It is not fit to be used in production. It shows how Forgejo, the Forgejo runner can work together with Docker in Docker. It is [tested to work in the CI](../../.forgejo/workflows/example-docker-compose.yml) and is best used as a reference, a source of inspiration.
+
 The `compose-forgejo-and-runner.yml` compose file runs a Forgejo
 instance and registers a `Forgejo runner`. A docker server is also
 launched within a container (using
