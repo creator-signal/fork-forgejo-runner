@@ -97,6 +97,7 @@ jobs:
     runs-on: docker-cli
     steps:
       - run: docker info
+        shell: sh
 ```
 
 A wait loop expects the status of the check associated with the
