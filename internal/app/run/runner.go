@@ -121,7 +121,6 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 			cacheSecret,
 			log.StandardLogger().WithField("module", "cache_request"),
 		)
-
 		if err != nil {
 			log.Error("Could not start the cache server, cache will be disabled")
 			return nil
@@ -236,7 +235,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	}
 
 	// Clone the runner default envs into a local envs map
-	var runEnvs = make(map[string]string)
+	runEnvs := make(map[string]string)
 	for id, v := range r.envs {
 		runEnvs[id] = v
 	}
