@@ -248,13 +248,15 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	runEnvs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
 
 	// Register the run with the cacheproxy and modify the CACHE_URL
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-	cacheRunData := r.cacheProxy.CreateRunData(preset.Repository, preset.RunID, timestamp)
-	cacheRunId, err := r.cacheProxy.AddRun(cacheRunData)
-	if err == nil {
-		defer r.cacheProxy.RemoveRun(cacheRunId)
-		baseURL := runEnvs["ACTIONS_CACHE_URL"]
-		runEnvs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s/", baseURL, cacheRunId)
+	if r.cacheProxy != nil {
+		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+		cacheRunData := r.cacheProxy.CreateRunData(preset.Repository, preset.RunID, timestamp)
+		cacheRunId, err := r.cacheProxy.AddRun(cacheRunData)
+		if err == nil {
+			defer r.cacheProxy.RemoveRun(cacheRunId)
+			baseURL := runEnvs["ACTIONS_CACHE_URL"]
+			runEnvs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s/", baseURL, cacheRunId)
+		}
 	}
 
 	eventJSON, err := json.Marshal(preset.Event)
