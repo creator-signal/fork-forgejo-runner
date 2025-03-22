@@ -1,5 +1,9 @@
 # Release Notes
 
+## 6.3.0
+
+* [Caches are now correctly scoped to repositories](https://code.forgejo.org/forgejo/runner/pulls/503). Require authentication for cache requests, and set up cache proxy to provide authentication transparently and automatically. 
+
 ## 6.2.2
 
 * LXC systemd service unit example script [learned how to upgrade](https://code.forgejo.org/forgejo/runner/pulls/475).
