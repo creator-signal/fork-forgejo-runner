@@ -11,13 +11,11 @@ forgejo-runner-service.sh installs a [Forgejo runner](https://forgejo.org/docs/n
   - `systemctl status forgejo-runner@$INPUTS_SERIAL`
   - `tail --follow=name /var/log/forgejo-runner/$INPUTS_SERIAL.log`
 
-## Installation or upgrade
-
-### Installation
+## Installation
 
 - `sudo wget -O /usr/local/bin/forgejo-runner-service.sh https://code.forgejo.org/forgejo/runner/raw/branch/main/examples/lxc-systemd/forgejo-runner-service.sh && sudo chmod +x /usr/local/bin/forgejo-runner-service.sh`
 
-### Upgrade
+## Upgrade
 
 > **Warning** runners will not be upgraded immediately, the upgrade will happen when they restart (at `$INPUTS_LIFETIME` intervals).
 
@@ -26,17 +24,26 @@ The following will be upgraded:
 - `forgejo-runner-service.sh` will replace itself with the version found at `https://code.forgejo.org/forgejo/runner/src/tag/vX.Y.Z/examples/lxc-systemd/forgejo-runner-service.sh`
 - `lxc-helpers*.sh` will be replaced with the version pinned in `forgejo-runner-service.sh`
 
+### From a tagged version
+
 Upgrade to the version X.Y.Z (e.g 6.2.1):
 
 - `forgejo-runner-service.sh upgrade X.Y.Z`
 
-### Using a specific version of the Forgejo runner
+### From a URL
 
-The goal is that a LXC container uses a version of the Forgejo runner
-that is different from the default. It needs to be installed and pinned.
+Upgrade to the script found at a given URL.
 
-- Install: `INPUTS_RUNNER_VERSION=6.3.0 forgejo-runner-service.sh install_runner`
-- Pin the version in `/etc/forgejo-runner/N/env` (e.g. `INPUTS_RUNNER_VERSION=6.3.0`)
+```sh
+cd /tmp
+wget https://code.forgejo.org/forgejo/runner/raw/branch/main/examples/lxc-systemd/forgejo-runner-service.sh
+chmod +x forgejo-runner-service.sh
+./forgejo-runner-service.sh install_or_update_self
+```
+
+Verify the difference is as expected.
+
+- `diff -u /usr/local/bin/forgejo-runner-service.sh.backup /usr/local/bin/forgejo-runner-service.sh`
 
 ## Description
 
@@ -87,3 +94,11 @@ The creation of a new runner is driven by the following environment variables:
   systemctl status forgejo-runner@$serial
   ```
 - Set debug by adding `VERBOSE=true` in `/etc/forgejo-runner/$INPUTS_SERIAL/env`
+
+### Use a specific version of the Forgejo runner
+
+The goal is that a LXC container uses a version of the Forgejo runner
+that is different from the default. It needs to be installed and pinned.
+
+- Install: `INPUTS_RUNNER_VERSION=6.3.0 forgejo-runner-service.sh install_runner`
+- Pin the version in `/etc/forgejo-runner/N/env` (e.g. `INPUTS_RUNNER_VERSION=6.3.0`)
