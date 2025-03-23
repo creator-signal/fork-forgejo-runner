@@ -51,7 +51,7 @@ jobs:
            done
 
        - id: forgejo
-         uses: https://data.forgejo.org/actions/setup-forgejo@v2.0.7
+         uses: https://data.forgejo.org/actions/setup-forgejo@v2.0.10
          with:
            user: root
            password: admin1234
