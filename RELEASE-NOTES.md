@@ -1,5 +1,9 @@
 # Release Notes
 
+## 6.3.1
+
+* [Fixed an issue which caused data races and timeouts](https://code.forgejo.org/forgejo/act/pulls/109) in certain cases, which would [cause cache storing and retrieval to fail](https://code.forgejo.org/forgejo/runner/issues/509).
+
 ## 6.3.0
 
 * [Caches are now correctly scoped to repositories](https://code.forgejo.org/forgejo/runner/pulls/503). Require authentication for cache requests, and set up cache proxy to provide authentication transparently and automatically. 
