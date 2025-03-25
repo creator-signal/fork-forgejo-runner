@@ -43,7 +43,7 @@ jobs:
            done
 
            cd examples/lxc-systemd
-           VERBOSE=true ./forgejo-runner-service.sh upgrade 1.2.3 $(pwd)/forgejo-runner-service.sh
+           VERBOSE=true ./forgejo-runner-service.sh upgrade file://$(pwd)/forgejo-runner-service.sh
 
            for script in $scripts; do
               ! grep --quiet something $bin/$script

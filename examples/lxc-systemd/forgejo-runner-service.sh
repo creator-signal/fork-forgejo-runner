@@ -21,7 +21,7 @@ trap "rm -fr $TMPDIR" EXIT
 : ${INPUTS_FORGEJO:=https://code.forgejo.org}
 : ${INPUTS_LIFETIME:=7d}
 : ${INPUTS_LXC_HELPERS_VERSION:=1.0.3}
-: ${INPUTS_RUNNER_VERSION:=6.3.0}
+: ${INPUTS_RUNNER_VERSION:=6.3.1}
 
 : ${KILL_AFTER:=21600} # 6h == 21600
 NODEJS_VERSION=20
@@ -29,6 +29,7 @@ DEBIAN_RELEASE=bookworm
 YQ_VERSION=v4.45.1
 SELF=${BASH_SOURCE[0]}
 SELF_FILENAME=$(basename "$SELF")
+SELF_INSTALLED=/usr/local/bin/$SELF_FILENAME
 ETC=/etc/forgejo-runner
 LIB=/var/lib/forgejo-runner
 LOG=/var/log/forgejo-runner
@@ -76,13 +77,11 @@ function install_or_update_lxc_helpers() {
 }
 
 function install_or_update_self() {
-  local bin=/usr/local/bin/$SELF_FILENAME
-
-  if ! cmp --quiet $SELF $bin; then
-    if test -f $bin; then
-      $SUDO mv $bin $bin.backup
+  if ! cmp --quiet $SELF $SELF_INSTALLED; then
+    if test -f $SELF_INSTALLED; then
+      $SUDO mv $SELF_INSTALLED $SELF_INSTALLED.backup
     fi
-    $SUDO cp -a $SELF $bin
+    $SUDO cp -a $SELF $SELF_INSTALLED
   fi
 }
 
@@ -160,6 +159,7 @@ After=network.target
 Restart=on-success
 ExecStart=/usr/local/bin/${SELF_FILENAME} run_in_copy start
 ExecStop=/usr/local/bin/${SELF_FILENAME} stop
+TimeoutStopSec=10800
 EnvironmentFile=/etc/forgejo-runner/%i/env
 
 [Install]
@@ -195,6 +195,10 @@ function inside() {
     VERBOSE="$VERBOSE" \
     HOST="$HOST" \
     $SELF_FILENAME "$@"
+}
+
+function display_default_runner_version() {
+  echo "Forgejo runner $INPUTS_RUNNER_VERSION"
 }
 
 function install_runner() {
@@ -355,14 +359,16 @@ function upgrade() {
 }
 
 function upgrade_safely() {
-  local version="${1:-$INPUTS_RUNNER_VERSION}"
-  local upgrade="${2:-$TMPDIR/$SELF_FILENAME}"
+  local url="$1"
 
-  if ! test -f $upgrade; then
-    curl --fail -sS -o $upgrade https://code.forgejo.org/forgejo/runner/raw/tag/v$version/examples/lxc-systemd/forgejo-runner-service.sh
-  fi
+  local upgrade_dir=$TMPDIR/upgrades
+  mkdir -p $TMPDIR/upgrades
+  local upgrade="$upgrade_dir/$SELF_FILENAME"
+
+  curl --fail -sS -o $upgrade $url
   chmod +x $upgrade
   $upgrade install_runner
+  $upgrade display_default_runner_version
   $upgrade install_or_update_lxc_helpers
   $upgrade install_or_update_self
 }

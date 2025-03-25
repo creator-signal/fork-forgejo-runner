@@ -23,20 +23,13 @@ forgejo-runner-service.sh installs a [Forgejo runner](https://forgejo.org/docs/n
 
 The following will be upgraded:
 
-- `forgejo-runner-service.sh` will replace itself with the version found at `https://code.forgejo.org/forgejo/runner/src/tag/vX.Y.Z/examples/lxc-systemd/forgejo-runner-service.sh`
+- `forgejo-runner-service.sh` will replace itself with the script found at the provided URL (e.g. `https://code.forgejo.org/forgejo/runner/src/tag/v6.3.1/examples/lxc-systemd/forgejo-runner-service.sh`)
 - `lxc-helpers*.sh` will be replaced with the version pinned in `forgejo-runner-service.sh`
+- `forgejo-runner-X.Y.Z` will default to the version hardcoded in `forgejo-runner-service.sh`
 
-Upgrade to the version X.Y.Z (e.g 6.2.1):
+Example:
 
-- `forgejo-runner-service.sh upgrade X.Y.Z`
-
-### Using a specific version of the Forgejo runner
-
-The goal is that a LXC container uses a version of the Forgejo runner
-that is different from the default. It needs to be installed and pinned.
-
-- Install: `INPUTS_RUNNER_VERSION=6.3.0 forgejo-runner-service.sh install_runner`
-- Pin the version in `/etc/forgejo-runner/N/env` (e.g. `INPUTS_RUNNER_VERSION=6.3.0`)
+- `forgejo-runner-service.sh upgrade https://code.forgejo.org/forgejo/runner/src/tag/v6.3.1/examples/lxc-systemd/forgejo-runner-service.sh`
 
 ## Description
 
@@ -87,3 +80,11 @@ The creation of a new runner is driven by the following environment variables:
   systemctl status forgejo-runner@$serial
   ```
 - Set debug by adding `VERBOSE=true` in `/etc/forgejo-runner/$INPUTS_SERIAL/env`
+
+### Use a specific version of the Forgejo runner
+
+The goal is that a LXC container uses a version of the Forgejo runner
+that is different from the default. It needs to be installed and pinned.
+
+- Install: `INPUTS_RUNNER_VERSION=6.3.0 forgejo-runner-service.sh install_runner`
+- Pin the version in `/etc/forgejo-runner/N/env` (e.g. `INPUTS_RUNNER_VERSION=6.3.0`)
