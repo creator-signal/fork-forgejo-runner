@@ -37,11 +37,14 @@ type Runner struct {
 
 // Cache represents the configuration for caching.
 type Cache struct {
-	Enabled        *bool  `yaml:"enabled"`         // Enabled indicates whether caching is enabled. It is a pointer to distinguish between false and not set. If not set, it will be true.
-	Dir            string `yaml:"dir"`             // Dir specifies the directory path for caching.
-	Host           string `yaml:"host"`            // Host specifies the caching host.
-	Port           uint16 `yaml:"port"`            // Port specifies the caching port.
-	ExternalServer string `yaml:"external_server"` // ExternalServer specifies the URL of external cache server
+	Enabled                 *bool  `yaml:"enabled"`                    // Enabled indicates whether caching is enabled. It is a pointer to distinguish between false and not set. If not set, it will be true.
+	Dir                     string `yaml:"dir"`                        // Dir specifies the directory path for caching.
+	Host                    string `yaml:"host"`                       // Host specifies the caching host.
+	Port                    uint16 `yaml:"port"`                       // Port specifies the caching port.
+	ProxyPort               uint16 `yaml:"proxy_port"`                 // ProxyPort specifies the cache proxy port.
+	ExternalServer          string `yaml:"external_server"`            // ExternalServer specifies the URL of external cache server
+	ActionsCacheUrlOverride string `yaml:"actions_cache_url_override"` // Allows the user to override the ACTIONS_CACHE_URL passed to the workflow containers
+	Secret                  string `yaml:"secret"`                     // Shared secret to secure caches.
 }
 
 // Container represents the configuration for the container.
@@ -55,6 +58,7 @@ type Container struct {
 	ValidVolumes  []string `yaml:"valid_volumes"`  // ValidVolumes specifies the volumes (including bind mounts) can be mounted to containers.
 	DockerHost    string   `yaml:"docker_host"`    // DockerHost specifies the Docker host. It overrides the value specified in environment variable DOCKER_HOST.
 	ForcePull     bool     `yaml:"force_pull"`     // Pull docker image(s) even if already present
+	ForceRebuild  bool     `yaml:"force_rebuild"`  // Rebuild local docker image(s) even if already present
 }
 
 // Host represents the configuration for the host.

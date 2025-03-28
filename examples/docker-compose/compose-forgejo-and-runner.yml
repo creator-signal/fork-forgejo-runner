@@ -30,7 +30,7 @@ services:
       - docker_certs:/certs
 
   forgejo:
-    image: codeberg.org/forgejo/forgejo:1.21
+    image: codeberg.org/forgejo/forgejo:9.0
     command: >-
       bash -c '
       /bin/s6-svscan /etc/s6 &
@@ -51,7 +51,7 @@ services:
       - 8080:3000
 
   runner-register:
-    image: code.forgejo.org/forgejo/runner:5.0.4
+    image: code.forgejo.org/forgejo/runner:6.0.1
     links:
       - docker-in-docker
       - forgejo
@@ -66,7 +66,7 @@ services:
         forgejo-runner create-runner-file --connect --instance http://forgejo:3000 --name runner --secret {SHARED_SECRET} && break ;
         sleep 1 ;
       done ;
-      sed -i -e "s|\"labels\": null|\"labels\": [\"docker:docker://code.forgejo.org/oci/node:20-bookworm\", \"ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04\"]|" .runner ;
+      sed -i -e "s|\"labels\": null|\"labels\": [\"docker-cli:docker://code.forgejo.org/oci/docker:cli\",\"node-bookworm:docker://code.forgejo.org/oci/node:20-bookworm\"]|" .runner ;
       forgejo-runner generate-config > config.yml ;
       sed -i -e "s|  level: info|  level: debug|" config.yml ;
       sed -i -e "s|network: .*|network: host|" config.yml ;
@@ -77,7 +77,7 @@ services:
       '
 
   runner-daemon:
-    image: code.forgejo.org/forgejo/runner:5.0.4
+    image: code.forgejo.org/forgejo/runner:6.0.1
     links:
       - docker-in-docker
       - forgejo

@@ -42,4 +42,5 @@ func TestDefaultSettings(t *testing.T) {
 
 	assert.EqualValues(t, config.Container.DockerHost, "-")
 	assert.EqualValues(t, config.Log.JobLevel, "info")
+	assert.EqualValues(t, config.Container.ForceRebuild, false)
 }

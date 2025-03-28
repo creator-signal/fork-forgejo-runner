@@ -1,5 +1,34 @@
 # Release Notes
 
+## 6.3.1
+
+* [Fixed an issue which caused data races and timeouts](https://code.forgejo.org/forgejo/act/pulls/109) in certain cases, which would [cause cache storing and retrieval to fail](https://code.forgejo.org/forgejo/runner/issues/509).
+
+## 6.3.0
+
+* [Caches are now correctly scoped to repositories](https://code.forgejo.org/forgejo/runner/pulls/503). Require authentication for cache requests, and set up cache proxy to provide authentication transparently and automatically. 
+
+## 6.2.2
+
+* LXC systemd service unit example script [learned how to upgrade](https://code.forgejo.org/forgejo/runner/pulls/475).
+
+## 6.2.1
+
+* LXC [templates are updated if needed](https://code.forgejo.org/forgejo/act/pulls/102).
+
+## 6.2.0
+
+* The `container.options` [allows `--hostname`](https://forgejo.org/docs/next/user/actions/#jobsjob_idcontaineroptions).
+
+## 6.1.0
+
+* [Add `[container].force_rebuild` config option](https://code.forgejo.org/forgejo/runner/pulls/406) to force rebuilding of local docker images, even if they are already present.
+* [Add new `--one-job` flag](https://code.forgejo.org/forgejo/runner/pulls/423) to execute a previously configured runner, execute one task if it exists and exit. Motivation [here](https://code.forgejo.org/forgejo/runner/issues/422)
+
+## 6.0.1
+
+* [Fixes a regression](https://code.forgejo.org/forgejo/runner/issues/425) that was introduced in version 6.0.0 by which the `[container].options` config file setting was ignored.
+
 ## 6.0.0
 
 * Security: the container options a job is allowed to specify are limited to a [predefined allow list](https://forgejo.org/docs/next/user/actions/#jobsjob_idcontaineroptions).

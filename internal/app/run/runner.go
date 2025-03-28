@@ -5,9 +5,12 @@ package run
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +19,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/docker/docker/api/types/container"
 	"github.com/nektos/act/pkg/artifactcache"
+	"github.com/nektos/act/pkg/cacheproxy"
 	"github.com/nektos/act/pkg/common"
 	"github.com/nektos/act/pkg/model"
 	"github.com/nektos/act/pkg/runner"
@@ -37,6 +41,8 @@ type Runner struct {
 	client client.Client
 	labels labels.Labels
 	envs   map[string]string
+
+	cacheProxy *cacheproxy.Handler
 
 	runningTasks sync.Map
 }
@@ -63,23 +69,12 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 	for k, v := range cfg.Runner.Envs {
 		envs[k] = v
 	}
+
+	var cacheProxy *cacheproxy.Handler
 	if cfg.Cache.Enabled == nil || *cfg.Cache.Enabled {
-		if cfg.Cache.ExternalServer != "" {
-			envs["ACTIONS_CACHE_URL"] = cfg.Cache.ExternalServer
-		} else {
-			cacheHandler, err := artifactcache.StartHandler(
-				cfg.Cache.Dir,
-				cfg.Cache.Host,
-				cfg.Cache.Port,
-				log.StandardLogger().WithField("module", "cache_request"),
-			)
-			if err != nil {
-				log.Errorf("cannot init cache server, it will be disabled: %v", err)
-				// go on
-			} else {
-				envs["ACTIONS_CACHE_URL"] = cacheHandler.ExternalURL() + "/"
-			}
-		}
+		cacheProxy = setupCache(cfg, envs)
+	} else {
+		cacheProxy = nil
 	}
 
 	// set artifact gitea api
@@ -92,12 +87,75 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 	envs["GITEA_ACTIONS_RUNNER_VERSION"] = ver.Version()
 
 	return &Runner{
-		name:   reg.Name,
-		cfg:    cfg,
-		client: cli,
-		labels: ls,
-		envs:   envs,
+		name:       reg.Name,
+		cfg:        cfg,
+		client:     cli,
+		labels:     ls,
+		envs:       envs,
+		cacheProxy: cacheProxy,
 	}
+}
+
+func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler {
+	var cacheUrl string
+	var cacheSecret string
+
+	if cfg.Cache.ExternalServer == "" {
+		// No external cache server was specified, start internal cache server
+		cacheSecret = cfg.Cache.Secret
+
+		if cacheSecret == "" {
+			// no cache secret was specified, generate one
+			secretBytes := make([]byte, 64)
+			_, err := rand.Read(secretBytes)
+			if err != nil {
+				log.Errorf("Failed to generate random bytes, this should not happen")
+			}
+			cacheSecret = hex.EncodeToString(secretBytes)
+		}
+
+		cacheServer, err := artifactcache.StartHandler(
+			cfg.Cache.Dir,
+			cfg.Cache.Host,
+			cfg.Cache.Port,
+			cacheSecret,
+			log.StandardLogger().WithField("module", "cache_request"),
+		)
+		if err != nil {
+			log.Error("Could not start the cache server, cache will be disabled")
+			return nil
+		}
+
+		cacheUrl = cacheServer.ExternalURL()
+	} else {
+		// An external cache server was specified, use its url
+		cacheSecret = cfg.Cache.Secret
+
+		if cacheSecret == "" {
+			log.Error("A cache secret must be specified to use an external cache server, cache will be disabled")
+			return nil
+		}
+
+		cacheUrl = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
+	}
+
+	cacheProxy, err := cacheproxy.StartHandler(
+		cacheUrl,
+		cfg.Cache.Host,
+		cfg.Cache.ProxyPort,
+		cacheSecret,
+		log.StandardLogger().WithField("module", "cache_proxy"),
+	)
+	if err != nil {
+		log.Errorf("cannot init cache proxy, cache will be disabled: %v", err)
+	}
+
+	envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
+	if cfg.Cache.ActionsCacheUrlOverride != "" {
+		envs["ACTIONS_CACHE_URL"] = cfg.Cache.ActionsCacheUrlOverride
+	}
+
+	return cacheProxy
 }
 
 func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
@@ -176,12 +234,30 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		preset.Token = t
 	}
 
+	// Clone the runner default envs into a local envs map
+	runEnvs := make(map[string]string)
+	for id, v := range r.envs {
+		runEnvs[id] = v
+	}
+
 	giteaRuntimeToken := taskContext["gitea_runtime_token"].GetStringValue()
 	if giteaRuntimeToken == "" {
 		// use task token to action api token for previous Gitea Server Versions
 		giteaRuntimeToken = preset.Token
 	}
-	r.envs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
+	runEnvs["ACTIONS_RUNTIME_TOKEN"] = giteaRuntimeToken
+
+	// Register the run with the cacheproxy and modify the CACHE_URL
+	if r.cacheProxy != nil {
+		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+		cacheRunData := r.cacheProxy.CreateRunData(preset.Repository, preset.RunID, timestamp)
+		cacheRunId, err := r.cacheProxy.AddRun(cacheRunData)
+		if err == nil {
+			defer r.cacheProxy.RemoveRun(cacheRunId)
+			baseURL := runEnvs["ACTIONS_CACHE_URL"]
+			runEnvs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s/", baseURL, cacheRunId)
+		}
+	}
 
 	eventJSON, err := json.Marshal(preset.Event)
 	if err != nil {
@@ -209,10 +285,10 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 
 		ReuseContainers:            false,
 		ForcePull:                  r.cfg.Container.ForcePull,
-		ForceRebuild:               false,
+		ForceRebuild:               r.cfg.Container.ForceRebuild,
 		LogOutput:                  true,
 		JSONLogger:                 false,
-		Env:                        r.envs,
+		Env:                        runEnvs,
 		Secrets:                    task.Secrets,
 		GitHubInstance:             strings.TrimSuffix(r.client.Address(), "/"),
 		AutoRemove:                 true,

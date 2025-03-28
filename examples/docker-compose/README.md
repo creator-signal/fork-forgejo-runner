@@ -1,5 +1,7 @@
 ## Docker compose with docker-in-docker
 
+> **Warning** this example is just what it is: an example. It is not fit to be used in production. It shows how Forgejo, the Forgejo runner can work together with Docker in Docker. It is [tested to work in the CI](../../.forgejo/workflows/example-docker-compose.yml) and is best used as a reference, a source of inspiration.
+
 The `compose-forgejo-and-runner.yml` compose file runs a Forgejo
 instance and registers a `Forgejo runner`. A docker server is also
 launched within a container (using
@@ -80,8 +82,9 @@ A new repository is created in root/test with the following workflows:
 on: [push]
 jobs:
   test:
-    runs-on: docker
+    runs-on: node-bookworm
     steps:
+      - uses: https://code.forgejo.org/actions/checkout@v4
       - run: echo All Good
 ```
 
@@ -91,9 +94,10 @@ jobs:
 on: [push]
 jobs:
   test_docker:
-    runs-on: ubuntu-22.04
+    runs-on: docker-cli
     steps:
       - run: docker info
+        shell: sh
 ```
 
 A wait loop expects the status of the check associated with the
