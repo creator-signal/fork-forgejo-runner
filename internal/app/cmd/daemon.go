@@ -52,15 +52,11 @@ func runDaemon(ctx context.Context, configFile *string) func(cmd *cobra.Command,
 			lbls = cfg.Runner.Labels
 		}
 
-		ls := labels.Labels{}
-		for _, l := range lbls {
-			label, err := labels.Parse(l)
-			if err != nil {
-				log.WithError(err).Warnf("ignored invalid label %q", l)
-				continue
-			}
-			ls = append(ls, label)
+		ls, err := labels.ParseLabels(lbls)
+		if err != nil {
+			log.WithError(err).Warn("ignored invalid labels")
 		}
+
 		if len(ls) == 0 {
 			log.Warn("no labels configured, runner may not be able to pick up jobs")
 		}

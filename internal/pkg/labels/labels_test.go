@@ -4,6 +4,8 @@
 package labels
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -48,6 +50,35 @@ func TestParse(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			args: " docker ",
+			want: &Label{
+				Name:   "docker",
+				Schema: "host",
+				Arg:    "",
+			},
+			wantErr: false,
+		},
+		{
+			args:    "",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			args:    " ",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			args:    ":",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			args:    "::",
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.args, func(t *testing.T) {
@@ -58,6 +89,67 @@ func TestParse(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.DeepEqual(t, got, tt.want)
+
+			// Assert roundtrip... more or less.
+			roundtrip, err := Parse(got.ToString())
+			require.NoError(t, err)
+			assert.DeepEqual(t, got, roundtrip)
+		})
+	}
+}
+
+func TestParseLabels(t *testing.T) {
+	label := func(s string) *Label {
+		l, err := Parse(s)
+		require.NoError(t, err)
+		return l
+	}
+
+	tests := []struct {
+		args    []string
+		want    Labels
+		wantErr bool
+	}{
+		{
+			args:    []string{"docker"},
+			want:    Labels{label("docker")},
+			wantErr: false,
+		},
+		{
+			args:    []string{"docker", "other"},
+			want:    Labels{label("docker"), label("other")},
+			wantErr: false,
+		},
+		{
+			args:    []string{""},
+			want:    Labels{},
+			wantErr: true,
+		},
+		{
+			args:    []string{"", ":"},
+			want:    Labels{},
+			wantErr: true,
+		},
+		{
+			args:    []string{"docker", ""},
+			want:    Labels{label("docker")},
+			wantErr: true,
+		},
+		{
+			args:    []string{"docker:docker://alpine:edge", "other"},
+			want:    Labels{label("docker:docker://alpine:edge"), label("other")},
+			wantErr: false,
+		},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d {%s}", i, strings.Join(tt.args, "|")), func(t *testing.T) {
+			got, err := ParseLabels(tt.args)
+			assert.DeepEqual(t, got, tt.want)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

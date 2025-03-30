@@ -115,12 +115,8 @@ func (r *registerInputs) validate() error {
 }
 
 func validateLabels(ls []string) error {
-	for _, label := range ls {
-		if _, err := labels.Parse(label); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err := labels.ParseLabels(ls)
+	return err
 }
 
 func (r *registerInputs) assignToNext(stage registerStage, value string, cfg *config.Config) registerStage {
@@ -153,19 +149,16 @@ func (r *registerInputs) assignToNext(stage registerStage, value string, cfg *co
 		r.RunnerName = value
 		// if there are some labels configured in config file, skip input labels stage
 		if len(cfg.Runner.Labels) > 0 {
-			ls := make([]string, 0, len(cfg.Runner.Labels))
-			for _, l := range cfg.Runner.Labels {
-				_, err := labels.Parse(l)
-				if err != nil {
-					log.WithError(err).Warnf("ignored invalid label %q", l)
-					continue
-				}
-				ls = append(ls, l)
+			ls, err := labels.ParseLabels(cfg.Runner.Labels)
+			if err != nil {
+				log.WithError(err).Warn("ignored invalid labels")
 			}
+
 			if len(ls) == 0 {
 				log.Warn("no valid labels configured in config file, runner may not be able to pick up jobs")
 			}
-			r.Labels = ls
+
+			r.Labels = ls.ToStrings()
 			return StageWaitingForRegistration
 		}
 		return StageInputLabels

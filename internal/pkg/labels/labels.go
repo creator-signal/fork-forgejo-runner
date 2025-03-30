@@ -4,6 +4,7 @@
 package labels
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -20,23 +21,66 @@ type Label struct {
 	Arg    string
 }
 
+func (l *Label) ToString() string {
+	lbl := l.Name
+	if l.Schema != SchemeHost {
+		lbl += ":" + l.Schema
+		if l.Arg != "" {
+			lbl += ":" + l.Arg
+		}
+	}
+	return lbl
+}
+
 func Parse(str string) (*Label, error) {
+	str = strings.TrimSpace(str)
+	// Empty labels exist only to confuse
+	if len(str) == 0 {
+		return nil, errors.New("expected non-empty label")
+	}
+
 	splits := strings.SplitN(str, ":", 3)
 	label := &Label{
 		Name:   splits[0],
 		Schema: "host",
 		Arg:    "",
 	}
+
 	if len(splits) >= 2 {
 		label.Schema = splits[1]
 	}
 	if len(splits) >= 3 {
 		label.Arg = splits[2]
 	}
+
+	// An empty name is more likely a typo
+	if len(label.Name) == 0 {
+		return nil, fmt.Errorf("expected non-empty name for label: %s", str)
+	}
+
 	if label.Schema != SchemeHost && label.Schema != SchemeDocker && label.Schema != SchemeLXC {
 		return nil, fmt.Errorf("unsupported schema: %s", label.Schema)
 	}
 	return label, nil
+}
+
+func ParseLabels(strs []string) (Labels, error) {
+	errs := make([]error, 0)
+	ls := make(Labels, 0)
+	for _, l := range strs {
+		label, err := Parse(l)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		ls = append(ls, label)
+	}
+
+	if len(errs) > 0 {
+		return ls, errors.Join(errs...)
+	}
+
+	return ls, nil
 }
 
 type Labels []*Label
@@ -96,14 +140,7 @@ func (l Labels) Names() []string {
 func (l Labels) ToStrings() []string {
 	ls := make([]string, 0, len(l))
 	for _, label := range l {
-		lbl := label.Name
-		if label.Schema != "" {
-			lbl += ":" + label.Schema
-			if label.Arg != "" {
-				lbl += ":" + label.Arg
-			}
-		}
-		ls = append(ls, lbl)
+		ls = append(ls, label.ToString())
 	}
 	return ls
 }

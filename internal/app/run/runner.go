@@ -52,11 +52,9 @@ type RunnerInterface interface {
 }
 
 func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) *Runner {
-	ls := labels.Labels{}
-	for _, v := range reg.Labels {
-		if l, err := labels.Parse(v); err == nil {
-			ls = append(ls, l)
-		}
+	ls, err := labels.ParseLabels(reg.Labels)
+	if err != nil {
+		log.WithError(err).Warn("ignored invalid labels")
 	}
 
 	if cfg.Runner.Envs == nil {
