@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"gitea.com/gitea/act_runner/internal/pkg/labels"
 	"github.com/docker/docker/api/types/container"
 	"github.com/joho/godotenv"
 	"github.com/nektos/act/pkg/artifactcache"
@@ -60,6 +61,7 @@ type executeArgs struct {
 	network               string
 	enableIPv6            bool
 	githubInstance        string
+	labels                []string
 }
 
 // WorkflowsPath returns path to workflow file(s)
@@ -377,6 +379,19 @@ func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command
 			execArgs.artifactServerPath = tempDir
 		}
 
+		platformPicker := func(_ []string) string {
+			return execArgs.image
+		}
+
+		if len(execArgs.labels) > 0 {
+			ls, err := labels.ParseLabels(execArgs.labels)
+			if err != nil {
+				log.WithError(err).Warn("ignored invalid labels")
+			}
+
+			platformPicker = ls.PickPlatform
+		}
+
 		// run the plan
 		config := &runner.Config{
 			Workdir:               execArgs.Workdir(),
@@ -410,10 +425,8 @@ func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command
 			ContainerNetworkMode:       container.NetworkMode(execArgs.network),
 			ContainerNetworkEnableIPv6: execArgs.enableIPv6,
 			DefaultActionInstance:      execArgs.defaultActionsURL,
-			PlatformPicker: func(_ []string) string {
-				return execArgs.image
-			},
-			ValidVolumes: []string{"**"}, // All volumes are allowed for `exec` command
+			PlatformPicker:             platformPicker,
+			ValidVolumes:               []string{"**"}, // All volumes are allowed for `exec` command
 		}
 
 		config.Env["ACT_EXEC"] = "true"
@@ -492,6 +505,7 @@ func loadExecCmd(ctx context.Context) *cobra.Command {
 	execCmd.PersistentFlags().StringVarP(&execArg.network, "network", "", "", "Specify the network to which the container will connect")
 	execCmd.PersistentFlags().BoolVarP(&execArg.enableIPv6, "enable-ipv6", "6", false, "Create network with IPv6 enabled.")
 	execCmd.PersistentFlags().StringVarP(&execArg.githubInstance, "gitea-instance", "", "", "Gitea instance to use.")
+	execCmd.Flags().StringArrayVarP(&execArg.labels, "labels", "", []string{}, "Runner labels for use during execution. (example: --labels 'alpine:docker://alpine:edge')")
 
 	return execCmd
 }
