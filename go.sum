@@ -1,5 +1,5 @@
-code.forgejo.org/achyrva/act v1.25.2-0.20250403135932-50719ccfca00 h1:U2nkWsu5RRCL/xaK2jVPNuzfOxOHFMXn+Woi5SrSQy0=
-code.forgejo.org/achyrva/act v1.25.2-0.20250403135932-50719ccfca00/go.mod h1:tSg5CAHnXp4WLNkMa2e9AEDSujMxKzNM4bF2pvvRCYQ=
+code.forgejo.org/achyrva/act v1.25.2-0.20250403143907-f5a5d5481a9f h1:tpBdPIc4otOJk/cvLvSqSMzm4VLEk5qj5D/kZ6xHAAk=
+code.forgejo.org/achyrva/act v1.25.2-0.20250403143907-f5a5d5481a9f/go.mod h1:tSg5CAHnXp4WLNkMa2e9AEDSujMxKzNM4bF2pvvRCYQ=
 code.gitea.io/actions-proto-go v0.4.1 h1:l0EYhjsgpUe/1VABo2eK7zcoNX2W44WOnb0MSLrKfls=
 code.gitea.io/actions-proto-go v0.4.1/go.mod h1:mn7Wkqz6JbnTOHQpot3yDeHx+O5C9EGhMEE+htvHBas=
 code.gitea.io/gitea-vet v0.2.3 h1:gdFmm6WOTM65rE8FUBTRzeQZYzXePKSSB1+r574hWwI=
