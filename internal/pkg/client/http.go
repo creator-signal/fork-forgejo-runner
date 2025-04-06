@@ -18,6 +18,7 @@ func getHTTPClient(endpoint string, insecure bool) *http.Client {
 	if strings.HasPrefix(endpoint, "https://") && insecure {
 		return &http.Client{
 			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,
 				},
