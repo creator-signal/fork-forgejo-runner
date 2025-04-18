@@ -30,10 +30,10 @@ services:
       - docker_certs:/certs
 
   forgejo:
-    image: codeberg.org/forgejo/forgejo:9.0
+    image: codeberg.org/forgejo/forgejo:11.0
     command: >-
       bash -c '
-      /bin/s6-svscan /etc/s6 &
+      /usr/bin/s6-svscan /etc/s6 &
       sleep 10 ;
       su -c "forgejo forgejo-cli actions register --secret {SHARED_SECRET}" git ;
       su -c "forgejo admin user create --admin --username root --password {ROOT_PASSWORD} --email root@example.com" git ;
@@ -51,7 +51,7 @@ services:
       - 8080:3000
 
   runner-register:
-    image: code.forgejo.org/forgejo/runner:6.0.1
+    image: code.forgejo.org/forgejo/runner:6.3.1
     links:
       - docker-in-docker
       - forgejo
@@ -77,7 +77,7 @@ services:
       '
 
   runner-daemon:
-    image: code.forgejo.org/forgejo/runner:6.0.1
+    image: code.forgejo.org/forgejo/runner:6.3.1
     links:
       - docker-in-docker
       - forgejo
