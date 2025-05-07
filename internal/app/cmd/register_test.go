@@ -6,6 +6,8 @@ package cmd
 import (
 	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCommaSplit(t *testing.T) {
@@ -28,4 +30,13 @@ func TestCommaSplit(t *testing.T) {
 			t.Errorf("commaSplit(%q) = %v, want %v", test.input, result, test.expected)
 		}
 	}
+}
+
+func TestRegisterNonInteractiveReturnsLabelValidationError(t *testing.T) {
+	err := registerNoInteractive(t.Context(), "", &registerArgs{
+		Labels:       "label:invalid",
+		Token:        "token",
+		InstanceAddr: "http://localhost:3000",
+	})
+	assert.Error(t, err, "unsupported schema: invalid")
 }
