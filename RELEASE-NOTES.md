@@ -1,5 +1,13 @@
 # Release Notes
 
+## 6.3.2
+
+* [Upgrade lxc-systemd using a URL instead of a version](https://code.forgejo.org/forgejo/runner/pulls/520).
+* [Correctly use HTTP proxy if insecure is true](https://code.forgejo.org/forgejo/runner/pulls/535).
+* [Update golang.org/x/crypto](https://code.forgejo.org/forgejo/runner/pulls/562) to a version that is not susceptible to DOS attack.
+* [Update golang.org/x/net](https://code.forgejo.org/forgejo/runner/pulls/563) to a version with several security fixes.
+* [Update code.forgejo.org/forgejo/act](https://code.forgejo.org/forgejo/runner/pulls/571) to v1.26.0. This brings [several security updates](https://code.forgejo.org/forgejo/act/compare/v1.25.1...v1.26.0), as well as [offline action caching](https://code.forgejo.org/forgejo/act/commit/613090ecd71f75e6200ded4c9d5424b26a792755).
+
 ## 6.3.1
 
 * [Fixed an issue which caused data races and timeouts](https://code.forgejo.org/forgejo/act/pulls/109) in certain cases, which would [cause cache storing and retrieval to fail](https://code.forgejo.org/forgejo/runner/issues/509).
