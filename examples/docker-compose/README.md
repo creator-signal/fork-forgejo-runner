@@ -36,7 +36,7 @@ Create a shared secret with:
 openssl rand -hex 20
 ```
 
-Replace all occurences of {SHARED_SECRET} in
+Replace all occurrences of {SHARED_SECRET} in
 [compose-forgejo-and-runner.yml](compose-forgejo-and-runner.yml).
 
 > **NOTE:** a token obtained from the Forgejo web interface cannot be used as a shared secret.

@@ -6,7 +6,7 @@
 #
 #   openssl rand -hex 20
 #
-# Replace all occurences of {SHARED_SECRET} below with the output.
+# Replace all occurrences of {SHARED_SECRET} below with the output.
 #
 # NOTE: a token obtained from the Forgejo web interface cannot be used
 #       as a shared secret.
