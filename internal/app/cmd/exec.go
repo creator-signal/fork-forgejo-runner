@@ -256,7 +256,7 @@ func runExecList(ctx context.Context, planner model.WorkflowPlanner, execArgs *e
 	var filterEventName string
 
 	if len(execArgs.event) > 0 {
-		log.Infof("Using chosed event for filtering: %s", execArgs.event)
+		log.Infof("Using chosen event for filtering: %s", execArgs.event)
 		filterEventName = execArgs.event
 	} else if execArgs.autodetectEvent {
 		// collect all events from loaded workflows
@@ -316,7 +316,7 @@ func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command
 		events := planner.GetEvents()
 
 		if len(execArgs.event) > 0 {
-			log.Infof("Using chosed event for filtering: %s", execArgs.event)
+			log.Infof("Using chosen event for filtering: %s", execArgs.event)
 			eventName = execArgs.event
 		} else if len(events) == 1 && len(events[0]) > 0 {
 			log.Infof("Using the only detected workflow event: %s", events[0])
