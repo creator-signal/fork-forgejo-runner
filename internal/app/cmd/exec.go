@@ -7,6 +7,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -50,8 +51,8 @@ type executeArgs struct {
 	containerCapDrop      []string
 	containerOptions      string
 	artifactServerPath    string
-	artifactServerAddr    string
-	artifactServerPort    string
+	artifactServerAddr    net.IP
+	artifactServerPort    uint16
 	noSkipCheckout        bool
 	debug                 bool
 	dryrun                bool
@@ -359,12 +360,8 @@ func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command
 		log.Infof("cache handler listens on: %v", handler.ExternalURL())
 		execArgs.cacheHandler = handler
 
-		if len(execArgs.artifactServerAddr) == 0 {
-			ip := common.GetOutboundIP()
-			if ip == nil {
-				return fmt.Errorf("unable to determine outbound IP address")
-			}
-			execArgs.artifactServerAddr = ip.String()
+		if execArgs.artifactServerAddr == nil {
+			return fmt.Errorf("unable to determine outbound IP address")
 		}
 
 		if len(execArgs.artifactServerPath) == 0 {
@@ -400,8 +397,8 @@ func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command
 			ContainerOptions:      execArgs.containerOptions,
 			AutoRemove:            true,
 			ArtifactServerPath:    execArgs.artifactServerPath,
-			ArtifactServerPort:    execArgs.artifactServerPort,
-			ArtifactServerAddr:    execArgs.artifactServerAddr,
+			ArtifactServerAddr:    execArgs.artifactServerAddr.String(),
+			ArtifactServerPort:    strconv.FormatUint(uint64(execArgs.artifactServerPort), 10),
 			NoSkipCheckout:        execArgs.noSkipCheckout,
 			// PresetGitHubContext:        preset,
 			// EventJSON:                  string(eventJSON),
@@ -436,8 +433,10 @@ func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command
 			return err
 		}
 
-		artifactCancel := artifacts.Serve(ctx, execArgs.artifactServerPath, execArgs.artifactServerAddr, execArgs.artifactServerPort)
-		log.Debugf("artifacts server started at %s:%s", execArgs.artifactServerPath, execArgs.artifactServerPort)
+		artifactCancel := artifacts.Serve(ctx, config.ArtifactServerPath, config.ArtifactServerAddr, config.ArtifactServerPort)
+		log.Debugf("artifacts server started at http://%s",
+			net.JoinHostPort(config.ArtifactServerAddr, config.ArtifactServerPort),
+		)
 
 		ctx = common.WithDryrun(ctx, execArgs.dryrun)
 		executor := r.NewPlanExecutor(plan).Finally(func(ctx context.Context) error {
@@ -482,8 +481,8 @@ func loadExecCmd(ctx context.Context) *cobra.Command {
 	execCmd.Flags().StringArrayVarP(&execArg.containerCapDrop, "container-cap-drop", "", []string{}, "kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)")
 	execCmd.Flags().StringVarP(&execArg.containerOptions, "container-opts", "", "", "container options")
 	execCmd.PersistentFlags().StringVarP(&execArg.artifactServerPath, "artifact-server-path", "", ".", "Defines the path where the artifact server stores uploads and retrieves downloads from. If not specified the artifact server will not start.")
-	execCmd.PersistentFlags().StringVarP(&execArg.artifactServerAddr, "artifact-server-addr", "", "", "Defines the address where the artifact server listens")
-	execCmd.PersistentFlags().StringVarP(&execArg.artifactServerPort, "artifact-server-port", "", "34567", "Defines the port where the artifact server listens (will only bind to localhost).")
+	execCmd.PersistentFlags().IPVarP(&execArg.artifactServerAddr, "artifact-server-addr", "", common.GetOutboundIP(), "Defines the address where the artifact server listens")
+	execCmd.PersistentFlags().Uint16VarP(&execArg.artifactServerPort, "artifact-server-port", "", 34567, "Defines the port where the artifact server listens (will only bind to localhost).")
 	execCmd.PersistentFlags().StringVarP(&execArg.defaultActionsURL, "default-actions-url", "", "https://code.forgejo.org", "Defines the default base url of the action.")
 	execCmd.PersistentFlags().BoolVarP(&execArg.noSkipCheckout, "no-skip-checkout", "", false, "Do not skip actions/checkout")
 	execCmd.PersistentFlags().BoolVarP(&execArg.debug, "debug", "d", false, "enable debug log")
