@@ -317,6 +317,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
 		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
 		{workdir, "no-panic-on-invalid-composite-action", "push", "missing steps in composite action", platforms, secrets},
+		{workdir, "stepsummary", "push", "", platforms, secrets},
 		{workdir, "tool-cache", "push", "", platforms, secrets},
 
 		// services
