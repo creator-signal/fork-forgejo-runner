@@ -1,5 +1,5 @@
-code.forgejo.org/forgejo/act v1.26.1-0.20250609110214-349d9f391a97 h1:Hbs+pIzpPKbj7IOi5S/0uQj4NwBlm60SCEqVlU/cdck=
-code.forgejo.org/forgejo/act v1.26.1-0.20250609110214-349d9f391a97/go.mod h1:teA+COMk61h+eB6Rsg5pEziZtQ2IAyzWHeTyFFwGbXw=
+code.forgejo.org/forgejo/act v1.26.1-0.20250611073154-812ee4a09ad0 h1:J/EwW+/x8326Ll+nHNB4yqNthvP9Onffve/GIOzAqC4=
+code.forgejo.org/forgejo/act v1.26.1-0.20250611073154-812ee4a09ad0/go.mod h1:9H7ZG+2zCRSuHHvElyQjSk08YrC+WsG2Bm90Z4XvLUc=
 code.gitea.io/actions-proto-go v0.4.1 h1:l0EYhjsgpUe/1VABo2eK7zcoNX2W44WOnb0MSLrKfls=
 code.gitea.io/actions-proto-go v0.4.1/go.mod h1:mn7Wkqz6JbnTOHQpot3yDeHx+O5C9EGhMEE+htvHBas=
 code.gitea.io/gitea-vet v0.2.3 h1:gdFmm6WOTM65rE8FUBTRzeQZYzXePKSSB1+r574hWwI=
@@ -27,8 +27,8 @@ github.com/avast/retry-go/v4 v4.6.1 h1:VkOLRubHdisGrHnTu89g08aQEWEgRU7LVEop3GbIc
 github.com/avast/retry-go/v4 v4.6.1/go.mod h1:V6oF8njAwxJ5gRo1Q7Cxab24xs5NCWZBeaHHBklR8mA=
 github.com/cenkalti/backoff/v4 v4.2.1 h1:y4OZtCnogmCPw98Zjyt5a6+QwPLGkiQsYW5oUqylYbM=
 github.com/cenkalti/backoff/v4 v4.2.1/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
-github.com/cloudflare/circl v1.3.7 h1:qlCDlTPz2n9fu58M0Nh1J/JzcFpfgkFHHX3O35r5vcU=
-github.com/cloudflare/circl v1.3.7/go.mod h1:sRTcRWXGLrKw6yIGJ+l7amYJFfAXbZG0kBSc8r4zxgA=
+github.com/cloudflare/circl v1.6.1 h1:zqIqSPIndyBh1bjLVVDHMPpVKqp8Su/V+6MeDzzQBQ0=
+github.com/cloudflare/circl v1.6.1/go.mod h1:uddAzsPgqdMAYatqJ0lsjX1oECcQLIlRpzZh3pJrofs=
 github.com/containerd/errdefs v0.3.0 h1:FSZgGOeK4yuT/+DnF07/Olde/q4KBoMsaamhXxIMDp4=
 github.com/containerd/errdefs v0.3.0/go.mod h1:+YBYIdtsnF4Iw6nWZhJcqGSg/dwvV7tyJ/kCkyJ2k+M=
 github.com/containerd/errdefs/pkg v0.3.0 h1:9IKJ06FvyNlexW690DXuQNx2KA2cUJXx151Xdx3ZPPE=
