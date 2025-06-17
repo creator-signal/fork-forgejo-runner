@@ -1,5 +1,5 @@
-code.forgejo.org/earl-warren/act v0.0.0-20250617064703-e3bf14e8631a h1:5OzrIC5abZG7PCqG89PaWhbcPCpacWW/7tNzsQfMFVo=
-code.forgejo.org/earl-warren/act v0.0.0-20250617064703-e3bf14e8631a/go.mod h1:dFuiwAmD5vyrzecysHB2kL/GM3wRpoVPl+WdbCTC8Bs=
+code.forgejo.org/earl-warren/act v0.0.0-20250617064915-990bf9bcd727 h1:Hx9JD108mdwZznpIn9Ust12SnSCMPj6ME1G9zk9abJk=
+code.forgejo.org/earl-warren/act v0.0.0-20250617064915-990bf9bcd727/go.mod h1:dFuiwAmD5vyrzecysHB2kL/GM3wRpoVPl+WdbCTC8Bs=
 code.gitea.io/actions-proto-go v0.4.1 h1:l0EYhjsgpUe/1VABo2eK7zcoNX2W44WOnb0MSLrKfls=
 code.gitea.io/actions-proto-go v0.4.1/go.mod h1:mn7Wkqz6JbnTOHQpot3yDeHx+O5C9EGhMEE+htvHBas=
 code.gitea.io/gitea-vet v0.2.3 h1:gdFmm6WOTM65rE8FUBTRzeQZYzXePKSSB1+r574hWwI=
