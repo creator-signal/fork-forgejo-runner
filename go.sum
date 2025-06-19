@@ -1,5 +1,5 @@
-code.forgejo.org/forgejo/act v1.28.0 h1:96njNC7C1YNyjWq5OWvLZMF/nw0PMthzIA8Nwbnn7jo=
-code.forgejo.org/forgejo/act v1.28.0/go.mod h1:dFuiwAmD5vyrzecysHB2kL/GM3wRpoVPl+WdbCTC8Bs=
+code.forgejo.org/achyrva/act v1.26.1-0.20250619141643-06199dffd014 h1:BY/m+917mcIx0WYfmt/rSzffIX+VQaFu0sqUxORW+ao=
+code.forgejo.org/achyrva/act v1.26.1-0.20250619141643-06199dffd014/go.mod h1:HFDFrXPrqfM9aH2RCnMiBdo/3ThxDmZjp58InPjGOfo=
 code.gitea.io/actions-proto-go v0.4.1 h1:l0EYhjsgpUe/1VABo2eK7zcoNX2W44WOnb0MSLrKfls=
 code.gitea.io/actions-proto-go v0.4.1/go.mod h1:mn7Wkqz6JbnTOHQpot3yDeHx+O5C9EGhMEE+htvHBas=
 code.gitea.io/gitea-vet v0.2.3 h1:gdFmm6WOTM65rE8FUBTRzeQZYzXePKSSB1+r574hWwI=
@@ -293,8 +293,8 @@ golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8T
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 google.golang.org/genproto v0.0.0-20231016165738-49dd2c1f3d0b h1:+YaDE2r2OG8t/z5qmsh7Y+XXwCbvadxxZ0YY6mTdrVA=
-google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f h1:2yNACc1O40tTnrsbk9Cv6oxiW8pxI/pXj0wRtdlYmgY=
-google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f/go.mod h1:Uy9bTZJqmfrw2rIBxgGLnamc78euZULUBrLZ9XTITKI=
+google.golang.org/genproto/googleapis/api v0.0.0-20231016165738-49dd2c1f3d0b h1:CIC2YMXmIhYw6evmhPxBKJ4fmLbOFtXQN/GV3XOZR8k=
+google.golang.org/genproto/googleapis/api v0.0.0-20231016165738-49dd2c1f3d0b/go.mod h1:IBQ646DjkDkvUIsVq/cc03FUFQ9wbZu7yE396YcL870=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 h1:pPJltXNxVzT4pK9yD8vR9X75DaWYYmLGMsEvBfFQZzQ=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1/go.mod h1:UqMtugtsSgubUsoxbuAoiCXvqvErP7Gf0so0mK9tHxU=
 google.golang.org/grpc v1.67.0 h1:IdH9y6PF5MPSdAntIcpjQ+tXO41pcQsfZV2RxtQgVcw=

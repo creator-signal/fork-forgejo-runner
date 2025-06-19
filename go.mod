@@ -69,6 +69,7 @@ require (
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
+	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
@@ -104,4 +105,4 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-replace github.com/nektos/act => code.forgejo.org/forgejo/act v1.28.0
+replace github.com/nektos/act => code.forgejo.org/achyrva/act v1.26.1-0.20250619141643-06199dffd014
