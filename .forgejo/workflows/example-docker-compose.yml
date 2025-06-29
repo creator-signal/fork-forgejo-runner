@@ -8,6 +8,8 @@ on:
       - examples/docker-compose/**
       - .forgejo/workflows/example-docker-compose.yml
 
+enable-email-notifications: true
+
 jobs:
   example-docker-compose:
     if: github.repository_owner != 'forgejo-integration' && github.repository_owner != 'forgejo-experimental' && github.repository_owner != 'forgejo-release'

@@ -16,6 +16,8 @@ on:
       - .forgejo/workflows/build-release.yml
       - .forgejo/workflows/build-release-integration.yml
 
+enable-email-notifications: true
+
 jobs:
   release-simulation:
     runs-on: lxc-bookworm

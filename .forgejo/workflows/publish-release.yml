@@ -19,6 +19,8 @@ on:
     tags:
       - 'v*'
 
+enable-email-notifications: true
+
 jobs:
   publish:
     runs-on: lxc-bookworm

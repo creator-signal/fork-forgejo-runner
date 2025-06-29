@@ -5,6 +5,9 @@ on:
       - opened
       - synchronize
       - closed
+
+enable-email-notifications: true
+
 jobs:
   cascade:
     runs-on: docker

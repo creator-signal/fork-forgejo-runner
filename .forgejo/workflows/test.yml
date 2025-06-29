@@ -5,6 +5,8 @@ on:
       - 'main'
   pull_request:
 
+enable-email-notifications: true
+
 env:
   FORGEJO_HOST_PORT: 'forgejo:3000'
   FORGEJO_ADMIN_USER: 'root'

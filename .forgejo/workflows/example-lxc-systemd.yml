@@ -8,6 +8,8 @@ on:
       - examples/lxc-systemd/**
       - .forgejo/workflows/example-lxc-systemd.yml
 
+enable-email-notifications: true
+
 env:
   SERIAL: "30"
   LIFETIME: "60"
