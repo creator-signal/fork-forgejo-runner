@@ -20,8 +20,10 @@ trap "rm -fr $TMPDIR" EXIT
 : ${INPUTS_TOKEN:=}
 : ${INPUTS_FORGEJO:=https://code.forgejo.org}
 : ${INPUTS_LIFETIME:=7d}
-: ${INPUTS_LXC_HELPERS_VERSION:=1.0.3}
-: ${INPUTS_RUNNER_VERSION:=9.0.2}
+DEFAULT_LXC_HELPERS_VERSION=1.0.3 # renovate: datasource=forgejo-tags depName=forgejo/lxc-helpers
+: ${INPUTS_LXC_HELPERS_VERSION:=$DEFAULT_LXC_HELPERS_VERSION}
+DEFAULT_RUNNER_VERSION=9.0.2 # renovate: datasource=forgejo-releases depName=forgejo/runner
+: ${INPUTS_RUNNER_VERSION:=$DEFAULT_RUNNER_VERSION}
 
 : ${KILL_AFTER:=21600} # 6h == 21600
 NODEJS_VERSION=20
