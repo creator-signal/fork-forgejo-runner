@@ -82,7 +82,7 @@ container:
   enable_ipv6: false
   # Whether to use privileged mode or not when launching task containers (privileged mode is required for Docker-in-Docker).
   privileged: false
-  # And other options to be used when the container is started (eg, --add-host=my.forgejo.url:host-gateway).
+  # And other options to be used when the container is started (eg, --volume /etc/ssl/certs:/etc/ssl/certs:ro).
   options:
   # The parent directory of a job's working directory.
   # If it's empty, /workspace will be used.
@@ -92,7 +92,7 @@ container:
   # For example, if you only allow containers to mount the `data` volume and all the json files in `/src`, you should change the config to:
   # valid_volumes:
   #   - data
-  #   - /src/*.json
+  #   - /etc/ssl/certs
   # If you want to allow any volume, please use the following configuration:
   # valid_volumes:
   #   - '**'
