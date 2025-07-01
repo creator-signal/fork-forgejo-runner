@@ -8,6 +8,16 @@ A daemon that connects to a Forgejo instance and runs jobs for continuous integr
 
 When filing a bug in [the issue tracker](https://code.forgejo.org/forgejo/runner/issues), it is very helpful to propose a pull request [in the end-to-end tests](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions) repository that adds a reproducer. It will fail the CI and unambiguously demonstrate that the problem exists. In most cases it is enough to add a workflow ([see the echo example](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions/example-echo)). For more complicated cases it is also possible to add a runner config file as well as shell scripts to setup and teardown the test case ([see the service example](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions/example-service)).
 
+# Architectures & OS
+
+The Forgejo runner is supported and tested on `amd64` and `arm64` ([binaries](https://code.forgejo.org/forgejo/runner/releases) and [containers](https://code.forgejo.org/forgejo/-/packages/container/runner/versions)) on Operating Systems based on the Linux kernel.
+
+Work may be in progress for other architectures and you can browse the corresponding issues to figure out how they make progress. If you are interested in helping them move forward, open an issue. The most challenging part is to setup and maintain a native runner long term. Once it is supported by Forgejo, the runner is expected to be available 24/7 which can be challenging. Otherwise debugging any architecture specific problem won't be possible.
+
+- [linux-s390x](https://code.forgejo.org/forgejo/runner/issues?labels=969)
+- [linux-powerpc64le](https://code.forgejo.org/forgejo/runner/issues?labels=968)
+- [Windows](https://code.forgejo.org/forgejo/runner/issues?labels=365)
+
 # Hacking
 
 The Forgejo runner depends on [a fork of ACT](https://code.forgejo.org/forgejo/act) and is a dependency of the [setup-forgejo action](https://code.forgejo.org/actions/setup-forgejo). See [the full dependency graph](https://code.forgejo.org/actions/cascading-pr/#forgejo-dependencies) for a global view.
