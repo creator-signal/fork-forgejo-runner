@@ -16,6 +16,7 @@ Work may be in progress for other architectures and you can browse the correspon
 
 - [linux-s390x](https://code.forgejo.org/forgejo/runner/issues?labels=969)
 - [linux-powerpc64le](https://code.forgejo.org/forgejo/runner/issues?labels=968)
+- [linux-riscv64](https://code.forgejo.org/forgejo/runner/issues?labels=970)
 - [Windows](https://code.forgejo.org/forgejo/runner/issues?labels=365)
 
 # Hacking
