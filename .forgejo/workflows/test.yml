@@ -87,6 +87,8 @@ jobs:
         with:
           name: forgejo-runner
 
+      - run: chmod +x forgejo-runner
+
       - name: install docker
         run: |
           mkdir /etc/docker
@@ -113,10 +115,15 @@ jobs:
       - name: forgejo-runner exec --enable-ipv6
         run: |
           set -x
-          chmod +x forgejo-runner
           ./forgejo-runner exec --enable-ipv6 --workflows .forgejo/testdata/ipv6.yml
           if ./forgejo-runner exec --workflows .forgejo/testdata/ipv6.yml >& /tmp/out ; then
              cat /tmp/out
              echo "IPv6 not enabled, should fail"
              exit 1
           fi
+
+      - name: forgejo-runner exec --var
+        run: |
+          set -x
+          ./forgejo-runner exec --var MY_VAR=testvariable --workflows .forgejo/testdata/var.yml |& tee /tmp/var.out
+          grep --quiet 'Success - Main echo "VAR -> testvariable"' /tmp/var.out

@@ -1,0 +1,9 @@
+---
+on: push
+jobs:
+  var:
+    runs-on: docker
+    container:
+      image: code.forgejo.org/oci/debian:bookworm
+    steps:
+      - run: echo "VAR -> ${{ vars.MY_VAR }}"
