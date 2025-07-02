@@ -22,6 +22,13 @@ Work may be in progress for other architectures and you can browse the correspon
 
 The Forgejo runner depends on [a fork of ACT](https://code.forgejo.org/forgejo/act) and is a dependency of the [setup-forgejo action](https://code.forgejo.org/actions/setup-forgejo). See [the full dependency graph](https://code.forgejo.org/actions/cascading-pr/#forgejo-dependencies) for a global view.
 
+## Building
+
+- Install [Go](https://go.dev/doc/install) and `make(1)`
+- `make build`
+
+The [test workflow](.forgejo/workflows/test.yml) is a full example that builds the binary, runs the tests and launches the runner binary against a live Forgejo instance.
+
 ## Local debug
 
 The repositories are checked out in the same directory:
@@ -98,7 +105,7 @@ jobs:
   ls:
     runs-on: docker
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: |
           ls ${{ github.workspace }}
 ```
