@@ -1,6 +1,21 @@
 # Release Notes
 
+## 8.0.0 (not published yet)
+
+* Breaking change: workflows files go through a [schema validation](https://code.forgejo.org/forgejo/act/pulls/170) and will not run if they do not pass. Some existing workflows may have syntax errors that did not prevent them from running with versions 6.4.0 and below but they will no longer work with versions 7.0.0 and above. If the error is not immediately obvious, please file an issue with a copy of the failed workflow and revert to using version 6.4.0 until it is resolved.
+
+## 7.0.0
+
+* Breaking change: [forgejo-runner exec --forgejo-instance replaces --gitea-instance](https://code.forgejo.org/forgejo/runner/pulls/652).
+* [fix a v6.4.0 regression that fail a job when if: false](https://code.forgejo.org/forgejo/runner/issues/660).
+* [secrets that contain multiple lines are masked from the output](https://code.forgejo.org/forgejo/runner/pulls/661).
+* [support for forgejo-runner exec --var](https://code.forgejo.org/forgejo/runner/pulls/645).
+* [do not force WORKING_DIR in service containers](https://code.forgejo.org/forgejo/runner/issues/304).
+* [allow downgrading node via setup-node without breaking later actions](https://code.forgejo.org/forgejo/act/pulls/168).
+
 ## 6.4.0
+
+**Do not use, it [contains a regression](https://code.forgejo.org/forgejo/runner/issues/660) fixed in 7.0.0.**
 
 * [Update code.forgejo.org/forgejo/act](https://code.forgejo.org/forgejo/runner/pulls/571) to v1.26.0. This brings [several security updates](https://code.forgejo.org/forgejo/act/compare/v1.25.1...v1.26.0), as well as [offline action caching](https://code.forgejo.org/forgejo/act/commit/613090ecd71f75e6200ded4c9d5424b26a792755).
 * [Remove unused x-runner-version header](https://code.forgejo.org/forgejo/runner/pulls/496).
