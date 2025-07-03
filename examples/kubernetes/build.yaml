@@ -1,0 +1,44 @@
+name: build
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: docker
+    steps:
+      - name: Checkout the repo
+        uses: https://data.forgejo.org/actions/checkout@v4
+
+      - name: Extract the current airflow version from the Dockerfile and set it in a variable name airflow_version
+        id: extract_airflow_version
+        run: echo "::set-output name=airflow_version::$(grep -oP '(?<=FROM apache/airflow:)[0-9]+\.[0-9]+\.[0-9]+' airflow/Dockerfile)"
+
+      - name: Add variables
+        id: add-vars
+        run: |
+          echo "::set-output name=registry::${GITHUB_SERVER_URL#*//}"  # built-in env variable
+          echo "::set-output name=repository::${GITHUB_REPOSITORY}"    # built-in env variable
+          echo "::set-output name=app::airflow"
+          echo "::set-output name=context::airflow"                    # Dockerfile is in airflow folder, so context is airflow folder not .
+          echo "::set-output name=dockerfile::airflow/Dockerfile"      # Dockerfile path
+          echo "::set-output name=tag::${{ steps.extract_airflow_version.outputs.airflow_version }}-${{ github.sha}}"
+
+      - name: Docker CLI installation
+        run: |
+          apt update
+          apt install -y ca-certificates curl
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sh get-docker.sh
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.add-vars.outputs.registry }}
+          username: ${{ secrets.USERNAME_WRITE_REPOSITORY }}
+          password: ${{ secrets.PASSWORD_WRITE_REPOSITORY }}
+
+      - name: Image build
+        run: docker build -f ${{ steps.add-vars.outputs.dockerfile }} -t ${{ steps.add-vars.outputs.registry }}/${{ steps.add-vars.outputs.repository }}:${{ steps.add-vars.outputs.app }}-${{ steps.add-vars.outputs.tag }} ${{ steps.add-vars.outputs.context }}
+
+      - name: Image push to registry
+        run: docker push ${{steps.add-vars.outputs.registry }}/${{steps.add-vars.outputs.repository }}:${{steps.add-vars.outputs.app }}-${{ steps.add-vars.outputs.tag }}

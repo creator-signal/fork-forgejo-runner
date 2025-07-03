@@ -3,43 +3,58 @@
 # Alternatively, create this with
 # kubectl create secret generic runner-secret --from-literal=token=your_offline_token_here
 apiVersion: v1
-stringData:
-  token: your_offline_secret_here
 kind: Secret
 metadata:
   name: runner-secret
+stringData:
+  token: your_offline_secret_here # Replace with your Forgejo offline registration token
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: forgejo-runner
   labels:
     app: forgejo-runner
-  name: forgejo-runner
+    app.kubernetes.io/component: forgejo-runner
+    app.kubernetes.io/instance: forgejo-runner
+    app.kubernetes.io/managed-by: Kustomize
+    app.kubernetes.io/name: forgejo-runner
+  annotations:
+    argocd.argoproj.io/sync-wave: '1'
 spec:
-  # Two replicas means that if one is busy, the other can pick up jobs.
   replicas: 2
   selector:
     matchLabels:
       app: forgejo-runner
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
+      name: forgejo-runner
       labels:
         app: forgejo-runner
+        app.kubernetes.io/component: forgejo-runner
+        app.kubernetes.io/instance: forgejo-runner
+        app.kubernetes.io/managed-by: Kustomize
+        app.kubernetes.io/name: forgejo-runner
     spec:
+      automountServiceAccountToken: false
       restartPolicy: Always
-      volumes:
-      - name: docker-certs
-        emptyDir: {}
-      - name: runner-data
-        emptyDir: {}
-      # Initialise our configuration file using offline registration
-      # https://forgejo.org/docs/v1.21/admin/actions/#offline-registration
       initContainers:
         - name: runner-register
-          image: code.forgejo.org/forgejo/runner:6.0.1
-          command: ["forgejo-runner", "register", "--no-interactive", "--token", $(RUNNER_SECRET), "--name", $(RUNNER_NAME), "--instance", $(FORGEJO_INSTANCE_URL)]
+          image: code.forgejo.org/forgejo/runner:6.4.0
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+              while : ; do
+                forgejo-runner register --no-interactive --token $(RUNNER_SECRET) --name $(RUNNER_NAME) --instance $(FORGEJO_INSTANCE_URL) && break ;
+                sleep 1 ;
+              done ;
+              forgejo-runner generate-config > /data/config.yml ;
+              sed -i -e "s|network: .*|network: host|" config.yml ;
+              sed -i -e "s|^  envs:$$|  envs:\n    DOCKER_HOST: tcp://localhost:2376\n    DOCKER_TLS_VERIFY: 1\n    DOCKER_CERT_PATH: /certs/client|" config.yml ;
+              sed -i -e "s|^  options:|  options: -v /certs/client:/certs/client|" config.yml ;
+              sed -i -e "s|  valid_volumes: \[\]$$|  valid_volumes:\n    - /certs/client|" config.yml
           env:
             - name: RUNNER_NAME
               valueFrom:
@@ -51,37 +66,98 @@ spec:
                   name: runner-secret
                   key: token
             - name: FORGEJO_INSTANCE_URL
-              value: http://forgejo-http.forgejo.svc.cluster.local:3000
+              value: https://my-forgejo.fr # Replace with your Forgejo instance URL
           resources:
             limits:
-              cpu: "0.50"
-              memory: "64Mi"
+              cpu: '0.5'
+              ephemeral-storage: 100Mi
+              memory: 64Mi
+            requests:
+              cpu: 100m
+              ephemeral-storage: '0'
+              memory: 64Mi
           volumeMounts:
             - name: runner-data
               mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
       containers:
-      - name: runner
-        image: code.forgejo.org/forgejo/runner:6.0.1
-        command: ["sh", "-c", "while ! nc -z localhost 2376 </dev/null; do echo 'waiting for docker daemon...'; sleep 5; done; forgejo-runner daemon"]
-        env:
-        - name: DOCKER_HOST
-          value: tcp://localhost:2376
-        - name: DOCKER_CERT_PATH
-          value: /certs/client
-        - name: DOCKER_TLS_VERIFY
-          value: "1"
-        volumeMounts:
+        - name: runner
+          image: code.forgejo.org/forgejo/runner:6.4.0
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+              while ! nc -z localhost 2376 </dev/null ; do
+                echo 'waiting for docker daemon...' ;
+                sleep 5 ;
+                done ;
+              forgejo-runner --config config.yml daemon
+          env:
+            - name: DOCKER_HOST
+              value: tcp://localhost:2376
+            - name: DOCKER_CERT_PATH
+              value: /certs/client
+            - name: DOCKER_TLS_VERIFY
+              value: '1'
+          resources:
+            limits:
+              cpu: '1'
+              ephemeral-storage: 3Gi
+              memory: 4Gi
+            requests:
+              cpu: 100m
+              ephemeral-storage: '0'
+              memory: 64Mi
+          volumeMounts:
+            - name: docker-certs
+              mountPath: /certs
+            - name: runner-data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+        - name: daemon
+          image: docker.io/docker:28.3.0-dind
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: /certs
+          resources:
+            limits:
+              cpu: '1'
+              ephemeral-storage: 3Gi
+              memory: 4Gi
+            requests:
+              cpu: 100m
+              ephemeral-storage: '0'
+              memory: 64Mi
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: docker-certs
+              mountPath: /certs
+      volumes:
         - name: docker-certs
-          mountPath: /certs
+          emptyDir: {}
         - name: runner-data
-          mountPath: /data
-      - name: daemon
-        image: docker:27.4.1-dind
-        env:
-        - name: DOCKER_TLS_CERTDIR
-          value: /certs
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - name: docker-certs
-          mountPath: /certs
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
