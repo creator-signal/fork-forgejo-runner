@@ -13,6 +13,8 @@ WINDOWS_ARCHS ?= windows/amd64
 GO_FMT_FILES := $(shell find . -type f -name "*.go" ! -name "generated.*")
 GOFILES := $(shell find . -type f -name "*.go" -o -name "go.mod" ! -name "generated.*")
 
+MOCKERY_PACKAGE ?= github.com/vektra/mockery/v2@v2.26.1 # renovate: datasource=go
+
 DOCKER_IMAGE ?= gitea/act_runner
 DOCKER_TAG ?= nightly
 DOCKER_REF := $(DOCKER_IMAGE):$(DOCKER_TAG)
@@ -103,6 +105,10 @@ vet:
 	@echo "Running go vet..."
 	@$(GO) vet $(GO_PACKAGES_TO_VET)
 
+.PHONY: generate
+generate:
+	$(GO) generate ./...
+
 install: $(GOFILES)
 	$(GO) install -v -tags '$(TAGS)' -ldflags '$(EXTLDFLAGS)-s -w $(LDFLAGS)'
 
@@ -111,9 +117,9 @@ build: go-check $(EXECUTABLE)
 $(EXECUTABLE): $(GOFILES)
 	$(GO) build -v -tags 'netgo osusergo $(TAGS)' -ldflags '$(EXTLDFLAGS)-s -w $(LDFLAGS)' -o $@
 
-.PHONY: deps-backend
-deps-backend:
-	$(GO) mod download
+.PHONY: deps-tools
+deps-tools:
+	$(GO) install $(MOCKERY_PACKAGE)
 
 $(DIST_DIRS):
 	mkdir -p $(DIST_DIRS)

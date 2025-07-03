@@ -29,6 +29,13 @@ The Forgejo runner depends on [a fork of ACT](https://code.forgejo.org/forgejo/a
 
 The [test workflow](.forgejo/workflows/test.yml) is a full example that builds the binary, runs the tests and launches the runner binary against a live Forgejo instance.
 
+## Generate mocks
+
+- `make deps-tools`
+- `make generate`
+
+If there are changes, commit them to the repository.
+
 ## Local debug
 
 The repositories are checked out in the same directory:
