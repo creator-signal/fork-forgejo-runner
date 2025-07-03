@@ -1,6 +1,10 @@
 name: build
 
-on: [push]
+on:
+  push:
+    paths:
+      - airflow/Dockerfile       # Trigger only if Dockerfile is changed
+      - airflow/requirements.txt # Trigger only if requirements.txt is changed
 
 jobs:
   build:
