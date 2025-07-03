@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
+	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"github.com/nektos/act/pkg/model"
 	"gopkg.in/yaml.v3"
 )

@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.10
 
 require (
-	code.gitea.io/actions-proto-go v0.4.1
+	code.forgejo.org/forgejo/actions-proto v0.5.1
 	code.gitea.io/gitea-vet v0.2.3
 	connectrpc.com/connect v1.18.1
 	github.com/avast/retry-go/v4 v4.6.1

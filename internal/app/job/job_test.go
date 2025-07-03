@@ -8,9 +8,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	"code.gitea.io/actions-proto-go/ping/v1/pingv1connect"
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
-	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
+	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
+	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
 	"gitea.com/gitea/act_runner/internal/pkg/config"
 
 	log "github.com/sirupsen/logrus"

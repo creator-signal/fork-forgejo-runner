@@ -4,8 +4,8 @@
 package client
 
 import (
-	"code.gitea.io/actions-proto-go/ping/v1/pingv1connect"
-	"code.gitea.io/actions-proto-go/runner/v1/runnerv1connect"
+	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
+	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
 )
 
 // A Client manages communication with the runner.

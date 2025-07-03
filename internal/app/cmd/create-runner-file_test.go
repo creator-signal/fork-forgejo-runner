@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
+	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"connectrpc.com/connect"
 	"gitea.com/gitea/act_runner/internal/pkg/client"
 	"gitea.com/gitea/act_runner/internal/pkg/config"

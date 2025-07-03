@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	pingv1 "code.gitea.io/actions-proto-go/ping/v1"
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
+	pingv1 "code.forgejo.org/forgejo/actions-proto/ping/v1"
+	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"connectrpc.com/connect"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"

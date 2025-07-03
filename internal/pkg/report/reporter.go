@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
+	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"connectrpc.com/connect"
 	retry "github.com/avast/retry-go/v4"
 	log "github.com/sirupsen/logrus"
