@@ -13,7 +13,7 @@ WINDOWS_ARCHS ?= windows/amd64
 GO_FMT_FILES := $(shell find . -type f -name "*.go" ! -name "generated.*")
 GOFILES := $(shell find . -type f -name "*.go" -o -name "go.mod" ! -name "generated.*")
 
-MOCKERY_PACKAGE ?= github.com/vektra/mockery/v2@v2.26.1 # renovate: datasource=go
+MOCKERY_PACKAGE ?= github.com/vektra/mockery/v2@v2.53.4 # renovate: datasource=go
 
 DOCKER_IMAGE ?= gitea/act_runner
 DOCKER_TAG ?= nightly
