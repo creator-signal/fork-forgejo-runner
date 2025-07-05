@@ -211,6 +211,7 @@ func (r *Reporter) SetOutputs(outputs map[string]string) {
 		if l := len(v); l > 1024*1024 {
 			log.Println("ignore output because the value is too long:", k, l)
 			r.logf("ignore output because the value %q is too long: %d", k, l)
+			continue
 		}
 		if _, ok := r.outputs.Load(k); ok {
 			continue
