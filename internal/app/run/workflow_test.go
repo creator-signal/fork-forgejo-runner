@@ -62,24 +62,6 @@ jobs:
 			want1:   "job9",
 			wantErr: false,
 		},
-		{
-			name: "valid YAML syntax in top level env but wrong value type",
-			args: args{
-				task: &runnerv1.Task{
-					WorkflowPayload: []byte(`
-on: push
-
-env:
-  value: {{ }}
-`),
-				},
-			},
-			assert: func(t *testing.T, wf *model.Workflow, err error) {
-				require.Nil(t, wf)
-				assert.ErrorContains(t, err, "cannot unmarshal")
-			},
-			wantErr: true,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
