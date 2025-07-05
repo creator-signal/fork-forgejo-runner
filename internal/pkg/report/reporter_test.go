@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"runner.forgejo.org/internal/pkg/client/mocks"
+	"runner.forgejo.org/internal/pkg/testutils"
 )
 
 func rowsToString(rows []*runnerv1.LogRow) string {
@@ -56,6 +58,60 @@ func mockReporter(t *testing.T) (*Reporter, *mocks.Client, func()) {
 		assert.NoError(t, reporter.Close(""))
 	}
 	return reporter, client, close
+}
+
+func TestReporterSetOutputs(t *testing.T) {
+	assertEqual := func(t *testing.T, expected map[string]string, actual *sync.Map) {
+		t.Helper()
+		actualMap := map[string]string{}
+		actual.Range(func(k, v interface{}) bool {
+			val, ok := v.(string)
+			require.True(t, ok)
+			actualMap[k.(string)] = val
+			return true
+		})
+		assert.Equal(t, expected, actualMap)
+	}
+
+	t.Run("All", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+
+		expected := map[string]string{"a": "b", "c": "d"}
+		assert.NoError(t, reporter.SetOutputs(expected))
+		assertEqual(t, expected, &reporter.outputs)
+	})
+
+	t.Run("IgnoreTooBig", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+
+		testutils.MockVariable(&outputKeyMaxLength, 5)
+		testutils.MockVariable(&outputValueMaxLength, 5)
+
+		in := map[string]string{
+			"0123456": "b",       // key too big
+			"c":       "ABCDEFG", // value too big
+			"d":       "e",
+		}
+		err := reporter.SetOutputs(in)
+		assert.ErrorContains(t, err, "ignore output because the length of the value for \"c\" is 7 (the maximum is 5)")
+		assert.ErrorContains(t, err, "ignore output because the key is longer than 5: \"0123456\"")
+		expected := map[string]string{"d": "e"}
+		assertEqual(t, expected, &reporter.outputs)
+	})
+
+	t.Run("IgnoreDuplicates", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+
+		first := map[string]string{"a": "b", "c": "d"}
+		assert.NoError(t, reporter.SetOutputs(first))
+		assertEqual(t, first, &reporter.outputs)
+
+		second := map[string]string{"c": "d", "e": "f"}
+		assert.ErrorContains(t, reporter.SetOutputs(second), "ignore output because a value already exists for the key \"c\"")
+
+		expected := map[string]string{"a": "b", "c": "d", "e": "f"}
+		assertEqual(t, expected, &reporter.outputs)
+	})
 }
 
 func TestReporter_parseLogRow(t *testing.T) {

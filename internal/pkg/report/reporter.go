@@ -5,6 +5,7 @@ package report
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -19,6 +20,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"runner.forgejo.org/internal/pkg/client"
+)
+
+var (
+	outputKeyMaxLength   = 255
+	outputValueMaxLength = 1024 * 1024
 )
 
 type Reporter struct {
@@ -199,25 +205,31 @@ func (r *Reporter) logf(format string, a ...interface{}) {
 	}
 }
 
-func (r *Reporter) SetOutputs(outputs map[string]string) {
+func (r *Reporter) SetOutputs(outputs map[string]string) error {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 
+	var errs []error
+	recordError := func(format string, a ...interface{}) {
+		r.logf(format, a...)
+		errs = append(errs, fmt.Errorf(format, a...))
+	}
 	for k, v := range outputs {
-		if len(k) > 255 {
-			r.logf("ignore output because the key is too long: %q", k)
+		if len(k) > outputKeyMaxLength {
+			recordError("ignore output because the key is longer than %d: %q", outputKeyMaxLength, k)
 			continue
 		}
-		if l := len(v); l > 1024*1024 {
-			log.Println("ignore output because the value is too long:", k, l)
-			r.logf("ignore output because the value %q is too long: %d", k, l)
+		if l := len(v); l > outputValueMaxLength {
+			recordError("ignore output because the length of the value for %q is %d (the maximum is %d)", k, l, outputValueMaxLength)
 			continue
 		}
 		if _, ok := r.outputs.Load(k); ok {
+			recordError("ignore output because a value already exists for the key %q", k)
 			continue
 		}
 		r.outputs.Store(k, v)
 	}
+	return errors.Join(errs...)
 }
 
 func (r *Reporter) Close(lastWords string) error {
