@@ -183,6 +183,22 @@ func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
 	return nil
 }
 
+func logAndReport(reporter *report.Reporter, message string, args ...any) {
+	log.Debugf(message, args...)
+	reporter.Logf(message, args...)
+}
+
+func explainFailedGenerateWorkflow(task *runnerv1.Task, log func(message string, args ...any), err error) error {
+	for n, line := range strings.Split(string(task.WorkflowPayload), "\n") {
+		log("%d: %s", n+1, line)
+	}
+	log("Errors were found and although they tend to be cryptic the line number they refer to gives a hint as to where the problem might be.")
+	for _, line := range strings.Split(err.Error(), "\n") {
+		log("%s", line)
+	}
+	return fmt.Errorf("the workflow file is not usable")
+}
+
 func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.Reporter) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -194,7 +210,9 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 
 	workflow, jobID, err := generateWorkflow(task)
 	if err != nil {
-		return err
+		return explainFailedGenerateWorkflow(task, func(message string, args ...any) {
+			logAndReport(reporter, message, args...)
+		}, err)
 	}
 
 	plan, err := model.CombineWorkflowPlanner(workflow).PlanJob(jobID)
