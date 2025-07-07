@@ -102,4 +102,4 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-replace github.com/nektos/act => code.forgejo.org/forgejo/act v1.28.0
+replace github.com/nektos/act => code.forgejo.org/earl-warren/act v0.0.0-20250707102732-01763e83fe52
