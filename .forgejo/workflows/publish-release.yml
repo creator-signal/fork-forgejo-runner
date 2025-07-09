@@ -37,8 +37,8 @@ jobs:
           to-owner: ${{ vars.TO_OWNER }}
           repo: "runner"
           release-notes: "See https://code.forgejo.org/forgejo/runner/src/branch/main/RELEASE-NOTES.md#{ANCHOR}"
-          ref-name: ${{ github.ref_name }}
-          sha: ${{ github.sha }}
+          ref-name: ${{ forge.ref_name }}
+          sha: ${{ forge.sha }}
           container-suffixes: " "
           from-token: ${{ secrets.TOKEN }}
           to-doer: ${{ vars.DOER }}

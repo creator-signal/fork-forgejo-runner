@@ -21,7 +21,7 @@ jobs:
   release:
     runs-on: lxc-bookworm
     # root is used for testing, allow it
-    if: secrets.ROLE == 'forgejo-integration' || github.repository_owner == 'root'
+    if: secrets.ROLE == 'forgejo-integration' || forge.repository_owner == 'root'
     steps:
       - uses: actions/checkout@v4
 
@@ -33,39 +33,39 @@ jobs:
           else
             value=false
           fi
-          echo "value=$value" >> "$GITHUB_OUTPUT"
+          echo "value=$value" >> "$FORGEJO_OUTPUT"
 
       - name: Sanitize the name of the repository
         id: repository
         run: |
-          echo "value=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_OUTPUT"
+          echo "value=${FORGEJO_REPOSITORY##*/}" >> "$FORGEJO_OUTPUT"
 
       - name: create test TOKEN
         id: token
         if: ${{ secrets.TOKEN == '' }}
         run: |
           apt-get -qq install -y jq
-          url="${{ env.GITHUB_SERVER_URL }}"
+          url="${{ env.FORGEJO_SERVER_URL }}"
           hostport=${url##http*://}
           hostport=${hostport%%/}
           doer=root
           api=http://$doer:admin1234@$hostport/api/v1/users/$doer/tokens
           curl -sS -X DELETE $api/release
           token=$(curl -sS -X POST -H 'Content-Type: application/json' --data-raw '{"name": "release", "scopes": ["all"]}' $api | jq --raw-output .sha1)
-          echo "value=${token}" >> "$GITHUB_OUTPUT"
+          echo "value=${token}" >> "$FORGEJO_OUTPUT"
 
       - name: version from ref_name
         id: tag-version
         run: |
-          version=${GITHUB_REF_NAME##*v}
-          echo "value=$version" >> "$GITHUB_OUTPUT"
+          version=${FORGEJO_REF_NAME##*v}
+          echo "value=$version" >> "$FORGEJO_OUTPUT"
 
       - name: release notes
         id: release-notes
         run: |
           anchor=${{ steps.tag-version.outputs.value }}
           anchor=${anchor//./-}
-          cat >> "$GITHUB_OUTPUT" <<EOF
+          cat >> "$FORGEJO_OUTPUT" <<EOF
           value<<ENDVAR
           See https://code.forgejo.org/forgejo/runner/src/branch/main/RELEASE-NOTES.md#$anchor
           ENDVAR
@@ -75,11 +75,11 @@ jobs:
         if: ${{ secrets.TOKEN == '' }}
         uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.3.5
         with:
-          forgejo: "${{ env.GITHUB_SERVER_URL }}"
-          owner: "${{ env.GITHUB_REPOSITORY_OWNER }}"
+          forgejo: "${{ env.FORGEJO_SERVER_URL }}"
+          owner: "${{ env.FORGEJO_REPOSITORY_OWNER }}"
           repository: "${{ steps.repository.outputs.value }}"
           doer: root
-          sha: "${{ github.sha }}"
+          sha: "${{ forge.sha }}"
           release-version: "${{ steps.tag-version.outputs.value }}"
           token: ${{ steps.token.outputs.value }}
           platforms: linux/amd64,linux/arm64
@@ -92,11 +92,11 @@ jobs:
         if: ${{ secrets.TOKEN != '' }}
         uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.3.5
         with:
-          forgejo: "${{ env.GITHUB_SERVER_URL }}"
-          owner: "${{ env.GITHUB_REPOSITORY_OWNER }}"
+          forgejo: "${{ env.FORGEJO_SERVER_URL }}"
+          owner: "${{ env.FORGEJO_REPOSITORY_OWNER }}"
           repository: "${{ steps.repository.outputs.value }}"
           doer: "${{ secrets.DOER }}"
-          sha: "${{ github.sha }}"
+          sha: "${{ forge.sha }}"
           release-version: "${{ steps.tag-version.outputs.value }}"
           token: "${{ secrets.TOKEN }}"
           platforms: linux/amd64,linux/arm64

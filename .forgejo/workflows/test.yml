@@ -19,7 +19,7 @@ env:
 jobs:
   build-and-tests:
     name: build and test
-    if: github.repository_owner != 'forgejo-integration' && github.repository_owner != 'forgejo-experimental' && github.repository_owner != 'forgejo-release'
+    if: forge.repository_owner != 'forgejo-integration' && forge.repository_owner != 'forgejo-experimental' && forge.repository_owner != 'forgejo-release'
     runs-on: docker
     container:
       image: 'code.forgejo.org/oci/ci:1'
@@ -76,7 +76,7 @@ jobs:
   runner-exec-tests:
     needs: [build-and-tests]
     name: runner exec tests
-    if: github.repository_owner != 'forgejo-integration' && github.repository_owner != 'forgejo-experimental' && github.repository_owner != 'forgejo-release'
+    if: forge.repository_owner != 'forgejo-integration' && forge.repository_owner != 'forgejo-experimental' && forge.repository_owner != 'forgejo-release'
     runs-on: lxc-bookworm
 
     steps:

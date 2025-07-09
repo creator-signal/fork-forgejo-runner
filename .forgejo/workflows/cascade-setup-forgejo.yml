@@ -14,15 +14,15 @@ jobs:
     container:
       image: 'code.forgejo.org/oci/node:20-bookworm'
     if: >
-      ! contains(github.event.pull_request.title, '[skip cascade]')
+      ! contains(forge.event.pull_request.title, '[skip cascade]')
     steps:
       - uses: https://code.forgejo.org/actions/cascading-pr@v2.2.0
         with:
-          origin-url: ${{ env.GITHUB_SERVER_URL }}
+          origin-url: ${{ env.FORGEJO_SERVER_URL }}
           origin-repo: forgejo/runner
           origin-token: ${{ secrets.CASCADING_PR_ORIGIN }}
-          origin-pr: ${{ github.event.pull_request.number }}
-          destination-url: ${{ env.GITHUB_SERVER_URL }}
+          origin-pr: ${{ forge.event.pull_request.number }}
+          destination-url: ${{ env.FORGEJO_SERVER_URL }}
           destination-repo: actions/setup-forgejo
           destination-fork-repo: cascading-pr/setup-forgejo
           destination-branch: main
