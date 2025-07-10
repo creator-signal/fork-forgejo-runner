@@ -80,15 +80,15 @@ func (j *Job) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 		return nil, false
 	}
 
-	if resp.Msg.TasksVersion > v {
-		j.tasksVersion.CompareAndSwap(v, resp.Msg.TasksVersion)
+	if resp.Msg.GetTasksVersion() > v {
+		j.tasksVersion.CompareAndSwap(v, resp.Msg.GetTasksVersion())
 	}
 
 	if resp.Msg.Task == nil {
 		return nil, false
 	}
 
-	j.tasksVersion.CompareAndSwap(resp.Msg.TasksVersion, 0)
+	j.tasksVersion.CompareAndSwap(resp.Msg.GetTasksVersion(), 0)
 
-	return resp.Msg.Task, true
+	return resp.Msg.GetTask(), true
 }

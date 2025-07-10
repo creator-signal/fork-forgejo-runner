@@ -114,5 +114,5 @@ func Test_runCreateRunnerFile(t *testing.T) {
 	)
 	resp, err := cli.FetchTask(ctx, connect.NewRequest(&runnerv1.FetchTaskRequest{}))
 	assert.NoError(t, err)
-	assert.Nil(t, resp.Msg.Task)
+	assert.Nil(t, resp.Msg.GetTask())
 }

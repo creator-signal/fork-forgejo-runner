@@ -156,7 +156,7 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 				return err
 			} else {
 				log.Infof("connection successful: %s, with version: %s, with labels: %v",
-					resp.Msg.Runner.Name, resp.Msg.Runner.Version, resp.Msg.Runner.Labels)
+					resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels())
 			}
 		}
 		return nil

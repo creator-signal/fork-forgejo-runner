@@ -152,8 +152,8 @@ func (p *poller) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 		return nil, false
 	}
 
-	if resp.Msg.TasksVersion > v {
-		p.tasksVersion.CompareAndSwap(v, resp.Msg.TasksVersion)
+	if resp.Msg.GetTasksVersion() > v {
+		p.tasksVersion.CompareAndSwap(v, resp.Msg.GetTasksVersion())
 	}
 
 	if resp.Msg.Task == nil {
@@ -161,7 +161,7 @@ func (p *poller) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 	}
 
 	// got a task, set `tasksVersion` to zero to focre query db in next request.
-	p.tasksVersion.CompareAndSwap(resp.Msg.TasksVersion, 0)
+	p.tasksVersion.CompareAndSwap(resp.Msg.GetTasksVersion(), 0)
 
-	return resp.Msg.Task, true
+	return resp.Msg.GetTask(), true
 }

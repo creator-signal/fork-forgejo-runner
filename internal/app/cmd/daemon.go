@@ -105,7 +105,7 @@ func runDaemon(ctx context.Context, configFile *string) func(cmd *cobra.Command,
 			return err
 		} else {
 			log.Infof("runner: %s, with version: %s, with labels: %v, declared successfully",
-				resp.Msg.Runner.Name, resp.Msg.Runner.Version, resp.Msg.Runner.Labels)
+				resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels())
 			// if declared successfully, override the labels in the.runner file with valid labels in the config file (if specified)
 			runner.Update(ctx, ls)
 			reg.Labels = ls.ToStrings()
@@ -119,14 +119,14 @@ func runDaemon(ctx context.Context, configFile *string) func(cmd *cobra.Command,
 		go poller.Poll()
 
 		<-ctx.Done()
-		log.Infof("runner: %s shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", resp.Msg.Runner.Name, cfg.Runner.ShutdownTimeout)
+		log.Infof("runner: %s shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", resp.Msg.GetRunner().GetName(), cfg.Runner.ShutdownTimeout)
 
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.Runner.ShutdownTimeout)
 		defer cancel()
 
 		err = poller.Shutdown(ctx)
 		if err != nil {
-			log.Warnf("runner: %s cancelled in progress jobs during shutdown", resp.Msg.Runner.Name)
+			log.Warnf("runner: %s cancelled in progress jobs during shutdown", resp.Msg.GetRunner().GetName())
 		}
 		return nil
 	}

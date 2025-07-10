@@ -315,7 +315,7 @@ func (r *Reporter) ReportLog(noMore bool) error {
 		return err
 	}
 
-	ack := int(resp.Msg.AckIndex)
+	ack := int(resp.Msg.GetAckIndex())
 	if ack < r.logOffset {
 		return fmt.Errorf("submitted logs are lost %d < %d", ack, r.logOffset)
 	}
@@ -356,11 +356,11 @@ func (r *Reporter) ReportState() error {
 		return err
 	}
 
-	for _, k := range resp.Msg.SentOutputs {
+	for _, k := range resp.Msg.GetSentOutputs() {
 		r.outputs.Store(k, struct{}{})
 	}
 
-	if resp.Msg.State != nil && resp.Msg.State.Result == runnerv1.Result_RESULT_CANCELLED {
+	if resp.Msg.GetState().GetResult() == runnerv1.Result_RESULT_CANCELLED {
 		r.cancel()
 	}
 

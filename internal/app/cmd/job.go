@@ -101,7 +101,7 @@ func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, ar
 			return err
 		} else {
 			log.Infof("runner: %s, with version: %s, with labels: %v, declared successfully",
-				resp.Msg.Runner.Name, resp.Msg.Runner.Version, resp.Msg.Runner.Labels)
+				resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels())
 			// if declared successfully, override the labels in the.runner file with valid labels in the config file (if specified)
 			runner.Update(ctx, ls)
 			reg.Labels = ls.ToStrings()

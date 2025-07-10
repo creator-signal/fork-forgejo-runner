@@ -343,10 +343,10 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 		return err
 	}
 
-	reg.ID = resp.Msg.Runner.Id
-	reg.UUID = resp.Msg.Runner.Uuid
-	reg.Name = resp.Msg.Runner.Name
-	reg.Token = resp.Msg.Runner.Token
+	reg.ID = resp.Msg.GetRunner().GetId()
+	reg.UUID = resp.Msg.GetRunner().GetUuid()
+	reg.Name = resp.Msg.GetRunner().GetName()
+	reg.Token = resp.Msg.GetRunner().GetToken()
 
 	if err := config.SaveRegistration(cfg.Runner.File, reg); err != nil {
 		return fmt.Errorf("failed to save runner config: %w", err)
