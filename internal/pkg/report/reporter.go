@@ -280,7 +280,7 @@ func (err ErrRetry) Is(target error) bool {
 	return ok
 }
 
-var (
+const (
 	errRetryNeedMoreRows = "need more rows to figure out if multiline secrets must be masked"
 	errRetrySendAll      = "not all logs are submitted %d remain"
 )

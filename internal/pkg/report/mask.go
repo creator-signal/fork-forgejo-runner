@@ -81,34 +81,34 @@ func (o *masker) trimEOL(s string) string {
 func (o *masker) equalMultiline(multiLine []string, rows []*runnerv1.LogRow) (equal, needMore bool) {
 	if len(rows) < 2 {
 		needMore = true
-		return
+		return equal, needMore
 	}
 
 	lastIndex := len(multiLine) - 1
 	first := multiLine[0]
 	if !strings.HasSuffix(o.trimEOL(rows[0].Content), first) {
-		return // unreachable because the caller checks that already
+		return equal, needMore // unreachable because the caller checks that already
 	}
 	for i, line := range multiLine[1:lastIndex] {
 		rowIndex := i + 1
 		if rowIndex >= len(rows) {
 			needMore = true
-			return
+			return equal, needMore
 		}
 		if o.trimEOL(rows[rowIndex].Content) != line {
-			return
+			return equal, needMore
 		}
 	}
 	last := multiLine[lastIndex]
 	if lastIndex >= len(rows) {
 		needMore = true
-		return
+		return equal, needMore
 	}
 	if !strings.HasPrefix(o.trimEOL(rows[lastIndex].Content), last) {
-		return
+		return equal, needMore
 	}
 	equal = true
-	return
+	return equal, needMore
 }
 
 func (o *masker) replaceMultiline(multiLine []string, rows []*runnerv1.LogRow) {

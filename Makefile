@@ -14,6 +14,7 @@ GO_FMT_FILES := $(shell find . -type f -name "*.go" ! -name "generated.*")
 GOFILES := $(shell find . -type f -name "*.go" -o -name "go.mod" ! -name "generated.*")
 
 MOCKERY_PACKAGE ?= github.com/vektra/mockery/v2@v2.53.4 # renovate: datasource=go
+GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 # renovate: datasource=go
 
 DOCKER_IMAGE ?= gitea/act_runner
 DOCKER_TAG ?= nightly
@@ -63,11 +64,18 @@ endif
 
 GO_PACKAGES_TO_VET ?= $(filter-out runner.forgejo.org/internal/pkg/client/mocks,$(shell $(GO) list ./...))
 
-
 TAGS ?=
 LDFLAGS ?= -X "runner.forgejo.org/internal/pkg/ver.version=v$(RELEASE_VERSION)"
 
 all: build
+
+.PHONY: lint
+lint-check:
+	$(GO) run $(GOLANGCI_LINT_PACKAGE) run $(GOLANGCI_LINT_ARGS)
+
+.PHONY: lint-fix
+lint:
+	$(GO) run $(GOLANGCI_LINT_PACKAGE) run $(GOLANGCI_LINT_ARGS) --fix
 
 fmt:
 	@hash gofumpt > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
@@ -97,7 +105,7 @@ fmt-check:
 		exit 1; \
 	fi;
 
-test: fmt-check
+test: lint-check fmt-check
 	@$(GO) test -v -cover -coverprofile coverage.txt ./... && echo "\n==>\033[32m Ok\033[m\n" || exit 1
 
 .PHONY: vet

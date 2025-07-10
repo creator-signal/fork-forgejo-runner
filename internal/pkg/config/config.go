@@ -43,7 +43,7 @@ type Cache struct {
 	Port                    uint16 `yaml:"port"`                       // Port specifies the caching port.
 	ProxyPort               uint16 `yaml:"proxy_port"`                 // ProxyPort specifies the cache proxy port.
 	ExternalServer          string `yaml:"external_server"`            // ExternalServer specifies the URL of external cache server
-	ActionsCacheUrlOverride string `yaml:"actions_cache_url_override"` // Allows the user to override the ACTIONS_CACHE_URL passed to the workflow containers
+	ActionsCacheURLOverride string `yaml:"actions_cache_url_override"` // Allows the user to override the ACTIONS_CACHE_URL passed to the workflow containers
 	Secret                  string `yaml:"secret"`                     // Shared secret to secure caches.
 }
 

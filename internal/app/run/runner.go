@@ -98,7 +98,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 }
 
 func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler {
-	var cacheUrl string
+	var cacheURL string
 	var cacheSecret string
 
 	if cfg.Cache.ExternalServer == "" {
@@ -127,7 +127,7 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 			return nil
 		}
 
-		cacheUrl = cacheServer.ExternalURL()
+		cacheURL = cacheServer.ExternalURL()
 	} else {
 		// An external cache server was specified, use its url
 		cacheSecret = cfg.Cache.Secret
@@ -137,11 +137,11 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 			return nil
 		}
 
-		cacheUrl = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
+		cacheURL = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
 	}
 
 	cacheProxy, err := cacheproxy.StartHandler(
-		cacheUrl,
+		cacheURL,
 		cfg.Cache.Host,
 		cfg.Cache.ProxyPort,
 		cacheSecret,
@@ -152,8 +152,8 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 	}
 
 	envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
-	if cfg.Cache.ActionsCacheUrlOverride != "" {
-		envs["ACTIONS_CACHE_URL"] = cfg.Cache.ActionsCacheUrlOverride
+	if cfg.Cache.ActionsCacheURLOverride != "" {
+		envs["ACTIONS_CACHE_URL"] = cfg.Cache.ActionsCacheURLOverride
 	}
 
 	return cacheProxy
@@ -256,11 +256,11 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	if r.cacheProxy != nil {
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 		cacheRunData := r.cacheProxy.CreateRunData(preset.Repository, preset.RunID, timestamp)
-		cacheRunId, err := r.cacheProxy.AddRun(cacheRunData)
+		cacheRunID, err := r.cacheProxy.AddRun(cacheRunData)
 		if err == nil {
-			defer r.cacheProxy.RemoveRun(cacheRunId)
+			defer func() { _ = r.cacheProxy.RemoveRun(cacheRunID) }()
 			baseURL := runEnvs["ACTIONS_CACHE_URL"]
-			runEnvs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s/", baseURL, cacheRunId)
+			runEnvs["ACTIONS_CACHE_URL"] = fmt.Sprintf("%s/%s/", baseURL, cacheRunID)
 		}
 	}
 
@@ -340,7 +340,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	}
 
 	execErr := executor(ctx)
-	reporter.SetOutputs(job.Outputs)
+	_ = reporter.SetOutputs(job.Outputs)
 	return execErr
 }
 

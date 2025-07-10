@@ -70,7 +70,7 @@ func Test_runCreateRunnerFile(t *testing.T) {
 	dir := t.TempDir()
 	configFile := dir + "/config.yml"
 	runnerFile := dir + "/.runner"
-	cfg, err := config.LoadDefault("")
+	cfg, _ := config.LoadDefault("")
 	cfg.Runner.File = runnerFile
 	yamlData, err := yaml.Marshal(cfg)
 	assert.NoError(t, err)

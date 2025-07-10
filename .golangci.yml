@@ -26,12 +26,7 @@ linters:
   fast: false
 
 run:
-  go: 1.18
   timeout: 10m
-  skip-dirs:
-    - node_modules
-    - public
-    - web_src
 
 linters-settings:
   stylecheck:
@@ -72,10 +67,12 @@ linters-settings:
       - name: modifies-value-receiver
   gofumpt:
     extra-rules: true
-    lang-version: "1.18"
   depguard:
-    list-type: denylist
-    include-go-root: true
+    rules:
+      main:
+        deny:
+          - pkg: io/ioutil
+            desc: use os or io instead
 
 issues:
   exclude-rules:

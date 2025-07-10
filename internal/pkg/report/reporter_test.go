@@ -387,10 +387,8 @@ func TestReporterReportLog(t *testing.T) {
 			err := reporter.ReportLog(testCase.noMore)
 			if testCase.err == nil {
 				assert.NoError(t, err)
-			} else {
-				if assert.ErrorIs(t, err, testCase.err) {
-					assert.Equal(t, err.Error(), testCase.err.Error())
-				}
+			} else if assert.ErrorIs(t, err, testCase.err) {
+				assert.Equal(t, err.Error(), testCase.err.Error())
 			}
 			if testCase.sent != "" {
 				assert.Equal(t, testCase.sent, sent)
