@@ -9,9 +9,13 @@ import (
 )
 
 const (
-	SchemeHost   = "host"
+	SchemeHost = "host"
+
 	SchemeDocker = "docker"
-	SchemeLXC    = "lxc"
+	ArgDocker    = "//node:22-bookworm"
+
+	SchemeLXC = "lxc"
+	ArgLXC    = "//debian:bookworm"
 )
 
 type Label struct {
@@ -24,18 +28,32 @@ func Parse(str string) (*Label, error) {
 	splits := strings.SplitN(str, ":", 3)
 	label := &Label{
 		Name:   splits[0],
-		Schema: "host",
-		Arg:    "",
+		Schema: "docker",
 	}
+
 	if len(splits) >= 2 {
 		label.Schema = splits[1]
+		if label.Schema != SchemeHost && label.Schema != SchemeDocker && label.Schema != SchemeLXC {
+			return nil, fmt.Errorf("unsupported schema: %s", label.Schema)
+		}
 	}
+
 	if len(splits) >= 3 {
+		if label.Schema == SchemeHost {
+			return nil, fmt.Errorf("schema: %s does not have arguments", label.Schema)
+		}
+
 		label.Arg = splits[2]
 	}
-	if label.Schema != SchemeHost && label.Schema != SchemeDocker && label.Schema != SchemeLXC {
-		return nil, fmt.Errorf("unsupported schema: %s", label.Schema)
+	if label.Arg == "" {
+		switch label.Schema {
+		case SchemeDocker:
+			label.Arg = ArgDocker
+		case SchemeLXC:
+			label.Arg = ArgLXC
+		}
 	}
+
 	return label, nil
 }
 
@@ -72,17 +90,7 @@ func (l Labels) PickPlatform(runsOn []string) string {
 		}
 	}
 
-	// TODO: support multiple labels
-	// like:
-	//   ["ubuntu-22.04"] => "ubuntu:22.04"
-	//   ["with-gpu"] => "linux:with-gpu"
-	//   ["ubuntu-22.04", "with-gpu"] => "ubuntu:22.04_with-gpu"
-
-	// return default.
-	// So the runner receives a task with a label that the runner doesn't have,
-	// it happens when the user have edited the label of the runner in the web UI.
-	// TODO: it may be not correct, what if the runner is used as host mode only?
-	return "node:20-bullseye"
+	return strings.TrimPrefix(ArgDocker, "//")
 }
 
 func (l Labels) Names() []string {

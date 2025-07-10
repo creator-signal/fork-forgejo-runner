@@ -3,6 +3,7 @@
 ## 8.0.0 (not published yet)
 
 * Breaking change: workflows files go through a [schema validation](https://code.forgejo.org/forgejo/act/pulls/170) and will not run if they do not pass. Some existing workflows may have syntax errors that did not prevent them from running with versions 7.0.0 and below but they will no longer work with versions 8.0.0 and above. If the error is not immediately obvious, please file an issue with a copy of the failed workflow and revert to using version 7.0.0 until it is resolved.
+* Breaking change: in the absence of a label or a label, [default to `docker://node:22-bookworm` instead of `docker://node:20-bullseye` or `host`](https://code.forgejo.org/forgejo/runner/issues/134). If the `lxc` scheme is set with no argument, it defaults to `lxc://debian:bookworm` instead of `lxc://debian:bullseye`.
 * [secrets that contain multiple lines are masked from the output](https://code.forgejo.org/forgejo/runner/pulls/661).
 
 ## 7.0.0

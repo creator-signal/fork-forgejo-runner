@@ -17,34 +17,69 @@ func TestParse(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			args: "ubuntu:docker://node:18",
+			args: "label1",
 			want: &Label{
-				Name:   "ubuntu",
-				Schema: "docker",
+				Name:   "label1",
+				Schema: SchemeDocker,
+				Arg:    ArgDocker,
+			},
+			wantErr: false,
+		},
+		{
+			args: "label1:docker",
+			want: &Label{
+				Name:   "label1",
+				Schema: SchemeDocker,
+				Arg:    ArgDocker,
+			},
+			wantErr: false,
+		},
+		{
+			args: "label1:docker://node:18",
+			want: &Label{
+				Name:   "label1",
+				Schema: SchemeDocker,
 				Arg:    "//node:18",
 			},
 			wantErr: false,
 		},
+
 		{
-			args: "ubuntu:host",
+			args: "label1:lxc",
 			want: &Label{
-				Name:   "ubuntu",
+				Name:   "label1",
+				Schema: SchemeLXC,
+				Arg:    ArgLXC,
+			},
+			wantErr: false,
+		},
+		{
+			args: "label1:lxc://debian:buster",
+			want: &Label{
+				Name:   "label1",
+				Schema: SchemeLXC,
+				Arg:    "//debian:buster",
+			},
+			wantErr: false,
+		},
+
+		{
+			args: "label1:host",
+			want: &Label{
+				Name:   "label1",
 				Schema: "host",
 				Arg:    "",
 			},
 			wantErr: false,
 		},
 		{
-			args: "ubuntu",
-			want: &Label{
-				Name:   "ubuntu",
-				Schema: "host",
-				Arg:    "",
-			},
-			wantErr: false,
+			args:    "label1:host:something",
+			want:    nil,
+			wantErr: true,
 		},
+
 		{
-			args:    "ubuntu:vm:ubuntu-18.04",
+			args:    "label1:invalidscheme",
 			want:    nil,
 			wantErr: true,
 		},
