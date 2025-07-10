@@ -8,7 +8,7 @@ require (
 	code.forgejo.org/forgejo/actions-proto v0.5.1
 	connectrpc.com/connect v1.18.1
 	github.com/avast/retry-go/v4 v4.6.1
-	github.com/docker/docker v28.3.0+incompatible
+	github.com/docker/docker v28.3.2+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-isatty v0.0.20
