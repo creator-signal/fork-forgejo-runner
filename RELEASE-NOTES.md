@@ -4,6 +4,7 @@
 
 * Breaking change: workflows files go through a [schema validation](https://code.forgejo.org/forgejo/act/pulls/170) and will not run if they do not pass. Some existing workflows may have syntax errors that did not prevent them from running with versions 7.0.0 and below but they will no longer work with versions 8.0.0 and above. If the error is not immediately obvious, please file an issue with a copy of the failed workflow and revert to using version 7.0.0 until it is resolved.
 * [secrets that contain multiple lines are masked from the output](https://code.forgejo.org/forgejo/runner/pulls/661).
+* [bash fallback to sh if it is not available](https://code.forgejo.org/forgejo/runner/issues/150).
 
 ## 7.0.0
 
