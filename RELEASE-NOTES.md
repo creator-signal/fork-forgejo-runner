@@ -2,7 +2,16 @@
 
 ## 8.0.0 (not published yet)
 
-* Breaking change: workflows files go through a [schema validation](https://code.forgejo.org/forgejo/act/pulls/170) and will not run if they do not pass. Some existing workflows may have syntax errors that did not prevent them from running with versions 7.0.0 and below but they will no longer work with versions 8.0.0 and above. If the error is not immediately obvious, please file an issue with a copy of the failed workflow and revert to using version 7.0.0 until it is resolved.
+* Breaking change: workflows files go through a [schema validation](https://code.forgejo.org/forgejo/act/pulls/170) and will not run if they do not pass. Some existing workflows may have syntax errors that did not prevent them from running with versions 7.0.0 and below but they will no longer work with versions 8.0.0 and above.
+  Existing workflows can be verified and fixed before upgrading by using `forgejo-runner exec --workflows path-to-the-workflow`. For instance in a workflow where `ruins-on` was typed by mistake instead of `runs-on`:
+  ```sh
+  $ forgejo-runner exec --event unknown --workflows ../forgejo/.forgejo/workflows/build-release.yml
+  Error: workflow is not valid. 'build-release.yml': Line: 32 Column 5: Failed to match job-factory: Line: 32 Column 5: Unknown Property ruins-on
+  Line: 32 Column 5: Failed to match workflow-job: Line: 32 Column 5: Unknown Property ruins-on
+  Line: 35 Column 5: Unknown Property steps
+  Forgejo Actions YAML Schema validation error
+  ```
+  If the error is not immediately obvious, please file an issue with a copy of the failed workflow and revert to using version 7.0.0 until it is resolved.
 * Breaking change: in the absence of a label or a label, [default to `docker://node:22-bookworm` instead of `docker://node:20-bullseye` or `host`](https://code.forgejo.org/forgejo/runner/issues/134). If the `lxc` scheme is set with no argument, it defaults to `lxc://debian:bookworm` instead of `lxc://debian:bullseye`.
 * Breaking change: [bash fallback to sh if it is not available](https://code.forgejo.org/forgejo/runner/issues/150). It will use `bash` instead of `sh` when a container image is explicitly specified in the step. If a workflow depens on that behavior, it will need to be modified to explictly set the shell to `sh`.
 * [secrets that contain multiple lines are masked from the output](https://code.forgejo.org/forgejo/runner/pulls/661).
