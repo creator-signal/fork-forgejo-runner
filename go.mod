@@ -102,4 +102,4 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-replace github.com/nektos/act => code.forgejo.org/achyrva/act v1.29.1-0.20250711100522-ea2ea94106a6
+replace github.com/nektos/act => code.forgejo.org/achyrva/act v1.29.1-0.20250714122738-a34418d95e7f

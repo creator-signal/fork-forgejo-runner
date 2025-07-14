@@ -1,5 +1,5 @@
-code.forgejo.org/achyrva/act v1.29.1-0.20250711100522-ea2ea94106a6 h1:Tmwov0iRh7mWj9pbRYt+nEVi1KrLW1KXzLFGokW/Rbs=
-code.forgejo.org/achyrva/act v1.29.1-0.20250711100522-ea2ea94106a6/go.mod h1:RPqtuaI2FkC1SVOaYCRODo5jIfoMTBVgEOOP3Sdiuh4=
+code.forgejo.org/achyrva/act v1.29.1-0.20250714122738-a34418d95e7f h1:lkNeTQZdo/th72ajrqbQ4S5IJGqS7cgW+MlFhphjvsM=
+code.forgejo.org/achyrva/act v1.29.1-0.20250714122738-a34418d95e7f/go.mod h1:RPqtuaI2FkC1SVOaYCRODo5jIfoMTBVgEOOP3Sdiuh4=
 code.forgejo.org/forgejo/actions-proto v0.5.1 h1:GCJHR/Y/Apk7Yl7CH9qOsKrdf/k0tRVFeVhz1EIZvb4=
 code.forgejo.org/forgejo/actions-proto v0.5.1/go.mod h1:nu8N1HQLsu3c4T/PpYWbqwNBxsZnEOVxqV0mQWtIQvE=
 connectrpc.com/connect v1.18.1 h1:PAg7CjSAGvscaf6YZKUefjoih5Z/qYkyaTrBW8xvYPw=
