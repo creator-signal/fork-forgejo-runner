@@ -8,5 +8,6 @@
       "matchDepNames": ["github.com/nektos/act"],
       "enabled": false
     }
-  ]
+  ],
+  "ignorePaths": []
 }
