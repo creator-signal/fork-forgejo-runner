@@ -84,8 +84,8 @@ func TestReporterSetOutputs(t *testing.T) {
 	t.Run("IgnoreTooBig", func(t *testing.T) {
 		reporter, _, _ := mockReporter(t)
 
-		testutils.MockVariable(&outputKeyMaxLength, 5)
-		testutils.MockVariable(&outputValueMaxLength, 5)
+		defer testutils.MockVariable(&outputKeyMaxLength, 5)()
+		defer testutils.MockVariable(&outputValueMaxLength, 5)()
 
 		in := map[string]string{
 			"0123456": "b",       // key too big
