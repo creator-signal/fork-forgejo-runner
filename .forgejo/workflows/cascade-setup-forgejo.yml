@@ -12,7 +12,7 @@ jobs:
   cascade:
     runs-on: docker
     container:
-      image: 'code.forgejo.org/oci/node:20-bookworm'
+      image: 'code.forgejo.org/oci/node:22-bookworm'
     if: >
       ! contains(forge.event.pull_request.title, '[skip cascade]')
     steps:
