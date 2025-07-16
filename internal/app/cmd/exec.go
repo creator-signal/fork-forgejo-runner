@@ -315,7 +315,7 @@ func runExecList(ctx context.Context, planner model.WorkflowPlanner, execArgs *e
 
 func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		planner, err := model.NewWorkflowPlanner(execArgs.WorkflowsPath(), execArgs.noWorkflowRecurse)
+		planner, err := model.NewWorkflowPlanner(execArgs.WorkflowsPath(), execArgs.noWorkflowRecurse, true)
 		if err != nil {
 			return err
 		}

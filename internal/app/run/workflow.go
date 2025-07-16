@@ -15,7 +15,7 @@ import (
 )
 
 func generateWorkflow(task *runnerv1.Task) (*model.Workflow, string, error) {
-	workflow, err := model.ReadWorkflow(bytes.NewReader(task.WorkflowPayload))
+	workflow, err := model.ReadWorkflow(bytes.NewReader(task.WorkflowPayload), true)
 	if err != nil {
 		return nil, "", err
 	}
