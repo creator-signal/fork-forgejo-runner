@@ -1,5 +1,5 @@
-code.forgejo.org/forgejo/act v1.30.0 h1:ZUfWT+DQ/KpdpiHiNhmaJVJeD56kvg0Vs8M0MytEvMo=
-code.forgejo.org/forgejo/act v1.30.0/go.mod h1:RPqtuaI2FkC1SVOaYCRODo5jIfoMTBVgEOOP3Sdiuh4=
+code.forgejo.org/earl-warren/act v0.0.0-20250716065504-e278c02468f0 h1:qSd6WlTvlW5y3Uhtq3XkMEjQFwKGeGETJLti+Q5fePs=
+code.forgejo.org/earl-warren/act v0.0.0-20250716065504-e278c02468f0/go.mod h1:RPqtuaI2FkC1SVOaYCRODo5jIfoMTBVgEOOP3Sdiuh4=
 code.forgejo.org/forgejo/actions-proto v0.5.1 h1:GCJHR/Y/Apk7Yl7CH9qOsKrdf/k0tRVFeVhz1EIZvb4=
 code.forgejo.org/forgejo/actions-proto v0.5.1/go.mod h1:nu8N1HQLsu3c4T/PpYWbqwNBxsZnEOVxqV0mQWtIQvE=
 connectrpc.com/connect v1.18.1 h1:PAg7CjSAGvscaf6YZKUefjoih5Z/qYkyaTrBW8xvYPw=
