@@ -14,7 +14,7 @@ GO_FMT_FILES := $(shell find . -type f -name "*.go" ! -name "generated.*")
 GOFILES := $(shell find . -type f -name "*.go" -o -name "go.mod" ! -name "generated.*")
 
 MOCKERY_PACKAGE ?= github.com/vektra/mockery/v2@v2.53.4 # renovate: datasource=go
-GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.2.2 # renovate: datasource=go
+GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.3.0 # renovate: datasource=go
 
 DOCKER_IMAGE ?= gitea/act_runner
 DOCKER_TAG ?= nightly
