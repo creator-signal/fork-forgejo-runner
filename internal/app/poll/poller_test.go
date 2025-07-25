@@ -18,6 +18,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mockPoller struct {
@@ -191,11 +192,12 @@ func TestPoller_Runner(t *testing.T) {
 			if testCase.contextTimeout > 0 {
 				ctx, cancel = context.WithTimeout(context.Background(), testCase.contextTimeout)
 				defer cancel()
+				require.NoError(t, p.Shutdown(ctx))
 			} else {
 				ctx, cancel = context.WithCancel(context.Background())
 				cancel()
+				require.ErrorIs(t, p.Shutdown(ctx), context.Canceled)
 			}
-			p.Shutdown(ctx)
 			<-p.done
 			assert.Equal(t, testCase.expected, <-runnerLog)
 		})
