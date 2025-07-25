@@ -10,6 +10,7 @@ import (
 	"runner.forgejo.org/internal/pkg/labels"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExplainFailedGenerateWorkflow(t *testing.T) {
@@ -22,7 +23,7 @@ func TestExplainFailedGenerateWorkflow(t *testing.T) {
 	}
 	generateWorkflowError := errors.New("message 1\nmessage 2")
 	err := explainFailedGenerateWorkflow(task, log, generateWorkflowError)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Equal(t, "1: on: [push]\n2: jobs:\n3: \nErrors were found and although they tend to be cryptic the line number they refer to gives a hint as to where the problem might be.\nmessage 1\nmessage 2\n", logged)
 }
 
@@ -31,13 +32,13 @@ func TestLabelUpdate(t *testing.T) {
 	ls := labels.Labels{}
 
 	initialLabel, err := labels.Parse("testlabel:docker://alpine")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	ls = append(ls, initialLabel)
 
 	newLs := labels.Labels{}
 
 	newLabel, err := labels.Parse("next label:host")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	newLs = append(newLs, initialLabel)
 	newLs = append(newLs, newLabel)
 

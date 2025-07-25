@@ -77,7 +77,7 @@ func TestReporterSetOutputs(t *testing.T) {
 		reporter, _, _ := mockReporter(t)
 
 		expected := map[string]string{"a": "b", "c": "d"}
-		assert.NoError(t, reporter.SetOutputs(expected))
+		require.NoError(t, reporter.SetOutputs(expected))
 		assertEqual(t, expected, &reporter.outputs)
 	})
 
@@ -93,8 +93,8 @@ func TestReporterSetOutputs(t *testing.T) {
 			"d":       "e",
 		}
 		err := reporter.SetOutputs(in)
-		assert.ErrorContains(t, err, "ignore output because the length of the value for \"c\" is 7 (the maximum is 5)")
-		assert.ErrorContains(t, err, "ignore output because the key is longer than 5: \"0123456\"")
+		require.ErrorContains(t, err, "ignore output because the length of the value for \"c\" is 7 (the maximum is 5)")
+		require.ErrorContains(t, err, "ignore output because the key is longer than 5: \"0123456\"")
 		expected := map[string]string{"d": "e"}
 		assertEqual(t, expected, &reporter.outputs)
 	})
@@ -103,11 +103,11 @@ func TestReporterSetOutputs(t *testing.T) {
 		reporter, _, _ := mockReporter(t)
 
 		first := map[string]string{"a": "b", "c": "d"}
-		assert.NoError(t, reporter.SetOutputs(first))
+		require.NoError(t, reporter.SetOutputs(first))
 		assertEqual(t, first, &reporter.outputs)
 
 		second := map[string]string{"c": "d", "e": "f"}
-		assert.ErrorContains(t, reporter.SetOutputs(second), "ignore output because a value already exists for the key \"c\"")
+		require.ErrorContains(t, reporter.SetOutputs(second), "ignore output because a value already exists for the key \"c\"")
 
 		expected := map[string]string{"a": "b", "c": "d", "e": "f"}
 		assertEqual(t, expected, &reporter.outputs)
@@ -386,7 +386,7 @@ func TestReporterReportLog(t *testing.T) {
 
 			err := reporter.ReportLog(testCase.noMore)
 			if testCase.err == nil {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			} else if assert.ErrorIs(t, err, testCase.err) {
 				assert.Equal(t, err.Error(), testCase.err.Error())
 			}
@@ -394,14 +394,14 @@ func TestReporterReportLog(t *testing.T) {
 				assert.Equal(t, testCase.sent, sent)
 				if testCase.received > 0 {
 					remain := len(rows) - testCase.received
-					assert.Equal(t, remain, len(reporter.logRows))
+					assert.Len(t, reporter.logRows, remain)
 					assert.Equal(t, testCase.received, reporter.logOffset)
 				} else {
 					assert.Empty(t, reporter.logRows)
 					assert.Equal(t, len(rows), reporter.logOffset)
 				}
 			} else {
-				assert.Equal(t, len(rows), len(reporter.logRows))
+				assert.Len(t, reporter.logRows, len(rows))
 				assert.Equal(t, 0, reporter.logOffset)
 			}
 		})

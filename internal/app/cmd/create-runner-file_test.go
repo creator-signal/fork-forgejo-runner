@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,19 +36,19 @@ func Test_createRunnerFileCmd(t *testing.T) {
 	ctx := context.Background()
 	cmd := createRunnerFileCmd(ctx, &configFile)
 	output, err := executeCommand(ctx, cmd)
-	assert.ErrorContains(t, err, `required flag(s) "instance", "secret" not set`)
+	require.ErrorContains(t, err, `required flag(s) "instance", "secret" not set`)
 	assert.Contains(t, output, "Usage:")
 }
 
 func Test_validateSecret(t *testing.T) {
-	assert.ErrorContains(t, validateSecret("abc"), "exactly 40 characters")
-	assert.ErrorContains(t, validateSecret("ZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), "must be an hexadecimal")
+	require.ErrorContains(t, validateSecret("abc"), "exactly 40 characters")
+	require.ErrorContains(t, validateSecret("ZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), "must be an hexadecimal")
 }
 
 func Test_uuidFromSecret(t *testing.T) {
 	uuid, err := uuidFromSecret("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-	assert.NoError(t, err)
-	assert.EqualValues(t, uuid, "41414141-4141-4141-4141-414141414141")
+	require.NoError(t, err)
+	assert.Equal(t, "41414141-4141-4141-4141-414141414141", uuid)
 }
 
 func Test_ping(t *testing.T) {
@@ -73,7 +74,7 @@ func Test_runCreateRunnerFile(t *testing.T) {
 	cfg, _ := config.LoadDefault("")
 	cfg.Runner.File = runnerFile
 	yamlData, err := yaml.Marshal(cfg)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NoError(t, os.WriteFile(configFile, yamlData, 0o666))
 
 	instance, has := os.LookupEnv("FORGEJO_URL")
@@ -90,16 +91,16 @@ func Test_runCreateRunnerFile(t *testing.T) {
 	ctx := context.Background()
 	cmd := createRunnerFileCmd(ctx, &configFile)
 	output, err := executeCommand(ctx, cmd, "--connect", "--secret", secret, "--instance", instance, "--name", name)
-	assert.NoError(t, err)
-	assert.EqualValues(t, "", output)
+	require.NoError(t, err)
+	assert.Empty(t, output)
 
 	//
 	// Read back the runner file and verify its content
 	//
 	reg, err := config.LoadRegistration(runnerFile)
-	assert.NoError(t, err)
-	assert.EqualValues(t, secret, reg.Token)
-	assert.EqualValues(t, instance, reg.Address)
+	require.NoError(t, err)
+	assert.Equal(t, secret, reg.Token)
+	assert.Equal(t, instance, reg.Address)
 
 	//
 	// Verify that fetching a task successfully returns there is
@@ -113,6 +114,6 @@ func Test_runCreateRunnerFile(t *testing.T) {
 		ver.Version(),
 	)
 	resp, err := cli.FetchTask(ctx, connect.NewRequest(&runnerv1.FetchTaskRequest{}))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, resp.Msg.GetTask())
 }
