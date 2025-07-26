@@ -1,5 +1,9 @@
 # Release Notes
 
+## 9.0.0 (not yet published)
+
+* Breaking change: forgejo-runner exec --artifact-server-* options are deprecated.
+
 ## 8.0.1
 
 * [tolerate strings for fail-fast, max-parallel, timeout-minutes, cancel-timeout-minutes](https://code.forgejo.org/forgejo/act/pulls/203).
