@@ -1,6 +1,6 @@
 # Release Notes
 
-## 8.0.0 (not published yet)
+## 8.0.0
 
 * Breaking change: workflows files go through a [schema validation](https://code.forgejo.org/forgejo/act/pulls/170) and will not run if they do not pass. Some existing workflows may have syntax errors that did not prevent them from running with versions 7.0.0 and below but they will no longer work with versions 8.0.0 and above.
   Existing workflows can be verified and fixed before upgrading by using `forgejo-runner exec --workflows path-to-the-workflow`. For instance in a workflow where `ruins-on` was typed by mistake instead of `runs-on`:
@@ -16,6 +16,7 @@
 * Breaking change: [bash fallback to sh if it is not available](https://code.forgejo.org/forgejo/runner/issues/150). It will use `bash` instead of `sh` when a container image is explicitly specified in the step. If a workflow depens on that behavior, it will need to be modified to explictly set the shell to `sh`.
 * Breaking change: [sanitize network aliases to be valid DNS names](https://code.forgejo.org/forgejo/act/pulls/190). It is breaking for workflows with services that rely on host names (derived from the service name or the job name) that do not match `[^A-Z0-9-]+`. They will be sanitized and a message displayed in the logs showing the sanitized name. The service can either be renamed to match the constraint so it can be used as is. Or the sanitized name can be used. For instance of a PostgreSQL service runs as `data.base` it will be sanitized as `data_base`.
 * [secrets that contain multiple lines are masked from the output](https://code.forgejo.org/forgejo/runner/pulls/661).
+* [sum256 the container name so derivations do not overflow](https://code.forgejo.org/forgejo/act/pulls/191).
 
 ## 7.0.0
 
