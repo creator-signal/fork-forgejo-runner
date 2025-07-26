@@ -1,5 +1,5 @@
-code.forgejo.org/forgejo/act v1.33.0 h1:ayQTXkpk+Vj5/yQMNZagA0xpQgGVeSbcrPXcIS3K1kY=
-code.forgejo.org/forgejo/act v1.33.0/go.mod h1:WkmxVBteC4zoyQGYp8ZFZY7Xb+jat+b7ChvqW6TxqF8=
+code.forgejo.org/forgejo/act v1.35.0 h1:Qov0xOfUwBYP13inHDPnD3J/rbTlmH+QwrvjN2+FeXE=
+code.forgejo.org/forgejo/act v1.35.0/go.mod h1:WkmxVBteC4zoyQGYp8ZFZY7Xb+jat+b7ChvqW6TxqF8=
 code.forgejo.org/forgejo/actions-proto v0.5.1 h1:GCJHR/Y/Apk7Yl7CH9qOsKrdf/k0tRVFeVhz1EIZvb4=
 code.forgejo.org/forgejo/actions-proto v0.5.1/go.mod h1:nu8N1HQLsu3c4T/PpYWbqwNBxsZnEOVxqV0mQWtIQvE=
 connectrpc.com/connect v1.18.1 h1:PAg7CjSAGvscaf6YZKUefjoih5Z/qYkyaTrBW8xvYPw=
@@ -124,8 +124,6 @@ github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWE
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-runewidth v0.0.15 h1:UNAjwbU9l54TA3KzvqLGxwWjHmMgBUVhBiTjelZgg3U=
 github.com/mattn/go-runewidth v0.0.15/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
-github.com/moby/buildkit v0.13.2 h1:nXNszM4qD9E7QtG7bFWPnDI1teUQFQglBzon/IU3SzI=
-github.com/moby/buildkit v0.13.2/go.mod h1:2cyVOv9NoHM7arphK9ZfHIWKn9YVZRFd1wXB8kKmEzY=
 github.com/moby/docker-image-spec v1.3.1 h1:jMKff3w6PgbfSa69GfNg+zN/XLhfXJGnEx3Nl2EsFP0=
 github.com/moby/docker-image-spec v1.3.1/go.mod h1:eKmb5VW8vQEh/BAr2yvVNvuiJuY6UIocYsFu/DxxRpo=
 github.com/moby/go-archive v0.1.0 h1:Kk/5rdW/g+H8NHdJW2gsXyZ7UnzvJNOy6VKJqueWdcQ=
@@ -284,7 +282,6 @@ golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8T
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
-google.golang.org/genproto v0.0.0-20231016165738-49dd2c1f3d0b h1:+YaDE2r2OG8t/z5qmsh7Y+XXwCbvadxxZ0YY6mTdrVA=
 google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f h1:2yNACc1O40tTnrsbk9Cv6oxiW8pxI/pXj0wRtdlYmgY=
 google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f/go.mod h1:Uy9bTZJqmfrw2rIBxgGLnamc78euZULUBrLZ9XTITKI=
 google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 h1:pPJltXNxVzT4pK9yD8vR9X75DaWYYmLGMsEvBfFQZzQ=
