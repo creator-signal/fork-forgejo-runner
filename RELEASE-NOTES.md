@@ -1,5 +1,9 @@
 # Release Notes
 
+## 8.0.1
+
+* [tolerate strings for fail-fast, max-parallel, timeout-minutes, cancel-timeout-minutes](https://code.forgejo.org/forgejo/act/pulls/203).
+
 ## 8.0.0
 
 * Breaking change: workflows files go through a [schema validation](https://code.forgejo.org/forgejo/act/pulls/170) and will not run if they do not pass. Some existing workflows may have syntax errors that did not prevent them from running with versions 7.0.0 and below but they will no longer work with versions 8.0.0 and above.
