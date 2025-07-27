@@ -190,7 +190,7 @@ func logAndReport(reporter *report.Reporter, message string, args ...any) {
 
 func explainFailedGenerateWorkflow(task *runnerv1.Task, log func(message string, args ...any), err error) error {
 	for n, line := range strings.Split(string(task.WorkflowPayload), "\n") {
-		log("%d: %s", n+1, line)
+		log("%5d: %s", n+1, line)
 	}
 	log("Errors were found and although they tend to be cryptic the line number they refer to gives a hint as to where the problem might be.")
 	for _, line := range strings.Split(err.Error(), "\n") {

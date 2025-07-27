@@ -23,7 +23,7 @@ func TestExplainFailedGenerateWorkflow(t *testing.T) {
 	generateWorkflowError := errors.New("message 1\nmessage 2")
 	err := explainFailedGenerateWorkflow(task, log, generateWorkflowError)
 	assert.Error(t, err)
-	assert.Equal(t, "1: on: [push]\n2: jobs:\n3: \nErrors were found and although they tend to be cryptic the line number they refer to gives a hint as to where the problem might be.\nmessage 1\nmessage 2\n", logged)
+	assert.Equal(t, "    1: on: [push]\n    2: jobs:\n    3: \nErrors were found and although they tend to be cryptic the line number they refer to gives a hint as to where the problem might be.\nmessage 1\nmessage 2\n", logged)
 }
 
 func TestLabelUpdate(t *testing.T) {
