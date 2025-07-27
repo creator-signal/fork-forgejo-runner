@@ -25,11 +25,11 @@ import (
 	"github.com/nektos/act/pkg/runner"
 	log "github.com/sirupsen/logrus"
 
-	"runner.forgejo.org/internal/pkg/client"
-	"runner.forgejo.org/internal/pkg/config"
-	"runner.forgejo.org/internal/pkg/labels"
-	"runner.forgejo.org/internal/pkg/report"
-	"runner.forgejo.org/internal/pkg/ver"
+	"code.forgejo.org/forgejo/runner/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/internal/pkg/report"
+	"code.forgejo.org/forgejo/runner/internal/pkg/ver"
 )
 
 // Runner runs the pipeline.

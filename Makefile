@@ -62,10 +62,10 @@ else
 	endif
 endif
 
-GO_PACKAGES_TO_VET ?= $(filter-out runner.forgejo.org/internal/pkg/client/mocks,$(shell $(GO) list ./...))
+GO_PACKAGES_TO_VET ?= $(filter-out code.forgejo.org/forgejo/runner/internal/pkg/client/mocks,$(shell $(GO) list ./...))
 
 TAGS ?=
-LDFLAGS ?= -X "runner.forgejo.org/internal/pkg/ver.version=v$(RELEASE_VERSION)"
+LDFLAGS ?= -X "code.forgejo.org/forgejo/runner/internal/pkg/ver.version=v$(RELEASE_VERSION)"
 
 all: build
 

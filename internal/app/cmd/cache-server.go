@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/signal"
 
-	"runner.forgejo.org/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/internal/pkg/config"
 
 	"github.com/nektos/act/pkg/artifactcache"
 	log "github.com/sirupsen/logrus"

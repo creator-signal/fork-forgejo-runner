@@ -15,9 +15,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
-	"runner.forgejo.org/internal/app/run"
-	"runner.forgejo.org/internal/pkg/client"
-	"runner.forgejo.org/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/internal/app/run"
+	"code.forgejo.org/forgejo/runner/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/internal/pkg/config"
 )
 
 const PollerID = "PollerID"

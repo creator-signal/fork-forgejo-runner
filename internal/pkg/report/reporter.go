@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"runner.forgejo.org/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/internal/pkg/client"
 )
 
 var (

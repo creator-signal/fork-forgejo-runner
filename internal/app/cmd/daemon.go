@@ -18,13 +18,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"runner.forgejo.org/internal/app/poll"
-	"runner.forgejo.org/internal/app/run"
-	"runner.forgejo.org/internal/pkg/client"
-	"runner.forgejo.org/internal/pkg/config"
-	"runner.forgejo.org/internal/pkg/envcheck"
-	"runner.forgejo.org/internal/pkg/labels"
-	"runner.forgejo.org/internal/pkg/ver"
+	"code.forgejo.org/forgejo/runner/internal/app/poll"
+	"code.forgejo.org/forgejo/runner/internal/app/run"
+	"code.forgejo.org/forgejo/runner/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/internal/pkg/envcheck"
+	"code.forgejo.org/forgejo/runner/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/internal/pkg/ver"
 )
 
 func runDaemon(ctx context.Context, configFile *string) func(cmd *cobra.Command, args []string) error {

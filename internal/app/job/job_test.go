@@ -11,7 +11,7 @@ import (
 	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
-	"runner.forgejo.org/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/internal/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

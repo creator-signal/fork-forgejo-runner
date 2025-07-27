@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"runner.forgejo.org/internal/app/cmd"
+	"code.forgejo.org/forgejo/runner/internal/app/cmd"
 )
 
 func main() {

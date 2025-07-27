@@ -20,8 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"runner.forgejo.org/internal/pkg/client/mocks"
-	"runner.forgejo.org/internal/pkg/testutils"
+	"code.forgejo.org/forgejo/runner/internal/pkg/client/mocks"
+	"code.forgejo.org/forgejo/runner/internal/pkg/testutils"
 )
 
 func rowsToString(rows []*runnerv1.LogRow) string {

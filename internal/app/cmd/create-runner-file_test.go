@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+	"code.forgejo.org/forgejo/runner/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/internal/pkg/ver"
 	"connectrpc.com/connect"
-	"runner.forgejo.org/internal/pkg/client"
-	"runner.forgejo.org/internal/pkg/config"
-	"runner.forgejo.org/internal/pkg/ver"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"

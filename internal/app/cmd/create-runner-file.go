@@ -14,10 +14,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"runner.forgejo.org/internal/app/run"
-	"runner.forgejo.org/internal/pkg/client"
-	"runner.forgejo.org/internal/pkg/config"
-	"runner.forgejo.org/internal/pkg/ver"
+	"code.forgejo.org/forgejo/runner/internal/app/run"
+	"code.forgejo.org/forgejo/runner/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/internal/pkg/ver"
 )
 
 type createRunnerFileArgs struct {

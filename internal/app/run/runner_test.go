@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"runner.forgejo.org/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/internal/pkg/labels"
 
 	"github.com/stretchr/testify/assert"
 )
