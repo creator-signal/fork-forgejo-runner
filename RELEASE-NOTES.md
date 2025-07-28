@@ -1,8 +1,8 @@
 # Release Notes
 
-## 9.0.0 (not yet published)
+## 9.0.0
 
-* Breaking change: forgejo-runner exec --artifact-server-* options are deprecated.
+* Breaking change: forgejo-runner exec --artifact-server-* options are deprecated. In order to test workflows using the artifact server, a local Forgejo instance can be used.
 
 ## 8.0.1
 
