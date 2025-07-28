@@ -20,7 +20,10 @@
   Forgejo Actions YAML Schema validation error
   ```
   If the error is not immediately obvious, please file an issue with a copy of the failed workflow and revert to using version 7.0.0 until it is resolved.
-* Breaking change: in the absence of a label or a label, [default to `docker://node:22-bookworm` instead of `docker://node:20-bullseye` or `host`](https://code.forgejo.org/forgejo/runner/issues/134). If the `lxc` scheme is set with no argument, it defaults to `lxc://debian:bookworm` instead of `lxc://debian:bullseye`.
+* Breaking change: the logic assigning labels was updated and refactored:
+  - in the absence of a label or a label, [default to `docker://node:22-bookworm` instead of `docker://node:20-bullseye` or `host`](https://code.forgejo.org/forgejo/runner/issues/134).
+  - if the `lxc` scheme is set with no argument, it defaults to `lxc://debian:bookworm` instead of `lxc://debian:bullseye`.
+  - the `host` schema cannot have any argument, it can no longer be `host://-self-hosted`
 * Breaking change: [bash fallback to sh if it is not available](https://code.forgejo.org/forgejo/runner/issues/150). It will use `bash` instead of `sh` when a container image is explicitly specified in the step. If a workflow depens on that behavior, it will need to be modified to explictly set the shell to `sh`.
 * Breaking change: [sanitize network aliases to be valid DNS names](https://code.forgejo.org/forgejo/act/pulls/190). It is breaking for workflows with services that rely on host names (derived from the service name or the job name) that do not match `[^A-Z0-9-]+`. They will be sanitized and a message displayed in the logs showing the sanitized name. The service can either be renamed to match the constraint so it can be used as is. Or the sanitized name can be used. For instance of a PostgreSQL service runs as `data.base` it will be sanitized as `data_base`.
 * [secrets that contain multiple lines are masked from the output](https://code.forgejo.org/forgejo/runner/pulls/661).
