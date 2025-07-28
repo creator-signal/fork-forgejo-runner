@@ -15,7 +15,6 @@ import (
 )
 
 func Execute(ctx context.Context) {
-	// ./act_runner
 	rootCmd := &cobra.Command{
 		Use:          "forgejo-runner [event name to run]\nIf no event name passed, will default to \"on: push\"",
 		Short:        "Run Forgejo Actions locally by specifying the event name (e.g. `push`) or an action name directly.",
@@ -26,7 +25,6 @@ func Execute(ctx context.Context) {
 	configFile := ""
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Config file path")
 
-	// ./act_runner register
 	var regArgs registerArgs
 	registerCmd := &cobra.Command{
 		Use:   "register",
@@ -43,7 +41,6 @@ func Execute(ctx context.Context) {
 
 	rootCmd.AddCommand(createRunnerFileCmd(ctx, &configFile))
 
-	// ./act_runner daemon
 	daemonCmd := &cobra.Command{
 		Use:   "daemon",
 		Short: "Run as a runner daemon",
@@ -52,7 +49,6 @@ func Execute(ctx context.Context) {
 	}
 	rootCmd.AddCommand(daemonCmd)
 
-	// ./act_runner job
 	jobCmd := &cobra.Command{
 		Use:   "one-job",
 		Short: "Run only one job",
@@ -61,10 +57,10 @@ func Execute(ctx context.Context) {
 	}
 	rootCmd.AddCommand(jobCmd)
 
-	// ./act_runner exec
 	rootCmd.AddCommand(loadExecCmd(ctx))
 
-	// ./act_runner config
+	rootCmd.AddCommand(loadValidateCmd(ctx))
+
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "generate-config",
 		Short: "Generate an example config file",
@@ -74,7 +70,6 @@ func Execute(ctx context.Context) {
 		},
 	})
 
-	// ./act_runner cache-server
 	var cacheArgs cacheServerArgs
 	cacheCmd := &cobra.Command{
 		Use:   "cache-server",

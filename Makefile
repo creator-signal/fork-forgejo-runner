@@ -122,7 +122,7 @@ install: $(GOFILES)
 
 build: go-check $(EXECUTABLE)
 
-$(EXECUTABLE): $(GOFILES)
+$(EXECUTABLE): $(GOFILES) act/schema/action_schema.json act/schema/workflow_schema.json
 	$(GO) build -v -tags 'netgo osusergo $(TAGS)' -ldflags '$(EXTLDFLAGS)-s -w $(LDFLAGS)' -o $@
 
 .PHONY: deps-tools
