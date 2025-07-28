@@ -45,6 +45,7 @@ linters:
         - name: if-return
         - name: increment-decrement
         - name: var-naming
+          arguments: [[], [], [{ skipPackageNameChecks: true }]]
         - name: var-declaration
         - name: package-comments
         - name: range
