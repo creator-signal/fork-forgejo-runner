@@ -60,6 +60,7 @@ jobs:
     steps:
     - run: exit 0
       if: success() || failure() || always()
+    - uses: https://${{ secrets.PAT }}@example.com/action/here@v1
 `), &node)
 	if !assert.NoError(t, err) {
 		return
@@ -107,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: code.forgejo.org/oci/node:22-bookworm
-    uses: ./.github/workflows/build.yaml
+    uses: ./.forgejo/workflows/${{ vars.PATHNAME }}
     with:
       STAGE: dev
     secrets:
