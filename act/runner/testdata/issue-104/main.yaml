@@ -10,6 +10,6 @@ jobs:
     steps:
 
     - name: hello
-      uses: https://github.com/actions/hello-world-docker-action@v1
+      uses: https://code.forgejo.org/forgejo/hello-world-docker-action@v1
       with:
         who-to-greet: "World"

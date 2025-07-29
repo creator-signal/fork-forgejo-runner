@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:12
+        image: code.forgejo.org/oci/bitnami/postgresql:16
         env:
           POSTGRES_USER: runner
           POSTGRES_PASSWORD: mysecretdbpass

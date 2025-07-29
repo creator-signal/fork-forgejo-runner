@@ -1,1 +1,1 @@
-FROM ubuntu:18.04
+FROM code.forgejo.org/oci/node:22

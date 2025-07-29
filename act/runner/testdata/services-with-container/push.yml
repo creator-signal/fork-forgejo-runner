@@ -8,9 +8,7 @@ jobs:
       image: code.forgejo.org/oci/node:22-bookworm
     services:
       nginx:
-        image: "nginx:latest"
-        ports:
-          - "8080:80"
+        image: "code.forgejo.org/oci/apache-git:1"
     steps:
       - run: apt-get -qq update && apt-get -yqq install --no-install-recommends curl
       - run: curl -v http://nginx:80

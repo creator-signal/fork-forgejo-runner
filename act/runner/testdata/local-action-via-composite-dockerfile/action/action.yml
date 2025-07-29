@@ -32,7 +32,7 @@ runs:
     shell: bash
   - uses: ./localdockerimagetest_
   # Also test a remote docker action here
-  - uses: https://github.com/actions/hello-world-docker-action@v1
+  - uses: https://code.forgejo.org/forgejo/hello-world-docker-action@v1
     with:
       who-to-greet: 'Mona the Octocat'
   # Test if GITHUB_ACTION_PATH is set correctly after all steps

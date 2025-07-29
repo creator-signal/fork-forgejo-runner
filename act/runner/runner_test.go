@@ -407,6 +407,7 @@ func TestRunner_DockerActionForcePullForceRebuild(t *testing.T) {
 }
 
 func TestRunner_RunDifferentArchitecture(t *testing.T) {
+	t.Skip("Flaky see https://code.forgejo.org/forgejo/runner/issues/763")
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}

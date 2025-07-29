@@ -5,19 +5,18 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: docker://node:16-buster-slim
+      - uses: docker://code.forgejo.org/oci/node:22
         with:
           somekey: somevalue
           args: echo ${INPUT_SOMEKEY} | grep somevalue
-      - uses: docker://node:16-buster-slim
+      - uses: docker://code.forgejo.org/oci/node:22
         with:
           args: -v
-      - uses: docker://node:16-buster-slim
+      - uses: docker://code.forgejo.org/oci/node:22
         with:
           entrypoint: /bin/sh
           args: -c -- uname -a
-      - uses: docker://node:16-buster-slim
+      - uses: docker://code.forgejo.org/oci/node:22
         with:
           entrypoint: /bin/sh
           args: -c 'uname -a'
-

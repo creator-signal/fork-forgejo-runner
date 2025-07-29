@@ -5,6 +5,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: catthehacker/ubuntu:runner-latest # image with user 'runner:runner' built on tag 'act-latest'
+      image: code.forgejo.org/forgejo/runner:8
     steps:
       - run: echo PASS

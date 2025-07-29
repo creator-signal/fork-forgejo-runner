@@ -4,4 +4,4 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: https://github.com/actions/hello-world-docker-action@b136eb8
+      - uses: https://code.forgejo.org/forgejo/hello-world-docker-action@4b60c28
