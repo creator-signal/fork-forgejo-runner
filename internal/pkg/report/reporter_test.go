@@ -21,7 +21,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"code.forgejo.org/forgejo/runner/internal/pkg/client/mocks"
-	"code.forgejo.org/forgejo/runner/internal/pkg/testutils"
+	"code.forgejo.org/forgejo/runner/testutils"
 )
 
 func rowsToString(rows []*runnerv1.LogRow) string {

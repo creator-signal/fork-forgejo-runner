@@ -13,7 +13,7 @@ import (
 	"code.forgejo.org/forgejo/runner/act/container"
 	"code.forgejo.org/forgejo/runner/act/exprparser"
 	"code.forgejo.org/forgejo/runner/act/model"
-	"code.forgejo.org/forgejo/runner/act/testutils"
+	"code.forgejo.org/forgejo/runner/testutils"
 
 	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"
