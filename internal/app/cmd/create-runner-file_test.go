@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"testing"
@@ -14,21 +13,9 @@ import (
 	"code.forgejo.org/forgejo/runner/internal/pkg/ver"
 	"connectrpc.com/connect"
 
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
-
-func executeCommand(ctx context.Context, cmd *cobra.Command, args ...string) (string, error) {
-	buf := new(bytes.Buffer)
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
-	cmd.SetArgs(args)
-
-	err := cmd.ExecuteContext(ctx)
-
-	return buf.String(), err
-}
 
 func Test_createRunnerFileCmd(t *testing.T) {
 	configFile := "config.yml"
