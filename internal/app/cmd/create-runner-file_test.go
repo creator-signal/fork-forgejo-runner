@@ -21,7 +21,7 @@ func Test_createRunnerFileCmd(t *testing.T) {
 	configFile := "config.yml"
 	ctx := context.Background()
 	cmd := createRunnerFileCmd(ctx, &configFile)
-	output, err := executeCommand(ctx, cmd)
+	output, _, _, err := executeCommand(ctx, t, cmd)
 	assert.ErrorContains(t, err, `required flag(s) "instance", "secret" not set`)
 	assert.Contains(t, output, "Usage:")
 }
@@ -76,7 +76,7 @@ func Test_runCreateRunnerFile(t *testing.T) {
 	//
 	ctx := context.Background()
 	cmd := createRunnerFileCmd(ctx, &configFile)
-	output, err := executeCommand(ctx, cmd, "--connect", "--secret", secret, "--instance", instance, "--name", name)
+	output, _, _, err := executeCommand(ctx, t, cmd, "--connect", "--secret", secret, "--instance", instance, "--name", name)
 	assert.NoError(t, err)
 	assert.EqualValues(t, "", output)
 
