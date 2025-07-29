@@ -5,7 +5,7 @@
   "packageRules": [
     {
       "description": "Disable act test data",
-      "matchFileNames": ["act/*/testdata/**"],
+      "matchFileNames": ["**/testdata/**"],
       "enabled": false
     },
     {
