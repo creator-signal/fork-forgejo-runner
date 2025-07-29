@@ -220,6 +220,7 @@
         "steps",
         "job",
         "runner",
+        "vars",
         "env",
         "hashFiles(1,255)"
       ],

@@ -138,7 +138,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: echo "${{ github.action_path }}"
+    - run: |
+        echo "${{ github.action_path }}"
+      env:
+          MYVAR: ${{ vars.VARIABLE }}
 `), &node)
 	if !assert.NoError(t, err) {
 		return
