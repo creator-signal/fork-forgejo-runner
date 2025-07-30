@@ -123,8 +123,13 @@ jobs:
 }
 
 func TestActionSchema(t *testing.T) {
-	var node yaml.Node
-	err := yaml.Unmarshal([]byte(`
+	for _, testCase := range []struct {
+		name   string
+		action string
+	}{
+		{
+			name: "Expressions",
+			action: `
 name: 'action name'
 author: 'action authors'
 description: |
@@ -143,13 +148,41 @@ runs:
         echo "${{ github.action_path }}"
       env:
           MYVAR: ${{ vars.VARIABLE }}
-`), &node)
-	if !assert.NoError(t, err) {
-		return
+`,
+		},
+		{
+			name: "NoInputs",
+			action: `
+runs:
+  using: "composite"
+  steps:
+    - run: echo OK
+`,
+		},
+		{
+			name: "NoMappingInputs",
+			action: `
+inputs:
+  parameter1:
+  parameter2:
+runs:
+  using: "composite"
+  steps:
+    - run: echo OK
+`,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			var node yaml.Node
+			err := yaml.Unmarshal([]byte(testCase.action), &node)
+			if !assert.NoError(t, err) {
+				return
+			}
+			err = (&Node{
+				Definition: "action-root",
+				Schema:     GetActionSchema(),
+			}).UnmarshalYAML(&node)
+			assert.NoError(t, err)
+		})
 	}
-	err = (&Node{
-		Definition: "action-root",
-		Schema:     GetActionSchema(),
-	}).UnmarshalYAML(&node)
-	assert.NoError(t, err)
 }

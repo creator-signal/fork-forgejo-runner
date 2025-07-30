@@ -15,12 +15,18 @@
       }
     },
     "inputs": {
+      "one-of": ["null", "inputs-mapping"]
+    },
+    "inputs-mapping": {
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "input"
       }
     },
     "input": {
+      "one-of": ["null", "input-mapping"]
+    },
+    "input-mapping": {
       "mapping": {
         "properties": {
           "default": "input-default-context"
