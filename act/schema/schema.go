@@ -125,9 +125,10 @@ func (s *Node) checkSingleExpression(exprNode actionlint.ExprNode) error {
 		case actionlint.TokenKindInt:
 		case actionlint.TokenKindFloat:
 		case actionlint.TokenKindString:
+		case actionlint.TokenKindIdent:
 			return nil
 		default:
-			return fmt.Errorf("expressions are not allowed here")
+			return fmt.Errorf("expressions are not allowed in %v", exprNode.Token().Kind)
 		}
 	}
 

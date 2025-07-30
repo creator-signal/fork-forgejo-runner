@@ -128,7 +128,7 @@ func TestActionSchema(t *testing.T) {
 name: 'action name'
 author: 'action authors'
 description: |
-  action description
+  action ${{ env.SOMETHING }} description
 inputs:
   url:
     description: 'url description'
