@@ -8,6 +8,8 @@ A daemon that connects to a Forgejo instance and runs jobs for continuous integr
 
 When filing a bug in [the issue tracker](https://code.forgejo.org/forgejo/runner/issues), it is very helpful to propose a pull request [in the end-to-end tests](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions) repository that adds a reproducer. It will fail the CI and unambiguously demonstrate that the problem exists. In most cases it is enough to add a workflow ([see the echo example](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions/example-echo)). For more complicated cases it is also possible to add a runner config file as well as shell scripts to setup and teardown the test case ([see the service example](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions/example-service)).
 
+Sensitive security-related issues should be reported to [security@forgejo.org](mailto:security@forgejo.org) using [encryption](https://keyoxide.org/security@forgejo.org).
+
 # Architectures & OS
 
 The Forgejo runner is supported and tested on `amd64` and `arm64` ([binaries](https://code.forgejo.org/forgejo/runner/releases) and [containers](https://code.forgejo.org/forgejo/-/packages/container/runner/versions)) on Operating Systems based on the Linux kernel.
