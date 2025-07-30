@@ -196,6 +196,7 @@
         "steps",
         "job",
         "runner",
+        "vars",
         "env",
         "hashFiles(1,255)"
       ],
@@ -211,6 +212,7 @@
         "steps",
         "job",
         "runner",
+        "vars",
         "env",
         "hashFiles(1,255)"
       ],
@@ -245,6 +247,7 @@
         "steps",
         "job",
         "runner",
+        "vars",
         "env",
         "always(0,0)",
         "failure(0,0)",
@@ -264,6 +267,7 @@
         "steps",
         "job",
         "runner",
+        "vars",
         "env",
         "hashFiles(1,255)"
       ],
