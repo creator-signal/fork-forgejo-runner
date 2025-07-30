@@ -4,7 +4,7 @@ Documentation=https://forgejo.org/docs/latest/admin/actions/
 After=docker.service
 
 [Service]
-ExecStart=forgejo-runner daemon
+ExecStart=/usr/local/bin/forgejo-runner daemon
 ExecReload=/bin/kill -s HUP $MAINPID
 
 # This user and working directory must already exist
