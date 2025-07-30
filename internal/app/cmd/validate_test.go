@@ -1,3 +1,4 @@
+// Copyright 2025 The Forgejo Authors
 // SPDX-License-Identifier: MIT
 
 package cmd
@@ -7,16 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-func Test_validateCmdError(t *testing.T) {
-	ctx := context.Background()
-	cmd := loadValidateCmd(ctx)
-	output, _, _, err := executeCommand(ctx, t, cmd)
-	assert.ErrorContains(t, err, `--path "": open : no such file or directory`)
-	assert.Contains(t, output, "Usage:")
-}
 
 func Test_validateCmd(t *testing.T) {
 	ctx := context.Background()
@@ -36,40 +28,62 @@ func Test_validateCmd(t *testing.T) {
 		},
 		{
 			name:    "MutuallyExclusive",
-			args:    []string{"--action", "--workflow"},
+			args:    []string{"--action", "--workflow", "--path", "/tmp"},
 			message: "[action workflow] were all set",
 		},
 		{
-			name:   "ActionOK",
+			name:   "PathActionOK",
 			args:   []string{"--action", "--path", "testdata/validate/good-action.yml"},
 			stdOut: "schema validation OK",
 		},
 		{
-			name:   "ActionNOK",
+			name:   "PathActionNOK",
 			args:   []string{"--action", "--path", "testdata/validate/bad-action.yml"},
 			stdOut: "Expected a mapping got scalar",
 		},
 		{
-			name:   "WorkflowOK",
+			name:   "PathWorkflowOK",
 			args:   []string{"--workflow", "--path", "testdata/validate/good-workflow.yml"},
 			stdOut: "schema validation OK",
 		},
 		{
-			name:   "WorkflowNOK",
+			name:   "PathWorkflowNOK",
 			args:   []string{"--workflow", "--path", "testdata/validate/bad-workflow.yml"},
 			stdOut: "Unknown Property ruins-on",
+		},
+		{
+			name:   "RepositoryOK",
+			args:   []string{"--repository", "testdata/validate/good-repository"},
+			stdOut: "action.yml action schema validation OK\nsubaction/action.yaml action schema validation OK\n.forgejo/workflows/action.yml workflow schema validation OK\n.forgejo/workflows/workflow1.yml workflow schema validation OK\n.forgejo/workflows/workflow2.yaml workflow schema validation OK",
+		},
+		{
+			name:   "RepositoryActionNOK",
+			args:   []string{"--repository", "testdata/validate/bad-repository"},
+			stdOut: "action.yml action schema validation failed",
+		},
+		{
+			name:   "RepositoryWorkflowNOK",
+			args:   []string{"--repository", "testdata/validate/bad-repository"},
+			stdOut: ".forgejo/workflows/workflow1.yml workflow schema validation failed",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cmd := loadValidateCmd(ctx)
-			cmdOut, stdOut, _, err := executeCommand(ctx, t, cmd, testCase.args...)
+			cmdOut, stdOut, stdErr, err := executeCommand(ctx, t, cmd, testCase.args...)
 			if testCase.message != "" {
 				assert.ErrorContains(t, err, testCase.message)
 			} else {
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			}
 			if testCase.stdOut != "" {
 				assert.Contains(t, stdOut, testCase.stdOut)
+			} else {
+				assert.Empty(t, stdOut)
+			}
+			if testCase.stdErr != "" {
+				assert.Contains(t, stdErr, testCase.stdErr)
+			} else {
+				assert.Empty(t, stdErr)
 			}
 			if testCase.cmdOut != "" {
 				assert.Contains(t, cmdOut, testCase.cmdOut)
