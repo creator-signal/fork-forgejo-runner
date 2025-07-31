@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/act/common"
-	"code.forgejo.org/forgejo/runner/act/schema"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/schema"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )

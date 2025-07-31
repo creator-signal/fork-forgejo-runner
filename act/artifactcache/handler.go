@@ -20,8 +20,8 @@ import (
 	"github.com/timshannon/bolthold"
 	"go.etcd.io/bbolt"
 
-	"code.forgejo.org/forgejo/runner/act/cacheproxy"
-	"code.forgejo.org/forgejo/runner/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/cacheproxy"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
 )
 
 const (

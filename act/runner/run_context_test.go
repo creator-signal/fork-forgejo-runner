@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/act/container"
-	"code.forgejo.org/forgejo/runner/act/exprparser"
-	"code.forgejo.org/forgejo/runner/act/model"
-	"code.forgejo.org/forgejo/runner/testutils"
+	"code.forgejo.org/forgejo/runner/v9/act/container"
+	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v9/act/model"
+	"code.forgejo.org/forgejo/runner/v9/testutils"
 
 	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"

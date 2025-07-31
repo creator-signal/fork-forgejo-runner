@@ -37,8 +37,8 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
-	"code.forgejo.org/forgejo/runner/act/common"
-	"code.forgejo.org/forgejo/runner/act/filecollector"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/filecollector"
 )
 
 // NewContainer creates a reference to a container

@@ -22,7 +22,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 
-	"code.forgejo.org/forgejo/runner/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
 )
 
 const (

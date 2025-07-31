@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/act/common"
-	"code.forgejo.org/forgejo/runner/act/model"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/yaml.v3"

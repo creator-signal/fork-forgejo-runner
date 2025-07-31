@@ -13,7 +13,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 
-	"code.forgejo.org/forgejo/runner/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
 )
 
 // NewDockerPullExecutor function to create a run executor for the container

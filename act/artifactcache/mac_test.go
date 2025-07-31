@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/act/cacheproxy"
+	"code.forgejo.org/forgejo/runner/v9/act/cacheproxy"
 	"github.com/stretchr/testify/require"
 )
 

@@ -5,7 +5,7 @@ package container
 import (
 	"context"
 
-	"code.forgejo.org/forgejo/runner/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"code.forgejo.org/forgejo/runner/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"github.com/docker/go-connections/nat"
 )
 

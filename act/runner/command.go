@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
 )
 
 var (

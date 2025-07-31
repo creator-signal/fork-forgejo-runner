@@ -9,9 +9,9 @@ import (
 	"os"
 	"os/signal"
 
-	"code.forgejo.org/forgejo/runner/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/config"
 
-	"code.forgejo.org/forgejo/runner/act/artifactcache"
+	"code.forgejo.org/forgejo/runner/v9/act/artifactcache"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

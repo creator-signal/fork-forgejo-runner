@@ -3,7 +3,7 @@ package jobparser
 import (
 	"fmt"
 
-	"code.forgejo.org/forgejo/runner/act/model"
+	"code.forgejo.org/forgejo/runner/v9/act/model"
 	"gopkg.in/yaml.v3"
 )
 

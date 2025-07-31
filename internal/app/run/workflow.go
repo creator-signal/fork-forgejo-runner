@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/act/model"
+	"code.forgejo.org/forgejo/runner/v9/act/model"
 	"gopkg.in/yaml.v3"
 )
 

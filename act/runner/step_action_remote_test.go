@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/yaml.v3"
 
-	"code.forgejo.org/forgejo/runner/act/common"
-	"code.forgejo.org/forgejo/runner/act/common/git"
-	"code.forgejo.org/forgejo/runner/act/model"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/common/git"
+	"code.forgejo.org/forgejo/runner/v9/act/model"
 )
 
 type stepActionRemoteMocks struct {

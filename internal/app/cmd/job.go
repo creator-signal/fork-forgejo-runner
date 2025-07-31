@@ -13,13 +13,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"code.forgejo.org/forgejo/runner/internal/app/job"
-	"code.forgejo.org/forgejo/runner/internal/app/run"
-	"code.forgejo.org/forgejo/runner/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/internal/pkg/config"
-	"code.forgejo.org/forgejo/runner/internal/pkg/envcheck"
-	"code.forgejo.org/forgejo/runner/internal/pkg/labels"
-	"code.forgejo.org/forgejo/runner/internal/pkg/ver"
+	"code.forgejo.org/forgejo/runner/v9/internal/app/job"
+	"code.forgejo.org/forgejo/runner/v9/internal/app/run"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/envcheck"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/ver"
 )
 
 func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, args []string) error {

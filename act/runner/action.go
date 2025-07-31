@@ -16,9 +16,9 @@ import (
 
 	"github.com/kballard/go-shellquote"
 
-	"code.forgejo.org/forgejo/runner/act/common"
-	"code.forgejo.org/forgejo/runner/act/container"
-	"code.forgejo.org/forgejo/runner/act/model"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/container"
+	"code.forgejo.org/forgejo/runner/v9/act/model"
 )
 
 type actionStep interface {

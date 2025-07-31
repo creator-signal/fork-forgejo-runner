@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/testutils"
+	"code.forgejo.org/forgejo/runner/v9/testutils"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"

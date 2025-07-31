@@ -20,9 +20,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"golang.org/x/term"
 
-	"code.forgejo.org/forgejo/runner/act/common"
-	"code.forgejo.org/forgejo/runner/act/filecollector"
-	"code.forgejo.org/forgejo/runner/act/lookpath"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/filecollector"
+	"code.forgejo.org/forgejo/runner/v9/act/lookpath"
 )
 
 type HostEnvironment struct {

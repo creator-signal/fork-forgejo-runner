@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
 )
 
 func parseEnvFile(e Container, srcPath string, env *map[string]string) common.Executor {

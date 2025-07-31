@@ -16,20 +16,20 @@ import (
 	"time"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/act/artifactcache"
-	"code.forgejo.org/forgejo/runner/act/cacheproxy"
-	"code.forgejo.org/forgejo/runner/act/common"
-	"code.forgejo.org/forgejo/runner/act/model"
-	"code.forgejo.org/forgejo/runner/act/runner"
+	"code.forgejo.org/forgejo/runner/v9/act/artifactcache"
+	"code.forgejo.org/forgejo/runner/v9/act/cacheproxy"
+	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v9/act/model"
+	"code.forgejo.org/forgejo/runner/v9/act/runner"
 	"connectrpc.com/connect"
 	"github.com/docker/docker/api/types/container"
 	log "github.com/sirupsen/logrus"
 
-	"code.forgejo.org/forgejo/runner/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/internal/pkg/config"
-	"code.forgejo.org/forgejo/runner/internal/pkg/labels"
-	"code.forgejo.org/forgejo/runner/internal/pkg/report"
-	"code.forgejo.org/forgejo/runner/internal/pkg/ver"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/report"
+	"code.forgejo.org/forgejo/runner/v9/internal/pkg/ver"
 )
 
 // Runner runs the pipeline.

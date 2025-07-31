@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/act/cacheproxy"
+	"code.forgejo.org/forgejo/runner/v9/act/cacheproxy"
 )
 
 var ErrValidation = errors.New("validation error")

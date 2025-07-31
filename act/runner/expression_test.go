@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/act/exprparser"
-	"code.forgejo.org/forgejo/runner/act/model"
+	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v9/act/model"
 	assert "github.com/stretchr/testify/assert"
 	yaml "gopkg.in/yaml.v3"
 )
