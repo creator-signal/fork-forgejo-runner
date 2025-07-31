@@ -32,7 +32,7 @@ LABEL maintainer="contact@forgejo.org" \
       org.opencontainers.image.source="https://code.forgejo.org/forgejo/runner" \
       org.opencontainers.image.version="${RELEASE_VERSION}" \
       org.opencontainers.image.vendor="Forgejo" \
-      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.licenses="GPL-3.0-or-later" \
       org.opencontainers.image.title="Forgejo Runner" \
       org.opencontainers.image.description="A runner for Forgejo Actions."
 

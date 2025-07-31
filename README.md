@@ -8,10 +8,7 @@ Sensitive security-related issues should be reported to [security@forgejo.org](m
 
 ## License
 
-The Forgejo runner source code is distributed under the terms of the following licenses:
-
-- [MIT](LICENSE) for the most part.
-- [Apache 2](act/container/DOCKER_LICENSE) for parts found in the [act/container](act/container) directory.
+The Forgejo runner is distributed under the terms of the [GPL version 3.0](LICENSE) or any later version.
 
 # Architectures & OS
 

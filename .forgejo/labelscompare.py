@@ -8,7 +8,7 @@ expectedLabels = {
     "org.opencontainers.image.source": "https://code.forgejo.org/forgejo/runner",
     "org.opencontainers.image.version": "1.2.3",
     "org.opencontainers.image.vendor": "Forgejo",
-    "org.opencontainers.image.licenses": "MIT",
+    "org.opencontainers.image.licenses": "GPL-3.0-or-later",
     "org.opencontainers.image.title": "Forgejo Runner",
     "org.opencontainers.image.description": "A runner for Forgejo Actions.",
 }
