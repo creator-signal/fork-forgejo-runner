@@ -71,6 +71,8 @@ jobs:
           context: examples/docker-build-push-action
           push: true
           tags: ${{ steps.registry.outputs.host-port }}/root/testimage:latest
+          cache-from: type=gha,scope=docker-build-push-action-in-lxc
+          cache-to: type=gha,scope=docker-build-push-action-in-lxc
 
       - name: verify the image can be read from the Forgejo registry
         run: |
