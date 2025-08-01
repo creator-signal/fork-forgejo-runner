@@ -63,11 +63,12 @@ jobs:
       - name: release notes
         id: release-notes
         run: |
-          anchor=${{ steps.tag-version.outputs.value }}
-          anchor=${anchor//./-}
           cat >> "$FORGEJO_OUTPUT" <<EOF
           value<<ENDVAR
-          See https://code.forgejo.org/forgejo/runner/src/branch/main/RELEASE-NOTES.md#$anchor
+          Release Notes
+
+          ---
+
           ENDVAR
           EOF
 
