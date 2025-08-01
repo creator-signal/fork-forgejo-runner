@@ -20,7 +20,7 @@ type jobInfo interface {
 	result(result string)
 }
 
-const cleanupTimeout = 5 * time.Minute
+const cleanupTimeout = 30 * time.Minute
 
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
 	steps := make([]common.Executor, 0)
