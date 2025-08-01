@@ -1,0 +1,78 @@
+#
+# Example that requires a Forgejo runner with an [LXC backend](https://forgejo.org/docs/latest/admin/actions/runner-installation/#setting-up-the-container-environment).
+#
+# - Start a Forgejo instance to be used as a container registry
+# - Build a container image using the [docker/build-push-action](https://code.forgejo.org/docker/build-push-action) action
+# - Push the image to the Forgejo instance
+# - Retrieve the image
+#
+# Runs of this workflow can be seen in [the Forgejo runner](https://code.forgejo.org/forgejo/runner/actions?workflow=docker-build-push-action-in-lxc.yml) logs.
+#
+name: example
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+
+env:
+  FORGEJO_VERSION: 11.0.3 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
+  FORGEJO_USER: root
+  FORGEJO_PASSWORD: admin1234
+
+jobs:
+  docker-build-push-action-in-lxc:
+    if: forge.repository_owner != 'forgejo-integration' && forge.repository_owner != 'forgejo-experimental' && forge.repository_owner != 'forgejo-release'
+    runs-on: lxc-bookworm
+
+    steps:
+
+      - name: install Forgejo so it can be used as a container registry
+        id: registry
+        uses: https://data.forgejo.org/actions/setup-forgejo@v3.0.1
+        with:
+          user: ${{ env.FORGEJO_USER }}
+          password: ${{ env.FORGEJO_PASSWORD }}
+          binary: https://code.forgejo.org/forgejo/forgejo/releases/download/v${{ env.FORGEJO_VERSION }}/forgejo-${{ env.FORGEJO_VERSION }}-linux-amd64
+          lxc-ip-prefix: 10.0.9
+
+      - name: enable insecure / http uploads to the Forgejo registry
+        run: |-
+          set -x
+          # the docker daemon was implicitly installed when Forgejo was
+          # installed in the previous step. But it will refuse to connect
+          # to an insecure / http registry by default and must be told
+          # otherwise
+          cat > /etc/docker/daemon.json <<EOF
+            {
+              "insecure-registries" : ["${{ steps.registry.outputs.host-port }}"]
+            }
+          EOF
+          systemctl restart docker
+
+      - uses: https://data.forgejo.org/docker/setup-qemu-action@v3
+      - uses: https://data.forgejo.org/docker/setup-buildx-action@v2
+        with:
+          # insecure / http connections to the registry are allowed
+          config-inline: |
+            [registry."${{ steps.registry.outputs.host-port }}"]
+              http = true
+
+      - name: login to the Forgejo registry
+        uses: https://data.forgejo.org/docker/login-action@v3
+        with:
+          registry: ${{ steps.registry.outputs.host-port }}
+          username: ${{ env.FORGEJO_USER }}
+          password: ${{ env.FORGEJO_PASSWORD }}
+
+      - name: build and push to the Forgejo registry
+        uses: https://data.forgejo.org/docker/build-push-action@v5
+        with:
+          context: examples/docker-build-push-action
+          push: true
+          tags: ${{ steps.registry.outputs.host-port }}/root/testimage:latest
+
+      - name: verify the image can be read from the Forgejo registry
+        run: |
+          set -x
+          docker pull ${{ steps.registry.outputs.host-port }}/root/testimage:latest
