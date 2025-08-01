@@ -177,6 +177,7 @@
         "matrix",
         "job",
         "runner",
+        "vars",
         "hashFiles(1,255)"
       ],
       "string": {}
