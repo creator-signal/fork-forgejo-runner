@@ -20,6 +20,8 @@ type jobInfo interface {
 	result(result string)
 }
 
+const cleanupTimeout = 5 * time.Minute
+
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
@@ -111,27 +113,34 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		jobError := common.JobError(ctx)
 		var err error
 		if rc.Config.AutoRemove || jobError == nil {
-			// always allow 1 min for stopping and removing the runner, even if we were cancelled
-			ctx, cancel := context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), time.Minute)
-			defer cancel()
+			// Run cleanup work concurrently without waiting for it. Cleanup work can sometimes take a long time
+			// (deleting volumes when jobs have had high I/O volume on slower I/O systems, stopping service tasks), and
+			// there isn't much value to including this in the job run and waiting around for it. Logging for errors
+			// here will go into the runner log rather than the job log, but since cleanup work isn't really defined by
+			// the job configuration that seems reasonable.
+			go func() {
+				// Separate timeout for stopping and removing the runner, in case it was a cancelled job
+				ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+				defer cancel()
 
-			logger := common.Logger(ctx)
-			logger.Infof("Cleaning up container for job %s", rc.JobName)
-			if err = info.stopContainer()(ctx); err != nil {
-				logger.Errorf("Error while stop job container: %v", err)
-			}
-
-			if !rc.IsHostEnv(ctx) && rc.Config.ContainerNetworkMode == "" {
-				// clean network in docker mode only
-				// if the value of `ContainerNetworkMode` is empty string,
-				// it means that the network to which containers are connecting is created by `act_runner`,
-				// so, we should remove the network at last.
-				networkName, _ := rc.networkName()
-				logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, networkName)
-				if err := container.NewDockerNetworkRemoveExecutor(networkName)(ctx); err != nil {
-					logger.Errorf("Error while cleaning network: %v", err)
+				logger := common.Logger(ctx)
+				logger.Debugf("Cleaning up container for job %s", rc.jobContainerName())
+				if err = info.stopContainer()(ctx); err != nil {
+					logger.Errorf("Error while stop job container %s: %v", rc.jobContainerName(), err)
 				}
-			}
+
+				if !rc.IsHostEnv(ctx) && rc.Config.ContainerNetworkMode == "" {
+					// clean network in docker mode only
+					// if the value of `ContainerNetworkMode` is empty string,
+					// it means that the network to which containers are connecting is created by `act_runner`,
+					// so, we should remove the network at last.
+					networkName, _ := rc.networkName()
+					logger.Debugf("Cleaning up network %s for job %s", networkName, rc.jobContainerName())
+					if err := container.NewDockerNetworkRemoveExecutor(networkName)(ctx); err != nil {
+						logger.Errorf("Error while cleaning network %s: %v", networkName, err)
+					}
+				}
+			}()
 		}
 		setJobResult(ctx, info, rc, jobError == nil)
 		setJobOutputs(ctx, rc)
@@ -149,7 +158,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			if ctx.Err() == context.Canceled {
 				// in case of an aborted run, we still should execute the
 				// post steps to allow cleanup.
-				ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), 5*time.Minute)
+				ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), cleanupTimeout)
 				defer cancel()
 			}
 			return postExecutor(ctx)
