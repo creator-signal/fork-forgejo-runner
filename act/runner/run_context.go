@@ -875,9 +875,10 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 	var executor common.Executor
 	jobType, err := rc.Run.Job().Type()
 
+	var asyncCleanup <-chan struct{}
 	switch jobType {
 	case model.JobTypeDefault:
-		executor = newJobExecutor(rc, &stepFactoryImpl{}, rc)
+		executor, asyncCleanup = newJobExecutor(rc, &stepFactoryImpl{}, rc)
 	case model.JobTypeReusableWorkflowLocal:
 		executor = newLocalReusableWorkflowExecutor(rc)
 	case model.JobTypeReusableWorkflowRemote:
@@ -892,7 +893,11 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 			return err
 		}
 		if res {
-			return executor(ctx)
+			retval := executor(ctx)
+			if rc.Config.ForceSynchronousCleanup && asyncCleanup != nil {
+				<-asyncCleanup
+			}
+			return retval
 		}
 		return nil
 	}, nil

@@ -190,6 +190,8 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		Matrix:                cfg.Matrix,
 		JobLoggerLevel:        cfg.JobLoggerLevel,
 		ActionCache:           cfg.ActionCache,
+
+		ForceSynchronousCleanup: true,
 	}
 
 	runner, err := New(runnerConfig)
@@ -390,8 +392,9 @@ func TestRunner_DockerActionForcePullForceRebuild(t *testing.T) {
 	ctx := context.Background()
 
 	config := &Config{
-		ForcePull:    true,
-		ForceRebuild: true,
+		ForcePull:               true,
+		ForceRebuild:            true,
+		ForceSynchronousCleanup: true,
 	}
 
 	tables := []TestJobFileInfo{
@@ -548,10 +551,11 @@ func TestRunner_RunWithService(t *testing.T) {
 	assert.NoError(t, err, workflowPath)
 
 	runnerConfig := &Config{
-		Workdir:         workdir,
-		EventName:       eventName,
-		Platforms:       platforms,
-		ReuseContainers: false,
+		Workdir:                 workdir,
+		EventName:               eventName,
+		Platforms:               platforms,
+		ReuseContainers:         false,
+		ForceSynchronousCleanup: true,
 	}
 	runner, err := New(runnerConfig)
 	assert.NoError(t, err, workflowPath)

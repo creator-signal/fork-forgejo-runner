@@ -104,6 +104,7 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 		executedSteps []string
 		result        string
 		hasError      bool
+		mustStop      bool
 	}{
 		{
 			name:          "zeroSteps",
@@ -124,12 +125,12 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			executedSteps: []string{
 				"startContainer",
 				"step1",
-				"stopContainer",
 				"interpolateOutputs",
 				"closeContainer",
 			},
 			result:   "success",
 			hasError: false,
+			mustStop: true,
 		},
 		{
 			name: "stepWithFailure",
@@ -158,12 +159,12 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"startContainer",
 				"pre1",
 				"step1",
-				"stopContainer",
 				"interpolateOutputs",
 				"closeContainer",
 			},
 			result:   "success",
 			hasError: false,
+			mustStop: true,
 		},
 		{
 			name: "stepWithPost",
@@ -176,12 +177,12 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"startContainer",
 				"step1",
 				"post1",
-				"stopContainer",
 				"interpolateOutputs",
 				"closeContainer",
 			},
 			result:   "success",
 			hasError: false,
+			mustStop: true,
 		},
 		{
 			name: "stepWithPreAndPost",
@@ -195,12 +196,12 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"pre1",
 				"step1",
 				"post1",
-				"stopContainer",
 				"interpolateOutputs",
 				"closeContainer",
 			},
 			result:   "success",
 			hasError: false,
+			mustStop: true,
 		},
 		{
 			name: "stepsWithPreAndPost",
@@ -222,22 +223,13 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"step3",
 				"post3",
 				"post2",
-				"stopContainer",
 				"interpolateOutputs",
 				"closeContainer",
 			},
 			result:   "success",
 			hasError: false,
+			mustStop: true,
 		},
-	}
-
-	contains := func(needle string, haystack []string) bool {
-		for _, item := range haystack {
-			if item == needle {
-				return true
-			}
-		}
-		return false
 	}
 
 	for _, tt := range table {
@@ -312,9 +304,11 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 					return nil
 				})
 
-				if contains("stopContainer", tt.executedSteps) {
+				if tt.mustStop {
+					// stopContainer is called asynchronously and wouldn't have a consistent order in `executorOrder`,
+					// so the same method of storing its order in `executorOrder` isn't used here.  The mock assertion
+					// is relied upon to verify stopContainer is called.
 					jim.On("stopContainer").Return(func(ctx context.Context) error {
-						executorOrder = append(executorOrder, "stopContainer")
 						return nil
 					})
 				}
@@ -327,8 +321,11 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				})
 			}
 
-			executor := newJobExecutor(jim, sfm, rc)
+			executor, waitAsyncComplete := newJobExecutor(jim, sfm, rc)
 			err := executor(ctx)
+			if waitAsyncComplete != nil {
+				<-waitAsyncComplete
+			}
 			assert.Nil(t, err)
 			assert.Equal(t, tt.executedSteps, executorOrder)
 

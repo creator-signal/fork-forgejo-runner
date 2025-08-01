@@ -22,7 +22,9 @@ type jobInfo interface {
 
 const cleanupTimeout = 30 * time.Minute
 
-func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
+// Post-execution cleanup tasks can be deferred to a goroutine; if necessary (for testing) the chan return value can be
+// used to wait for their completion.
+func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) (common.Executor, <-chan struct{}) {
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
 	var postExecutor common.Executor
@@ -38,7 +40,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	infoSteps := info.steps()
 
 	if len(infoSteps) == 0 {
-		return common.NewDebugExecutor("No steps found")
+		return common.NewDebugExecutor("No steps found"), nil
 	}
 
 	preSteps = append(preSteps, func(ctx context.Context) error {
@@ -60,7 +62,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		if stepModel == nil {
 			return func(ctx context.Context) error {
 				return fmt.Errorf("invalid Step %v: missing run or uses key", i)
-			}
+			}, nil
 		}
 		if stepModel.ID == "" {
 			stepModel.ID = fmt.Sprintf("%d", i)
@@ -69,7 +71,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 		step, err := sf.newStep(stepModel, rc)
 		if err != nil {
-			return common.NewErrorExecutor(err)
+			return common.NewErrorExecutor(err), nil
 		}
 
 		preExec := step.pre()
@@ -109,6 +111,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		}
 	}
 
+	asyncWait := make(chan struct{})
 	postExecutor = postExecutor.Finally(func(ctx context.Context) error {
 		jobError := common.JobError(ctx)
 		var err error
@@ -119,6 +122,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			// here will go into the runner log rather than the job log, but since cleanup work isn't really defined by
 			// the job configuration that seems reasonable.
 			go func() {
+				defer close(asyncWait)
+
 				// Separate timeout for stopping and removing the runner, in case it was a cancelled job
 				ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 				defer cancel()
@@ -141,6 +146,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 					}
 				}
 			}()
+		} else {
+			close(asyncWait)
 		}
 		setJobResult(ctx, info, rc, jobError == nil)
 		setJobOutputs(ctx, rc)
@@ -152,19 +159,28 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	pipeline = append(pipeline, preSteps...)
 	pipeline = append(pipeline, steps...)
 
-	return common.NewPipelineExecutor(info.startContainer(), common.NewPipelineExecutor(pipeline...).
-		Finally(func(ctx context.Context) error { //nolint:contextcheck
-			var cancel context.CancelFunc
-			if ctx.Err() == context.Canceled {
-				// in case of an aborted run, we still should execute the
-				// post steps to allow cleanup.
-				ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), cleanupTimeout)
-				defer cancel()
+	return common.NewPipelineExecutor(
+		func(ctx context.Context) error {
+			err := info.startContainer()(ctx)
+			if err != nil {
+				// postExecutor won't be run, so ensure asyncWait isn't held open indefinitely
+				close(asyncWait)
 			}
-			return postExecutor(ctx)
-		}).
-		Finally(info.interpolateOutputs()).
-		Finally(info.closeContainer()))
+			return err
+		},
+		common.NewPipelineExecutor(pipeline...).
+			Finally(func(ctx context.Context) error { //nolint:contextcheck
+				var cancel context.CancelFunc
+				if ctx.Err() == context.Canceled {
+					// in case of an aborted run, we still should execute the
+					// post steps to allow cleanup.
+					ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), cleanupTimeout)
+					defer cancel()
+				}
+				return postExecutor(ctx)
+			}).
+			Finally(info.interpolateOutputs()).
+			Finally(info.closeContainer())), asyncWait
 }
 
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {

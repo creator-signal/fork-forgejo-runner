@@ -75,6 +75,7 @@ type Config struct {
 	InsecureSkipTLS       bool                         // whether to skip verifying TLS certificate of the Gitea instance
 
 	ContainerNetworkEnableIPv6 bool // create the network with IPv6 support enabled
+	ForceSynchronousCleanup    bool // force all container cleanup to occur synchronously for testing
 }
 
 // GetToken: Adapt to Gitea
