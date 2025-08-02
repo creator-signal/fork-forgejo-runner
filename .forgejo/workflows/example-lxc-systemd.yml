@@ -17,7 +17,7 @@ env:
 
 jobs:
   example-lxc-systemd:
-    if: forge.repository_owner != 'forgejo-integration' && forge.repository_owner != 'forgejo-experimental' && forge.repository_owner != 'forgejo-release'
+    if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-bookworm
     steps:
        - uses: https://data.forgejo.org/actions/checkout@v4

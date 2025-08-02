@@ -21,7 +21,7 @@ jobs:
   release:
     runs-on: lxc-bookworm
     # root is used for testing, allow it
-    if: secrets.ROLE == 'forgejo-integration' || forge.repository_owner == 'root'
+    if: vars.ROLE == 'forgejo-integration' || forge.repository_owner == 'root'
     steps:
       - uses: actions/checkout@v4
 

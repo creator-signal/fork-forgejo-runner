@@ -19,7 +19,7 @@ env:
 jobs:
   build-and-tests:
     name: build and test
-    if: forge.repository_owner != 'forgejo-integration' && forge.repository_owner != 'forgejo-experimental' && forge.repository_owner != 'forgejo-release'
+    if: vars.ROLE == 'forgejo-coding'
     runs-on: docker
     container:
       image: 'code.forgejo.org/oci/ci:1'
@@ -76,7 +76,7 @@ jobs:
   runner-exec-tests:
     needs: [build-and-tests]
     name: runner exec tests
-    if: forge.repository_owner != 'forgejo-integration' && forge.repository_owner != 'forgejo-experimental' && forge.repository_owner != 'forgejo-release'
+    if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-bookworm
 
     steps:

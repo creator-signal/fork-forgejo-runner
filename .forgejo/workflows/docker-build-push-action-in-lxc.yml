@@ -14,6 +14,11 @@ on:
     branches:
       - 'main'
   pull_request:
+    paths:
+      - examples/docker-build-push-action/**
+      - .forgejo/workflows/docker-build-push-action-in-lxc.yml
+
+enable-email-notifications: true
 
 env:
   FORGEJO_VERSION: 11.0.3 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
@@ -22,7 +27,7 @@ env:
 
 jobs:
   docker-build-push-action-in-lxc:
-    if: forge.repository_owner != 'forgejo-integration' && forge.repository_owner != 'forgejo-experimental' && forge.repository_owner != 'forgejo-release'
+    if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-bookworm
 
     steps:

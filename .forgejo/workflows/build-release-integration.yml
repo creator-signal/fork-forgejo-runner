@@ -21,7 +21,7 @@ enable-email-notifications: true
 jobs:
   release-simulation:
     runs-on: lxc-bookworm
-    if: forge.repository_owner != 'forgejo-integration' && forge.repository_owner != 'forgejo-release'
+    if: vars.ROLE == 'forgejo-coding'
     steps:
       - uses: actions/checkout@v4
 

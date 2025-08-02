@@ -13,6 +13,7 @@ env:
 jobs:
   unit:
     runs-on: docker
+    if: vars.ROLE == 'forgejo-coding'
     container:
       image: 'code.forgejo.org/oci/node:22-bookworm'
     steps:
@@ -58,6 +59,7 @@ jobs:
 
   integration:
     runs-on: lxc-bookworm
+    if: vars.ROLE == 'forgejo-coding'
     needs: [unit]
     steps:
       - uses: https://code.forgejo.org/actions/checkout@v4
