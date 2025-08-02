@@ -60,18 +60,6 @@ jobs:
           version=${FORGEJO_REF_NAME##*v}
           echo "value=$version" >> "$FORGEJO_OUTPUT"
 
-      - name: release notes
-        id: release-notes
-        run: |
-          cat >> "$FORGEJO_OUTPUT" <<EOF
-          value<<ENDVAR
-          Release Notes
-
-          ---
-
-          ENDVAR
-          EOF
-
       - name: build without TOKEN
         if: ${{ secrets.TOKEN == '' }}
         uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.4.1
@@ -84,7 +72,6 @@ jobs:
           release-version: "${{ steps.tag-version.outputs.value }}"
           token: ${{ steps.token.outputs.value }}
           platforms: linux/amd64,linux/arm64
-          release-notes: "${{ steps.release-notes.outputs.value }}"
           binary-name: forgejo-runner
           binary-path: /bin/forgejo-runner
           verbose: ${{ steps.verbose.outputs.value }}
@@ -101,7 +88,6 @@ jobs:
           release-version: "${{ steps.tag-version.outputs.value }}"
           token: "${{ secrets.TOKEN }}"
           platforms: linux/amd64,linux/arm64
-          release-notes: "${{ steps.release-notes.outputs.value }}"
           binary-name: forgejo-runner
           binary-path: /bin/forgejo-runner
           verbose: ${{ steps.verbose.outputs.value }}
