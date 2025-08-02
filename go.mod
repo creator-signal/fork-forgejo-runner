@@ -27,7 +27,7 @@ require (
 	github.com/moby/go-archive v0.1.0
 	github.com/moby/patternmatcher v0.6.0
 	github.com/opencontainers/image-spec v1.1.1
-	github.com/opencontainers/selinux v1.11.0
+	github.com/opencontainers/selinux v1.12.0
 	github.com/pkg/errors v0.9.1
 	github.com/rhysd/actionlint v1.7.7
 	github.com/sirupsen/logrus v1.9.3
