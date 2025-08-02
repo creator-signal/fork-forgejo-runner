@@ -515,6 +515,10 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	}
 
 	rc.cleanUpJobContainer = func(ctx context.Context) error {
+		// reinit logger from ctx since cleanUpJobContainer is be called after the job is complete, and using
+		// prepareJobContainer's logger could cause logs to continue to append to the finished job
+		logger := common.Logger(ctx)
+
 		reuseJobContainer := func(ctx context.Context) bool {
 			return rc.Config.ReuseContainers
 		}

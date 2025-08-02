@@ -20,6 +20,8 @@ type jobInfo interface {
 	result(result string)
 }
 
+const cleanupTimeout = 30 * time.Minute
+
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
@@ -109,16 +111,23 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 
 	postExecutor = postExecutor.Finally(func(ctx context.Context) error {
 		jobError := common.JobError(ctx)
+
+		// Fresh context to ensure job result output works even if prev. context was a cancelled job
+		ctx, cancel := context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), time.Minute)
+		defer cancel()
+		setJobResult(ctx, info, rc, jobError == nil)
+		setJobOutputs(ctx, rc)
+
 		var err error
 		if rc.Config.AutoRemove || jobError == nil {
-			// always allow 1 min for stopping and removing the runner, even if we were cancelled
-			ctx, cancel := context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), time.Minute)
+			// Separate timeout for cleanup tasks; logger is cleared so that cleanup logs go to runner, not job
+			ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 			defer cancel()
 
 			logger := common.Logger(ctx)
-			logger.Infof("Cleaning up container for job %s", rc.JobName)
+			logger.Debugf("Cleaning up container for job %s", rc.jobContainerName())
 			if err = info.stopContainer()(ctx); err != nil {
-				logger.Errorf("Error while stop job container: %v", err)
+				logger.Errorf("Error while stop job container %s: %v", rc.jobContainerName(), err)
 			}
 
 			if !rc.IsHostEnv(ctx) && rc.Config.ContainerNetworkMode == "" {
@@ -127,15 +136,12 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 				// it means that the network to which containers are connecting is created by `act_runner`,
 				// so, we should remove the network at last.
 				networkName, _ := rc.networkName()
-				logger.Infof("Cleaning up network for job %s, and network name is: %s", rc.JobName, networkName)
+				logger.Debugf("Cleaning up network %s for job %s", networkName, rc.jobContainerName())
 				if err := container.NewDockerNetworkRemoveExecutor(networkName)(ctx); err != nil {
-					logger.Errorf("Error while cleaning network: %v", err)
+					logger.Errorf("Error while cleaning network %s: %v", networkName, err)
 				}
 			}
 		}
-		setJobResult(ctx, info, rc, jobError == nil)
-		setJobOutputs(ctx, rc)
-
 		return err
 	})
 
@@ -149,7 +155,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			if ctx.Err() == context.Canceled {
 				// in case of an aborted run, we still should execute the
 				// post steps to allow cleanup.
-				ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), 5*time.Minute)
+				ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), cleanupTimeout)
 				defer cancel()
 			}
 			return postExecutor(ctx)
