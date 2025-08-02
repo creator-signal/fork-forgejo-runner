@@ -5,7 +5,7 @@ jobs:
   fail-on-invalid-credentials:
     runs-on: ubuntu-latest
     container:
-      image: node:16-buster-slim
+      image: code.forgejo.org/oci/node:22
       credentials:
         username: "user"
         password: "" # Empty password caused a crash in jobexecutor

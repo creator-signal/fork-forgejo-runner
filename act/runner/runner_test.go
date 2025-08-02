@@ -539,7 +539,7 @@ func TestRunner_RunWithService(t *testing.T) {
 	ctx := context.Background()
 
 	platforms := map[string]string{
-		"ubuntu-latest": "node:12.20.1-buster-slim",
+		"ubuntu-latest": "code.forgejo.org/oci/node:22",
 	}
 
 	workflowPath := "services"
