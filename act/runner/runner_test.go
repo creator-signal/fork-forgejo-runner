@@ -192,6 +192,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		ActionCache:           cfg.ActionCache,
 
 		ForceSynchronousCleanup: true,
+		AutoRemove:              true,
 	}
 
 	runner, err := New(runnerConfig)
