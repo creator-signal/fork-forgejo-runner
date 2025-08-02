@@ -30,7 +30,7 @@ services:
       - docker_certs:/certs
 
   forgejo:
-    image: codeberg.org/forgejo/forgejo:11.0
+    image: code.forgejo.org/forgejo/forgejo:11.0
     command: >-
       bash -c '
       /usr/bin/s6-svscan /etc/s6 &

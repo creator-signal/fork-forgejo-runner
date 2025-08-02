@@ -26,7 +26,7 @@ jobs:
 
     services:
       forgejo:
-        image: codeberg.org/forgejo/forgejo:11
+        image: code.forgejo.org/forgejo/forgejo:11
         env:
           FORGEJO__security__INSTALL_LOCK: "true"
           FORGEJO__log__LEVEL: "debug"
