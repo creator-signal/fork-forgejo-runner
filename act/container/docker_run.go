@@ -412,6 +412,11 @@ func (cr *containerReference) mergeJobOptions(ctx context.Context, config *conta
 
 	logger := common.Logger(ctx)
 
+	if jobConfig.Config.Healthcheck != nil && len(jobConfig.Config.Healthcheck.Test) > 0 {
+		logger.Debugf("--health-* options %+v", jobConfig.Config.Healthcheck)
+		config.Healthcheck = jobConfig.Config.Healthcheck
+	}
+
 	if len(jobConfig.Config.Volumes) > 0 {
 		logger.Debugf("--volume options (except bind) %v", jobConfig.Config.Volumes)
 		err = mergo.Merge(&config.Volumes, jobConfig.Config.Volumes, mergo.WithOverride, mergo.WithAppendSlice)

@@ -338,11 +338,18 @@ func TestMergeJobOptions(t *testing.T) {
 		hostConfig *container.HostConfig
 	}{
 		{
-			name:    "ok",
-			options: "--volume /frob:/nitz --volume somevolume --tmpfs /tmp:exec,noatime --hostname alternatehost",
+			name:    "Ok",
+			options: `--volume /frob:/nitz --volume somevolume --tmpfs /tmp:exec,noatime --hostname alternatehost --health-cmd "healthz one"  --health-interval 10s --health-timeout 5s --health-retries 3 --health-start-period 30s`,
 			config: &container.Config{
 				Volumes:  map[string]struct{}{"somevolume": {}},
 				Hostname: "alternatehost",
+				Healthcheck: &container.HealthConfig{
+					Test:        []string{"CMD-SHELL", "healthz one"},
+					Interval:    10 * time.Second,
+					Timeout:     5 * time.Second,
+					StartPeriod: 30 * time.Second,
+					Retries:     3,
+				},
 			},
 			hostConfig: &container.HostConfig{
 				Binds: []string{"/frob:/nitz"},
@@ -350,7 +357,17 @@ func TestMergeJobOptions(t *testing.T) {
 			},
 		},
 		{
-			name:       "ignore",
+			name:    "DisableHealthCheck",
+			options: `--no-healthcheck`,
+			config: &container.Config{
+				Healthcheck: &container.HealthConfig{
+					Test: []string{"NONE"},
+				},
+			},
+			hostConfig: &container.HostConfig{},
+		},
+		{
+			name:       "Ignore",
 			options:    "--pid=host --device=/dev/sda",
 			config:     &container.Config{},
 			hostConfig: &container.HostConfig{},
