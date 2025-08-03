@@ -9,7 +9,7 @@ require (
 	connectrpc.com/connect v1.18.1
 	github.com/Masterminds/semver v1.5.0
 	github.com/avast/retry-go/v4 v4.6.1
-	github.com/containerd/errdefs v0.3.0
+	github.com/containerd/errdefs v1.0.0
 	github.com/creack/pty v1.1.24
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v28.3.3+incompatible
