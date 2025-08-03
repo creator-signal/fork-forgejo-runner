@@ -450,6 +450,7 @@ function lxc_install_docker_inside() {
     mkdir /etc/docker
     cat >/etc/docker/daemon.json <<EOF
 {
+  "insecure-registries": [ "10.0.0.0/8", "192.168.0.0/16" ],
   "ipv6": true,
   "fixed-cidr-v6": "$LXC_IPV6_DOCKER_PREFIX_DEFAULT:1::/64",
   "default-address-pools": [
