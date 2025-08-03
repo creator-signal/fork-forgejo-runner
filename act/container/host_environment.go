@@ -493,6 +493,10 @@ func (e *HostEnvironment) GetRunnerContext(_ context.Context) map[string]interfa
 	}
 }
 
+func (e *HostEnvironment) GetHealth(ctx context.Context) Health {
+	return HealthHealthy
+}
+
 func (e *HostEnvironment) ReplaceLogWriter(stdout, _ io.Writer) (io.Writer, io.Writer) {
 	org := e.StdOut
 	e.StdOut = stdout

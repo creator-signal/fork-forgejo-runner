@@ -63,6 +63,7 @@ type Container interface {
 	Remove() common.Executor
 	Close() common.Executor
 	ReplaceLogWriter(io.Writer, io.Writer) (io.Writer, io.Writer)
+	GetHealth(ctx context.Context) Health
 }
 
 // NewDockerBuildExecutorInput the input for the NewDockerBuildExecutor function
@@ -82,3 +83,11 @@ type NewDockerPullExecutorInput struct {
 	Username  string
 	Password  string
 }
+
+type Health int
+
+const (
+	HealthStarting Health = iota
+	HealthHealthy
+	HealthUnHealthy
+)
