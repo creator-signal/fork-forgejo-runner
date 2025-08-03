@@ -10,6 +10,14 @@ When filing a bug in [the issue tracker](https://code.forgejo.org/forgejo/runner
 
 Sensitive security-related issues should be reported to [security@forgejo.org](mailto:security@forgejo.org) using [encryption](https://keyoxide.org/security@forgejo.org).
 
+
+## License
+
+The Forgejo runner source code is distributed under the terms of the following licenses:
+
+- [MIT](LICENSE) for the most part.
+- [Apache 2](act/container/DOCKER_LICENSE) for parts found in the [act/container](act/container) directory.
+
 # Architectures & OS
 
 The Forgejo runner is supported and tested on `amd64` and `arm64` ([binaries](https://code.forgejo.org/forgejo/runner/releases) and [containers](https://code.forgejo.org/forgejo/-/packages/container/runner/versions)) on Operating Systems based on the Linux kernel.
