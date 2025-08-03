@@ -386,3 +386,79 @@ func TestMergeJobOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestDockerRun_isHealthy(t *testing.T) {
+	cr := containerReference{
+		id: "containerid",
+		input: &NewContainerInput{
+			NetworkAliases: []string{"servicename"},
+		},
+	}
+	ctx := context.Background()
+	makeInspectResponse := func(interval time.Duration, status container.HealthStatus, test []string) container.InspectResponse {
+		return container.InspectResponse{
+			Config: &container.Config{
+				Image: "example.com/some/image",
+				Healthcheck: &container.HealthConfig{
+					Interval: interval,
+					Test:     test,
+				},
+			},
+			ContainerJSONBase: &container.ContainerJSONBase{
+				State: &container.State{
+					Health: &container.Health{
+						Status: status,
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("IncompleteResponseOrNoHealthCheck", func(t *testing.T) {
+		wait, err := cr.isHealthy(ctx, container.InspectResponse{})
+		assert.Zero(t, wait)
+		assert.NoError(t, err)
+
+		// --no-healthcheck translates into a NONE test command
+		resp := makeInspectResponse(0, container.NoHealthcheck, []string{"NONE"})
+		wait, err = cr.isHealthy(ctx, resp)
+		assert.Zero(t, wait)
+		assert.NoError(t, err)
+	})
+
+	t.Run("StartingUndefinedIntervalIsNotZero", func(t *testing.T) {
+		resp := makeInspectResponse(0, container.Starting, nil)
+		wait, err := cr.isHealthy(ctx, resp)
+		assert.NotZero(t, wait)
+		assert.NoError(t, err)
+	})
+
+	t.Run("StartingWithInterval", func(t *testing.T) {
+		expectedWait := time.Duration(42)
+		resp := makeInspectResponse(expectedWait, container.Starting, nil)
+		actualWait, err := cr.isHealthy(ctx, resp)
+		assert.Equal(t, expectedWait, actualWait)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Unhealthy", func(t *testing.T) {
+		resp := makeInspectResponse(0, container.Unhealthy, nil)
+		wait, err := cr.isHealthy(ctx, resp)
+		assert.Zero(t, wait)
+		assert.ErrorContains(t, err, "is not healthy")
+	})
+
+	t.Run("Healthy", func(t *testing.T) {
+		resp := makeInspectResponse(0, container.Healthy, nil)
+		wait, err := cr.isHealthy(ctx, resp)
+		assert.Zero(t, wait)
+		assert.NoError(t, err)
+	})
+
+	t.Run("UnknownStatus", func(t *testing.T) {
+		resp := makeInspectResponse(0, container.NoHealthcheck, nil)
+		wait, err := cr.isHealthy(ctx, resp)
+		assert.Zero(t, wait)
+		assert.ErrorContains(t, err, "unexpected")
+	})
+}

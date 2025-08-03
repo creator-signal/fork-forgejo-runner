@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: code.forgejo.org/oci/bitnami/postgresql:16
+        image: code.forgejo.org/oci/postgres:16
         env:
           POSTGRES_USER: runner
           POSTGRES_PASSWORD: mysecretdbpass
@@ -15,7 +15,7 @@ jobs:
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 20
         ports:
           - 5432:5432
     steps:

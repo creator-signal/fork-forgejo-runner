@@ -1,0 +1,21 @@
+name: service-container
+on: push
+jobs:
+  service-container-test:
+    runs-on: ubuntu-latest
+    container: code.forgejo.org/oci/mysql:8.4
+    services:
+      maindb:
+        image: code.forgejo.org/oci/mysql:8.4
+        # This container should immediately exit due to missing env variable for password config. ... [ERROR]
+        # [Entrypoint]: Database is uninitialized and password option is not specified You need to specify one of the
+        # following as an environment variable:
+        # - MYSQL_ROOT_PASSWORD
+        # - MYSQL_ALLOW_EMPTY_PASSWORD
+        # - MYSQL_RANDOM_ROOT_PASSWORD
+        #
+        # This container should retain the same health check config as the mysql-service-container-with-health-check
+        # case.
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    steps:
+    - run: exit 100 # should never be hit since service will never be healthy

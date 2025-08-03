@@ -3,12 +3,14 @@ package runner
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"code.forgejo.org/forgejo/runner/v9/act/container"
 	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
@@ -18,6 +20,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -823,4 +826,45 @@ jobs:
 			}
 		})
 	}
+}
+
+type waitForServiceContainerMock struct {
+	mock.Mock
+	container.Container
+	container.LinuxContainerEnvironmentExtensions
+}
+
+func (o *waitForServiceContainerMock) IsHealthy(ctx context.Context) (time.Duration, error) {
+	args := o.Called(ctx)
+	return args.Get(0).(time.Duration), args.Error(1)
+}
+
+func Test_waitForServiceContainer(t *testing.T) {
+	t.Run("Wait", func(t *testing.T) {
+		m := &waitForServiceContainerMock{}
+		ctx := context.Background()
+		mock.InOrder(
+			m.On("IsHealthy", ctx).Return(1*time.Millisecond, nil).Once(),
+			m.On("IsHealthy", ctx).Return(time.Duration(0), nil).Once(),
+		)
+		require.NoError(t, waitForServiceContainer(ctx, m))
+		m.AssertExpectations(t)
+	})
+
+	t.Run("Cancel", func(t *testing.T) {
+		m := &waitForServiceContainerMock{}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		m.On("IsHealthy", ctx).Return(1*time.Millisecond, nil).Once()
+		require.NoError(t, waitForServiceContainer(ctx, m))
+		m.AssertExpectations(t)
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		m := &waitForServiceContainerMock{}
+		ctx := context.Background()
+		m.On("IsHealthy", ctx).Return(time.Duration(0), errors.New("ERROR"))
+		require.ErrorContains(t, waitForServiceContainer(ctx, m), "ERROR")
+		m.AssertExpectations(t)
+	})
 }

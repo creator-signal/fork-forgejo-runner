@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver"
 	"github.com/docker/cli/cli/compose/loader"
@@ -189,6 +190,47 @@ func (cr *containerReference) Remove() common.Executor {
 	).Finally(
 		cr.remove(),
 	).IfNot(common.Dryrun)
+}
+
+func (cr *containerReference) inspect(ctx context.Context) (container.InspectResponse, error) {
+	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
+	if err != nil {
+		err = fmt.Errorf("service %v: %s", cr.input.NetworkAliases, err)
+	}
+	return resp, err
+}
+
+func (cr *containerReference) IsHealthy(ctx context.Context) (time.Duration, error) {
+	resp, err := cr.inspect(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return cr.isHealthy(ctx, resp)
+}
+
+func (cr *containerReference) isHealthy(ctx context.Context, resp container.InspectResponse) (time.Duration, error) {
+	logger := common.Logger(ctx)
+	if resp.Config == nil || resp.Config.Healthcheck == nil || resp.State == nil || resp.State.Health == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
+		logger.Debugf("no container health check defined, hope for the best")
+		return 0, nil
+	}
+
+	switch resp.State.Health.Status {
+	case container.Starting:
+		wait := resp.Config.Healthcheck.Interval
+		if wait <= 0 {
+			wait = time.Second
+		}
+		logger.Infof("service %v: container health check %s (%s) is starting, waiting %v", cr.input.NetworkAliases, cr.id, resp.Config.Image, wait)
+		return wait, nil
+	case container.Healthy:
+		logger.Infof("service %v: container health check %s (%s) is healthy", cr.input.NetworkAliases, cr.id, resp.Config.Image)
+		return 0, nil
+	case container.Unhealthy:
+		return 0, fmt.Errorf("service %v: container health check %s (%s) is not healthy", cr.input.NetworkAliases, cr.id, resp.Config.Image)
+	default:
+		return 0, fmt.Errorf("service %v: unexpected health status %s (%s) %v", cr.input.NetworkAliases, cr.id, resp.Config.Image, resp.State.Health.Status)
+	}
 }
 
 func (cr *containerReference) ReplaceLogWriter(stdout, stderr io.Writer) (io.Writer, io.Writer) {

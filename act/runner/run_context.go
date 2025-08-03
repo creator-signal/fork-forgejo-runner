@@ -610,6 +610,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 				Mode: 0o666,
 				Body: "",
 			}),
+			rc.waitForServiceContainers(),
 		)(ctx)
 	}
 }
@@ -739,6 +740,35 @@ func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 				c.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 				c.Start(false),
 			))
+		}
+		return common.NewParallelExecutor(len(execs), execs...)(ctx)
+	}
+}
+
+func waitForServiceContainer(ctx context.Context, c container.ExecutionsEnvironment) error {
+	for {
+		wait, err := c.IsHealthy(ctx)
+		if err != nil {
+			return err
+		}
+		if wait == time.Duration(0) {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(wait):
+		}
+	}
+}
+
+func (rc *RunContext) waitForServiceContainers() common.Executor {
+	return func(ctx context.Context) error {
+		execs := []common.Executor{}
+		for _, c := range rc.ServiceContainers {
+			execs = append(execs, func(ctx context.Context) error {
+				return waitForServiceContainer(ctx, c)
+			})
 		}
 		return common.NewParallelExecutor(len(execs), execs...)(ctx)
 	}
