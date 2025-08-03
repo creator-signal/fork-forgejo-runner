@@ -64,7 +64,7 @@ The creation of a new runner is driven by the following environment variables:
 - `INPUTS_SERIAL`: unique number in the range `[10-100]` (check `/etc/forgejo-runner`)
 - `INPUTS_TOKEN`: a runner registration token obtained from the web UI
 - `INPUTS_FORGEJO`: the Forgejo instance from which `INPUTS_TOKEN` was obtained (e.g. https://code.forgejo.org)
-- `INPUTS_RUNNER_VERSION`: the version of the Forgejo runner as found in https://code.forgejo.org/forgejo/runner/releases (e.g. 6.3.0)
+- `INPUTS_RUNNER_VERSION`: the version of the Forgejo runner as found in https://code.forgejo.org/forgejo/runner/releases (e.g. 9.0.2)
 - `INPUTS_LXC_CONFIG`: the value of the `--config` argument of [lxc-helpers](https://code.forgejo.org/forgejo/lxc-helpers/#usage) used when creating the LXC container for the runner (e.g. `docker`)
 - `INPUTS_LIFETIME`: the LXC container is re-created when its lifetime expires (e.g. 7d)
 
@@ -86,5 +86,5 @@ The creation of a new runner is driven by the following environment variables:
 The goal is that a LXC container uses a version of the Forgejo runner
 that is different from the default. It needs to be installed and pinned.
 
-- Install: `INPUTS_RUNNER_VERSION=6.3.0 forgejo-runner-service.sh install_runner`
-- Pin the version in `/etc/forgejo-runner/N/env` (e.g. `INPUTS_RUNNER_VERSION=6.3.0`)
+- Install: `INPUTS_RUNNER_VERSION=9.0.2 forgejo-runner-service.sh install_runner`
+- Pin the version in `/etc/forgejo-runner/N/env` (e.g. `INPUTS_RUNNER_VERSION=9.0.2`)
