@@ -14,6 +14,7 @@ import (
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
 	"code.forgejo.org/forgejo/runner/v9/act/common"
@@ -209,7 +210,8 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 			if j.errorMessage == "" {
 				assert.NoError(t, err, fullWorkflowPath)
 			} else {
-				assert.Error(t, err, j.errorMessage)
+				require.Error(t, err, j.errorMessage)
+				assert.ErrorContains(t, err, j.errorMessage)
 			}
 		}
 	}
@@ -265,7 +267,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "evalmatrix-merge-array", "push", "", platforms, secrets},
 
 		{workdir, "basic", "push", "", platforms, secrets},
-		{workdir, "fail", "push", "exit with `FAILURE`: 1", platforms, secrets},
+		{workdir, "fail", "push", "Job 'build' failed", platforms, secrets},
 		{workdir, "runs-on", "push", "", platforms, secrets},
 		{workdir, "checkout", "push", "", platforms, secrets},
 		{workdir, "job-container", "push", "", platforms, secrets},
@@ -294,7 +296,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "networking", "push", "", platforms, secrets},
 		{workdir, "steps-context/conclusion", "push", "", platforms, secrets},
 		{workdir, "steps-context/outcome", "push", "", platforms, secrets},
-		{workdir, "job-status-check", "push", "job 'fail' failed", platforms, secrets},
+		{workdir, "job-status-check", "push", "Job 'fail' failed", platforms, secrets},
 		{workdir, "if-expressions", "push", "Job 'mytest' failed", platforms, secrets},
 		{workdir, "actions-environment-and-context-tests", "push", "", platforms, secrets},
 		{workdir, "uses-action-with-pre-and-post-step", "push", "", platforms, secrets},
@@ -313,7 +315,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "do-not-leak-step-env-in-composite", "push", "", platforms, secrets},
 		{workdir, "set-env-step-env-override", "push", "", platforms, secrets},
 		{workdir, "set-env-new-env-file-per-step", "push", "", platforms, secrets},
-		{workdir, "no-panic-on-invalid-composite-action", "push", "jobs failed due to invalid action", platforms, secrets},
+		{workdir, "no-panic-on-invalid-composite-action", "push", "missing steps in composite action", platforms, secrets},
 		{workdir, "tool-cache", "push", "", platforms, secrets},
 
 		// services
