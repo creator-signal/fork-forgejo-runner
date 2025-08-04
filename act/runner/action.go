@@ -45,7 +45,7 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir, actionPath
 	allErrors := []error{}
 	addError := func(fileName string, err error) {
 		if err != nil {
-			allErrors = append(allErrors, fmt.Errorf("failed to read '%s' from action '%s' with path '%s' of step %w", fileName, step.String(), actionPath, err))
+			allErrors = append(allErrors, fmt.Errorf("failed to read '%s' from action '%s' with path '%s': %w", fileName, step.String(), actionPath, err))
 		} else {
 			// One successful read, clear error state
 			allErrors = nil
@@ -112,6 +112,9 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir, actionPath
 	defer closer.Close()
 
 	action, err := model.ReadAction(reader)
+	if err != nil {
+		err = fmt.Errorf("failed to validate action.y*ml from action '%s' with path '%s': %v", step.String(), actionPath, err)
+	}
 	logger.Debugf("Read action %v from '%s'", action, "Unknown")
 	return action, err
 }

@@ -242,6 +242,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "shells/pwsh", "push", "", platforms, secrets},
 
 		// Local action
+		{workdir, "local-action-fails-schema-validation", "push", "Job 'test' failed", platforms, secrets},
 		{workdir, "local-action-docker-url", "push", "", platforms, secrets},
 		{workdir, "local-action-dockerfile", "push", "", platforms, secrets},
 		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms, secrets},
