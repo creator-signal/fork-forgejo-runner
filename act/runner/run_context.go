@@ -746,15 +746,34 @@ func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 }
 
 func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment) common.Executor {
+	// FIXME: GetName() is definitely 'wrong' because it just returns "NAME". :-p
+
 	return func(ctx context.Context) error {
-		sctx, cancel := context.WithTimeout(ctx, time.Minute*5)
+		logger := common.Logger(ctx)
+		timeout, err := c.GetHealthCheckTimeout(ctx)
+		if err != nil {
+			return fmt.Errorf("service container %s could not detect health check timeout due to error, no health check wait will occur: %v", c.GetName(), err)
+		} else if timeout == nil {
+			logger.Debugf("service container %s had no health check", c.GetName())
+			return nil
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, *timeout)
 		defer cancel()
-		var health container.Health
+
 		delay := time.Second
 		for i := 0; ; i++ {
-			health = c.GetHealth(sctx)
-			if health != container.HealthStarting || i > 30 {
-				break
+			health, err := c.GetHealth(ctx)
+			if errors.Is(err, context.DeadlineExceeded) {
+				return fmt.Errorf("service container %s: timed out while waiting for healthy or unhealthy status to be reported", c.GetName())
+			} else if errors.Is(err, context.Canceled) {
+				return err
+			} else if err != nil {
+				logger.Warnf("service container %s: error while checking for health state, will retry: %v", c.GetName(), err)
+			} else if health == container.HealthUnHealthy {
+				return fmt.Errorf("service container %s failed health check", c.GetName())
+			} else if health == container.HealthHealthy {
+				return nil
 			}
 			time.Sleep(delay)
 			delay *= 2
@@ -762,10 +781,6 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment)
 				delay = 10 * time.Second
 			}
 		}
-		if health == container.HealthHealthy {
-			return nil
-		}
-		return fmt.Errorf("service container failed to start")
 	}
 }
 

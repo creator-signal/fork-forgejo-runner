@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"io"
+	"time"
 
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"github.com/docker/go-connections/nat"
@@ -63,7 +64,8 @@ type Container interface {
 	Remove() common.Executor
 	Close() common.Executor
 	ReplaceLogWriter(io.Writer, io.Writer) (io.Writer, io.Writer)
-	GetHealth(ctx context.Context) Health
+	GetHealth(ctx context.Context) (Health, error)
+	GetHealthCheckTimeout(ctx context.Context) (*time.Duration, error)
 }
 
 // NewDockerBuildExecutorInput the input for the NewDockerBuildExecutor function

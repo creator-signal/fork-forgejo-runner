@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver"
 	"github.com/docker/cli/cli/compose/loader"
@@ -191,28 +192,52 @@ func (cr *containerReference) Remove() common.Executor {
 	).IfNot(common.Dryrun)
 }
 
-func (cr *containerReference) GetHealth(ctx context.Context) Health {
+func (cr *containerReference) GetHealth(ctx context.Context) (Health, error) {
 	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
 	logger := common.Logger(ctx)
 	if err != nil {
-		logger.Errorf("failed to query container health %s", err)
-		return HealthUnHealthy
+		return HealthUnHealthy, err
 	}
 	if resp.Config == nil || resp.Config.Healthcheck == nil || resp.State == nil || resp.State.Health == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
 		logger.Debugf("no container health check defined")
-		return HealthHealthy
+		return HealthHealthy, nil
 	}
 
 	logger.Infof("container health of %s (%s) is %s", cr.id, resp.Config.Image, resp.State.Health.Status)
 	switch resp.State.Health.Status {
 	case "starting":
-		return HealthStarting
+		return HealthStarting, nil
 	case "healthy":
-		return HealthHealthy
+		return HealthHealthy, nil
 	case "unhealthy":
-		return HealthUnHealthy
+		return HealthUnHealthy, nil
 	}
-	return HealthUnHealthy
+	return HealthUnHealthy, fmt.Errorf("unrecognized health state: %v", resp.State.Health.Status)
+}
+
+func (cr *containerReference) GetHealthCheckTimeout(ctx context.Context) (*time.Duration, error) {
+	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Config == nil || resp.Config.Healthcheck == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
+		return nil, nil
+	}
+
+	retries := time.Duration(resp.Config.Healthcheck.Retries)
+	// Prefer using `--health-start-interval` option since we're using this timing for service container startup, but
+	// fallback to `--health-interval` if it isn't defined.
+	interval := resp.Config.Healthcheck.StartInterval
+	if interval == 0 {
+		interval = resp.Config.Healthcheck.Interval
+	}
+
+	// Docker will run one health check, with a maximum cmd time of Timeout, every StartInterval, up to the number of
+	// Retries, after an initial pause of StartPeriod. Therefore the pessimistic time that we would wait is...
+	maxWait := resp.Config.Healthcheck.StartPeriod +
+		(retries * resp.Config.Healthcheck.Timeout) +
+		(retries * interval)
+	return &maxWait, nil
 }
 
 func (cr *containerReference) ReplaceLogWriter(stdout, stderr io.Writer) (io.Writer, io.Writer) {
