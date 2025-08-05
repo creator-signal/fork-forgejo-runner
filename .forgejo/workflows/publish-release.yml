@@ -38,6 +38,10 @@ jobs:
           to-owner: ${{ vars.TO_OWNER }}
           repo: "runner"
           release-notes: |
+            - [User guide](https://forgejo.org/docs/next/user/actions/overview/)
+            - [Administrator guide](https://forgejo.org/docs/next/admin/actions/)
+            - [Container images](https://code.forgejo.org/forgejo/-/packages/container/runner/versions)
+
             Release Notes
 
             ---
