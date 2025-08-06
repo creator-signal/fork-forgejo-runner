@@ -7,6 +7,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"github.com/docker/go-connections/nat"
+	"github.com/pkg/errors"
 )
 
 // NewContainerInput the input for the New function
@@ -93,3 +94,5 @@ const (
 	HealthHealthy
 	HealthUnHealthy
 )
+
+var ErrContainerNotFound = errors.New("container not found")

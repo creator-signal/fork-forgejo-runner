@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver"
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/cli/cli/compose/loader"
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -194,6 +195,9 @@ func (cr *containerReference) Remove() common.Executor {
 
 func (cr *containerReference) GetHealth(ctx context.Context) (Health, error) {
 	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
+	if cerrdefs.IsNotFound(err) {
+		return HealthUnHealthy, ErrContainerNotFound
+	}
 	logger := common.Logger(ctx)
 	if err != nil {
 		return HealthUnHealthy, err
