@@ -762,7 +762,7 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment)
 		defer cancel()
 
 		delay := time.Second
-		for i := 0; ; i++ {
+		for {
 			health, err := c.GetHealth(ctx)
 			if errors.Is(err, context.DeadlineExceeded) {
 				return fmt.Errorf("service container %s: timed out while waiting for healthy or unhealthy status to be reported", c.GetName())
