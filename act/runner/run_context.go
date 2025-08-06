@@ -749,7 +749,10 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment,
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		timeout, err := c.GetHealthCheckTimeout(ctx)
-		if err != nil {
+		if errors.Is(err, container.ErrContainerNotFound) {
+			// Terminated really early -- maintain same message as ErrContainerNotFound state in the loop.
+			return fmt.Errorf("service container %s: failed health check or terminated before becoming healthy", serviceID)
+		} else if err != nil {
 			return fmt.Errorf("service container %s: error retrieving health check details: %v", serviceID, err)
 		} else if timeout == nil {
 			logger.Debugf("service container %s: skipping health check wait", serviceID)

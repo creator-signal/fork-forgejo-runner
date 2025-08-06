@@ -221,7 +221,9 @@ func (cr *containerReference) GetHealth(ctx context.Context) (Health, error) {
 
 func (cr *containerReference) GetHealthCheckTimeout(ctx context.Context) (*time.Duration, error) {
 	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
-	if err != nil {
+	if cerrdefs.IsNotFound(err) {
+		return nil, ErrContainerNotFound
+	} else if err != nil {
 		return nil, err
 	}
 	if resp.Config == nil || resp.Config.Healthcheck == nil || len(resp.Config.Healthcheck.Test) == 1 && strings.EqualFold(resp.Config.Healthcheck.Test[0], "NONE") {
