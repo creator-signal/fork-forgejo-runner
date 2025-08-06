@@ -745,16 +745,14 @@ func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 	}
 }
 
-func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment) common.Executor {
-	// FIXME: GetName() is definitely 'wrong' because it just returns "NAME". :-p
-
+func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment, serviceID string) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		timeout, err := c.GetHealthCheckTimeout(ctx)
 		if err != nil {
-			return fmt.Errorf("service container %s could not detect health check timeout due to error, no health check wait will occur: %v", c.GetName(), err)
+			return fmt.Errorf("service container %s: error retrieving health check details: %v", serviceID, err)
 		} else if timeout == nil {
-			logger.Debugf("service container %s had no health check", c.GetName())
+			logger.Debugf("service container %s: skipping health check wait", serviceID)
 			return nil
 		}
 
@@ -765,7 +763,7 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment)
 		for {
 			health, err := c.GetHealth(ctx)
 			if errors.Is(err, context.DeadlineExceeded) {
-				return fmt.Errorf("service container %s: timed out while waiting for healthy or unhealthy status to be reported", c.GetName())
+				return fmt.Errorf("service container %s: timed out while waiting for healthy or unhealthy status to be reported", serviceID)
 			} else if errors.Is(err, context.Canceled) {
 				return err
 			} else if errors.Is(err, container.ErrContainerNotFound) || (err == nil && health == container.HealthUnHealthy) {
@@ -774,10 +772,10 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment)
 				// then start reporting container not found; so, report both the same. Without any detection of the
 				// ErrContainerNotFound case we would just treat it as a transient failure and timeout, which would be a
 				// slower error mode that this is working to avoid.
-				return fmt.Errorf("service container %s: failed health check or terminated before becoming healthy", c.GetName())
+				return fmt.Errorf("service container %s: failed health check or terminated before becoming healthy", serviceID)
 			} else if err != nil {
 				// assume transient error in the execution environment
-				logger.Warnf("service container %s: error while checking for health state, will retry: %v", c.GetName(), err)
+				logger.Warnf("service container %s: error while checking for health state, will retry: %v", serviceID, err)
 			} else if health == container.HealthHealthy {
 				return nil
 			}
@@ -793,8 +791,11 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment)
 func (rc *RunContext) waitForServiceContainers() common.Executor {
 	return func(ctx context.Context) error {
 		execs := []common.Executor{}
-		for _, c := range rc.ServiceContainers {
-			execs = append(execs, rc.waitForServiceContainer(c))
+		i := 0
+		for serviceID := range rc.Run.Job().Services {
+			c := rc.ServiceContainers[i]
+			execs = append(execs, rc.waitForServiceContainer(c, serviceID))
+			i++
 		}
 		return common.NewParallelExecutor(len(execs), execs...)(ctx)
 	}
