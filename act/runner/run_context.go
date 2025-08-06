@@ -759,7 +759,6 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment,
 		ctx, cancel := context.WithTimeout(ctx, *timeout)
 		defer cancel()
 
-		delay := time.Second
 		for {
 			health, err := c.GetHealth(ctx)
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -769,21 +768,17 @@ func (rc *RunContext) waitForServiceContainer(c container.ExecutionsEnvironment,
 			} else if errors.Is(err, container.ErrContainerNotFound) || (err == nil && health == container.HealthUnHealthy) {
 				// Container absent (terminated during health check) and unhealthy are difficult to consistently report
 				// differently from each other as, in docker, a terminated container will briefly appear unhealthy and
-				// then start reporting container not found; so, report both the same. Without any detection of the
-				// ErrContainerNotFound case we would just treat it as a transient failure and timeout, which would be a
-				// slower error mode that this is working to avoid.
+				// then start reporting container not found making the difference race-y. So, report both the same.
+				//
+				// Without any detection of the ErrContainerNotFound case we would just treat it as a transient failure
+				// and timeout, which would be a slower error mode that this is working to avoid.
 				return fmt.Errorf("service container %s: failed health check or terminated before becoming healthy", serviceID)
 			} else if err != nil {
-				// assume transient error in the execution environment
 				logger.Warnf("service container %s: error while checking for health state, will retry: %v", serviceID, err)
 			} else if health == container.HealthHealthy {
 				return nil
 			}
-			time.Sleep(delay)
-			delay *= 2
-			if delay > 10*time.Second {
-				delay = 10 * time.Second
-			}
+			time.Sleep(time.Second)
 		}
 	}
 }
