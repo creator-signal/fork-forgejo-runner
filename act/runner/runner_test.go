@@ -254,6 +254,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "uses-composite-check-for-input-collision", "push", "", platforms, secrets},
 		{workdir, "uses-composite-check-for-input-shadowing", "push", "", platforms, secrets},
 		{workdir, "uses-nested-composite", "push", "", platforms, secrets},
+		{workdir, "uses-composite-check-for-input-in-if-uses", "push", "", platforms, secrets},
 		//		{workdir, "remote-action-composite-js-pre-with-defaults", "push", "", platforms, secrets},
 		{workdir, "remote-action-composite-action-ref", "push", "", platforms, secrets},
 		// reusable workflow not fully implemented yet

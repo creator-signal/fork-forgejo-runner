@@ -9,7 +9,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-  - uses: actions/github-script@v7
+  - uses: https://github.com/actions/github-script@v7
     if: inputs.b == 'true'
     with:
       script: |
@@ -18,7 +18,7 @@ runs:
           process.exit(-1);
         }
       github-token: noop
-  - uses: actions/github-script@v7
+  - uses: https://github.com/actions/github-script@v7
     if: inputs.b != 'true'
     with:
       script: |
@@ -27,7 +27,7 @@ runs:
           process.exit(-1);
         }
       github-token: noop
-  - uses: actions/github-script@v7
+  - uses: https://github.com/actions/github-script@v7
     if: inputs.b2 == 'false'
     with:
       script: |
@@ -36,7 +36,7 @@ runs:
           process.exit(-1);
         }
       github-token: noop
-  - uses: actions/github-script@v7
+  - uses: https://github.com/actions/github-script@v7
     if: inputs.b2 != 'false'
     with:
       script: |
