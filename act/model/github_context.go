@@ -213,3 +213,10 @@ func (ghc *GithubContext) SetBaseAndHeadRef() {
 		}
 	}
 }
+
+func (ghc *GithubContext) GetToken(url string) string {
+	if url != ghc.ServerURL {
+		return ""
+	}
+	return ghc.Token
+}
