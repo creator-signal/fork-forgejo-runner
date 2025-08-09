@@ -31,6 +31,10 @@ func Parse(str string) (*Label, error) {
 		Schema: "docker",
 	}
 
+	if strings.TrimSpace(label.Name) != label.Name {
+		return nil, fmt.Errorf("invalid label %q: starting or ending with a space is invalid", label.Name)
+	}
+
 	if len(splits) >= 2 {
 		label.Schema = splits[1]
 		if label.Schema != SchemeHost && label.Schema != SchemeDocker && label.Schema != SchemeLXC {

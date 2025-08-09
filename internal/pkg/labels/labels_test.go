@@ -63,7 +63,6 @@ func TestParse(t *testing.T) {
 			},
 			wantErr: false,
 		},
-
 		{
 			args: "label1:host",
 			want: &Label{
@@ -78,9 +77,18 @@ func TestParse(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
-
 		{
 			args:    "label1:invalidscheme",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			args:    " label1:lxc://debian:buster",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			args:    "label1 :lxc://debian:buster",
 			want:    nil,
 			wantErr: true,
 		},
