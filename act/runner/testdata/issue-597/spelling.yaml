@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 5
       - name: My first true step
         if: ${{endsWith('Hello world', 'ld')}}
-        uses: https://github.com/actions/hello-world-javascript-action@main
+        uses: https://github.com/actions/hello-world-javascript-action@v1
         with:
           who-to-greet: "Renst the Octocat"
       - name: My second false step

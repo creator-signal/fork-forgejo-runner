@@ -9,7 +9,7 @@ jobs:
       - uses: ./actions/action1
         with:
           args: echo 'build'
-      - uses: https://github.com/actions/hello-world-javascript-action@master
+      - uses: https://github.com/actions/hello-world-javascript-action@v1
         with:
           who-to-greet: 'Mona the Octocat'
   test1:
