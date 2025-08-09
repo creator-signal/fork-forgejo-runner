@@ -172,7 +172,7 @@ func (r *registerInputs) assignToNext(stage registerStage, value string, cfg *co
 	case StageInputLabels:
 		r.Labels = defaultLabels
 		if value != "" {
-			r.Labels = strings.Split(value, ",")
+			r.Labels = commaSplit(value)
 		}
 
 		if validateLabels(r.Labels) != nil {
@@ -260,7 +260,7 @@ func registerNoInteractive(ctx context.Context, configFile string, regArgs *regi
 	regArgs.Labels = strings.TrimSpace(regArgs.Labels)
 	// command line flag.
 	if regArgs.Labels != "" {
-		inputs.Labels = strings.Split(regArgs.Labels, ",")
+		inputs.Labels = commaSplit(regArgs.Labels)
 	}
 	// specify labels in config file.
 	if len(cfg.Runner.Labels) > 0 {
@@ -352,4 +352,25 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 		return fmt.Errorf("failed to save runner config: %w", err)
 	}
 	return nil
+}
+
+// Splits a string by commas, but trims whitespace around the commas. Used for label parsing to avoid a rogue whitespace
+// like "docker:docker://node:22-bookworm, self-hosted:host, lxc:lxc://debian:bookworm" becoming labeled with
+// " self-hosted" and " lxc".
+func commaSplit(s string) []string {
+	if s == "" {
+		return make([]string, 0)
+	}
+
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	return result
 }
