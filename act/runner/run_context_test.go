@@ -69,7 +69,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 			},
 		},
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator(context.Background())
+	rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
 
 	tables := []struct {
 		in      string
@@ -163,7 +163,7 @@ func TestRunContext_EvalBool(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			b, err := EvalBool(context.Background(), rc.ExprEval, table.in, exprparser.DefaultStatusCheckSuccess)
+			b, err := EvalBool(t.Context(), rc.ExprEval, table.in, exprparser.DefaultStatusCheckSuccess)
 			if table.wantErr {
 				assertObject.Error(err)
 			}
@@ -312,7 +312,7 @@ func TestRunContext_GetGitHubContext(t *testing.T) {
 	}
 	rc.Run.JobID = "job1"
 
-	ghc := rc.getGithubContext(context.Background())
+	ghc := rc.getGithubContext(t.Context())
 
 	log.Debugf("%v", ghc)
 
@@ -378,7 +378,7 @@ func TestRunContext_GetGithubContextRef(t *testing.T) {
 				},
 			}
 
-			ghc := rc.getGithubContext(context.Background())
+			ghc := rc.getGithubContext(t.Context())
 
 			assert.Equal(t, data.ref, ghc.Ref)
 		})
@@ -423,44 +423,44 @@ func TestRunContext_RunsOnPlatformNames(t *testing.T) {
 	rc := createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, ""),
 	})
-	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(context.Background()))
+	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ${{ 'ubuntu-latest' }}`, ""),
 	})
-	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(context.Background()))
+	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: [self-hosted, my-runner]`, ""),
 	})
-	assertObject.Equal([]string{"self-hosted", "my-runner"}, rc.runsOnPlatformNames(context.Background()))
+	assertObject.Equal([]string{"self-hosted", "my-runner"}, rc.runsOnPlatformNames(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: [self-hosted, "${{ 'my-runner' }}"]`, ""),
 	})
-	assertObject.Equal([]string{"self-hosted", "my-runner"}, rc.runsOnPlatformNames(context.Background()))
+	assertObject.Equal([]string{"self-hosted", "my-runner"}, rc.runsOnPlatformNames(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ${{ fromJSON('["ubuntu-latest"]') }}`, ""),
 	})
-	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(context.Background()))
+	assertObject.Equal([]string{"ubuntu-latest"}, rc.runsOnPlatformNames(t.Context()))
 
 	// test missing / invalid runs-on
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `name: something`, ""),
 	})
-	assertObject.Equal([]string{}, rc.runsOnPlatformNames(context.Background()))
+	assertObject.Equal([]string{}, rc.runsOnPlatformNames(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on:
   mapping: value`, ""),
 	})
-	assertObject.Equal([]string{}, rc.runsOnPlatformNames(context.Background()))
+	assertObject.Equal([]string{}, rc.runsOnPlatformNames(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ${{ invalid expression }}`, ""),
 	})
-	assertObject.Equal([]string{}, rc.runsOnPlatformNames(context.Background()))
+	assertObject.Equal([]string{}, rc.runsOnPlatformNames(t.Context()))
 }
 
 func TestRunContext_IsEnabled(t *testing.T) {
@@ -472,7 +472,7 @@ func TestRunContext_IsEnabled(t *testing.T) {
 		"job1": createJob(t, `runs-on: ubuntu-latest
 if: success()`, ""),
 	})
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
@@ -481,7 +481,7 @@ needs: [job1]
 if: success()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.False(rc.isEnabled(context.Background()))
+	assertObject.False(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
@@ -490,7 +490,7 @@ needs: [job1]
 if: success()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
@@ -498,14 +498,14 @@ if: success()`, ""),
 if: success()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	// failure()
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest
 if: failure()`, ""),
 	})
-	assertObject.False(rc.isEnabled(context.Background()))
+	assertObject.False(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
@@ -514,7 +514,7 @@ needs: [job1]
 if: failure()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
@@ -523,7 +523,7 @@ needs: [job1]
 if: failure()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.False(rc.isEnabled(context.Background()))
+	assertObject.False(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
@@ -531,14 +531,14 @@ if: failure()`, ""),
 if: failure()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.False(rc.isEnabled(context.Background()))
+	assertObject.False(rc.isEnabled(t.Context()))
 
 	// always()
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest
 if: always()`, ""),
 	})
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "failure"),
@@ -547,7 +547,7 @@ needs: [job1]
 if: always()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
@@ -556,7 +556,7 @@ needs: [job1]
 if: always()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `runs-on: ubuntu-latest`, "success"),
@@ -564,18 +564,18 @@ if: always()`, ""),
 if: always()`, ""),
 	})
 	rc.Run.JobID = "job2"
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `uses: ./.github/workflows/reusable.yml`, ""),
 	})
-	assertObject.True(rc.isEnabled(context.Background()))
+	assertObject.True(rc.isEnabled(t.Context()))
 
 	rc = createIfTestRunContext(map[string]*model.Job{
 		"job1": createJob(t, `uses: ./.github/workflows/reusable.yml
 if: false`, ""),
 	})
-	assertObject.False(rc.isEnabled(context.Background()))
+	assertObject.False(rc.isEnabled(t.Context()))
 }
 
 func TestRunContext_GetEnv(t *testing.T) {
@@ -652,10 +652,10 @@ func TestRunContext_CreateSimpleContainerName(t *testing.T) {
 
 func TestRunContext_SanitizeNetworkAlias(t *testing.T) {
 	same := "same"
-	assert.Equal(t, same, sanitizeNetworkAlias(context.Background(), same))
+	assert.Equal(t, same, sanitizeNetworkAlias(t.Context(), same))
 	original := "or.igin'A-L"
 	sanitized := "or_igin_a-l"
-	assert.Equal(t, sanitized, sanitizeNetworkAlias(context.Background(), original))
+	assert.Equal(t, sanitized, sanitizeNetworkAlias(t.Context(), original))
 }
 
 func TestRunContext_PrepareJobContainer(t *testing.T) {
@@ -815,7 +815,7 @@ jobs:
 				return newContainer(input)
 			})()
 
-			ctx := context.Background()
+			ctx := t.Context()
 			rc := testCase.step.getRunContext()
 			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
 
@@ -842,7 +842,7 @@ func (o *waitForServiceContainerMock) IsHealthy(ctx context.Context) (time.Durat
 func Test_waitForServiceContainer(t *testing.T) {
 	t.Run("Wait", func(t *testing.T) {
 		m := &waitForServiceContainerMock{}
-		ctx := context.Background()
+		ctx := t.Context()
 		mock.InOrder(
 			m.On("IsHealthy", ctx).Return(1*time.Millisecond, nil).Once(),
 			m.On("IsHealthy", ctx).Return(time.Duration(0), nil).Once(),
@@ -853,7 +853,7 @@ func Test_waitForServiceContainer(t *testing.T) {
 
 	t.Run("Cancel", func(t *testing.T) {
 		m := &waitForServiceContainerMock{}
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		m.On("IsHealthy", ctx).Return(1*time.Millisecond, nil).Once()
 		require.NoError(t, waitForServiceContainer(ctx, m))
@@ -862,7 +862,7 @@ func Test_waitForServiceContainer(t *testing.T) {
 
 	t.Run("Error", func(t *testing.T) {
 		m := &waitForServiceContainerMock{}
-		ctx := context.Background()
+		ctx := t.Context()
 		m.On("IsHealthy", ctx).Return(time.Duration(0), errors.New("ERROR"))
 		require.ErrorContains(t, waitForServiceContainer(ctx, m), "ERROR")
 		m.AssertExpectations(t)

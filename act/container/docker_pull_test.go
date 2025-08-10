@@ -1,7 +1,6 @@
 package container
 
 import (
-	"context"
 	"testing"
 
 	"github.com/docker/cli/cli/config"
@@ -29,13 +28,13 @@ func TestCleanImage(t *testing.T) {
 	}
 
 	for _, table := range tables {
-		imageOut := cleanImage(context.Background(), table.imageIn)
+		imageOut := cleanImage(t.Context(), table.imageIn)
 		assert.Equal(t, table.imageOut, imageOut)
 	}
 }
 
 func TestGetImagePullOptions(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	config.SetDir("/non-existent/docker")
 

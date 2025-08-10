@@ -26,7 +26,7 @@ func TestJobExecutor(t *testing.T) {
 		{workdir, "job-nil-step", "push", "invalid Step 0: missing run or uses key", platforms, secrets},
 	}
 	// These tests are sufficient to only check syntax.
-	ctx := common.WithDryrun(context.Background(), true)
+	ctx := common.WithDryrun(t.Context(), true)
 	for _, table := range tables {
 		t.Run(table.workflowPath, func(t *testing.T) {
 			table.runTest(ctx, t, &Config{})
@@ -244,7 +244,7 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fmt.Printf("::group::%s\n", tt.name)
 
-			ctx := common.WithJobErrorContainer(context.Background())
+			ctx := common.WithJobErrorContainer(t.Context())
 			jim := &jobInfoMock{}
 			sfm := &stepFactoryMock{}
 			rc := &RunContext{

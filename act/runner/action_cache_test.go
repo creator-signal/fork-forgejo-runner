@@ -3,7 +3,6 @@ package runner
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"testing"
@@ -17,7 +16,7 @@ func TestActionCache(t *testing.T) {
 	cache := &GoGitActionCache{
 		Path: os.TempDir(),
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	cacheDir := "nektos/act-test-actions"
 	repo := "https://code.forgejo.org/forgejo/act-test-actions"
 	refs := []struct {

@@ -1,7 +1,6 @@
 package container
 
 import (
-	"context"
 	"io"
 	"testing"
 
@@ -19,7 +18,7 @@ func TestImageExistsLocally(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	// to help make this test reliable and not flaky, we need to have
 	// an image that will exist, and onew that won't exist
 
@@ -36,7 +35,7 @@ func TestImageExistsLocally(t *testing.T) {
 	// pull an image
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	assert.Nil(t, err)
-	cli.NegotiateAPIVersion(context.Background())
+	cli.NegotiateAPIVersion(t.Context())
 
 	// Chose alpine latest because it's so small
 	// maybe we should build an image instead so that tests aren't reliable on dockerhub

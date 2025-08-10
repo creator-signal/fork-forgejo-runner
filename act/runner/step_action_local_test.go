@@ -30,7 +30,7 @@ func (salm *stepActionLocalMocks) readAction(_ context.Context, step *model.Step
 }
 
 func TestStepActionLocalTest(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	cm := &containerMock{}
 	salm := &stepActionLocalMocks{}
@@ -231,7 +231,7 @@ func TestStepActionLocalPost(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 
 			cm := &containerMock{}
 

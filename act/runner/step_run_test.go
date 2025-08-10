@@ -72,7 +72,7 @@ func TestStepRun(t *testing.T) {
 		return nil
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/SUMMARY.md").Return(io.NopCloser(&bytes.Buffer{}), nil)
 	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
@@ -84,7 +84,7 @@ func TestStepRun(t *testing.T) {
 }
 
 func TestStepRunPrePost(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	sr := &stepRun{}
 
 	err := sr.pre()(ctx)

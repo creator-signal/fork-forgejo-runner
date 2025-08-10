@@ -118,7 +118,7 @@ func TestStepActionRemoteOK(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 
 			cm := &containerMock{}
 			sarm := &stepActionRemoteMocks{}
@@ -214,7 +214,7 @@ func TestStepActionRemotePre(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 
 			clonedAction := false
 			sarm := &stepActionRemoteMocks{}
@@ -275,7 +275,7 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 
 			clonedAction := false
 			sarm := &stepActionRemoteMocks{}
@@ -463,7 +463,7 @@ func TestStepActionRemotePost(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 
 			cm := &containerMock{}
 

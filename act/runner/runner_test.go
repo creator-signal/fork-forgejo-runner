@@ -229,8 +229,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	tables := []TestJobFileInfo{
 		// Shells
@@ -370,8 +369,7 @@ func TestRunner_DryrunEvent(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	ctx, cancel := context.WithCancel(common.WithDryrun(context.Background(), true))
-	defer cancel()
+	ctx := common.WithDryrun(t.Context(), true)
 
 	tables := []TestJobFileInfo{
 		// Shells
@@ -400,8 +398,7 @@ func TestRunner_DockerActionForcePullForceRebuild(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	config := &Config{
 		ForcePull:    true,
@@ -434,7 +431,7 @@ func TestRunner_RunDifferentArchitecture(t *testing.T) {
 		platforms:    platforms,
 	}
 
-	tjfi.runTest(context.Background(), t, &Config{ContainerArchitecture: "linux/arm64"})
+	tjfi.runTest(t.Context(), t, &Config{ContainerArchitecture: "linux/arm64"})
 }
 
 type runSkippedHook struct {
@@ -469,7 +466,7 @@ func TestRunner_RunSkipped(t *testing.T) {
 			}
 
 			h := &runSkippedHook{resultKey: what + "Result"}
-			ctx := common.WithLoggerHook(context.Background(), h)
+			ctx := common.WithLoggerHook(t.Context(), h)
 
 			jobLoggerLevel := log.InfoLevel
 			tjfi.runTest(ctx, t, &Config{ContainerArchitecture: "linux/arm64", JobLoggerLevel: &jobLoggerLevel})
@@ -514,7 +511,7 @@ func TestRunner_MaskValues(t *testing.T) {
 	}
 
 	logger := &maskJobLoggerFactory{}
-	tjfi.runTest(WithJobLoggerFactory(common.WithLogger(context.Background(), logger.WithJobLogger()), logger), t, &Config{})
+	tjfi.runTest(WithJobLoggerFactory(common.WithLogger(t.Context(), logger.WithJobLogger()), logger), t, &Config{})
 	output := logger.Output.String()
 
 	assertNoSecret(output, "secret value")
@@ -540,7 +537,7 @@ func TestRunner_RunEventSecrets(t *testing.T) {
 	secrets, _ := godotenv.Read(filepath.Join(workdir, workflowPath, ".secrets"))
 	assert.NoError(t, err, "Failed to read .secrets")
 
-	tjfi.runTest(context.Background(), t, &Config{Secrets: secrets, Env: env})
+	tjfi.runTest(t.Context(), t, &Config{Secrets: secrets, Env: env})
 }
 
 func TestRunner_RunWithService(t *testing.T) {
@@ -549,8 +546,7 @@ func TestRunner_RunWithService(t *testing.T) {
 	}
 
 	log.SetLevel(log.DebugLevel)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	platforms := map[string]string{
 		"ubuntu-latest": "code.forgejo.org/oci/node:22",
@@ -599,7 +595,7 @@ func TestRunner_RunActionInputs(t *testing.T) {
 		"SOME_INPUT": "input",
 	}
 
-	tjfi.runTest(context.Background(), t, &Config{Inputs: inputs})
+	tjfi.runTest(t.Context(), t, &Config{Inputs: inputs})
 }
 
 func TestRunner_RunEventPullRequest(t *testing.T) {
@@ -617,7 +613,7 @@ func TestRunner_RunEventPullRequest(t *testing.T) {
 		platforms:    platforms,
 	}
 
-	tjfi.runTest(context.Background(), t, &Config{EventPath: filepath.Join(workdir, workflowPath, "event.json")})
+	tjfi.runTest(t.Context(), t, &Config{EventPath: filepath.Join(workdir, workflowPath, "event.json")})
 }
 
 func TestRunner_RunMatrixWithUserDefinedInclusions(t *testing.T) {
@@ -644,5 +640,5 @@ func TestRunner_RunMatrixWithUserDefinedInclusions(t *testing.T) {
 		},
 	}
 
-	tjfi.runTest(context.Background(), t, &Config{Matrix: matrix})
+	tjfi.runTest(t.Context(), t, &Config{Matrix: matrix})
 }

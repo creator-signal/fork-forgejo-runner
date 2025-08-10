@@ -2,7 +2,6 @@ package runner
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"testing"
@@ -16,7 +15,7 @@ import (
 
 func TestCommandSetEnv(t *testing.T) {
 	a := assert.New(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rc := new(RunContext)
 	handler := rc.commandHandler(ctx)
 
@@ -26,7 +25,7 @@ func TestCommandSetEnv(t *testing.T) {
 
 func TestCommandSetOutput(t *testing.T) {
 	a := assert.New(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rc := new(RunContext)
 	rc.StepResults = make(map[string]*model.StepResult)
 	handler := rc.commandHandler(ctx)
@@ -56,7 +55,7 @@ func TestCommandSetOutput(t *testing.T) {
 
 func TestCommandAddpath(t *testing.T) {
 	a := assert.New(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rc := new(RunContext)
 	handler := rc.commandHandler(ctx)
 
@@ -71,7 +70,7 @@ func TestCommandStopCommands(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 
 	a := assert.New(t)
-	ctx := common.WithLogger(context.Background(), logger)
+	ctx := common.WithLogger(t.Context(), logger)
 	rc := new(RunContext)
 	handler := rc.commandHandler(ctx)
 
@@ -94,7 +93,7 @@ func TestCommandStopCommands(t *testing.T) {
 
 func TestCommandAddpathADO(t *testing.T) {
 	a := assert.New(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rc := new(RunContext)
 	handler := rc.commandHandler(ctx)
 
@@ -109,7 +108,7 @@ func TestCommandAddmask(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 
 	a := assert.New(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	loggerCtx := common.WithLogger(ctx, logger)
 
 	rc := new(RunContext)
@@ -163,7 +162,7 @@ func TestCommandAddmaskUsemask(t *testing.T) {
 	}
 
 	re := captureOutput(t, func() {
-		ctx := context.Background()
+		ctx := t.Context()
 		ctx = WithJobLogger(ctx, "0", "testjob", config, &rc.Masks, map[string]interface{}{})
 
 		handler := rc.commandHandler(ctx)
@@ -180,7 +179,7 @@ func TestCommandSaveState(t *testing.T) {
 		StepResults: map[string]*model.StepResult{},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	handler := rc.commandHandler(ctx)
 	handler("::save-state name=state-name::state-value\n")

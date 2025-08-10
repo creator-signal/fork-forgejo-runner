@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"context"
 	"testing"
 
 	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
@@ -76,7 +75,7 @@ func createRunContext(t *testing.T) *RunContext {
 
 func TestExpressionEvaluateRunContext(t *testing.T) {
 	rc := createRunContext(t)
-	ee := rc.NewExpressionEvaluator(context.Background())
+	ee := rc.NewExpressionEvaluator(t.Context())
 
 	tables := []struct {
 		in      string
@@ -137,7 +136,7 @@ func TestExpressionEvaluateRunContext(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := ee.evaluate(context.Background(), table.in, exprparser.DefaultStatusCheckNone)
+			out, err := ee.evaluate(t.Context(), table.in, exprparser.DefaultStatusCheckNone)
 			if table.errMesg == "" {
 				assertObject.NoError(err, table.in)
 				assertObject.Equal(table.out, out, table.in)
@@ -155,7 +154,7 @@ func TestExpressionEvaluateStep(t *testing.T) {
 		RunContext: rc,
 	}
 
-	ee := rc.NewStepExpressionEvaluator(context.Background(), step)
+	ee := rc.NewStepExpressionEvaluator(t.Context(), step)
 
 	tables := []struct {
 		in      string
@@ -177,7 +176,7 @@ func TestExpressionEvaluateStep(t *testing.T) {
 		table := table
 		t.Run(table.in, func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := ee.evaluate(context.Background(), table.in, exprparser.DefaultStatusCheckNone)
+			out, err := ee.evaluate(t.Context(), table.in, exprparser.DefaultStatusCheckNone)
 			if table.errMesg == "" {
 				assertObject.NoError(err, table.in)
 				assertObject.Equal(table.out, out, table.in)
@@ -217,7 +216,7 @@ func TestExpressionInterpolate(t *testing.T) {
 			},
 		},
 	}
-	ee := rc.NewExpressionEvaluator(context.Background())
+	ee := rc.NewExpressionEvaluator(t.Context())
 	tables := []struct {
 		in  string
 		out string
@@ -260,7 +259,7 @@ func TestExpressionInterpolate(t *testing.T) {
 		table := table
 		t.Run("interpolate", func(t *testing.T) {
 			assertObject := assert.New(t)
-			out := ee.Interpolate(context.Background(), table.in)
+			out := ee.Interpolate(t.Context(), table.in)
 			assertObject.Equal(table.out, out, table.in)
 		})
 	}
@@ -287,7 +286,7 @@ func TestExpressionRewriteSubExpression(t *testing.T) {
 	for _, table := range table {
 		t.Run("TestRewriteSubExpression", func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := rewriteSubExpression(context.Background(), table.in, false)
+			out, err := rewriteSubExpression(t.Context(), table.in, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -311,7 +310,7 @@ func TestExpressionRewriteSubExpressionForceFormat(t *testing.T) {
 	for _, table := range table {
 		t.Run("TestRewriteSubExpressionForceFormat", func(t *testing.T) {
 			assertObject := assert.New(t)
-			out, err := rewriteSubExpression(context.Background(), table.in, true)
+			out, err := rewriteSubExpression(t.Context(), table.in, true)
 			if err != nil {
 				t.Fatal(err)
 			}

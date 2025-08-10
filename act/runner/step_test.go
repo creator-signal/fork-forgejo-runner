@@ -146,51 +146,51 @@ func TestStep_IsStepEnabled(t *testing.T) {
 
 	// success()
 	step := createTestStep(t, "if: success()")
-	assertObject.True(isStepEnabled(context.Background(), step.getIfExpression(context.Background(), stepStageMain), step, stepStageMain))
+	assertObject.True(isStepEnabled(t.Context(), step.getIfExpression(t.Context(), stepStageMain), step, stepStageMain))
 
 	step = createTestStep(t, "if: success()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusSuccess,
 	}
-	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
+	assertObject.True(isStepEnabled(t.Context(), step.getStepModel().If.Value, step, stepStageMain))
 
 	step = createTestStep(t, "if: success()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusFailure,
 	}
-	assertObject.False(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
+	assertObject.False(isStepEnabled(t.Context(), step.getStepModel().If.Value, step, stepStageMain))
 
 	// failure()
 	step = createTestStep(t, "if: failure()")
-	assertObject.False(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
+	assertObject.False(isStepEnabled(t.Context(), step.getStepModel().If.Value, step, stepStageMain))
 
 	step = createTestStep(t, "if: failure()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusSuccess,
 	}
-	assertObject.False(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
+	assertObject.False(isStepEnabled(t.Context(), step.getStepModel().If.Value, step, stepStageMain))
 
 	step = createTestStep(t, "if: failure()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusFailure,
 	}
-	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
+	assertObject.True(isStepEnabled(t.Context(), step.getStepModel().If.Value, step, stepStageMain))
 
 	// always()
 	step = createTestStep(t, "if: always()")
-	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
+	assertObject.True(isStepEnabled(t.Context(), step.getStepModel().If.Value, step, stepStageMain))
 
 	step = createTestStep(t, "if: always()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusSuccess,
 	}
-	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
+	assertObject.True(isStepEnabled(t.Context(), step.getStepModel().If.Value, step, stepStageMain))
 
 	step = createTestStep(t, "if: always()")
 	step.getRunContext().StepResults["a"] = &model.StepResult{
 		Conclusion: model.StepStatusFailure,
 	}
-	assertObject.True(isStepEnabled(context.Background(), step.getStepModel().If.Value, step, stepStageMain))
+	assertObject.True(isStepEnabled(t.Context(), step.getStepModel().If.Value, step, stepStageMain))
 }
 
 func TestStep_IsContinueOnError(t *testing.T) {
@@ -228,37 +228,37 @@ func TestStep_IsContinueOnError(t *testing.T) {
 
 	// absent
 	step := createTestStep(t, "name: test")
-	continueOnError, err := isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	continueOnError, err := isContinueOnError(t.Context(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.False(continueOnError)
 	assertObject.Nil(err)
 
 	// explicit true
 	step = createTestStep(t, "continue-on-error: true")
-	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	continueOnError, err = isContinueOnError(t.Context(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.True(continueOnError)
 	assertObject.Nil(err)
 
 	// explicit false
 	step = createTestStep(t, "continue-on-error: false")
-	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	continueOnError, err = isContinueOnError(t.Context(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.False(continueOnError)
 	assertObject.Nil(err)
 
 	// expression true
 	step = createTestStep(t, "continue-on-error: ${{ 'test' == 'test' }}")
-	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	continueOnError, err = isContinueOnError(t.Context(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.True(continueOnError)
 	assertObject.Nil(err)
 
 	// expression false
 	step = createTestStep(t, "continue-on-error: ${{ 'test' != 'test' }}")
-	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	continueOnError, err = isContinueOnError(t.Context(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.False(continueOnError)
 	assertObject.Nil(err)
 
 	// expression parse error
 	step = createTestStep(t, "continue-on-error: ${{ 'test' != test }}")
-	continueOnError, err = isContinueOnError(context.Background(), step.getStepModel().RawContinueOnError, step, stepStageMain)
+	continueOnError, err = isContinueOnError(t.Context(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.False(continueOnError)
 	assertObject.NotNil(err)
 }

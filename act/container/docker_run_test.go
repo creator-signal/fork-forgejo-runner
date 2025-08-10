@@ -26,7 +26,7 @@ func TestDocker(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	client, err := GetDockerClient(ctx)
 	assert.NoError(t, err)
 	defer client.Close()
@@ -152,7 +152,7 @@ func TestDockerExecAbort(t *testing.T) {
 }
 
 func TestDockerExecFailure(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	conn := &mockConn{}
 
@@ -183,7 +183,7 @@ func TestDockerExecFailure(t *testing.T) {
 }
 
 func TestDockerCopyTarStream(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	conn := &mockConn{}
 
@@ -205,7 +205,7 @@ func TestDockerCopyTarStream(t *testing.T) {
 }
 
 func TestDockerCopyTarStreamErrorInCopyFiles(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	conn := &mockConn{}
 
@@ -230,7 +230,7 @@ func TestDockerCopyTarStreamErrorInCopyFiles(t *testing.T) {
 }
 
 func TestDockerCopyTarStreamErrorInMkdir(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	conn := &mockConn{}
 
@@ -318,7 +318,7 @@ func TestCheckVolumes(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			logger, _ := test.NewNullLogger()
-			ctx := common.WithLogger(context.Background(), logger)
+			ctx := common.WithLogger(t.Context(), logger)
 			cr := &containerReference{
 				input: &NewContainerInput{
 					ValidVolumes: tc.validVolumes,
@@ -379,7 +379,7 @@ func TestMergeJobOptions(t *testing.T) {
 					JobOptions: testCase.options,
 				},
 			}
-			config, hostConfig, err := cr.mergeJobOptions(context.Background(), &container.Config{}, &container.HostConfig{})
+			config, hostConfig, err := cr.mergeJobOptions(t.Context(), &container.Config{}, &container.HostConfig{})
 			require.NoError(t, err)
 			assert.EqualValues(t, testCase.config, config)
 			assert.EqualValues(t, testCase.hostConfig, hostConfig)
@@ -394,7 +394,7 @@ func TestDockerRun_isHealthy(t *testing.T) {
 			NetworkAliases: []string{"servicename"},
 		},
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	makeInspectResponse := func(interval time.Duration, status container.HealthStatus, test []string) container.InspectResponse {
 		return container.InspectResponse{
 			Config: &container.Config{

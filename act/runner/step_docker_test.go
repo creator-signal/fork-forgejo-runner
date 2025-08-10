@@ -27,7 +27,7 @@ func TestStepDockerMain(t *testing.T) {
 		ContainerNewContainer = origContainerNewContainer
 	})()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	sd := &stepDocker{
 		RunContext: &RunContext{
@@ -105,7 +105,7 @@ func TestStepDockerMain(t *testing.T) {
 }
 
 func TestStepDockerPrePost(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	sd := &stepDocker{}
 
 	err := sd.pre()(ctx)

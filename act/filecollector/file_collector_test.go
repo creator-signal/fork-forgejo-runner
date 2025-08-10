@@ -2,7 +2,6 @@ package filecollector
 
 import (
 	"archive/tar"
-	"context"
 	"io"
 	"path/filepath"
 	"strings"
@@ -104,7 +103,7 @@ func TestIgnoredTrackedfile(t *testing.T) {
 			TarWriter: tw,
 		},
 	}
-	err := fc.Fs.Walk("mygitrepo", fc.CollectFiles(context.Background(), []string{}))
+	err := fc.Fs.Walk("mygitrepo", fc.CollectFiles(t.Context(), []string{}))
 	assert.NoError(t, err, "successfully collect files")
 	tw.Close()
 	_, _ = tmpTar.Seek(0, io.SeekStart)
@@ -153,7 +152,7 @@ func TestSymlinks(t *testing.T) {
 			TarWriter: tw,
 		},
 	}
-	err = fc.Fs.Walk("mygitrepo", fc.CollectFiles(context.Background(), []string{}))
+	err = fc.Fs.Walk("mygitrepo", fc.CollectFiles(t.Context(), []string{}))
 	assert.NoError(t, err, "successfully collect files")
 	tw.Close()
 	_, _ = tmpTar.Seek(0, io.SeekStart)

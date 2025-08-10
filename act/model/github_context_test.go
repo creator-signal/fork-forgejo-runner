@@ -99,7 +99,7 @@ func TestSetRef(t *testing.T) {
 				Event:     table.event,
 			}
 
-			ghc.SetRef(context.Background(), "main", "/some/dir")
+			ghc.SetRef(t.Context(), "main", "/some/dir")
 			ghc.SetRefTypeAndName()
 
 			assert.Equal(t, table.ref, ghc.Ref)
@@ -117,7 +117,7 @@ func TestSetRef(t *testing.T) {
 			Event:     map[string]interface{}{},
 		}
 
-		ghc.SetRef(context.Background(), "", "/some/dir")
+		ghc.SetRef(t.Context(), "", "/some/dir")
 
 		assert.Equal(t, "refs/heads/master", ghc.Ref)
 	})
@@ -204,7 +204,7 @@ func TestSetSha(t *testing.T) {
 				Event:     table.event,
 			}
 
-			ghc.SetSha(context.Background(), "/some/dir")
+			ghc.SetSha(t.Context(), "/some/dir")
 
 			assert.Equal(t, table.sha, ghc.Sha)
 		})

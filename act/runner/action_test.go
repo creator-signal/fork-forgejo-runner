@@ -130,7 +130,7 @@ runs:
 				closerMock.On("Close")
 			}
 
-			action, err := readActionImpl(context.Background(), tt.step, "actionDir", "actionPath", readFile, writeFile)
+			action, err := readActionImpl(t.Context(), tt.step, "actionDir", "actionPath", readFile, writeFile)
 
 			assert.Nil(t, err)
 			assert.Equal(t, tt.expected, action)
@@ -222,7 +222,7 @@ func TestActionRunner(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 
 			cm := &containerMock{}
 			cm.On("CopyDir", "/var/run/act/actions/dir/", "dir/", false).Return(func(ctx context.Context) error { return nil })

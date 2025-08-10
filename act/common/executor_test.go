@@ -12,7 +12,7 @@ import (
 func TestNewWorkflow(t *testing.T) {
 	assert := assert.New(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// empty
 	emptyWorkflow := NewPipelineExecutor()
@@ -40,7 +40,7 @@ func TestNewWorkflow(t *testing.T) {
 func TestNewConditionalExecutor(t *testing.T) {
 	assert := assert.New(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	trueCount := 0
 	falseCount := 0
@@ -77,7 +77,7 @@ func TestNewConditionalExecutor(t *testing.T) {
 func TestNewParallelExecutor(t *testing.T) {
 	assert := assert.New(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	count := 0
 	activeCount := 0

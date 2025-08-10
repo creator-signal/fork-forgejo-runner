@@ -2,7 +2,6 @@ package container
 
 import (
 	"archive/tar"
-	"context"
 	"io"
 	"os"
 	"path"
@@ -19,7 +18,7 @@ func TestCopyDir(t *testing.T) {
 	dir, err := os.MkdirTemp("", "test-host-env-*")
 	assert.NoError(t, err)
 	defer os.RemoveAll(dir)
-	ctx := context.Background()
+	ctx := t.Context()
 	e := &HostEnvironment{
 		Path:      filepath.Join(dir, "path"),
 		TmpDir:    filepath.Join(dir, "tmp"),
@@ -40,7 +39,7 @@ func TestGetContainerArchive(t *testing.T) {
 	dir, err := os.MkdirTemp("", "test-host-env-*")
 	assert.NoError(t, err)
 	defer os.RemoveAll(dir)
-	ctx := context.Background()
+	ctx := t.Context()
 	e := &HostEnvironment{
 		Path:      filepath.Join(dir, "path"),
 		TmpDir:    filepath.Join(dir, "tmp"),
