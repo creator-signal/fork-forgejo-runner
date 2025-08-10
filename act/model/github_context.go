@@ -172,9 +172,6 @@ func (ghc *GithubContext) SetRepositoryAndOwner(ctx context.Context, githubInsta
 		repo, err := git.FindGithubRepo(ctx, repoPath, githubInstance, remoteName)
 		if err != nil {
 			common.Logger(ctx).Debugf("unable to get git repo (githubInstance: %v; remoteName: %v, repoPath: %v): %v", githubInstance, remoteName, repoPath, err)
-			// nektos/act is used as a default action, so why not a repo?
-			ghc.Repository = "nektos/act"
-			ghc.RepositoryOwner = strings.Split(ghc.Repository, "/")[0]
 			return
 		}
 		ghc.Repository = repo
