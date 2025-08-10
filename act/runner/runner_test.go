@@ -229,7 +229,8 @@ func TestRunner_RunEvent(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	tables := []TestJobFileInfo{
 		// Shells
@@ -365,7 +366,8 @@ func TestRunner_DryrunEvent(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	ctx := common.WithDryrun(context.Background(), true)
+	ctx, cancel := context.WithCancel(common.WithDryrun(context.Background(), true))
+	defer cancel()
 
 	tables := []TestJobFileInfo{
 		// Shells
@@ -394,7 +396,8 @@ func TestRunner_DockerActionForcePullForceRebuild(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	config := &Config{
 		ForcePull:    true,
@@ -542,7 +545,8 @@ func TestRunner_RunWithService(t *testing.T) {
 	}
 
 	log.SetLevel(log.DebugLevel)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	platforms := map[string]string{
 		"ubuntu-latest": "code.forgejo.org/oci/node:22",
