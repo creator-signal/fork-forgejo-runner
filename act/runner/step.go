@@ -267,7 +267,7 @@ func mergeEnv(ctx context.Context, step step) {
 		// prevent uses action input pollution of unset parameters, skip this for run steps
 		// due to design flaw
 		for key := range *env {
-			if strings.Contains(key, "INPUT_") {
+			if strings.HasPrefix(key, "INPUT_") {
 				delete(*env, key)
 			}
 		}
