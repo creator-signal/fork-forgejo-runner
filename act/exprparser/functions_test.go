@@ -293,7 +293,7 @@ func TestMapContains(t *testing.T) {
 	}
 
 	output, err := NewInterpeter(env, Config{}).Evaluate("contains(needs.*.result, 'failure')", DefaultStatusCheckNone)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, true, output)
 }

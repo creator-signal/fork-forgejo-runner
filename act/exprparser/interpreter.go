@@ -227,7 +227,7 @@ func (impl *interperterImpl) evaluateIndexAccess(indexAccessNode *actionlint.Ind
 	}
 }
 
-func (impl *interperterImpl) evaluateObjectDeref(objectDerefNode *actionlint.ObjectDerefNode) (interface{}, error) {
+func (impl *interperterImpl) evaluateObjectDeref(objectDerefNode *actionlint.ObjectDerefNode) (any, error) {
 	left, err := impl.evaluateNode(objectDerefNode.Receiver)
 	if err != nil {
 		return nil, err
@@ -320,17 +320,12 @@ func (impl *interperterImpl) getPropertyValue(left reflect.Value, property strin
 	return nil, nil
 }
 
-func (impl *interperterImpl) getPropertyValueDereferenced(left reflect.Value, property string) (value interface{}, err error) {
+func (impl *interperterImpl) getPropertyValueDereferenced(left reflect.Value, property string) (value any, err error) {
 	switch left.Kind() {
-	case reflect.Ptr:
-		return impl.getPropertyValue(left, property)
-
-	case reflect.Struct:
-		return impl.getPropertyValue(left, property)
 	case reflect.Map:
 		iter := left.MapRange()
 
-		var values []interface{}
+		var values []any
 		for iter.Next() {
 			value, err := impl.getPropertyValue(iter.Value(), property)
 			if err != nil {
@@ -341,7 +336,7 @@ func (impl *interperterImpl) getPropertyValueDereferenced(left reflect.Value, pr
 		}
 
 		return values, nil
-	case reflect.Slice:
+	case reflect.Ptr, reflect.Struct, reflect.Slice:
 		return impl.getPropertyValue(left, property)
 	}
 
