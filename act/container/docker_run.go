@@ -835,7 +835,7 @@ func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string
 	// Copy Content
 	err = cr.cli.CopyToContainer(ctx, cr.id, destPath, tarStream, container.CopyToContainerOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to copy content to container: %w", err)
+		return fmt.Errorf("copyTarStream: failed to copy content to container: %w", err)
 	}
 	// If this fails, then folders have wrong permissions on non root container
 	if cr.UID != 0 || cr.GID != 0 {
@@ -911,7 +911,7 @@ func (cr *containerReference) copyDir(dstPath, srcPath string, useGitIgnore bool
 		}
 		err = cr.cli.CopyToContainer(ctx, cr.id, "/", tarFile, container.CopyToContainerOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to copy content to container: %w", err)
+			return fmt.Errorf("copyDir: failed to copy content to container: %w", err)
 		}
 		return nil
 	}
@@ -945,7 +945,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*FileEntry) c
 		logger.Debugf("Extracting content to '%s'", dstPath)
 		err := cr.cli.CopyToContainer(ctx, cr.id, dstPath, &buf, container.CopyToContainerOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to copy content to container: %w", err)
+			return fmt.Errorf("copyContent: failed to copy content to container: %w", err)
 		}
 		return nil
 	}
