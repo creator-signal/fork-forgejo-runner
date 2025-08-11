@@ -7,6 +7,7 @@ toolchain go1.24.6
 require (
 	code.forgejo.org/forgejo/actions-proto v0.5.1
 	connectrpc.com/connect v1.18.1
+	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver v1.5.0
 	github.com/avast/retry-go/v4 v4.6.1
 	github.com/containerd/errdefs v1.0.0
@@ -19,7 +20,6 @@ require (
 	github.com/go-git/go-git/v5 v5.16.2
 	github.com/gobwas/glob v0.2.3
 	github.com/google/uuid v1.6.0
-	github.com/imdario/mergo v1.0.2
 	github.com/joho/godotenv v1.5.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -44,7 +44,6 @@ require (
 )
 
 require (
-	dario.cat/mergo v1.0.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
