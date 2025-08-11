@@ -36,13 +36,16 @@ func (o *masker) add(secret string) {
 		slices.SortFunc(o.multiLines, func(a, b []string) int {
 			return cmp.Compare(len(b), len(a))
 		})
-	} else {
-		o.lines = append(o.lines, lines[0])
-		// make sure the longest secret are replaced first
-		slices.SortFunc(o.lines, func(a, b string) int {
-			return cmp.Compare(len(b), len(a))
-		})
+		// a multiline secret transformed into a single line by replacing
+		// newlines with \ followed by n must also be redacted
+		secret = strings.Join(lines, "\\n")
 	}
+
+	o.lines = append(o.lines, secret)
+	// make sure the longest secret are replaced first
+	slices.SortFunc(o.lines, func(a, b string) int {
+		return cmp.Compare(len(b), len(a))
+	})
 }
 
 func (o *masker) getReplacer() *strings.Replacer {

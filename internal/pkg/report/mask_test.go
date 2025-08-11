@@ -43,6 +43,19 @@ SIX`
 		},
 		{
 			//
+			// a multiline secret where newlines are represented
+			// as \ followed by n is masked
+			//
+			name: "MultilineTransformedIsMasked",
+			secrets: []string{
+				multiLineOne,
+			},
+			in:       fmt.Sprintf("line before\n%[1]s\\nTWO\\nTHREE\nline after", lineOne),
+			out:      "line before\n***\nline after\n",
+			needMore: false,
+		},
+		{
+			//
 			// in a multiline secret \r\n is equivalent to \n and does
 			// not change how it is masked
 			//
