@@ -124,7 +124,7 @@ func getDockerDaemonSocketMountPath(daemonPath string) string {
 }
 
 // Returns the binds and mounts for the container, resolving paths as appopriate
-func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
+func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string, []string) {
 	name := rc.jobContainerName()
 
 	if rc.Config.ContainerDaemonSocket == "" {
@@ -171,13 +171,13 @@ func (rc *RunContext) GetBindsAndMounts() ([]string, map[string]string) {
 		mounts[name] = ext.ToContainerPath(rc.Config.Workdir)
 	}
 
-	// add some default binds and mounts to ValidVolumes
-	rc.Config.ValidVolumes = append(rc.Config.ValidVolumes, name)
-	rc.Config.ValidVolumes = append(rc.Config.ValidVolumes, name+"-env")
-	// TODO: add a new configuration to control whether the docker daemon can be mounted
-	rc.Config.ValidVolumes = append(rc.Config.ValidVolumes, getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket))
-
-	return binds, mounts
+	validVolumes := []string{
+		name,
+		name + "-env",
+		getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket),
+	}
+	validVolumes = append(validVolumes, rc.Config.ValidVolumes...)
+	return binds, mounts, validVolumes
 }
 
 //go:embed lxc-helpers-lib.sh
@@ -446,7 +446,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	envList = append(envList, fmt.Sprintf("%s=%s", "LANG", "C.UTF-8")) // Use same locale as GitHub Actions
 
 	ext := container.LinuxContainerEnvironmentExtensions{}
-	binds, mounts := rc.GetBindsAndMounts()
+	binds, mounts, validVolumes := rc.GetBindsAndMounts()
 
 	networkName, createAndDeleteNetwork := rc.getNetworkName(ctx)
 	// add service containers
@@ -570,7 +570,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		UsernsMode:     rc.Config.UsernsMode,
 		Platform:       rc.Config.ContainerArchitecture,
 		AutoRemove:     rc.Config.AutoRemove,
-		ValidVolumes:   rc.Config.ValidVolumes,
+		ValidVolumes:   validVolumes,
 
 		JobOptions:    rc.options(ctx),
 		ConfigOptions: rc.Config.ContainerOptions,

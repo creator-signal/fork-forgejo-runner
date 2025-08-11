@@ -428,7 +428,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd, entrypo
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
-	binds, mounts := rc.GetBindsAndMounts()
+	binds, mounts, validVolumes := rc.GetBindsAndMounts()
 	networkMode := fmt.Sprintf("container:%s", rc.jobContainerName())
 	if rc.IsHostEnv(ctx) {
 		networkMode = "default"
@@ -452,7 +452,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd, entrypo
 		UsernsMode:   rc.Config.UsernsMode,
 		Platform:     rc.Config.ContainerArchitecture,
 		AutoRemove:   rc.Config.AutoRemove,
-		ValidVolumes: rc.Config.ValidVolumes,
+		ValidVolumes: validVolumes,
 
 		ConfigOptions: rc.Config.ContainerOptions,
 	})

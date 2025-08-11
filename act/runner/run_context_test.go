@@ -219,7 +219,7 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 					config := testcase.rc.Config
 					config.Workdir = testcase.name
 					config.BindWorkdir = bindWorkDir
-					gotbind, gotmount := rctemplate.GetBindsAndMounts()
+					gotbind, gotmount, _ := rctemplate.GetBindsAndMounts()
 
 					// Name binds/mounts are either/or
 					if config.BindWorkdir {
@@ -271,7 +271,7 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 				rc.Run.JobID = "job1"
 				rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
 
-				gotbind, gotmount := rc.GetBindsAndMounts()
+				gotbind, gotmount, _ := rc.GetBindsAndMounts()
 
 				if len(testcase.wantbind) > 0 {
 					assert.Contains(t, gotbind, testcase.wantbind)
@@ -764,11 +764,6 @@ jobs:
 					ConfigOptions:  "",
 					JobOptions:     "",
 					AutoRemove:     false,
-					ValidVolumes: []string{
-						"WORKFLOW-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855_JOB",
-						"WORKFLOW-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855_JOB-env",
-						"/var/run/docker.sock",
-					},
 				},
 				{
 					Name:           "WORKFLOW-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca49599-c233cf913e1d0c90cc1404ee09917e625f9cb82156ca3d7cb10b729d563728ea",
@@ -792,11 +787,6 @@ jobs:
 					ConfigOptions:  "",
 					JobOptions:     "",
 					AutoRemove:     false,
-					ValidVolumes: []string{
-						"WORKFLOW-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855_JOB",
-						"WORKFLOW-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855_JOB-env",
-						"/var/run/docker.sock",
-					},
 				},
 			},
 		},
