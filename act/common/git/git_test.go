@@ -53,13 +53,6 @@ func TestFindGitSlug(t *testing.T) {
 	}
 }
 
-func testDir(t *testing.T) string {
-	basedir, err := os.MkdirTemp("", "act-test")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = os.RemoveAll(basedir) })
-	return basedir
-}
-
 func cleanGitHooks(dir string) error {
 	hooksDir := filepath.Join(dir, ".git", "hooks")
 	files, err := os.ReadDir(hooksDir)
@@ -84,7 +77,7 @@ func cleanGitHooks(dir string) error {
 func TestFindGitRemoteURL(t *testing.T) {
 	assert := assert.New(t)
 
-	basedir := testDir(t)
+	basedir := t.TempDir()
 	gitConfig()
 	err := gitCmd("init", basedir)
 	assert.NoError(err)
@@ -108,7 +101,7 @@ func TestFindGitRemoteURL(t *testing.T) {
 }
 
 func TestGitFindRef(t *testing.T) {
-	basedir := testDir(t)
+	basedir := t.TempDir()
 	gitConfig()
 
 	for name, tt := range map[string]struct {
@@ -219,7 +212,7 @@ func TestGitCloneExecutor(t *testing.T) {
 			clone := NewGitCloneExecutor(NewGitCloneExecutorInput{
 				URL: tt.URL,
 				Ref: tt.Ref,
-				Dir: testDir(t),
+				Dir: t.TempDir(),
 			})
 
 			err := clone(t.Context())

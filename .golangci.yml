@@ -16,6 +16,7 @@ linters:
     - staticcheck
     - unconvert
     - unused
+    - usetesting
     - wastedassign
   settings:
     depguard:
