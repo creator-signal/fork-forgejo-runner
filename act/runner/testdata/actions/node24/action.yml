@@ -1,0 +1,5 @@
+name: 'using node24 action'
+description: 'An action that has using:node24'
+runs:
+  using: 'node24'
+  main: 'index.js'

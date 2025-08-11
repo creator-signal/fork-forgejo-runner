@@ -10,3 +10,4 @@ jobs:
     - uses: ./actions/node20
       with:
         who-to-greet: 'Mona the Octocat'
+    - uses: ./actions/node24
