@@ -57,9 +57,10 @@ func TestActionCache(t *testing.T) {
 				return
 			}
 			atar, err := cache.GetTarArchive(ctx, c.CacheDir, sha, "js")
-			if !a.NoError(err) || !a.NotEmpty(atar) {
+			if !a.NoError(err) {
 				return
 			}
+			defer atar.Close()
 			mytar := tar.NewReader(atar)
 			th, err := mytar.Next()
 			if !a.NoError(err) || !a.NotEqual(0, th.Size) {
