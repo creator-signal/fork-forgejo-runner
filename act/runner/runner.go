@@ -85,6 +85,13 @@ func (c Config) GetToken() string {
 	return token
 }
 
+func (c *Config) GetContainerDaemonSocket() string {
+	if c.ContainerDaemonSocket == "" {
+		return "/var/run/docker.sock"
+	}
+	return c.ContainerDaemonSocket
+}
+
 type caller struct {
 	runContext *RunContext
 }

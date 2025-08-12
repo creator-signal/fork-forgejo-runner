@@ -137,13 +137,11 @@ func (rc *RunContext) getInternalVolumeEnv(ctx context.Context) string {
 
 // Returns the binds and mounts for the container, resolving paths as appopriate
 func (rc *RunContext) GetBindsAndMounts(ctx context.Context) ([]string, map[string]string, []string) {
-	if rc.Config.ContainerDaemonSocket == "" {
-		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
-	}
-
 	binds := []string{}
-	if rc.Config.ContainerDaemonSocket != "-" {
-		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
+
+	containerDaemonSocket := rc.Config.GetContainerDaemonSocket()
+	if containerDaemonSocket != "-" {
+		daemonPath := getDockerDaemonSocketMountPath(containerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
 
@@ -181,7 +179,7 @@ func (rc *RunContext) GetBindsAndMounts(ctx context.Context) ([]string, map[stri
 		mounts[rc.getInternalVolumeWorkdir(ctx)] = ext.ToContainerPath(rc.Config.Workdir)
 	}
 
-	validVolumes := append(rc.getInternalVolumeNames(ctx), getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket))
+	validVolumes := append(rc.getInternalVolumeNames(ctx), getDockerDaemonSocketMountPath(containerDaemonSocket))
 	validVolumes = append(validVolumes, rc.Config.ValidVolumes...)
 	return binds, mounts, validVolumes
 }
@@ -1448,12 +1446,10 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 
 // GetServiceBindsAndMounts returns the binds and mounts for the service container, resolving paths as appopriate
 func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, map[string]string) {
-	if rc.Config.ContainerDaemonSocket == "" {
-		rc.Config.ContainerDaemonSocket = "/var/run/docker.sock"
-	}
+	containerDaemonSocket := rc.Config.GetContainerDaemonSocket()
 	binds := []string{}
-	if rc.Config.ContainerDaemonSocket != "-" {
-		daemonPath := getDockerDaemonSocketMountPath(rc.Config.ContainerDaemonSocket)
+	if containerDaemonSocket != "-" {
+		daemonPath := getDockerDaemonSocketMountPath(containerDaemonSocket)
 		binds = append(binds, fmt.Sprintf("%s:%s", daemonPath, "/var/run/docker.sock"))
 	}
 
