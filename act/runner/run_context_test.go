@@ -735,7 +735,6 @@ jobs:
 					PortBindings:   nil,
 					ConfigOptions:  "",
 					JobOptions:     "",
-					AutoRemove:     false,
 					ValidVolumes: []string{
 						"WORKFLOW-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855_JOB",
 						"WORKFLOW-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855_JOB-env",
@@ -763,7 +762,6 @@ jobs:
 					PortBindings:   nat.PortMap{},
 					ConfigOptions:  "",
 					JobOptions:     "",
-					AutoRemove:     false,
 				},
 				{
 					Name:           "WORKFLOW-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca49599-c233cf913e1d0c90cc1404ee09917e625f9cb82156ca3d7cb10b729d563728ea",
@@ -786,7 +784,6 @@ jobs:
 					PortBindings:   nat.PortMap{},
 					ConfigOptions:  "",
 					JobOptions:     "",
-					AutoRemove:     false,
 				},
 			},
 		},

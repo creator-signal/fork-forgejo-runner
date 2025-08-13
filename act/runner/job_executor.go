@@ -119,7 +119,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		setJobOutputs(ctx, rc)
 
 		var err error
-		if rc.Config.AutoRemove || jobError == nil {
+		{
 			// Separate timeout for cleanup tasks; logger is cleared so that cleanup logs go to runner, not job
 			ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 			defer cancel()

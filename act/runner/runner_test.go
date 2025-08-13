@@ -191,7 +191,6 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		Matrix:                cfg.Matrix,
 		JobLoggerLevel:        cfg.JobLoggerLevel,
 		ActionCache:           cfg.ActionCache,
-		AutoRemove:            true,
 	}
 
 	runner, err := New(runnerConfig)

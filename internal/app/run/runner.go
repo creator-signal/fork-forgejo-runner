@@ -314,7 +314,6 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		Env:                        runEnvs,
 		Secrets:                    task.Secrets,
 		GitHubInstance:             strings.TrimSuffix(r.client.Address(), "/"),
-		AutoRemove:                 true,
 		NoSkipCheckout:             true,
 		PresetGitHubContext:        preset,
 		EventJSON:                  string(eventJSON),

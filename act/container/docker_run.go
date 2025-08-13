@@ -577,7 +577,6 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			Privileged:   input.Privileged,
 			UsernsMode:   container.UsernsMode(input.UsernsMode),
 			PortBindings: input.PortBindings,
-			AutoRemove:   input.AutoRemove,
 		}
 		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
 

@@ -501,7 +501,6 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 			Privileged:     rc.Config.Privileged,
 			UsernsMode:     rc.Config.UsernsMode,
 			Platform:       rc.Config.ContainerArchitecture,
-			AutoRemove:     rc.Config.AutoRemove,
 			NetworkMode:    networkName,
 			NetworkAliases: []string{sanitizeNetworkAlias(ctx, serviceID)},
 			ExposedPorts:   exposedPorts,
@@ -569,7 +568,6 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		Privileged:     rc.Config.Privileged,
 		UsernsMode:     rc.Config.UsernsMode,
 		Platform:       rc.Config.ContainerArchitecture,
-		AutoRemove:     rc.Config.AutoRemove,
 		ValidVolumes:   validVolumes,
 
 		JobOptions:    rc.options(ctx),

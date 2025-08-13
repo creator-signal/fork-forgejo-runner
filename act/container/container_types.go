@@ -35,9 +35,6 @@ type NewContainerInput struct {
 	ConfigOptions string
 	JobOptions    string
 
-	// Gitea specific
-	AutoRemove bool
-
 	ValidVolumes []string
 }
 

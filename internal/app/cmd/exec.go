@@ -394,7 +394,6 @@ func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command
 			ContainerCapAdd:       execArgs.containerCapAdd,
 			ContainerCapDrop:      execArgs.containerCapDrop,
 			ContainerOptions:      execArgs.containerOptions,
-			AutoRemove:            true,
 			NoSkipCheckout:        execArgs.noSkipCheckout,
 			// PresetGitHubContext:        preset,
 			// EventJSON:                  string(eventJSON),
