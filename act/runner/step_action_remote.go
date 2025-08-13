@@ -108,17 +108,19 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		}
 
 		actionDir := filepath.Join(sar.RunContext.ActionCacheDir(), sar.Step.UsesHash())
+		cloneURL := sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance)
+		gitInstance := sar.RunContext.Config.GitHubInstance
+		token := ""
+		if strings.HasPrefix(cloneURL, gitInstance+"/") {
+			// only provide clone token if the action is on the same instance
+			// which triggered the task
+			token = sar.RunContext.Config.GetToken()
+		}
 		gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
-			URL:   sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance),
-			Ref:   sar.remoteAction.Ref,
-			Dir:   actionDir,
-			Token: "", /*
-				Shouldn't provide token when cloning actions,
-				the token comes from the instance which triggered the task,
-				however, it might be not the same instance which provides actions.
-				For GitHub, they are the same, always github.com.
-				But for Gitea, tasks triggered by a.com can clone actions from b.com.
-			*/
+			URL:         cloneURL,
+			Ref:         sar.remoteAction.Ref,
+			Dir:         actionDir,
+			Token:       token,
 			OfflineMode: sar.RunContext.Config.ActionOfflineMode,
 
 			InsecureSkipTLS: sar.cloneSkipTLS(), // For Gitea
