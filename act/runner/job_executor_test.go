@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"code.forgejo.org/forgejo/runner/v9/act/container"
@@ -332,4 +334,63 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			fmt.Println("::endgroup::")
 		})
 	}
+}
+
+func TestSetJobResultConcurrency(t *testing.T) {
+	jim := &jobInfoMock{}
+	rc := &RunContext{
+		Run: &model.Run{
+			JobID: "test",
+			Workflow: &model.Workflow{
+				Jobs: map[string]*model.Job{
+					"test": {
+						Result: "success",
+					},
+				},
+			},
+		},
+	}
+
+	jim.On("matrix").Return(map[string]interface{}{
+		"python": []string{"3.10", "3.11", "3.12"},
+	})
+
+	// Synthesize a race condition in setJobResult where, by reading data from the job matrix earlier and then
+	// performing unsynchronzied writes to the same shared data structure, it can overwrite a failure status.
+	//
+	// Goroutine 1: Start marking job as success
+	//              (artificially suspended
+	// 				by result() mock)
+	//												Goroutine 2: Mark job as failure
+	// Goroutine 1: Finish marking job as success
+	//
+	// Correct behavior: Job is marked as a failure
+	// Bug behavior: Job is marked as a success
+
+	var lastResult string
+	jim.On("result", mock.Anything).Run(func(args mock.Arguments) {
+		result := args.String(0)
+		// Artificially suspend the "success" case so that the failure case races past it.
+		if result == "success" {
+			time.Sleep(1 * time.Second)
+		}
+		rc.Run.Job().Result = result
+		lastResult = result
+	})
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	// Goroutine 1, mark as success:
+	go func() {
+		defer wg.Done()
+		setJobResult(t.Context(), jim, rc, true)
+	}()
+	// Goroutine 2, mark as failure:
+	go func() {
+		defer wg.Done()
+		setJobResult(t.Context(), jim, rc, false)
+	}()
+	wg.Wait()
+
+	assert.Equal(t, "failure", lastResult)
 }

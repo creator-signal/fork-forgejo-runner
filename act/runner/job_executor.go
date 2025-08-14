@@ -162,6 +162,11 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {
 	logger := common.Logger(ctx)
 
+	// As we're reading the matrix build's status (`rc.Run.Job().Result`), it's possible for it change in another
+	// goroutine running `setJobResult` and invoking `.result(...)`. Prevent concurrent execution of `setJobResult`...
+	rc.JobResultMutex.Lock()
+	defer rc.JobResultMutex.Unlock()
+
 	jobResult := "success"
 	// we have only one result for a whole matrix build, so we need
 	// to keep an existing result state if we run a matrix
