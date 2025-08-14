@@ -39,10 +39,7 @@ func (c GoGitActionCache) Fetch(ctx context.Context, cacheDir, url, ref, token s
 	if err != nil {
 		return "", err
 	}
-	branchName, err := common.RandName(12)
-	if err != nil {
-		return "", err
-	}
+	branchName := common.MustRandName(12)
 
 	var auth transport.AuthMethod
 	if token != "" {

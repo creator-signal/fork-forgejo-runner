@@ -283,10 +283,7 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			return true
 		})
 		cacheDir := rc.ActionCacheDir()
-		randName, err := common.RandName(8)
-		if err != nil {
-			return err
-		}
+		randName := common.MustRandName(8)
 		miscpath := filepath.Join(cacheDir, randName)
 		actPath := filepath.Join(miscpath, "act")
 		if err := os.MkdirAll(actPath, 0o777); err != nil {
@@ -626,10 +623,7 @@ func (rc *RunContext) sh(ctx context.Context, script string) (stdout, stderr str
 		env[k] = v
 	}
 
-	base, err := common.RandName(8)
-	if err != nil {
-		return "", "", err
-	}
+	base := common.MustRandName(8)
 	name := base + ".sh"
 	oldStdout, oldStderr := rc.JobContainer.ReplaceLogWriter(hout, herr)
 	err = rc.JobContainer.Copy(rc.JobContainer.GetActPath(), &container.FileEntry{

@@ -167,11 +167,7 @@ func (h *Handler) ExternalURL() string {
 // The function returns the 32-bit random key which the run will use to identify itself.
 func (h *Handler) AddRun(data RunData) (string, error) {
 	for retries := 0; retries < 3; retries++ {
-		key, err := common.RandName(4)
-		if err != nil {
-			return "", errors.New("Could not generate the run id")
-		}
-
+		key := common.MustRandName(4)
 		_, loaded := h.runs.LoadOrStore(key, data)
 		if !loaded {
 			// The key was unique and added successfully
