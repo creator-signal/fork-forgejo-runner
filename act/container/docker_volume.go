@@ -4,13 +4,14 @@ package container
 
 import (
 	"context"
+	"slices"
 
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 )
 
-func NewDockerVolumeRemoveExecutor(volumeName string, force bool) common.Executor {
+func NewDockerVolumesRemoveExecutor(volumeNames []string) common.Executor {
 	return func(ctx context.Context) error {
 		cli, err := GetDockerClient(ctx)
 		if err != nil {
@@ -24,17 +25,18 @@ func NewDockerVolumeRemoveExecutor(volumeName string, force bool) common.Executo
 		}
 
 		for _, vol := range list.Volumes {
-			if vol.Name == volumeName {
-				return removeExecutor(volumeName, force)(ctx)
+			if slices.Contains(volumeNames, vol.Name) {
+				if err := removeExecutor(vol.Name)(ctx); err != nil {
+					return err
+				}
 			}
 		}
 
-		// Volume not found - do nothing
 		return nil
 	}
 }
 
-func removeExecutor(volume string, force bool) common.Executor {
+func removeExecutor(volume string) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
 		logger.Debugf("%sdocker volume rm %s", logPrefix, volume)
@@ -49,6 +51,7 @@ func removeExecutor(volume string, force bool) common.Executor {
 		}
 		defer cli.Close()
 
+		force := false
 		return cli.VolumeRemove(ctx, volume, force)
 	}
 }

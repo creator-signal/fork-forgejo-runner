@@ -525,8 +525,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Remove().IfNot(reuseJobContainer).
-				Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName(), false)).IfNot(reuseJobContainer).
-				Then(container.NewDockerVolumeRemoveExecutor(rc.jobContainerName()+"-env", false)).IfNot(reuseJobContainer).
+				Then(container.NewDockerVolumesRemoveExecutor([]string{rc.jobContainerName(), rc.jobContainerName() + "-env"})).IfNot(reuseJobContainer).
 				Then(func(ctx context.Context) error {
 					if len(rc.ServiceContainers) > 0 {
 						logger.Infof("Cleaning up services for job %s", rc.JobName)
