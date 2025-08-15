@@ -140,10 +140,10 @@ cache:
   #
   proxy_port: 0
   #
-  # Overrides the ACTIONS_CACHE_URL passed to workflow
-  # containers. This should only be used if the runner host is not
-  # reachable from the workflow containers, and requires further
-  # setup.
+  # Overrides the ACTIONS_CACHE_URL variable passed to workflow
+  # containers. The URL should generally not end with "/". This should only
+  # be used if the runner host is not reachable from the workflow containers,
+  # and requires further setup.
   #
   actions_cache_url_override: ""
 
