@@ -140,8 +140,8 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 	sf := &stepFactoryImpl{}
 
 	for i, step := range action.Runs.Steps {
-		if step.Number != 0 && step.Number != i {
-			panic(fmt.Sprintf("step.Number current = %v, target = %v", step.Number, i))
+		if step.Number != i {
+			return &compositeSteps{main: common.NewErrorExecutor(fmt.Errorf("internal error: invalid Step: Number expected %v, was actually %v", i, step.Number))}
 		}
 
 		// create a copy of the step, since this composite action could
