@@ -605,7 +605,7 @@ type Step struct {
 	Uses               string            `yaml:"uses"`
 	Run                string            `yaml:"run"`
 	WorkingDirectory   string            `yaml:"working-directory"`
-	Shell              string            `yaml:"shell"`
+	RawShell           string            `yaml:"shell"`
 	Env                yaml.Node         `yaml:"env"`
 	With               map[string]string `yaml:"with"`
 	RawContinueOnError string            `yaml:"continue-on-error"`
@@ -639,32 +639,6 @@ func (s *Step) GetEnv() map[string]string {
 		env[envKey] = v
 	}
 	return env
-}
-
-// ShellCommand returns the command for the shell
-func (s *Step) ShellCommand() string {
-	var shellCommand string
-
-	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L9-L17
-	switch s.Shell {
-	case "", "bash":
-		shellCommand = "bash --noprofile --norc -e -o pipefail {0}"
-	case "pwsh":
-		shellCommand = "pwsh -command . '{0}'"
-	case "python":
-		shellCommand = "python {0}"
-	case "sh":
-		shellCommand = "sh -e {0}"
-	case "cmd":
-		shellCommand = "cmd /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
-	case "powershell":
-		shellCommand = "powershell -command . '{0}'"
-	case "node":
-		shellCommand = "node {0}"
-	default:
-		shellCommand = s.Shell
-	}
-	return shellCommand
 }
 
 // StepType describes what type of step we are about to run

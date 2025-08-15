@@ -283,6 +283,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "matrix", "push", "", platforms, secrets},
 		{workdir, "matrix-include-exclude", "push", "", platforms, secrets},
 		{workdir, "matrix-exitcode", "push", "Job 'test' failed", platforms, secrets},
+		{workdir, "matrix-shell", "push", "", platforms, secrets},
 		{workdir, "commands", "push", "", platforms, secrets},
 		{workdir, "workdir", "push", "", platforms, secrets},
 		{workdir, "defaults-run", "push", "", platforms, secrets},

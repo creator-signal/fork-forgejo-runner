@@ -1,0 +1,32 @@
+name: test
+
+on: push
+
+jobs:
+  matrix-shell:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shell-to-use: ["bash", "cat {0}", "sh"]
+    steps:
+      - shell: ${{ matrix.shell-to-use }}
+        run: |
+          expected=${{ matrix.shell-to-use }}
+          if [ "$expected" = "bash" ]; then
+            if [ -z "$BASH_VERSION" ]; then
+              echo "Expected to execute bash shell, but BASH_VERSION is unset"
+              exit 1
+            else
+              echo "Successfully running in bash ($BASH_VERSION)"
+            fi
+          elif [ "$expected" = "sh" ]; then
+            if [ -n "$BASH_VERSION" ]; then
+              echo "Expected to execute in sh shell, but BASH_VERSION is set ($BASH_VERSION)"
+              exit 1
+            else
+              echo "Probably running in sh"
+            fi
+          else
+            echo "Not sure what's happening; expected shell is $expected ?!"
+            exit 1
+          fi
