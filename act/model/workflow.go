@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"code.forgejo.org/forgejo/runner/v9/act/schema"
@@ -217,7 +218,9 @@ type Job struct {
 	Uses           string                    `yaml:"uses"`
 	With           map[string]any            `yaml:"with"`
 	RawSecrets     yaml.Node                 `yaml:"secrets"`
-	Result         string
+
+	Result      string
+	ResultMutex sync.Mutex
 }
 
 // Strategy for the job

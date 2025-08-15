@@ -164,8 +164,8 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 
 	// As we're reading the matrix build's status (`rc.Run.Job().Result`), it's possible for it change in another
 	// goroutine running `setJobResult` and invoking `.result(...)`. Prevent concurrent execution of `setJobResult`...
-	rc.JobResultMutex.Lock()
-	defer rc.JobResultMutex.Unlock()
+	rc.Run.Job().ResultMutex.Lock()
+	defer rc.Run.Job().ResultMutex.Unlock()
 
 	jobResult := "success"
 	// we have only one result for a whole matrix build, so we need

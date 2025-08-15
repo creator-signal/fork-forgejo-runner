@@ -338,14 +338,26 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 
 func TestSetJobResultConcurrency(t *testing.T) {
 	jim := &jobInfoMock{}
-	rc := &RunContext{
+	job := model.Job{
+		Result: "success",
+	}
+	// Distinct RunContext objects are used to replicate realistic setJobResult in matrix build
+	rc1 := &RunContext{
 		Run: &model.Run{
 			JobID: "test",
 			Workflow: &model.Workflow{
 				Jobs: map[string]*model.Job{
-					"test": {
-						Result: "success",
-					},
+					"test": &job,
+				},
+			},
+		},
+	}
+	rc2 := &RunContext{
+		Run: &model.Run{
+			JobID: "test",
+			Workflow: &model.Workflow{
+				Jobs: map[string]*model.Job{
+					"test": &job,
 				},
 			},
 		},
@@ -374,7 +386,7 @@ func TestSetJobResultConcurrency(t *testing.T) {
 		if result == "success" {
 			time.Sleep(1 * time.Second)
 		}
-		rc.Run.Job().Result = result
+		job.Result = result
 		lastResult = result
 	})
 
@@ -383,12 +395,12 @@ func TestSetJobResultConcurrency(t *testing.T) {
 	// Goroutine 1, mark as success:
 	go func() {
 		defer wg.Done()
-		setJobResult(t.Context(), jim, rc, true)
+		setJobResult(t.Context(), jim, rc1, true)
 	}()
 	// Goroutine 2, mark as failure:
 	go func() {
 		defer wg.Done()
-		setJobResult(t.Context(), jim, rc, false)
+		setJobResult(t.Context(), jim, rc2, false)
 	}()
 	wg.Wait()
 

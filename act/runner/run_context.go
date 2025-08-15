@@ -18,7 +18,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"sync"
 	"text/template"
 	"time"
 
@@ -57,8 +56,6 @@ type RunContext struct {
 	randomName          string
 	networkName         string
 	networkCreated      bool
-
-	JobResultMutex sync.Mutex
 }
 
 func (rc *RunContext) AddMask(mask string) {
