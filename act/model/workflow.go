@@ -206,7 +206,7 @@ type Job struct {
 	RawNeeds       yaml.Node                 `yaml:"needs"`
 	RawRunsOn      yaml.Node                 `yaml:"runs-on"`
 	Env            yaml.Node                 `yaml:"env"`
-	ifClause       yaml.Node                 `yaml:"if"`
+	RawIf          yaml.Node                 `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
 	TimeoutMinutes string                    `yaml:"timeout-minutes"`
 	Services       map[string]*ContainerSpec `yaml:"services"`
@@ -360,10 +360,10 @@ func (j *Job) RunsOn() []string {
 }
 
 func (j *Job) IfClause() string {
-	if j.ifClause.Value == "" {
+	if j.RawIf.Value == "" {
 		return "success()"
 	}
-	return j.ifClause.Value
+	return j.RawIf.Value
 }
 
 func nodeAsStringSlice(node yaml.Node) []string {
