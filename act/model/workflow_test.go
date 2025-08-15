@@ -546,25 +546,6 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	assert.Equal(t, job.Strategy.FailFast, false)
 }
 
-func TestStep_ShellCommand(t *testing.T) {
-	tests := []struct {
-		shell string
-		want  string
-	}{
-		{"pwsh -v '. {0}'", "pwsh -v '. {0}'"},
-		{"pwsh", "pwsh -command . '{0}'"},
-		{"powershell", "powershell -command . '{0}'"},
-		{"node", "node {0}"},
-		{"python", "python {0}"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.shell, func(t *testing.T) {
-			got := (&Step{Shell: tt.shell}).ShellCommand()
-			assert.Equal(t, got, tt.want)
-		})
-	}
-}
-
 func TestReadWorkflow_WorkflowDispatchConfig(t *testing.T) {
 	yaml := `
     name: local-action-docker-url

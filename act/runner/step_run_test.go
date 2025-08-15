@@ -93,3 +93,22 @@ func TestStepRunPrePost(t *testing.T) {
 	err = sr.post()(ctx)
 	assert.Nil(t, err)
 }
+
+func TestStepShellCommand(t *testing.T) {
+	tests := []struct {
+		shell string
+		want  string
+	}{
+		{"pwsh -v '. {0}'", "pwsh -v '. {0}'"},
+		{"pwsh", "pwsh -command . '{0}'"},
+		{"powershell", "powershell -command . '{0}'"},
+		{"node", "node {0}"},
+		{"python", "python {0}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.shell, func(t *testing.T) {
+			got := shellCommand(tt.shell)
+			assert.Equal(t, got, tt.want)
+		})
+	}
+}

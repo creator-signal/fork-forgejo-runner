@@ -93,6 +93,28 @@ func getScriptName(rc *RunContext, step *model.Step) string {
 	return fmt.Sprintf("workflow/%s", scriptName)
 }
 
+func shellCommand(shell string) string {
+	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L9-L17
+	switch shell {
+	case "", "bash":
+		return "bash --noprofile --norc -e -o pipefail {0}"
+	case "pwsh":
+		return "pwsh -command . '{0}'"
+	case "python":
+		return "python {0}"
+	case "sh":
+		return "sh -e {0}"
+	case "cmd":
+		return "cmd /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
+	case "powershell":
+		return "powershell -command . '{0}'"
+	case "node":
+		return "node {0}"
+	default:
+		return shell
+	}
+}
+
 // TODO: Currently we just ignore top level keys, BUT we should return proper error on them
 // BUTx2 I leave this for when we rewrite act to use actionlint for workflow validation
 // so we return proper errors before any execution or spawning containers
@@ -107,27 +129,7 @@ func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, 
 
 	script = sr.RunContext.NewStepExpressionEvaluator(ctx, sr).Interpolate(ctx, step.Run)
 
-	var shellCommand string
-	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L9-L17
-	switch shell {
-	case "", "bash":
-		shellCommand = "bash --noprofile --norc -e -o pipefail {0}"
-	case "pwsh":
-		shellCommand = "pwsh -command . '{0}'"
-	case "python":
-		shellCommand = "python {0}"
-	case "sh":
-		shellCommand = "sh -e {0}"
-	case "cmd":
-		shellCommand = "cmd /D /E:ON /V:OFF /S /C \"CALL \"{0}\"\""
-	case "powershell":
-		shellCommand = "powershell -command . '{0}'"
-	case "node":
-		shellCommand = "node {0}"
-	default:
-		shellCommand = shell
-	}
-
+	shellCommand := shellCommand(shell)
 	name = getScriptName(sr.RunContext, step)
 
 	// Reference: https://github.com/actions/runner/blob/8109c962f09d9acc473d92c595ff43afceddb347/src/Runner.Worker/Handlers/ScriptHandlerHelpers.cs#L47-L64
