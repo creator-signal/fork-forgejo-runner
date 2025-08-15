@@ -56,6 +56,7 @@ type RunContext struct {
 	randomName          string
 	networkName         string
 	networkCreated      bool
+	initializedDefaults bool
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -906,6 +907,28 @@ func (rc *RunContext) closeContainer() common.Executor {
 			return rc.JobContainer.Close()(ctx)
 		}
 		return nil
+	}
+}
+
+func (rc *RunContext) InitializeDefaults() {
+	if rc.initializedDefaults {
+		panic("attempted to InitializeDefaults on RunContext multiple times")
+	}
+	for i, stepModel := range rc.Run.Job().Steps {
+		if stepModel == nil {
+			continue
+		}
+		if stepModel.ID == "" {
+			stepModel.ID = fmt.Sprintf("%d", i)
+		}
+		stepModel.Number = i
+	}
+	rc.initializedDefaults = true
+}
+
+func (rc *RunContext) ensureInitialized() {
+	if !rc.initializedDefaults {
+		panic("RunContext did not have InitializeDefaults invoked")
 	}
 }
 

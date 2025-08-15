@@ -11,6 +11,7 @@ import (
 )
 
 type jobInfo interface {
+	ensureInitialized()
 	matrix() map[string]any
 	steps() []*model.Step
 	startContainer() common.Executor
@@ -23,6 +24,8 @@ type jobInfo interface {
 const cleanupTimeout = 30 * time.Minute
 
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
+	info.ensureInitialized()
+
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
 	var postExecutor common.Executor
@@ -61,10 +64,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 				return fmt.Errorf("invalid Step %v: missing run or uses key", i)
 			}
 		}
-		if stepModel.ID == "" {
-			stepModel.ID = fmt.Sprintf("%d", i)
+		if stepModel.Number != 0 && stepModel.Number != i {
+			panic(fmt.Sprintf("stepModel.Number current = %v, target = %v", stepModel.Number, i))
 		}
-		stepModel.Number = i
 
 		step, err := sf.newStep(stepModel, rc)
 		if err != nil {

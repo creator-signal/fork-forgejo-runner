@@ -76,6 +76,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		EventJSON:    parent.EventJSON,
 	}
 	compositerc.ExprEval = compositerc.NewExpressionEvaluator(ctx)
+	compositerc.InitializeDefaults()
 
 	return compositerc
 }
@@ -130,6 +131,8 @@ type compositeSteps struct {
 
 // Executor returns a pipeline executor for all the steps in the job
 func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
+	rc.ensureInitialized()
+
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
 	var postExecutor common.Executor
@@ -137,10 +140,9 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 	sf := &stepFactoryImpl{}
 
 	for i, step := range action.Runs.Steps {
-		if step.ID == "" {
-			step.ID = fmt.Sprintf("%d", i)
+		if step.Number != 0 && step.Number != i {
+			panic(fmt.Sprintf("step.Number current = %v, target = %v", step.Number, i))
 		}
-		step.Number = i
 
 		// create a copy of the step, since this composite action could
 		// run multiple times and we might modify the instance
