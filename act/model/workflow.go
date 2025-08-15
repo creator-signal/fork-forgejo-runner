@@ -206,7 +206,7 @@ type Job struct {
 	RawNeeds       yaml.Node                 `yaml:"needs"`
 	RawRunsOn      yaml.Node                 `yaml:"runs-on"`
 	Env            yaml.Node                 `yaml:"env"`
-	If             yaml.Node                 `yaml:"if"`
+	ifClause       yaml.Node                 `yaml:"if"`
 	Steps          []*Step                   `yaml:"steps"`
 	TimeoutMinutes string                    `yaml:"timeout-minutes"`
 	Services       map[string]*ContainerSpec `yaml:"services"`
@@ -357,6 +357,13 @@ func (j *Job) RunsOn() []string {
 	default:
 		return nodeAsStringSlice(j.RawRunsOn)
 	}
+}
+
+func (j *Job) IfClause() string {
+	if j.ifClause.Value == "" {
+		return "success()"
+	}
+	return j.ifClause.Value
 }
 
 func nodeAsStringSlice(node yaml.Node) []string {
@@ -759,9 +766,6 @@ func (w *Workflow) GetJob(jobID string) *Job {
 		if jobID == id {
 			if j.Name == "" {
 				j.Name = id
-			}
-			if j.If.Value == "" {
-				j.If.Value = "success()"
 			}
 			return j
 		}

@@ -1025,11 +1025,11 @@ func (rc *RunContext) options(ctx context.Context) string {
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 	job := rc.Run.Job()
 	l := common.Logger(ctx)
-	runJob, runJobErr := EvalBool(ctx, rc.ExprEval, job.If.Value, exprparser.DefaultStatusCheckSuccess)
+	runJob, runJobErr := EvalBool(ctx, rc.ExprEval, job.IfClause(), exprparser.DefaultStatusCheckSuccess)
 	jobType, jobTypeErr := job.Type()
 
 	if runJobErr != nil {
-		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.If.Value, runJobErr)
+		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", job.IfClause(), runJobErr)
 	}
 
 	if jobType == model.JobTypeInvalid {
@@ -1038,7 +1038,7 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 
 	if !runJob {
 		rc.result("skipped")
-		l.WithField("jobResult", "skipped").Infof("Skipping job '%s' due to '%s'", job.Name, job.If.Value)
+		l.WithField("jobResult", "skipped").Infof("Skipping job '%s' due to '%s'", job.Name, job.IfClause())
 		return false, nil
 	}
 

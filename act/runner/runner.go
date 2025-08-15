@@ -147,7 +147,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 				log.Debugf("Job.RawNeeds: %v", job.RawNeeds)
 				log.Debugf("Job.RawRunsOn: %v", job.RawRunsOn)
 				log.Debugf("Job.Env: %v", job.Env)
-				log.Debugf("Job.If: %v", job.If)
+				log.Debugf("Job.If: %v", job.IfClause())
 				for step := range job.Steps {
 					if nil != job.Steps[step] {
 						log.Debugf("Job.Steps: %v", job.Steps[step].String())
