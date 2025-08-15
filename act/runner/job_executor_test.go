@@ -212,11 +212,14 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 		{
 			name: "stepsWithPreAndPost",
 			steps: []*model.Step{{
-				ID: "1",
+				ID:     "1",
+				Number: 0,
 			}, {
-				ID: "2",
+				ID:     "2",
+				Number: 1,
 			}, {
-				ID: "3",
+				ID:     "3",
+				Number: 2,
 			}},
 			preSteps:  []bool{true, false, true},
 			postSteps: []bool{false, true, true},
