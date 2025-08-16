@@ -12,10 +12,3 @@ jobs:
       - run: |
           echo TESTOUTPUT: matrix.os == ${{ matrix.os }}
           echo TESTOUTPUT: runs-on == ${{ jobs.matrix-runs-on.runs-on }}
-
-# BUG:
-# [test/matrix-runs-on-2] 🚧  Skipping unsupported platform -- Try running with `-P ubuntu-20.04=...`
-# [test/matrix-runs-on-1] 🚧  Skipping unsupported platform -- Try running with `-P ubuntu-20.04=...`
-#
-# Both jobs 1 and 2 are attempting to run with `ubuntu-20.04`!
-# Also observed the opposite -- both jobs are run on ubuntu-latest!
