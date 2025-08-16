@@ -362,6 +362,12 @@ func TestSetJobResultConcurrency(t *testing.T) {
 			},
 		},
 	}
+	// Hack: Job() invokes GetJob() which can mutate the job name, this will trip the data race detector if it is
+	// encountered later when `setJobResult()` is being tested.  This is a false-positive caused by this test invoking
+	// setJobResult outside of the regular RunContext, so it's invoked here before the goroutines are spawned to prevent
+	// the false positive.
+	rc1.Run.Job()
+	rc2.Run.Job()
 
 	jim.On("matrix").Return(map[string]interface{}{
 		"python": []string{"3.10", "3.11", "3.12"},
