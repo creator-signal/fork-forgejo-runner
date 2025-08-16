@@ -137,14 +137,17 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 	sf := &stepFactoryImpl{}
 
 	for i, step := range action.Runs.Steps {
+		if step.Number != i {
+			return &compositeSteps{
+				pre:  func(ctx context.Context) error { return nil },
+				main: common.NewErrorExecutor(fmt.Errorf("internal error: invalid Step: Number expected %v, was actually %v", i, step.Number)),
+				post: func(ctx context.Context) error { return nil },
+			}
+		}
+
 		// create a copy of the step, since this composite action could
 		// run multiple times and we might modify the instance
 		stepcopy := step
-
-		if stepcopy.ID == "" {
-			stepcopy.ID = fmt.Sprintf("%d", i)
-		}
-		stepcopy.Number = i
 
 		step, err := sf.newStep(&stepcopy, rc)
 		if err != nil {

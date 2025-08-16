@@ -72,6 +72,22 @@ type ActionRuns struct {
 	Steps      []Step            `yaml:"steps"`
 }
 
+func (actionRuns *ActionRuns) UnmarshalYAML(value *yaml.Node) error {
+	type ActionRunsDefault ActionRuns
+	if err := value.Decode((*ActionRunsDefault)(actionRuns)); err != nil {
+		return err
+	}
+	for i := range actionRuns.Steps {
+		step := &actionRuns.Steps[i]
+		// Set `Number` and  `ID` on each step based upon their position in the steps array:
+		if step.ID == "" {
+			step.ID = fmt.Sprintf("%d", i)
+		}
+		step.Number = i
+	}
+	return nil
+}
+
 // Action describes a metadata file for GitHub actions. The metadata filename must be either action.yml or action.yaml. The data in the metadata file defines the inputs, outputs and main entrypoint for your action.
 type Action struct {
 	Name        string            `yaml:"name"`
