@@ -11,7 +11,6 @@ import (
 )
 
 type jobInfo interface {
-	ensureInitialized()
 	matrix() map[string]any
 	steps() []*model.Step
 	startContainer() common.Executor
@@ -24,8 +23,6 @@ type jobInfo interface {
 const cleanupTimeout = 30 * time.Minute
 
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
-	info.ensureInitialized()
-
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
 	var postExecutor common.Executor

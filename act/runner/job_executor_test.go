@@ -41,9 +41,6 @@ type jobInfoMock struct {
 	mock.Mock
 }
 
-func (jim *jobInfoMock) ensureInitialized() {
-}
-
 func (jim *jobInfoMock) matrix() map[string]any {
 	args := jim.Called()
 	return args.Get(0).(map[string]any)

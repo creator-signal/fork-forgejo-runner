@@ -594,6 +594,24 @@ func (j *Job) Type() (JobType, error) {
 	return JobTypeDefault, nil
 }
 
+func (j *Job) UnmarshalYAML(value *yaml.Node) error {
+	type JobDefault Job
+	if err := value.Decode((*JobDefault)(j)); err != nil {
+		return err
+	}
+	for i, step := range j.Steps {
+		if step == nil {
+			continue
+		}
+		// Set `Number` and  `ID` on each step based upon their position in the steps array:
+		if step.ID == "" {
+			step.ID = fmt.Sprintf("%d", i)
+		}
+		step.Number = i
+	}
+	return nil
+}
+
 // ContainerSpec is the specification of the container to use for the job
 type ContainerSpec struct {
 	Image       string            `yaml:"image"`
