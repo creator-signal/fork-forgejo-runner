@@ -4,12 +4,12 @@ package container
 
 import (
 	"context"
+	"errors"
 	"runtime"
 
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/system"
-	"github.com/pkg/errors"
 )
 
 // ImageExistsLocally returns a boolean indicating if an image with the
