@@ -641,3 +641,31 @@ func TestRunner_RunMatrixWithUserDefinedInclusions(t *testing.T) {
 
 	tjfi.runTest(t.Context(), t, &Config{Matrix: matrix})
 }
+
+// Regression test against `runs-on` in a matrix run, which references the matrix values, being corrupted by multiple
+// concurrent goroutines.
+func TestRunner_RunsOnMatrix(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	log.SetLevel(log.DebugLevel)
+
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "matrix-runs-on",
+		eventName:    "push",
+		errorMessage: "",
+		platforms:    platforms,
+	}
+
+	logger := &maskJobLoggerFactory{}
+	tjfi.runTest(WithJobLoggerFactory(common.WithLogger(t.Context(), logger.WithJobLogger()), logger), t, &Config{})
+	output := logger.Output.String()
+
+	// job 1 should succeed because `ubuntu-latest` is a valid runs-on target...
+	assert.Contains(t, output, "msg=\"🏁  Job succeeded\" dryrun=false job=test/matrix-runs-on-1", "expected job 1 to succeed, but did not find success message")
+
+	// job 2 should be skipped because `ubuntu-20.04` is not a valid runs-on target in `platforms`.
+	assert.Contains(t, output, "msg=\"🚧  Skipping unsupported platform -- Try running with `-P ubuntu-20.04=...`\" dryrun=false job=test/matrix-runs-on-2", "expected job 2 to be skipped, but it was not")
+}
