@@ -237,7 +237,7 @@ jobs:
 
 	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
 	assert.NoError(t, err, "read workflow should succeed")
-	assert.Equal(t, workflow.Jobs["test"].RunsOn(workflow.Jobs["test"].RawRunsOn), []string{"ubuntu-latest"})
+	assert.Equal(t, workflow.Jobs["test"].RunsOn(), []string{"ubuntu-latest"})
 }
 
 func TestReadWorkflow_RunsOnLabelsWithGroup(t *testing.T) {
@@ -255,7 +255,7 @@ jobs:
 
 	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
 	assert.NoError(t, err, "read workflow should succeed")
-	assert.Equal(t, workflow.Jobs["test"].RunsOn(workflow.Jobs["test"].RawRunsOn), []string{"ubuntu-latest", "linux"})
+	assert.Equal(t, workflow.Jobs["test"].RunsOn(), []string{"ubuntu-latest", "linux"})
 }
 
 func TestReadWorkflow_StringContainer(t *testing.T) {

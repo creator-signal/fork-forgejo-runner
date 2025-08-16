@@ -119,10 +119,6 @@ func (j *Job) EraseNeeds() *Job {
 	return j
 }
 
-func (j *Job) RunsOn() []string {
-	return (&model.Job{RawRunsOn: j.RawRunsOn}).RunsOn(j.RawRunsOn)
-}
-
 type Step struct {
 	ID               string            `yaml:"id,omitempty"`
 	If               yaml.Node         `yaml:"if,omitempty"`
