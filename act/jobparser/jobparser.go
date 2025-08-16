@@ -57,7 +57,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 
 			job.Strategy.RawMatrix = encodeMatrix(matrix)
 
-			runsOn := origin.GetJob(id).RunsOn()
+			runsOn := origin.GetJob(id).RunsOn(origin.GetJob(id).RawRunsOn)
 			for i, v := range runsOn {
 				runsOn[i] = evaluator.Interpolate(v)
 			}

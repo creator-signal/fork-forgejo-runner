@@ -338,15 +338,15 @@ func (j *Job) Needs() []string {
 }
 
 // RunsOn list for Job
-func (j *Job) RunsOn() []string {
-	switch j.RawRunsOn.Kind {
+func (j *Job) RunsOn(evaluatedNode yaml.Node) []string {
+	switch evaluatedNode.Kind {
 	case yaml.MappingNode:
 		var val struct {
 			Group  string
 			Labels yaml.Node
 		}
 
-		if !decodeNode(j.RawRunsOn, &val) {
+		if !decodeNode(evaluatedNode, &val) {
 			return nil
 		}
 
@@ -358,7 +358,7 @@ func (j *Job) RunsOn() []string {
 
 		return labels
 	default:
-		return nodeAsStringSlice(j.RawRunsOn)
+		return nodeAsStringSlice(evaluatedNode)
 	}
 }
 

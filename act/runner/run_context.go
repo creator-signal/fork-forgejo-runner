@@ -961,11 +961,12 @@ func (rc *RunContext) containerImage(ctx context.Context) string {
 }
 
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
-	if rc.Run.Job().RunsOn() == nil {
+	rawRunsOn := rc.Run.Job().RawRunsOn
+	runsOn := rc.Run.Job().RunsOn(rawRunsOn)
+
+	if runsOn == nil {
 		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
 	}
-
-	runsOn := rc.Run.Job().RunsOn()
 	for i, v := range runsOn {
 		runsOn[i] = rc.ExprEval.Interpolate(ctx, v)
 	}
@@ -989,16 +990,22 @@ func (rc *RunContext) runsOnImage(ctx context.Context) string {
 func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {
 	job := rc.Run.Job()
 
-	if job.RunsOn() == nil {
+	// Copy rawRunsOn from the job.  `EvaluateYamlNode` later will mutate the yaml node in-place applying expression
+	// evaluation to it from the RunContext -- but the job object is shared in matrix executions between multiple
+	// running matrix jobs and `rc.EvalExpr` is specific to one matrix job.  By copying the object we avoid mutating the
+	// shared field as it is accessed by multiple goroutines.
+	rawRunsOn := job.RawRunsOn
+
+	if job.RunsOn(rawRunsOn) == nil {
 		return []string{}
 	}
 
-	if err := rc.ExprEval.EvaluateYamlNode(ctx, &job.RawRunsOn); err != nil {
+	if err := rc.ExprEval.EvaluateYamlNode(ctx, &rawRunsOn); err != nil {
 		common.Logger(ctx).Errorf("Error while evaluating runs-on: %v", err)
 		return []string{}
 	}
 
-	return job.RunsOn()
+	return job.RunsOn(rawRunsOn)
 }
 
 func (rc *RunContext) platformImage(ctx context.Context) string {

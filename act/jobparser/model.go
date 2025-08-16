@@ -120,7 +120,7 @@ func (j *Job) EraseNeeds() *Job {
 }
 
 func (j *Job) RunsOn() []string {
-	return (&model.Job{RawRunsOn: j.RawRunsOn}).RunsOn()
+	return (&model.Job{RawRunsOn: j.RawRunsOn}).RunsOn(j.RawRunsOn)
 }
 
 type Step struct {
