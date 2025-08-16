@@ -993,7 +993,7 @@ func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {
 		return []string{}
 	}
 
-	// Copy rawRunsOn from the job.  `EvaluateYamlNode` later will mutate the yaml node in-place applying expression
+	// Copy rawRunsOn from the job. `EvaluateYamlNode` later will mutate the yaml node in-place applying expression
 	// evaluation to it from the RunContext -- but the job object is shared in matrix executions between multiple
 	// running matrix jobs and `rc.EvalExpr` is specific to one matrix job.  By copying the object we avoid mutating the
 	// shared field as it is accessed by multiple goroutines.

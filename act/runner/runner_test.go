@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/joho/godotenv"
@@ -476,7 +477,24 @@ func TestRunner_RunSkipped(t *testing.T) {
 }
 
 type maskJobLoggerFactory struct {
-	Output bytes.Buffer
+	Output syncBuffer
+}
+
+type syncBuffer struct {
+	buffer bytes.Buffer
+	mutex  sync.Mutex
+}
+
+func (sb *syncBuffer) Write(p []byte) (n int, err error) {
+	sb.mutex.Lock()
+	defer sb.mutex.Unlock()
+	return sb.buffer.Write(p)
+}
+
+func (sb *syncBuffer) String() string {
+	sb.mutex.Lock()
+	defer sb.mutex.Unlock()
+	return sb.buffer.String()
 }
 
 func (f *maskJobLoggerFactory) WithJobLogger() *log.Logger {
