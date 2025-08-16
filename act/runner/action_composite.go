@@ -140,7 +140,7 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 		if stepModel.Number != i {
 			return &compositeSteps{
 				pre:  func(ctx context.Context) error { return nil },
-				main: common.NewErrorExecutor(fmt.Errorf("internal error: invalid Step: Number expected %v, was actually %v", i, step.Number)),
+				main: common.NewErrorExecutor(fmt.Errorf("internal error: invalid Step: Number expected %v, was actually %v", i, stepModel.Number)),
 				post: func(ctx context.Context) error { return nil },
 			}
 		}
