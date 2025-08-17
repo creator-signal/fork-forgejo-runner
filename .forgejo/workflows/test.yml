@@ -149,6 +149,44 @@ jobs:
           go test ./act/container
           go test -timeout 30m ./act/runner/...
 
+  runner-integration-tests:
+    name: runner integration tests
+    if: vars.ROLE == 'forgejo-coding'
+    runs-on: lxc-bookworm
+    needs: [build-and-tests]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: install docker
+        run: |
+          mkdir /etc/docker
+          cat > /etc/docker/daemon.json  <<EOF
+          {
+            "ipv6": true,
+            "experimental": true,
+            "ip6tables": true,
+            "fixed-cidr-v6": "fd05:d0ca:1::/64",
+            "default-address-pools": [
+              {
+                "base": "172.19.0.0/16",
+                "size": 24
+              },
+              {
+                "base": "fd05:d0ca:2::/104",
+                "size": 112
+              }
+            ]
+          }
+          EOF
+          apt --quiet install --yes -qq docker.io make
+
+      - run: make integration-test
+
   validate-mocks:
     name: validate mocks
     if: vars.ROLE == 'forgejo-coding'
