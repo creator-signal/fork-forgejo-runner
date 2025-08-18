@@ -240,8 +240,7 @@ func (_m *Client) UpdateTask(_a0 context.Context, _a1 *connect.Request[runnerv1.
 func NewClient(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *Client {
+}) *Client {
 	mock := &Client{}
 	mock.Mock.Test(t)
 

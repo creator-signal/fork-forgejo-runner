@@ -127,3 +127,34 @@ jobs:
           set -x
           ./forgejo-runner exec --var MY_VAR=testvariable --workflows .forgejo/testdata/var.yml |& tee /tmp/var.out
           grep --quiet 'Success - Main echo "VAR -> testvariable"' /tmp/var.out
+
+  validate-mocks:
+    needs:
+      - build-and-tests
+    name: validate mocks
+    if: vars.ROLE == 'forgejo-coding'
+    runs-on: docker
+    container:
+      image: 'code.forgejo.org/oci/ci:1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+
+      - name: generate mocks
+        run: |
+          set -ex
+          make deps-tools
+          make generate
+
+      - name: validate mocks
+        run: |
+          git diff --quiet || {
+            echo "[ERROR] Please apply the changes mockery suggests:"
+            git diff --color=always
+            exit 1
+          }
