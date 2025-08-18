@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -ex
+
+forgejo=$1
+forgejo_pr=$2
+runner=$3
+runner_pr_or_ref=$4
+
+#
+# Get information from the runner
+#
+cd $runner
+#
+# code.forgejo.org/forgejo/runner/vN may be
+# upgraded to code.forgejo.org/forgejo/runner/vN+1
+#
+module=$(cat go.mod | head -1 | cut -d' ' -f2)
+test "$module"
+sha=$(git -C $runner show --no-patch --format=%H)
+test "$sha"
+
+#
+# Update Forgejo to use the runner at $runner_pr_or_ref
+#
+cd $forgejo
+#
+# Update the runner major version if needed
+#
+find * -name '*.go' -o -name 'go.mod' | xargs sed -i -E -e "s|code.forgejo.org/forgejo/runner/v[0-9]+|$module|"
+#
+# add a "replace code.forgejo.org/forgejo/runner/v?? $sha" line to the forgejo go.mod
+# so that it uses the branch or pull request from which the cascade is run.
+#
+sed -i -e "\|replace $module|d" go.mod
+echo "replace $module => $module $sha" >>go.mod
+go mod tidy

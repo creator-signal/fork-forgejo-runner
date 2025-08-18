@@ -1,0 +1,88 @@
+# Copyright 2025 The Forgejo Authors
+# SPDX-License-Identifier: MIT
+#
+# FORGEJO_CASCADING_PR_ORIGIN_TOKEN is a token from the https://code.forgejo.org/cascading-pr user
+# with scope write:issue read:repository read:user
+# FORGEJO_CASCADING_PR_DESTINATION_TOKEN is a token from the https://codeberg.org/forgejo-cascading-pr user
+# with scope write:issue write:repository read:user
+#
+# To modify this workflow:
+#
+#  - push it to the wip-cascade branch on the repository
+#    otherwise it will not have access to the secrets required to push
+#    the cascading PR
+#
+#  - once it works, open a pull request for the sake of keeping track
+#    of the change even if the PR won't run it because it will use
+#    whatever is in the default branch instead
+#
+#  - after it is merged, double check it works by setting the
+#    label on a pull request (any pull request will do)
+#
+name: cascade
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'wip-cascade'
+  pull_request_target:
+    types:
+      - synchronize
+      - labeled
+
+enable-email-notifications: true
+
+jobs:
+  debug:
+    if: >
+      vars.DEBUG == 'yes'
+    runs-on: docker
+    container:
+      image: data.forgejo.org/oci/node:22-bookworm
+    steps:
+      - name: event
+        run: |
+          cat <<'EOF'
+          ${{ toJSON(forge.event.pull_request.labels.*.name) }}
+          EOF
+          cat <<'EOF'
+          ${{ toJSON(forge.event) }}
+          EOF
+
+  forgejo:
+    if: >
+      vars.ROLE == 'forgejo-coding' && (
+        forge.ref_name == 'main' ||
+        forge.ref_name == 'wip-cascade' ||
+        contains(github.event.pull_request.labels.*.name, 'run-forgejo-tests')
+      )
+
+    runs-on: docker
+    container:
+      image: data.forgejo.org/oci/node:22-bookworm
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+        with:
+          fetch-depth: '0'
+          show-progress: 'false'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: https://data.forgejo.org/actions/cascading-pr@v2.2.1
+        with:
+          origin-url: ${{ forge.server_url }}
+          origin-repo: ${{ forge.repository }}
+          origin-token: ${{ secrets.FORGEJO_CASCADING_PR_ORIGIN_TOKEN }}
+          origin-pr: ${{ forge.event.pull_request.number }}
+          origin-ref: ${{ forge.event_name == 'push' && forge.event.ref || '' }}
+          destination-url: https://codeberg.org
+          destination-fork-repo: forgejo-cascading-pr/forgejo
+          destination-repo: forgejo/forgejo
+          destination-branch: forgejo
+          destination-token: ${{ secrets.FORGEJO_CASCADING_PR_DESTINATION_TOKEN }}
+          prefix: runner
+          close-merge: true
+          verbose: ${{ vars.VERBOSE == 'yes' }}
+          debug: ${{ vars.DEBUG == 'yes' }}
+          update: .forgejo/cascading-forgejo
