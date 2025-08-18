@@ -1,6 +1,6 @@
 module code.forgejo.org/forgejo/runner/v11
 
-go 1.24.0
+go 1.24
 
 toolchain go1.24.7
 
