@@ -422,7 +422,7 @@ func findCache(db *bolthold.Store, repo string, keys []string, version string) (
 	for _, prefix := range keys {
 		// if a key in the list matches exactly, don't return partial matches
 		if err := db.FindOne(cache,
-			bolthold.Where("Repo").Eq(repo).
+			bolthold.Where("Repo").Eq(repo).Index("Repo").
 				And("Key").Eq(prefix).
 				And("Version").Eq(version).
 				And("Complete").Eq(true).
@@ -438,7 +438,7 @@ func findCache(db *bolthold.Store, repo string, keys []string, version string) (
 			continue
 		}
 		if err := db.FindOne(cache,
-			bolthold.Where("Repo").Eq(repo).
+			bolthold.Where("Repo").Eq(repo).Index("Repo").
 				And("Key").RegExp(re).
 				And("Version").Eq(version).
 				And("Complete").Eq(true).

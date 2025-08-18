@@ -26,10 +26,10 @@ func (c *Request) ToCache() *Cache {
 type Cache struct {
 	ID        uint64 `json:"id" boltholdKey:"ID"`
 	Repo      string `json:"repo" boltholdIndex:"Repo"`
-	Key       string `json:"key" boltholdIndex:"Key"`
-	Version   string `json:"version" boltholdIndex:"Version"`
+	Key       string `json:"key"`
+	Version   string `json:"version"`
 	Size      int64  `json:"cacheSize"`
-	Complete  bool   `json:"complete" boltholdIndex:"Complete"`
-	UsedAt    int64  `json:"usedAt" boltholdIndex:"UsedAt"`
-	CreatedAt int64  `json:"createdAt" boltholdIndex:"CreatedAt"`
+	Complete  bool   `json:"complete"`
+	UsedAt    int64  `json:"usedAt"`
+	CreatedAt int64  `json:"createdAt"`
 }
