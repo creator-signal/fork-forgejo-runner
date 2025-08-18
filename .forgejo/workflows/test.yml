@@ -150,6 +150,7 @@ jobs:
           set -ex
           make deps-tools
           make generate
+          make fmt
 
       - name: validate mocks
         run: |
