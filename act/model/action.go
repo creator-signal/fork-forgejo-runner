@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"code.forgejo.org/forgejo/runner/v9/act/schema"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // ActionRunsUsing is the type of runner for the action

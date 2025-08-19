@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/rhysd/actionlint"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 //go:embed workflow_schema.json

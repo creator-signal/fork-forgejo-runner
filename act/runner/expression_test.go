@@ -6,7 +6,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v9/act/model"
 	assert "github.com/stretchr/testify/assert"
-	yaml "gopkg.in/yaml.v3"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 func createRunContext(t *testing.T) *RunContext {

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // ExpressionEvaluator is copied from runner.expressionEvaluator,

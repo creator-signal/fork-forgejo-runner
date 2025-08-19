@@ -16,7 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"code.forgejo.org/forgejo/runner/v9/act/model"

@@ -3,7 +3,7 @@ package jobparser
 import (
 	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v9/act/model"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // NewInterpeter returns an interpeter used in the server,

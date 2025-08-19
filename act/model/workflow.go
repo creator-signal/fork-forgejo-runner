@@ -16,7 +16,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 	"code.forgejo.org/forgejo/runner/v9/act/schema"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Workflow is the structure of the files in .github/workflows

@@ -17,7 +17,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v9/act/container"
 	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v9/act/model"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // ExpressionEvaluator is the interface for evaluating expressions

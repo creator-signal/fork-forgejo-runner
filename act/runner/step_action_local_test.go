@@ -12,7 +12,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v9/act/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 type stepActionLocalMocks struct {

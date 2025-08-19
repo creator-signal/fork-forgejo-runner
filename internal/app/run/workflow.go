@@ -11,7 +11,7 @@ import (
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/runner/v9/act/model"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 func generateWorkflow(task *runnerv1.Task) (*model.Workflow, string, error) {

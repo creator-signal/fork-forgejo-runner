@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"code.forgejo.org/forgejo/runner/v9/act/model"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // SingleWorkflow is a workflow with single job and single matrix
