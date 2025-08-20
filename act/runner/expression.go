@@ -564,21 +564,21 @@ func setupWorkflowInputs(ctx context.Context, inputs *map[string]any, rc *RunCon
 func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 	if rc.caller != nil {
 		job := rc.caller.runContext.Run.Job()
-		secrets := job.Secrets()
+		rawSecrets := job.Secrets()
 
-		if secrets == nil && job.InheritSecrets() {
-			secrets = rc.caller.runContext.Config.Secrets
+		if rawSecrets == nil && job.InheritSecrets() {
+			rawSecrets = rc.caller.runContext.Config.Secrets
 		}
 
-		if secrets == nil {
-			secrets = map[string]string{}
+		if rawSecrets == nil {
+			return map[string]string{}
 		}
 
-		for k, v := range secrets {
-			secrets[k] = rc.caller.runContext.ExprEval.Interpolate(ctx, v)
+		interpolatedSecrets := make(map[string]string, len(rawSecrets))
+		for k, v := range rawSecrets {
+			interpolatedSecrets[k] = rc.caller.runContext.ExprEval.Interpolate(ctx, v)
 		}
-
-		return secrets
+		return interpolatedSecrets
 	}
 
 	return rc.Config.Secrets

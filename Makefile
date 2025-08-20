@@ -106,7 +106,9 @@ fmt-check:
 	fi;
 
 test: lint-check fmt-check
-	@$(GO) test -v -cover -coverprofile coverage.txt ./internal/... && echo "\n==>\033[32m Ok\033[m\n" || exit 1
+	$(GO) test -v -cover -coverprofile coverage.txt ./internal/...
+	$(GO) test -short ./act/container
+	$(GO) test ./act/artifactcache/... ./act/workflowpattern/... ./act/filecollector/... ./act/common/... ./act/jobparser ./act/model ./act/exprparser ./act/schema
 
 .PHONY: vet
 vet:
