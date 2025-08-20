@@ -244,23 +244,28 @@ const (
 func (r *Reporter) Close(runErr error) error {
 	r.closed = true
 
+	setStepCancel := func() {
+		for _, v := range r.state.Steps {
+			if v.Result == runnerv1.Result_RESULT_UNSPECIFIED {
+				v.Result = runnerv1.Result_RESULT_CANCELLED
+			}
+		}
+	}
+
 	r.stateMu.Lock()
 	var lastWords string
 	if errors.Is(runErr, context.DeadlineExceeded) {
 		lastWords = closeTimeoutMessage
 		r.state.Result = runnerv1.Result_RESULT_CANCELLED
+		setStepCancel()
 	} else if r.state.Result == runnerv1.Result_RESULT_UNSPECIFIED {
 		if runErr == nil {
 			lastWords = closeCancelledMessage
 		} else {
 			lastWords = runErr.Error()
 		}
-		for _, v := range r.state.Steps {
-			if v.Result == runnerv1.Result_RESULT_UNSPECIFIED {
-				v.Result = runnerv1.Result_RESULT_CANCELLED
-			}
-		}
 		r.state.Result = runnerv1.Result_RESULT_FAILURE
+		setStepCancel()
 	} else if runErr != nil {
 		lastWords = runErr.Error()
 		r.state.Result = runnerv1.Result_RESULT_FAILURE

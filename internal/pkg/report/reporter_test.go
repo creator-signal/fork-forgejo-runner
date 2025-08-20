@@ -410,7 +410,8 @@ func TestReporterReportLog(t *testing.T) {
 }
 
 func TestReporterClose(t *testing.T) {
-	mockReporterCloser := func(message *string, result *runnerv1.Result) *Reporter {
+	mockReporterCloser := func(t *testing.T, message *string, result *runnerv1.Result) *Reporter {
+		t.Helper()
 		reporter, client, _ := mockReporter(t)
 		if message != nil {
 			client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
@@ -435,46 +436,43 @@ func TestReporterClose(t *testing.T) {
 	}
 
 	for _, testCase := range []struct {
-		name            string
-		err             error
-		expectedMessage string
-		result          runnerv1.Result
-		expectedResult  runnerv1.Result
+		name                    string
+		err                     error
+		expectedMessage         string
+		result                  runnerv1.Result
+		expectedStateResult     runnerv1.Result
+		expectedStepStateResult runnerv1.Result
 	}{
 		{
-			name:            "ResultSuccessAndNilErrorIsResultSuccess",
-			err:             nil,
-			expectedMessage: "",
-			result:          runnerv1.Result_RESULT_SUCCESS,
-			expectedResult:  runnerv1.Result_RESULT_SUCCESS,
+			name:                "ResultSuccessAndNilErrorIsResultSuccess",
+			err:                 nil,
+			expectedMessage:     "",
+			result:              runnerv1.Result_RESULT_SUCCESS,
+			expectedStateResult: runnerv1.Result_RESULT_SUCCESS,
 		},
 		{
-			name:            "ResultUnspecifiedAndErrorIsResultFailure",
-			err:             errors.New("ERROR_MESSAGE"),
-			expectedMessage: "ERROR_MESSAGE",
-			result:          runnerv1.Result_RESULT_UNSPECIFIED,
-			expectedResult:  runnerv1.Result_RESULT_FAILURE,
+			name:                    "ResultUnspecifiedAndErrorIsResultFailure",
+			err:                     errors.New("ERROR_MESSAGE"),
+			expectedMessage:         "ERROR_MESSAGE",
+			result:                  runnerv1.Result_RESULT_UNSPECIFIED,
+			expectedStateResult:     runnerv1.Result_RESULT_FAILURE,
+			expectedStepStateResult: runnerv1.Result_RESULT_CANCELLED,
 		},
 		{
-			name:            "ResultUnspecifiedAndNilErrorIsResultFailure",
-			err:             nil,
-			expectedMessage: closeCancelledMessage,
-			result:          runnerv1.Result_RESULT_UNSPECIFIED,
-			expectedResult:  runnerv1.Result_RESULT_FAILURE,
+			name:                    "ResultUnspecifiedAndNilErrorIsResultFailure",
+			err:                     nil,
+			expectedMessage:         closeCancelledMessage,
+			result:                  runnerv1.Result_RESULT_UNSPECIFIED,
+			expectedStateResult:     runnerv1.Result_RESULT_FAILURE,
+			expectedStepStateResult: runnerv1.Result_RESULT_CANCELLED,
 		},
 		{
-			name:            "ResultSuccessAndErrorIsResultFailure",
-			err:             errors.New("ERROR_MESSAGE"),
-			expectedMessage: "ERROR_MESSAGE",
-			result:          runnerv1.Result_RESULT_SUCCESS,
-			expectedResult:  runnerv1.Result_RESULT_FAILURE,
-		},
-		{
-			name:            "Timeout",
-			err:             context.DeadlineExceeded,
-			expectedMessage: closeTimeoutMessage,
-			result:          runnerv1.Result_RESULT_UNSPECIFIED,
-			expectedResult:  runnerv1.Result_RESULT_CANCELLED,
+			name:                    "Timeout",
+			err:                     context.DeadlineExceeded,
+			expectedMessage:         closeTimeoutMessage,
+			result:                  runnerv1.Result_RESULT_UNSPECIFIED,
+			expectedStateResult:     runnerv1.Result_RESULT_CANCELLED,
+			expectedStepStateResult: runnerv1.Result_RESULT_CANCELLED,
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -482,7 +480,7 @@ func TestReporterClose(t *testing.T) {
 			if testCase.expectedMessage != "" {
 				message = &testCase.expectedMessage
 			}
-			reporter := mockReporterCloser(message, &testCase.expectedResult)
+			reporter := mockReporterCloser(t, message, &testCase.expectedStateResult)
 
 			// cancel() verifies Close can operate after the context is cancelled
 			// because it uses the daemon context instead
@@ -494,6 +492,7 @@ func TestReporterClose(t *testing.T) {
 				},
 			}
 			require.NoError(t, reporter.Close(testCase.err))
+			assert.Equal(t, testCase.expectedStepStateResult, reporter.state.Steps[0].Result)
 		})
 	}
 }
