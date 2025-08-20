@@ -268,7 +268,6 @@ func (r *Reporter) Close(runErr error) error {
 		setStepCancel()
 	} else if runErr != nil {
 		lastWords = runErr.Error()
-		r.state.Result = runnerv1.Result_RESULT_FAILURE
 	}
 
 	if lastWords != "" {

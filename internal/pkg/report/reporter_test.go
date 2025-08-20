@@ -467,6 +467,13 @@ func TestReporterClose(t *testing.T) {
 			expectedStepStateResult: runnerv1.Result_RESULT_CANCELLED,
 		},
 		{
+			name:                "ResultSkippedAndErrorIsResultSkipped",
+			err:                 errors.New("ERROR_MESSAGE"),
+			expectedMessage:     "ERROR_MESSAGE",
+			result:              runnerv1.Result_RESULT_SKIPPED,
+			expectedStateResult: runnerv1.Result_RESULT_SKIPPED,
+		},
+		{
 			name:                    "Timeout",
 			err:                     context.DeadlineExceeded,
 			expectedMessage:         closeTimeoutMessage,
