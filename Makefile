@@ -69,11 +69,11 @@ LDFLAGS ?= -X "code.forgejo.org/forgejo/runner/v9/internal/pkg/ver.version=v$(RE
 
 all: build
 
-.PHONY: lint
+.PHONY: lint-check
 lint-check:
 	$(GO) run $(GOLANGCI_LINT_PACKAGE) run $(GOLANGCI_LINT_ARGS)
 
-.PHONY: lint-fix
+.PHONY: lint
 lint:
 	$(GO) run $(GOLANGCI_LINT_PACKAGE) run $(GOLANGCI_LINT_ARGS) --fix
 
