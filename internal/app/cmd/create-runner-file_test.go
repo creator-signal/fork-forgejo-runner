@@ -37,12 +37,18 @@ func Test_uuidFromSecret(t *testing.T) {
 	assert.EqualValues(t, uuid, "41414141-4141-4141-4141-414141414141")
 }
 
-func Test_ping(t *testing.T) {
-	cfg := &config.Config{}
+func getForgejoFromEnv(t *testing.T) string {
+	t.Helper()
 	address := os.Getenv("FORGEJO_URL")
 	if address == "" {
-		address = "https://code.forgejo.org"
+		t.Skip("skipping because FORGEJO_URL is not set")
 	}
+	return address
+}
+
+func Test_ping(t *testing.T) {
+	cfg := &config.Config{}
+	address := getForgejoFromEnv(t)
 	reg := &config.Registration{
 		Address: address,
 		UUID:    "create-runner-file_test.go",
@@ -51,6 +57,8 @@ func Test_ping(t *testing.T) {
 }
 
 func Test_runCreateRunnerFile(t *testing.T) {
+	instance := getForgejoFromEnv(t)
+
 	//
 	// Set the .runner file to be in a temporary directory
 	//
@@ -63,10 +71,6 @@ func Test_runCreateRunnerFile(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, os.WriteFile(configFile, yamlData, 0o666))
 
-	instance, has := os.LookupEnv("FORGEJO_URL")
-	if !has {
-		instance = "https://code.forgejo.org"
-	}
 	secret, has := os.LookupEnv("FORGEJO_RUNNER_SECRET")
 	assert.True(t, has)
 	name := "testrunner"
