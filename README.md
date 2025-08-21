@@ -2,12 +2,9 @@
 
 A daemon that connects to a Forgejo instance and runs jobs for continuous integration. The [installation and usage instructions](https://forgejo.org/docs/next/admin/actions/) are part of the Forgejo documentation.
 
-# Reporting bugs
-
-When filing a bug in [the issue tracker](https://code.forgejo.org/forgejo/runner/issues), it is very helpful to propose a pull request [in the end-to-end tests](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions) repository that adds a reproducer. It will fail the CI and unambiguously demonstrate that the problem exists. In most cases it is enough to add a workflow ([see the echo example](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions/example-echo)). For more complicated cases it is also possible to add a runner config file as well as shell scripts to setup and teardown the test case ([see the service example](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions/example-service)).
+# Reporting security-related issues
 
 Sensitive security-related issues should be reported to [security@forgejo.org](mailto:security@forgejo.org) using [encryption](https://keyoxide.org/security@forgejo.org).
-
 
 ## License
 
@@ -36,77 +33,37 @@ The Forgejo runner is a dependency of the [setup-forgejo action](https://code.fo
 - Install [Go](https://go.dev/doc/install) and `make(1)`
 - `make build`
 
-The [test workflow](.forgejo/workflows/test.yml) is a full example that builds the binary, runs the tests and launches the runner binary against a live Forgejo instance.
+## Linting
 
-## Generate mocks
+- `make lint-check`
+- `make lint` # will fix some lint errors
 
-- `make deps-tools`
-- `make generate`
+## Testing
 
-If there are changes, commit them to the repository.
+The [workflow](.forgejo/workflows/test.yml) that runs in the CI uses similar commands.
 
-## Local debug
+### Without a Forgejo instance
 
-The repositories are checked out in the same directory:
+- Install [Docker](https://docs.docker.com/engine/install/)
+- `make test integration-test`
 
-- **runner**: [Forgejo runner](https://code.forgejo.org/forgejo/runner)
-- **setup-forgejo**: [setup-forgejo](https://code.forgejo.org/actions/setup-forgejo)
+### With a Forgejo instance
 
-### Install dependencies
-
-The dependencies are installed manually or with:
-
-```shell
-setup-forgejo/forgejo-dependencies.sh
+- Run a Forgejo instance locally (for instance at http://0.0.0.0:8080) and create as shared secret
+```sh
+export FORGEJO_RUNNER_SECRET='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+export FORGEJO_URL=http://0.0.0.0:8080
+forgejo forgejo-cli actions register --labels docker --name therunner --secret $FORGEJO_RUNNER_SECRET
 ```
+- `make test integration-test` # which will run addional tests because FORGEJO_URL is set
 
-### Build the Forgejo runner
+### end-to-end
 
-```shell
-cd runner ; rm -f forgejo-runner ; make forgejo-runner
-```
-
-### Launch Forgejo and the runner
-
-A Forgejo instance is launched with:
-
-```shell
-cd setup-forgejo
-./forgejo.sh setup
-firefox $(cat forgejo-url)
-```
-
-The user is `root` with password `admin1234`. The runner is registered with:
-
-```
-cd setup-forgejo
-docker exec --user 1000 forgejo forgejo actions generate-runner-token > forgejo-runner-token
-../runner/forgejo-runner register --no-interactive --instance "$(cat forgejo-url)" --name runner --token $(cat forgejo-runner-token) --labels docker:docker://node:22-bookworm,self-hosted:host,lxc:lxc://debian:bookworm
-```
-
-And launched with:
-
-```shell
-cd setup-forgejo ; ../runner/forgejo-runner --config runner-config.yml daemon
-```
-
-Note that the `runner-config.yml` is required in that particular case
-to configure the network in `bridge` mode, otherwise the runner will
-create a network that cannot reach the forgejo instance.
-
-### Try a sample workflow
-
-From the Forgejo web interface, create a repository and add the
-following to `.forgejo/workflows/try.yaml`. It will launch the job and
-the result can be observed from the `actions` tab.
-
-```yaml
-on: [push]
-jobs:
-  ls:
-    runs-on: docker
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          ls ${{ github.workspace }}
-```
+- Follow the instructions from the end-to-end tests to [run actions tests locally](https://code.forgejo.org/forgejo/end-to-end#running-from-locally-built-binary).
+- `./end-to-end.sh actions_teardown` # stop the Forgejo and runner daemons running in the end-to-end environment
+- `( cd ~/clone-of-the-runner-repo ; make build ; cp forgejo-runner /tmp/forgejo-end-to-end/forgejo-runner )` # install the runner built from sources
+- `./end-to-end.sh actions_setup 13.0` # start Forgejo v13.0 and the runner daemon in the end-to-end environment
+- `./end-to-end.sh actions_verify_example echo` # run the [echo workflow](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions/example-echo/.forgejo/workflows/test.yml)
+- `xdg-open http://127.0.0.1:3000/root/example-echo/actions/runs/1` # see the logs workflow
+- `less /tmp/forgejo-end-to-end/forgejo-runner.log` # analyze the runner logs
+- `less /tmp/forgejo-end-to-end/forgejo-work-path/log/forgejo.log` # analyze the Forgejo logs
