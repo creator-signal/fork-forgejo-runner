@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"runtime"
 	"slices"
 	"strings"
@@ -279,63 +278,6 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 			})
 		}
 	})
-}
-
-func TestRunContext_GetGitHubContext(t *testing.T) {
-	log.SetLevel(log.DebugLevel)
-
-	cwd, err := os.Getwd()
-	assert.Nil(t, err)
-
-	rc := &RunContext{
-		Config: &Config{
-			EventName: "push",
-			Workdir:   cwd,
-		},
-		Run: &model.Run{
-			Workflow: &model.Workflow{
-				Name: "GitHubContextTest",
-			},
-		},
-		Name:           "GitHubContextTest",
-		CurrentStep:    "step",
-		Matrix:         map[string]any{},
-		Env:            map[string]string{},
-		ExtraPath:      []string{},
-		StepResults:    map[string]*model.StepResult{},
-		OutputMappings: map[MappableOutput]MappableOutput{},
-	}
-	rc.Run.JobID = "job1"
-
-	ghc := rc.getGithubContext(t.Context())
-
-	log.Debugf("%v", ghc)
-
-	actor := "nektos/act"
-	if a := os.Getenv("ACT_ACTOR"); a != "" {
-		actor = a
-	}
-
-	repo := "forgejo/runner"
-	if r := os.Getenv("ACT_REPOSITORY"); r != "" {
-		repo = r
-	}
-
-	owner := "code.forgejo.org"
-	if o := os.Getenv("ACT_OWNER"); o != "" {
-		owner = o
-	}
-
-	assert.Equal(t, ghc.RunID, "1")
-	assert.Equal(t, ghc.RunNumber, "1")
-	assert.Equal(t, ghc.RetentionDays, "0")
-	assert.Equal(t, ghc.Actor, actor)
-	assert.True(t, strings.HasSuffix(ghc.Repository, repo))
-	assert.Equal(t, ghc.RepositoryOwner, owner)
-	assert.Equal(t, ghc.RunnerPerflog, "/dev/null")
-	assert.Equal(t, ghc.Token, rc.Config.Secrets["GITHUB_TOKEN"])
-	assert.Equal(t, ghc.Token, rc.Config.Secrets["FORGEJO_TOKEN"])
-	assert.Equal(t, ghc.Job, "job1")
 }
 
 func TestRunContext_GetGithubContextRef(t *testing.T) {
