@@ -171,7 +171,7 @@ func TestRunnerCacheConfiguration(t *testing.T) {
 	// Must set up cache for our test
 	require.NotNil(t, runner.cacheProxy)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Run a given workflow w/ event...
