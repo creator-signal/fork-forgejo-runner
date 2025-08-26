@@ -39,7 +39,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/term v0.34.0
 	golang.org/x/time v0.12.0
-	google.golang.org/protobuf v1.36.7
+	google.golang.org/protobuf v1.36.8
 	gotest.tools/v3 v3.5.2
 )
 
