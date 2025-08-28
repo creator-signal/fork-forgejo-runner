@@ -1,31 +1,99 @@
+# Copyright 2025 The Forgejo Authors
 # SPDX-License-Identifier: MIT
+#
+# CASCADING_PR_ORIGIN is a token from the https://code.forgejo.org/cascading-pr user
+# with scope write:issue read:repository read:user
+# CASCADING_PR_DESTINATION is a token from the https://code.forgejo.org/cascading-pr user
+# with scope write:issue write:repository read:user
+#
+# To modify this workflow:
+#
+#  - push it to the wip-cascade branch on the repository
+#    otherwise it will not have access to the secrets required to push
+#    the cascading PR
+#
+#  - once it works, open a pull request for the sake of keeping track
+#    of the change even if the PR won't run it because it will use
+#    whatever is in the default branch instead
+#
+#  - after it is merged, double check it works by setting the
+#    label on a pull request (any pull request will do)
+#
+name: cascade
+
 on:
+  push:
+    branches:
+      - 'wip-cascade'
   pull_request_target:
     types:
-      - opened
       - synchronize
+      - labeled
       - closed
 
 enable-email-notifications: true
 
 jobs:
-  cascade:
+  debug:
+    if: >
+      vars.DEBUG == 'yes'
+    runs-on: docker
+    container:
+      image: data.forgejo.org/oci/node:22-bookworm
+    steps:
+      - name: event
+        run: |
+          cat <<'EOF'
+          ${{ toJSON(forge.event.pull_request.labels.*.name) }}
+          EOF
+          cat <<'EOF'
+          push => ${{ forge.event_name == 'push' && ( forge.ref_name == 'wip-cascade') }}
+          pull_request_target synchornized => ${{ ( forge.event.action == 'synchronized' && contains(forge.event.pull_request.labels.*.name, 'run-end-to-end-tests') ) }}
+          pull_request_target label_updated => ${{ ( forge.event.action == 'label_updated' && forge.event.label.name == 'run-end-to-end-tests' ) }}
+          contains => ${{ contains(forge.event.pull_request.labels.*.name, 'run-end-to-end-tests') }}
+          contains boolean => ${{ contains(forge.event.pull_request.labels.*.name, 'run-end-to-end-tests') == true }}
+          EOF
+          cat <<'EOF'
+          ${{ toJSON(forge) }}
+          EOF
+
+  end-to-end:
+    #
+    # Always run when a commit is pushed to the wip-cascade branch
+    # If this is a pull request, run
+    #   - when the `run-end-to-end-tests` label is set (label_updated) (but not if another label is set or if a label is removed)
+    #   - when a new commit is pushed to the pull request (synchronized) if the `run-end-to-end-tests` is already present
+    #   - when the pull request is closed, which also happens when it is merged, so that the setup-forgejo & end-to-end pull requests are closed
+    #
+    if: >
+      vars.ROLE == 'forgejo-coding' && (
+        (
+          forge.event_name == 'push' && ( forge.ref_name == 'wip-cascade' )
+        ) || (
+          forge.event_name == 'pull_request_target' && (
+            forge.event.action == 'closed' ||
+            ( forge.event.action == 'synchronized' && contains(forge.event.pull_request.labels.*.name, 'run-end-to-end-tests') ) ||
+            ( forge.event.action == 'label_updated' && forge.event.label.name == 'run-end-to-end-tests' )
+          )
+        )
+      )
     runs-on: docker
     container:
       image: 'code.forgejo.org/oci/node:22-bookworm'
-    if: >
-      ! contains(forge.event.pull_request.title, '[skip cascade]')
     steps:
       - uses: https://code.forgejo.org/actions/cascading-pr@v2.2.1
         with:
-          origin-url: ${{ env.FORGEJO_SERVER_URL }}
-          origin-repo: forgejo/runner
+          origin-url: ${{ forge.server_url }}
+          origin-repo: ${{ forge.repository }}
           origin-token: ${{ secrets.CASCADING_PR_ORIGIN }}
           origin-pr: ${{ forge.event.pull_request.number }}
-          destination-url: ${{ env.FORGEJO_SERVER_URL }}
+          origin-ref: ${{ forge.event_name == 'push' && forge.event.ref || '' }}
+          destination-url: ${{ forge.server_url }}
           destination-repo: actions/setup-forgejo
           destination-fork-repo: cascading-pr/setup-forgejo
           destination-branch: main
           destination-token: ${{ secrets.CASCADING_PR_DESTINATION }}
-          close-merge: true
-          update: .forgejo/cascading-pr-setup-forgejo
+          close: true
+          verbose: ${{ vars.VERBOSE == 'yes' }}
+          debug: ${{ vars.DEBUG == 'yes' }}
+          update: .forgejo/cascading-setup-forgejo

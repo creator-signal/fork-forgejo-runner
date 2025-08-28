@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -ex
+
+setup_forgejo=$1
+setup_forgejo_pr=$2
+runner=$3
+runner_pr_or_ref=$4
+
+if test -f "$runner_pr_or_ref"; then
+  url=$(jq --raw-output .head.repo.html_url <$runner_pr)
+  test "$url" != null
+  branch=$(jq --raw-output .head.ref <$runner_pr)
+else
+  url=https://code.forgejo.org/forgejo/runner
+  branch=${runner_pr_or_ref#refs/heads/}
+fi
+test "$url"
+test "$branch"
+test "$branch" != null
+cd $setup_forgejo
+./utils/upgrade-runner.sh $url @$branch
+rm -f .forgejo/workflows/integration*.yml
+date >last-upgrade
