@@ -47,6 +47,13 @@ The [workflow](.forgejo/workflows/test.yml) that runs in the CI uses similar com
 - Install [Docker](https://docs.docker.com/engine/install/)
 - `make test integration-test`
 
+The `TestRunner_RunEvent` test suite contains most integration tests
+with real-world workflows and is time-consuming to run. During
+development, it is helpful to run a specific test through a targeted
+command such as this:
+
+- `go test -count=1 -run='TestRunner_RunEvent$/local-action-dockerfile$' ./act/runner`
+
 ### With a Forgejo instance
 
 - Run a Forgejo instance locally (for instance at http://0.0.0.0:8080) and create as shared secret
