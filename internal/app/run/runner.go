@@ -272,7 +272,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		// future runs of the PR's workflows and won't be shared with other pull requests or actions. This is a security
 		// measure to prevent a malicious pull request from poisoning the cache with secret-stealing code which would
 		// later be executed on another action.
-		if taskContext["event_name"].GetStringValue() == "pull_request" || taskContext["event_name"].GetStringValue() == "pull_request_target" {
+		if taskContext["event_name"].GetStringValue() == "pull_request" {
 			// Ensure that `Ref` has the expected format so that we don't end up with a useless write isolation key
 			if !strings.HasPrefix(preset.Ref, "refs/pull/") {
 				return fmt.Errorf("write isolation key: expected preset.Ref to be refs/pull/..., but was %q", preset.Ref)
