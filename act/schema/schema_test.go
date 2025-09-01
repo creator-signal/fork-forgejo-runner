@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,62 @@ jobs:
 		Schema:     GetWorkflowSchema(),
 	}).UnmarshalYAML(&node)
 	assert.NoError(t, err)
+}
+
+func TestReusableWorkflow(t *testing.T) {
+	t.Run("KnownContexts", func(t *testing.T) {
+		var node yaml.Node
+		err := yaml.Unmarshal([]byte(`
+on: push
+
+jobs:
+  job:
+    uses: ./.forgejo/workflow/test.yaml
+    with:
+      input1: |
+         ${{ forge.KEY }}
+         ${{ github.KEY }}
+         ${{ inputs.KEY }}
+         ${{ vars.KEY }}
+         ${{ env.KEY }}
+         ${{ needs.KEY }}
+         ${{ strategy.KEY }}
+         ${{ matrix.KEY }}
+`), &node)
+		if !assert.NoError(t, err) {
+			return
+		}
+		err = (&Node{
+			Definition: "workflow-root",
+			Schema:     GetWorkflowSchema(),
+		}).UnmarshalYAML(&node)
+		assert.NoError(t, err)
+	})
+
+	t.Run("UnknownContext", func(t *testing.T) {
+		for _, context := range []string{"secrets", "job", "steps", "runner"} {
+			t.Run(context, func(t *testing.T) {
+				var node yaml.Node
+				err := yaml.Unmarshal([]byte(fmt.Sprintf(`
+on: push
+
+jobs:
+  job:
+    uses: ./.forgejo/workflow/test.yaml
+    with:
+      input1: ${{ %[1]s.KEY }}
+`, context)), &node)
+				if !assert.NoError(t, err) {
+					return
+				}
+				err = (&Node{
+					Definition: "workflow-root",
+					Schema:     GetWorkflowSchema(),
+				}).UnmarshalYAML(&node)
+				assert.ErrorContains(t, err, "Unknown Variable Access "+context)
+			})
+		}
+	})
 }
 
 func TestAdditionalFunctionsFailure(t *testing.T) {

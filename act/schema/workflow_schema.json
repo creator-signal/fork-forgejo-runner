@@ -2076,7 +2076,7 @@
       "string": {}
     },
     "scalar-needs-context": {
-      "context": ["forge", "github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "context": ["forge", "github", "inputs", "vars", "env", "needs", "strategy", "matrix"],
       "one-of": ["string", "boolean", "number"]
     },
     "scalar-needs-context-with-secrets": {
