@@ -2,7 +2,7 @@ module code.forgejo.org/forgejo/runner/v9
 
 go 1.24
 
-toolchain go1.24.6
+toolchain go1.24.7
 
 require (
 	code.forgejo.org/forgejo/actions-proto v0.5.1
