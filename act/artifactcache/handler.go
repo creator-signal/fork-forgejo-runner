@@ -28,7 +28,26 @@ const (
 	urlBase = "/_apis/artifactcache"
 )
 
-type Handler struct {
+type Handler interface {
+	ExternalURL() string
+	Close() error
+	isClosed() bool
+	openDB() (*bolthold.Store, error)
+	find(w http.ResponseWriter, r *http.Request, params httprouter.Params)
+	reserve(w http.ResponseWriter, r *http.Request, params httprouter.Params)
+	upload(w http.ResponseWriter, r *http.Request, params httprouter.Params)
+	commit(w http.ResponseWriter, r *http.Request, params httprouter.Params)
+	get(w http.ResponseWriter, r *http.Request, params httprouter.Params)
+	clean(w http.ResponseWriter, r *http.Request, _ httprouter.Params)
+	middleware(handler httprouter.Handle) httprouter.Handle
+	readCache(id uint64) (*Cache, error)
+	useCache(id uint64) error
+	setgcAt(at time.Time)
+	gcCache()
+	responseJSON(w http.ResponseWriter, r *http.Request, code int, v ...any)
+}
+
+type handler struct {
 	dir      string
 	storage  *Storage
 	router   *httprouter.Router
@@ -43,8 +62,8 @@ type Handler struct {
 	outboundIP string
 }
 
-func StartHandler(dir, outboundIP string, port uint16, secret string, logger logrus.FieldLogger) (*Handler, error) {
-	h := &Handler{
+func StartHandler(dir, outboundIP string, port uint16, secret string, logger logrus.FieldLogger) (Handler, error) {
+	h := &handler{
 		secret: secret,
 	}
 
@@ -114,14 +133,14 @@ func StartHandler(dir, outboundIP string, port uint16, secret string, logger log
 	return h, nil
 }
 
-func (h *Handler) ExternalURL() string {
+func (h *handler) ExternalURL() string {
 	port := strconv.Itoa(h.listener.Addr().(*net.TCPAddr).Port)
 
 	// TODO: make the external url configurable if necessary
 	return fmt.Sprintf("http://%s", net.JoinHostPort(h.outboundIP, port))
 }
 
-func (h *Handler) Close() error {
+func (h *handler) Close() error {
 	if h == nil {
 		return nil
 	}
@@ -146,7 +165,11 @@ func (h *Handler) Close() error {
 	return retErr
 }
 
-func (h *Handler) openDB() (*bolthold.Store, error) {
+func (h *handler) isClosed() bool {
+	return h.listener == nil && h.server == nil
+}
+
+func (h *handler) openDB() (*bolthold.Store, error) {
 	return bolthold.Open(filepath.Join(h.dir, "bolt.db"), 0o644, &bolthold.Options{
 		Encoder: json.Marshal,
 		Decoder: json.Unmarshal,
@@ -159,7 +182,7 @@ func (h *Handler) openDB() (*bolthold.Store, error) {
 }
 
 // GET /_apis/artifactcache/cache
-func (h *Handler) find(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (h *handler) find(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	rundata := runDataFromHeaders(r)
 	repo, err := h.validateMac(rundata)
 	if err != nil {
@@ -216,7 +239,7 @@ func (h *Handler) find(w http.ResponseWriter, r *http.Request, params httprouter
 }
 
 // POST /_apis/artifactcache/caches
-func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (h *handler) reserve(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	rundata := runDataFromHeaders(r)
 	repo, err := h.validateMac(rundata)
 	if err != nil {
@@ -255,7 +278,7 @@ func (h *Handler) reserve(w http.ResponseWriter, r *http.Request, params httprou
 }
 
 // PATCH /_apis/artifactcache/caches/:id
-func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (h *handler) upload(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	rundata := runDataFromHeaders(r)
 	repo, err := h.validateMac(rundata)
 	if err != nil {
@@ -310,7 +333,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request, params httprout
 }
 
 // POST /_apis/artifactcache/caches/:id
-func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (h *handler) commit(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	rundata := runDataFromHeaders(r)
 	repo, err := h.validateMac(rundata)
 	if err != nil {
@@ -374,7 +397,7 @@ func (h *Handler) commit(w http.ResponseWriter, r *http.Request, params httprout
 }
 
 // GET /_apis/artifactcache/artifacts/:id
-func (h *Handler) get(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (h *handler) get(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	rundata := runDataFromHeaders(r)
 	repo, err := h.validateMac(rundata)
 	if err != nil {
@@ -417,7 +440,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, params httprouter.
 }
 
 // POST /_apis/artifactcache/clean
-func (h *Handler) clean(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (h *handler) clean(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	rundata := runDataFromHeaders(r)
 	_, err := h.validateMac(rundata)
 	if err != nil {
@@ -430,7 +453,7 @@ func (h *Handler) clean(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	h.responseJSON(w, r, 200)
 }
 
-func (h *Handler) middleware(handler httprouter.Handle) httprouter.Handle {
+func (h *handler) middleware(handler httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		h.logger.Debugf("%s %s", r.Method, r.RequestURI)
 		handler(w, r, params)
@@ -488,7 +511,7 @@ func insertCache(db *bolthold.Store, cache *Cache) error {
 	return nil
 }
 
-func (h *Handler) readCache(id uint64) (*Cache, error) {
+func (h *handler) readCache(id uint64) (*Cache, error) {
 	db, err := h.openDB()
 	if err != nil {
 		return nil, err
@@ -501,7 +524,7 @@ func (h *Handler) readCache(id uint64) (*Cache, error) {
 	return cache, nil
 }
 
-func (h *Handler) useCache(id uint64) error {
+func (h *handler) useCache(id uint64) error {
 	db, err := h.openDB()
 	if err != nil {
 		return err
@@ -522,7 +545,11 @@ const (
 	keepOld    = 5 * time.Minute
 )
 
-func (h *Handler) gcCache() {
+func (h *handler) setgcAt(at time.Time) {
+	h.gcAt = at
+}
+
+func (h *handler) gcCache() {
 	if h.gcing.Load() {
 		return
 	}
@@ -629,7 +656,7 @@ func (h *Handler) gcCache() {
 	}
 }
 
-func (h *Handler) responseJSON(w http.ResponseWriter, r *http.Request, code int, v ...any) {
+func (h *handler) responseJSON(w http.ResponseWriter, r *http.Request, code int, v ...any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	var data []byte
 	if len(v) == 0 || v[0] == nil {

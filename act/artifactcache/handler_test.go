@@ -76,8 +76,7 @@ func TestHandler(t *testing.T) {
 		})
 		t.Run("close", func(t *testing.T) {
 			require.NoError(t, handler.Close())
-			assert.Nil(t, handler.server)
-			assert.Nil(t, handler.listener)
+			assert.True(t, handler.isClosed())
 			_, err := httpClient.Post(fmt.Sprintf("%s/caches/%d", base, 1), "", nil)
 			assert.Error(t, err)
 		})
@@ -983,7 +982,7 @@ func TestHandler_gcCache(t *testing.T) {
 	}
 	require.NoError(t, db.Close())
 
-	handler.gcAt = time.Time{} // ensure gcCache will not skip
+	handler.setgcAt(time.Time{}) // ensure gcCache will not skip
 	handler.gcCache()
 
 	db, err = handler.openDB()
@@ -1010,8 +1009,7 @@ func TestHandler_ExternalURL(t *testing.T) {
 
 		assert.Equal(t, handler.ExternalURL(), "http://127.0.0.1:34567")
 		require.NoError(t, handler.Close())
-		assert.Nil(t, handler.server)
-		assert.Nil(t, handler.listener)
+		assert.True(t, handler.isClosed())
 	})
 
 	t.Run("reports correct URL on IPv6 zero host", func(t *testing.T) {
@@ -1021,8 +1019,7 @@ func TestHandler_ExternalURL(t *testing.T) {
 
 		assert.Equal(t, handler.ExternalURL(), "http://[2001:db8::]:34567")
 		require.NoError(t, handler.Close())
-		assert.Nil(t, handler.server)
-		assert.Nil(t, handler.listener)
+		assert.True(t, handler.isClosed())
 	})
 
 	t.Run("reports correct URL on IPv6", func(t *testing.T) {
@@ -1032,7 +1029,6 @@ func TestHandler_ExternalURL(t *testing.T) {
 
 		assert.Equal(t, handler.ExternalURL(), "http://[2001:db8::1:2:3:4]:34567")
 		require.NoError(t, handler.Close())
-		assert.Nil(t, handler.server)
-		assert.Nil(t, handler.listener)
+		assert.True(t, handler.isClosed())
 	})
 }

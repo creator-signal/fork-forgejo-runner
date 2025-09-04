@@ -10,7 +10,7 @@ import (
 )
 
 func TestMac(t *testing.T) {
-	handler := &Handler{
+	handler := &handler{
 		secret: "secret for testing",
 	}
 

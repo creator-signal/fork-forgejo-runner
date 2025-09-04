@@ -16,7 +16,7 @@ import (
 
 var ErrValidation = errors.New("validation error")
 
-func (h *Handler) validateMac(rundata cacheproxy.RunData) (string, error) {
+func (h *handler) validateMac(rundata cacheproxy.RunData) (string, error) {
 	// TODO: allow configurable max age
 	if !validateAge(rundata.Timestamp) {
 		return "", ErrValidation

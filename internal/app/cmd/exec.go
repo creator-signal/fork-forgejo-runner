@@ -54,7 +54,7 @@ type executeArgs struct {
 	debug                 bool
 	dryrun                bool
 	image                 string
-	cacheHandler          *artifactcache.Handler
+	cacheHandler          artifactcache.Handler
 	network               string
 	enableIPv6            bool
 	githubInstance        string
