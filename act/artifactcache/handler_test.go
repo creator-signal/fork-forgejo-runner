@@ -821,7 +821,7 @@ func overrideWriteIsolationKey(writeIsolationKey string) func() {
 	originalMac := httpClientTransport.OverrideDefaultMac
 
 	httpClientTransport.WriteIsolationKey = writeIsolationKey
-	httpClientTransport.OverrideDefaultMac = computeMac("secret", cacheRepo, cacheRunnum, cacheTimestamp, httpClientTransport.WriteIsolationKey)
+	httpClientTransport.OverrideDefaultMac = ComputeMac("secret", cacheRepo, cacheRunnum, cacheTimestamp, httpClientTransport.WriteIsolationKey)
 
 	return func() {
 		httpClientTransport.WriteIsolationKey = originalWriteIsolationKey

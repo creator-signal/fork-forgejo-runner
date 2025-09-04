@@ -4,9 +4,6 @@
 package cacheproxy
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -48,7 +45,7 @@ type Handler struct {
 }
 
 func (h *Handler) CreateRunData(fullName, runNumber, timestamp, writeIsolationKey string) artifactcache.RunData {
-	mac := computeMac(h.cacheSecret, fullName, runNumber, timestamp, writeIsolationKey)
+	mac := artifactcache.ComputeMac(h.cacheSecret, fullName, runNumber, timestamp, writeIsolationKey)
 	return artifactcache.RunData{
 		RepositoryFullName: fullName,
 		RunNumber:          runNumber,
@@ -203,16 +200,4 @@ func (h *Handler) Close() error {
 		h.listener = nil
 	}
 	return retErr
-}
-
-func computeMac(secret, repo, run, ts, writeIsolationKey string) string {
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(repo))
-	mac.Write([]byte(">"))
-	mac.Write([]byte(run))
-	mac.Write([]byte(">"))
-	mac.Write([]byte(ts))
-	mac.Write([]byte(">"))
-	mac.Write([]byte(writeIsolationKey))
-	return hex.EncodeToString(mac.Sum(nil))
 }
