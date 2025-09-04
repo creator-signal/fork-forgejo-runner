@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v9/act/cacheproxy"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +19,7 @@ func TestMac(t *testing.T) {
 		ts := strconv.FormatInt(time.Now().Unix(), 10)
 
 		mac := computeMac(handler.secret, name, run, ts, "")
-		rundata := cacheproxy.RunData{
+		rundata := RunData{
 			RepositoryFullName: name,
 			RunNumber:          run,
 			Timestamp:          ts,
@@ -38,7 +37,7 @@ func TestMac(t *testing.T) {
 		ts := "9223372036854775807" // This should last us for a while...
 
 		mac := computeMac(handler.secret, name, run, ts, "")
-		rundata := cacheproxy.RunData{
+		rundata := RunData{
 			RepositoryFullName: name,
 			RunNumber:          run,
 			Timestamp:          ts,
@@ -54,7 +53,7 @@ func TestMac(t *testing.T) {
 		run := "1"
 		ts := strconv.FormatInt(time.Now().Unix(), 10)
 
-		rundata := cacheproxy.RunData{
+		rundata := RunData{
 			RepositoryFullName: name,
 			RunNumber:          run,
 			Timestamp:          ts,

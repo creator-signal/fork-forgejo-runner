@@ -20,7 +20,6 @@ import (
 	"github.com/timshannon/bolthold"
 	"go.etcd.io/bbolt"
 
-	"code.forgejo.org/forgejo/runner/v9/act/cacheproxy"
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 )
 
@@ -689,8 +688,16 @@ func parseContentRange(s string) (uint64, uint64, error) {
 	return start, stop, nil
 }
 
-func runDataFromHeaders(r *http.Request) cacheproxy.RunData {
-	return cacheproxy.RunData{
+type RunData struct {
+	RepositoryFullName string
+	RunNumber          string
+	Timestamp          string
+	RepositoryMAC      string
+	WriteIsolationKey  string
+}
+
+func runDataFromHeaders(r *http.Request) RunData {
+	return RunData{
 		RepositoryFullName: r.Header.Get("Forgejo-Cache-Repo"),
 		RunNumber:          r.Header.Get("Forgejo-Cache-RunNumber"),
 		Timestamp:          r.Header.Get("Forgejo-Cache-Timestamp"),

@@ -22,6 +22,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 
+	"code.forgejo.org/forgejo/runner/v9/act/artifactcache"
 	"code.forgejo.org/forgejo/runner/v9/act/common"
 )
 
@@ -46,17 +47,9 @@ type Handler struct {
 	runs sync.Map
 }
 
-type RunData struct {
-	RepositoryFullName string
-	RunNumber          string
-	Timestamp          string
-	RepositoryMAC      string
-	WriteIsolationKey  string
-}
-
-func (h *Handler) CreateRunData(fullName, runNumber, timestamp, writeIsolationKey string) RunData {
+func (h *Handler) CreateRunData(fullName, runNumber, timestamp, writeIsolationKey string) artifactcache.RunData {
 	mac := computeMac(h.cacheSecret, fullName, runNumber, timestamp, writeIsolationKey)
-	return RunData{
+	return artifactcache.RunData{
 		RepositoryFullName: fullName,
 		RunNumber:          runNumber,
 		Timestamp:          timestamp,
@@ -142,7 +135,7 @@ func (h *Handler) newReverseProxy(targetHost string) (*httputil.ReverseProxy, er
 				h.logger.Warn(fmt.Sprintf("Tried starting a cache proxy with id %s, which does not exist.", id))
 				return
 			}
-			runData := data.(RunData)
+			runData := data.(artifactcache.RunData)
 			uri := matches[2]
 
 			r.SetURL(targetURL)
@@ -170,7 +163,7 @@ func (h *Handler) ExternalURL() string {
 // Informs the proxy of a workflow run that can make cache requests.
 // The RunData contains the information about the repository.
 // The function returns the 32-bit random key which the run will use to identify itself.
-func (h *Handler) AddRun(data RunData) (string, error) {
+func (h *Handler) AddRun(data artifactcache.RunData) (string, error) {
 	for range 3 {
 		key := common.MustRandName(4)
 		_, loaded := h.runs.LoadOrStore(key, data)

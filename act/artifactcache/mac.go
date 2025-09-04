@@ -10,13 +10,11 @@ import (
 	"errors"
 	"strconv"
 	"time"
-
-	"code.forgejo.org/forgejo/runner/v9/act/cacheproxy"
 )
 
 var ErrValidation = errors.New("validation error")
 
-func (h *handler) validateMac(rundata cacheproxy.RunData) (string, error) {
+func (h *handler) validateMac(rundata RunData) (string, error) {
 	// TODO: allow configurable max age
 	if !validateAge(rundata.Timestamp) {
 		return "", ErrValidation
