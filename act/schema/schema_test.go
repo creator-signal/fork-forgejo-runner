@@ -197,7 +197,7 @@ inputs:
     default: '${{ env.GITHUB_SERVER_URL }}'
   repo:
     description: 'repo description'
-    default: '${{ github.repository }} ${{ vars.VARIABLE }}'
+    default: '${{ github.repository }} ${{ vars.VARIABLE }} ${{ inputs.VARIABLE }}'
 runs:
   using: "composite"
   steps:

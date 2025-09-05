@@ -172,6 +172,7 @@
       "context": [
         "forge",
         "github",
+        "inputs",
         "env",
         "strategy",
         "matrix",
