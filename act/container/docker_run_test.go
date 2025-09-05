@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v11/act/common"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"

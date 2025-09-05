@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v11/act/exprparser"
 	"go.yaml.in/yaml/v3"
 )
 

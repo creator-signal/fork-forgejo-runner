@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/v9/act/model"
+	"code.forgejo.org/forgejo/runner/v11/act/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

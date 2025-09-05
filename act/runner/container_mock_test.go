@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"code.forgejo.org/forgejo/runner/v9/act/common"
-	"code.forgejo.org/forgejo/runner/v9/act/container"
+	"code.forgejo.org/forgejo/runner/v11/act/common"
+	"code.forgejo.org/forgejo/runner/v11/act/container"
 	"github.com/stretchr/testify/mock"
 )
 

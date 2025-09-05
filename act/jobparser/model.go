@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"code.forgejo.org/forgejo/runner/v9/act/model"
+	"code.forgejo.org/forgejo/runner/v11/act/model"
 	"go.yaml.in/yaml/v3"
 )
 

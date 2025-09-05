@@ -20,7 +20,7 @@ import (
 	"github.com/timshannon/bolthold"
 	"go.etcd.io/bbolt"
 
-	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v11/act/common"
 )
 
 const (

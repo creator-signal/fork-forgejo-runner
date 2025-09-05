@@ -19,8 +19,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 
-	"code.forgejo.org/forgejo/runner/v9/act/artifactcache"
-	"code.forgejo.org/forgejo/runner/v9/act/common"
+	"code.forgejo.org/forgejo/runner/v11/act/artifactcache"
+	"code.forgejo.org/forgejo/runner/v11/act/common"
 )
 
 const (

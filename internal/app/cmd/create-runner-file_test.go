@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/v9/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/v9/internal/pkg/config"
-	"code.forgejo.org/forgejo/runner/v9/internal/pkg/ver"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/ver"
 	"connectrpc.com/connect"
 
 	"github.com/stretchr/testify/assert"

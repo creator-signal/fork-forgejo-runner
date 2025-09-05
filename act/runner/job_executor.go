@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v9/act/common"
-	"code.forgejo.org/forgejo/runner/v9/act/container"
-	"code.forgejo.org/forgejo/runner/v9/act/model"
+	"code.forgejo.org/forgejo/runner/v11/act/common"
+	"code.forgejo.org/forgejo/runner/v11/act/container"
+	"code.forgejo.org/forgejo/runner/v11/act/model"
 )
 
 type jobInfo interface {

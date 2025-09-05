@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 
-	"code.forgejo.org/forgejo/runner/v9/act/common"
-	"code.forgejo.org/forgejo/runner/v9/act/model"
+	"code.forgejo.org/forgejo/runner/v11/act/common"
+	"code.forgejo.org/forgejo/runner/v11/act/model"
 )
 
 func TestCommandSetEnv(t *testing.T) {

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"sync"
 
-	"code.forgejo.org/forgejo/runner/v9/act/common"
-	"code.forgejo.org/forgejo/runner/v9/act/common/git"
-	"code.forgejo.org/forgejo/runner/v9/act/model"
+	"code.forgejo.org/forgejo/runner/v11/act/common"
+	"code.forgejo.org/forgejo/runner/v11/act/common/git"
+	"code.forgejo.org/forgejo/runner/v11/act/model"
 )
 
 func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {

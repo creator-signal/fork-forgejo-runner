@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/v9/act/model"
+	"code.forgejo.org/forgejo/runner/v11/act/model"
 	"github.com/stretchr/testify/assert"
 )
 

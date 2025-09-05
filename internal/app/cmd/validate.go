@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v9/act/model"
-	"code.forgejo.org/forgejo/runner/v9/testutils"
+	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"code.forgejo.org/forgejo/runner/v11/testutils"
 
 	"github.com/spf13/cobra"
 )

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v9/act/container"
-	"code.forgejo.org/forgejo/runner/v9/act/exprparser"
-	"code.forgejo.org/forgejo/runner/v9/act/model"
-	"code.forgejo.org/forgejo/runner/v9/testutils"
+	"code.forgejo.org/forgejo/runner/v11/act/container"
+	"code.forgejo.org/forgejo/runner/v11/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"code.forgejo.org/forgejo/runner/v11/testutils"
 
 	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"

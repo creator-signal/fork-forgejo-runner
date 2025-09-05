@@ -20,10 +20,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"code.forgejo.org/forgejo/runner/v9/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/v9/internal/pkg/config"
-	"code.forgejo.org/forgejo/runner/v9/internal/pkg/labels"
-	"code.forgejo.org/forgejo/runner/v9/internal/pkg/ver"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/ver"
 )
 
 // runRegister registers a runner to the server
