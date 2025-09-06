@@ -5,7 +5,7 @@ forgejo-runner-service.sh installs a [Forgejo runner](https://forgejo.org/docs/n
 - Install: `sudo wget -O /usr/local/bin/forgejo-runner-service.sh https://code.forgejo.org/forgejo/runner/raw/branch/main/examples/lxc-systemd/forgejo-runner-service.sh && sudo chmod +x /usr/local/bin/forgejo-runner-service.sh`
 - Obtain a runner registration token ($TOKEN)
 - Choose a serial number that is not already in use in `/etc/forgejo-runner`
-- Create a runner `INPUTS_SERIAL=30 INPUTS_TOKEN=$TOKEN INPUTS_FORGEJO=https://code.forgejo.org forgejo-runner-service.sh`
+- Create a runner `export INPUTS_SERIAL=30 ; INPUTS_TOKEN=$TOKEN INPUTS_FORGEJO=https://code.forgejo.org forgejo-runner-service.sh`
 - Start `systemctl enable --now forgejo-runner@$INPUTS_SERIAL`
 - Monitor with:
   - `systemctl status forgejo-runner@$INPUTS_SERIAL`
