@@ -28,6 +28,7 @@ on:
       - 'wip-cascade'
   pull_request_target:
     types:
+      - opened
       - synchronize
       - labeled
       - closed
@@ -63,7 +64,7 @@ jobs:
     # Always run when a commit is pushed to the main or wip-cascade branch
     # If this is a pull request, run
     #   - when the `run-forgejo-tests` label is set (label_updated) (but not if another label is set or if a label is removed)
-    #   - when a new commit is pushed to the pull request (synchronized) if the `run-forgejo-tests` is already present
+    #   - when a new commit is pushed to the pull request (synchronized or opened) if the `run-forgejo-tests` is already present
     #   - when the pull request is closed, which also happens when it is merged, so that the Forgejo pull request is closed
     #
     if: >
@@ -73,7 +74,7 @@ jobs:
         ) || (
           forge.event_name == 'pull_request_target' && (
             forge.event.action == 'closed' ||
-            ( forge.event.action == 'synchronized' && contains(forge.event.pull_request.labels.*.name, 'run-forgejo-tests') ) ||
+            ( ( forge.event.action == 'synchronized' || forge.event.action == 'opened' ) && contains(forge.event.pull_request.labels.*.name, 'run-forgejo-tests') ) ||
             ( forge.event.action == 'label_updated' && forge.event.label.name == 'run-forgejo-tests' )
           )
         )
