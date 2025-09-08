@@ -15,7 +15,7 @@ env:
 
 jobs:
   release-notes:
-    if: vars.ROLE == 'forgejo-coding'
+    if: vars.ROLE == 'forgejo-coding' && !contains(forge.event.pull_request.labels.*.name, 'Kind/DependencyUpdate')
     runs-on: docker
     container:
       image: 'data.forgejo.org/oci/ci:1'

@@ -9,6 +9,6 @@
       "separateMinorPatch": true
     }
   ],
-  "labels": ["Kind/Chore", "run-end-to-end-tests"],
+  "labels": ["Kind/DependencyUpdate", "run-end-to-end-tests"],
   "ignorePaths": ["**/testdata/**", "**/node_modules/**"]
 }
