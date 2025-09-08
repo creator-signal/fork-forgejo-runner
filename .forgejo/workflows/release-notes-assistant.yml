@@ -6,6 +6,7 @@ name: issue-labels
 on:
   pull_request_target:
     types:
+      - opened
       - edited
       - synchronize
       - labeled
@@ -14,14 +15,6 @@ env:
   RNA_VERSION: v1.4.0 # renovate: datasource=forgejo-releases depName=forgejo/release-notes-assistant registryUrl=https://code.forgejo.org
 
 jobs:
-  debug:
-    runs-on: docker
-    steps:
-      - name: event
-        run: |
-          cat <<'EOF'
-          ${{ toJSON(forge) }}
-          EOF
   release-notes:
     if: vars.ROLE == 'forgejo-coding' && !contains(forge.event.pull_request.labels.*.name, 'Kind/DependencyUpdate')
     runs-on: docker
