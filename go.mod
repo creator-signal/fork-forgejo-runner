@@ -1,6 +1,6 @@
 module code.forgejo.org/forgejo/runner/v11
 
-go 1.24
+go 1.24.0
 
 toolchain go1.24.7
 
@@ -37,7 +37,7 @@ require (
 	go.etcd.io/bbolt v1.4.3
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/term v0.34.0
-	golang.org/x/time v0.12.0
+	golang.org/x/time v0.13.0
 	google.golang.org/protobuf v1.36.8
 	gotest.tools/v3 v3.5.2
 )
