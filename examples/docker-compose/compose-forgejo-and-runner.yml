@@ -35,7 +35,7 @@ services:
       bash -c '
       /usr/bin/s6-svscan /etc/s6 &
       sleep 10 ;
-      su -c "forgejo forgejo-cli actions register --secret {SHARED_SECRET}" git ;
+      su -c "forgejo forgejo-cli actions register --keep-labels --secret {SHARED_SECRET}" git ;
       su -c "forgejo admin user create --admin --username root --password {ROOT_PASSWORD} --email root@example.com" git ;
       sleep infinity
       '
