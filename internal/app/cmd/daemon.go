@@ -206,18 +206,19 @@ var createRunner = func(ctx context.Context, cfg *config.Config, reg *config.Reg
 	resp, err := runner.Declare(ctx, ls.Names())
 	if err != nil && connect.CodeOf(err) == connect.CodeUnimplemented {
 		log.Warn("Because the Forgejo instance is an old version, skipping declaring the labels and version.")
+		return runner, "runner", nil
 	} else if err != nil {
 		log.WithError(err).Error("fail to invoke Declare")
 		return nil, "", err
-	} else {
-		log.Infof("runner: %s, with version: %s, with labels: %v, declared successfully",
-			resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels())
-		// if declared successfully, override the labels in the.runner file with valid labels in the config file (if specified)
-		runner.Update(ctx, ls)
-		reg.Labels = ls.ToStrings()
-		if err := config.SaveRegistration(cfg.Runner.File, reg); err != nil {
-			return nil, "", fmt.Errorf("failed to save runner config: %w", err)
-		}
+	}
+
+	log.Infof("runner: %s, with version: %s, with labels: %v, declared successfully",
+		resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels())
+	// if declared successfully, override the labels in the.runner file with valid labels in the config file (if specified)
+	runner.Update(ctx, ls)
+	reg.Labels = ls.ToStrings()
+	if err := config.SaveRegistration(cfg.Runner.File, reg); err != nil {
+		return nil, "", fmt.Errorf("failed to save runner config: %w", err)
 	}
 	return runner, resp.Msg.GetRunner().GetName(), nil
 }
