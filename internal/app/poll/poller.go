@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"connectrpc.com/connect"
@@ -69,7 +70,11 @@ func (p *poller) init(ctx context.Context, cfg *config.Config, client client.Cli
 }
 
 func (p *poller) Poll() {
-	limiter := rate.NewLimiter(rate.Every(p.cfg.Runner.FetchInterval), 1)
+	// Limiter is a token bucket, which is refilled at a rate of 1 token every rate.Every(...time...).  Our goal is to
+	// allow each poller to perform a fetch every FetchInterval, so we need to put a token into the bucket every (fetch
+	// interval / # of pollers).
+	every := p.cfg.Runner.FetchInterval / time.Duration(max(1, p.cfg.Runner.Capacity))
+	limiter := rate.NewLimiter(rate.Every(every), 1)
 	wg := &sync.WaitGroup{}
 	for i := 0; i < p.cfg.Runner.Capacity; i++ {
 		wg.Add(1)
