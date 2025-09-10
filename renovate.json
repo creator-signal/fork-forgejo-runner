@@ -7,6 +7,12 @@
       "description": "Separate minor and patch for some packages",
       "matchDepNames": ["github.com/rhysd/actionlint"],
       "separateMinorPatch": true
+    },
+    {
+      "description": "separate multiple major and minor for forgejo",
+      "matchDepNames": ["code.forgejo.org/forgejo/forgejo"],
+      "separateMultipleMajor": true,
+      "separateMultipleMinor": true
     }
   ],
   "labels": ["Kind/DependencyUpdate", "run-end-to-end-tests"],

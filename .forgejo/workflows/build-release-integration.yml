@@ -18,6 +18,9 @@ on:
 
 enable-email-notifications: true
 
+env:
+  FORGEJO_VERSION: 11.0.5 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
+
 jobs:
   release-simulation:
     runs-on: lxc-bookworm
@@ -30,7 +33,7 @@ jobs:
         with:
           user: root
           password: admin1234
-          image-version: 1.20
+          image-version: ${{ env.FORGEJO_VERSION }}
           lxc-ip-prefix: 10.0.9
 
       - name: publish
