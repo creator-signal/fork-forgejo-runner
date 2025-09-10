@@ -34,7 +34,7 @@ jobs:
 
       - name: install Forgejo so it can be used as a container registry
         id: registry
-        uses: https://data.forgejo.org/actions/setup-forgejo@v3.0.2
+        uses: https://data.forgejo.org/actions/setup-forgejo@v3.0.3
         with:
           user: ${{ env.FORGEJO_USER }}
           password: ${{ env.FORGEJO_PASSWORD }}
