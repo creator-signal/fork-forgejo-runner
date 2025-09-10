@@ -123,8 +123,8 @@ jobs:
            started_running=/etc/forgejo-runner/$serial/started-running
            killed_gracefully=/etc/forgejo-runner/$serial/killed-gracefully
            stopped_gracefully=/etc/forgejo-runner/$serial/stopped-gracefully
-           retry --delay 5 --times 20 cp -a $started_running /tmp/first-run
-           retry --delay 1 --times 30 grep --quiet 'Starting runner daemon' /var/log/forgejo-runner/$serial.log
+           retry --delay 10 --times 20 cp -a $started_running /tmp/first-run
+           retry --delay 2 --times 30 grep --quiet 'Starting runner daemon' /var/log/forgejo-runner/$serial.log
            systemctl stop forgejo-runner@$serial
            ! systemctl $all status forgejo-runner@$serial
            ls -l /etc/forgejo-runner/$serial
@@ -136,7 +136,7 @@ jobs:
            ! test -f $killed_gracefully
            ! test -f $stopped_gracefully
            lifetime=${{ env.LIFETIME }}
-           # give it time to restart at least once
+           : give it time to restart at least once
            ls -l /etc/forgejo-runner/$serial
            sleep $lifetime ; sleep $lifetime
            ls -l /etc/forgejo-runner/$serial
