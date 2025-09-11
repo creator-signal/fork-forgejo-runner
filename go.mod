@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.7
 
 require (
-	code.forgejo.org/forgejo/actions-proto v0.5.1
+	code.forgejo.org/forgejo/actions-proto v0.5.2
 	connectrpc.com/connect v1.18.1
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver v1.5.0
@@ -38,7 +38,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/term v0.35.0
 	golang.org/x/time v0.13.0
-	google.golang.org/protobuf v1.36.8
+	google.golang.org/protobuf v1.36.9
 	gotest.tools/v3 v3.5.2
 )
 
