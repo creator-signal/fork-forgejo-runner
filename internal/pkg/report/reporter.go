@@ -209,6 +209,17 @@ func (r *Reporter) logf(format string, a ...any) {
 	}
 }
 
+func (r *Reporter) GetOutputs() map[string]string {
+	outputs := make(map[string]string)
+	r.outputs.Range(func(k, v any) bool {
+		if val, ok := v.(string); ok {
+			outputs[k.(string)] = val
+		}
+		return true
+	})
+	return outputs
+}
+
 func (r *Reporter) SetOutputs(outputs map[string]string) error {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
@@ -360,13 +371,7 @@ func (r *Reporter) ReportState() error {
 	state := proto.Clone(r.state).(*runnerv1.TaskState)
 	r.stateMu.RUnlock()
 
-	outputs := make(map[string]string)
-	r.outputs.Range(func(k, v any) bool {
-		if val, ok := v.(string); ok {
-			outputs[k.(string)] = val
-		}
-		return true
-	})
+	outputs := r.GetOutputs()
 
 	resp, err := r.client.UpdateTask(r.ctx, connect.NewRequest(&runnerv1.UpdateTaskRequest{
 		State:   state,
