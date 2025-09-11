@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
@@ -25,7 +24,7 @@ const (
 
 var fatal = func(logger logrus.FieldLogger, err error) {
 	logger.Errorf("unrecoverable error in the cache: %v", err)
-	if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
+	if err := suicide(); err != nil {
 		logger.Errorf("unrecoverable error in the cache: failed to send the TERM signal to shutdown the daemon %v", err)
 	}
 }
