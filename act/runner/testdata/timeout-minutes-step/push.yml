@@ -1,0 +1,12 @@
+name: timeout-minutes
+on: push
+
+env:
+  TIMEOUT_MINUTES: 0
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - timeout-minutes: ${{ env.TIMEOUT_MINUTES }}
+        run: sleep 10

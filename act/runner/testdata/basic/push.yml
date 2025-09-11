@@ -18,7 +18,8 @@ jobs:
       - run: ls
       - run: echo 'hello world'
       - run: echo ${GITHUB_SHA} >> $(dirname "${GITHUB_WORKSPACE}")/sha.txt
-      - run: cat $(dirname "${GITHUB_WORKSPACE}")/sha.txt | grep ${GITHUB_SHA}
+      - timeout-minutes: 30
+        run: cat $(dirname "${GITHUB_WORKSPACE}")/sha.txt | grep ${GITHUB_SHA}
   build:
     runs-on: ubuntu-latest
     needs: [check]

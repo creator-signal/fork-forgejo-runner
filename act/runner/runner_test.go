@@ -272,6 +272,8 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "evalmatrix-merge-array", "push", "", platforms, secrets},
 
 		{workdir, "basic", "push", "", platforms, secrets},
+		{workdir, "timeout-minutes-stop", "push", "Job 'check' failed", platforms, secrets},
+		{workdir, "timeout-minutes-job", "push", "context deadline exceeded", platforms, secrets},
 		{workdir, "fail", "push", "Job 'build' failed", platforms, secrets},
 		{workdir, "runs-on", "push", "", platforms, secrets},
 		{workdir, "checkout", "push", "", platforms, secrets},

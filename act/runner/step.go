@@ -177,7 +177,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0o666,
 		})(ctx)
 
-		timeoutctx, cancelTimeOut := evaluateStepTimeout(ctx, rc.ExprEval, stepModel)
+		timeoutctx, cancelTimeOut := evaluateTimeout(ctx, rc.ExprEval, stepModel.TimeoutMinutes)
 		defer cancelTimeOut()
 		err = executor(timeoutctx)
 
@@ -213,12 +213,15 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 	}
 }
 
-func evaluateStepTimeout(ctx context.Context, exprEval ExpressionEvaluator, stepModel *model.Step) (context.Context, context.CancelFunc) {
-	timeout := exprEval.Interpolate(ctx, stepModel.TimeoutMinutes)
+func evaluateTimeout(ctx context.Context, exprEval ExpressionEvaluator, timeoutMinutes string) (context.Context, context.CancelFunc) {
+	timeout := exprEval.Interpolate(ctx, timeoutMinutes)
 	if timeout != "" {
-		if timeOutMinutes, err := strconv.ParseInt(timeout, 10, 64); err == nil {
+		timeOutMinutes, err := strconv.ParseInt(timeout, 10, 64)
+		if err == nil {
+			common.Logger(ctx).Debugf("the step will stop in timeout-minutes %s", timeout)
 			return context.WithTimeout(ctx, time.Duration(timeOutMinutes)*time.Minute)
 		}
+		common.Logger(ctx).Errorf("timeout-minutes %s cannot be parsed and will be ignored: %w", timeout, err)
 	}
 	return ctx, func() {}
 }
