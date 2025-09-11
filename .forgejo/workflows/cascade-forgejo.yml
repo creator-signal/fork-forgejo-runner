@@ -106,4 +106,5 @@ jobs:
           close: true
           verbose: ${{ vars.VERBOSE == 'yes' }}
           debug: ${{ vars.DEBUG == 'yes' }}
+          wait-iteration: 120
           update: .forgejo/cascading-forgejo
