@@ -385,7 +385,8 @@ func (r *Reporter) ReportState() error {
 		r.outputs.Store(k, struct{}{})
 	}
 
-	if resp.Msg.GetState().GetResult() == runnerv1.Result_RESULT_CANCELLED {
+	switch resp.Msg.GetState().GetResult() {
+	case runnerv1.Result_RESULT_CANCELLED, runnerv1.Result_RESULT_FAILURE:
 		r.cancel()
 	}
 
