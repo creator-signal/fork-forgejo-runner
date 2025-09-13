@@ -260,12 +260,20 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 
 			mockLogger := mocks.NewFieldLogger(t)
 			mockLogger.On("Debugf", mock.Anything, mock.Anything).Return(0).Maybe()
-			mockLogger.On("WithField", "jobResult", mock.Anything).
+			mockLogger.On("Warningf", mock.Anything, mock.Anything).Return(0).Maybe()
+			mockLogger.On("WithField", mock.Anything, mock.Anything).Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
+			// When `WithFields()` is called with jobResult & jobOutputs field, add `setJobResults` to executorOrder.
+			mockLogger.On("WithFields",
+				mock.MatchedBy(func(fields logrus.Fields) bool {
+					_, okJobResult := fields["jobResult"]
+					_, okJobOutput := fields["jobOutputs"]
+					return okJobOutput && okJobResult
+				})).
 				Run(func(args mock.Arguments) {
 					executorOrder = append(executorOrder, "setJobResults")
 				}).
 				Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
-			mockLogger.On("WithField", mock.Anything, mock.Anything).Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
+
 			mockLogger.On("WithFields", mock.Anything).Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
 
 			ctx := common.WithLogger(common.WithJobErrorContainer(t.Context()), mockLogger)

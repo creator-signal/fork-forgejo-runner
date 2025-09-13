@@ -78,7 +78,7 @@ func TestReporterSetOutputs(t *testing.T) {
 		reporter, _, _ := mockReporter(t)
 
 		expected := map[string]string{"a": "b", "c": "d"}
-		assert.NoError(t, reporter.SetOutputs(expected))
+		assert.NoError(t, reporter.setOutputs(expected))
 		assertEqual(t, expected, &reporter.outputs)
 	})
 
@@ -93,7 +93,7 @@ func TestReporterSetOutputs(t *testing.T) {
 			"c":       "ABCDEFG", // value too big
 			"d":       "e",
 		}
-		err := reporter.SetOutputs(in)
+		err := reporter.setOutputs(in)
 		assert.ErrorContains(t, err, "ignore output because the length of the value for \"c\" is 7 (the maximum is 5)")
 		assert.ErrorContains(t, err, "ignore output because the key is longer than 5: \"0123456\"")
 		expected := map[string]string{"d": "e"}
@@ -104,11 +104,11 @@ func TestReporterSetOutputs(t *testing.T) {
 		reporter, _, _ := mockReporter(t)
 
 		first := map[string]string{"a": "b", "c": "d"}
-		assert.NoError(t, reporter.SetOutputs(first))
+		assert.NoError(t, reporter.setOutputs(first))
 		assertEqual(t, first, &reporter.outputs)
 
 		second := map[string]string{"c": "d", "e": "f"}
-		assert.ErrorContains(t, reporter.SetOutputs(second), "ignore output because a value already exists for the key \"c\"")
+		assert.ErrorContains(t, reporter.setOutputs(second), "ignore output because a value already exists for the key \"c\"")
 
 		expected := map[string]string{"a": "b", "c": "d", "e": "f"}
 		assertEqual(t, expected, &reporter.outputs)
@@ -284,6 +284,23 @@ func TestReporter_Fire(t *testing.T) {
 
 		assert.Equal(t, int64(3), reporter.state.Steps[0].LogLength)
 	})
+
+	t.Run("jobResult jobOutputs extracted from log entry", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+
+		dataStep0 := map[string]any{
+			"stage":      "Post",
+			"stepNumber": 0,
+			"raw_output": true,
+			"jobResult":  "success",
+			"jobOutputs": map[string]string{"key1": "value1"},
+		}
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "success!", Data: dataStep0}))
+
+		assert.EqualValues(t, runnerv1.Result_RESULT_SUCCESS, reporter.state.Result)
+		value, _ := reporter.outputs.Load("key1")
+		assert.EqualValues(t, "value1", value)
+	})
 }
 
 func TestReporterReportState(t *testing.T) {
@@ -300,7 +317,7 @@ func TestReporterReportState(t *testing.T) {
 				outputValue1 := "VALUE1"
 				outputKey2 := "KEY2"
 				outputValue2 := "VALUE2"
-				reporter.SetOutputs(map[string]string{
+				reporter.setOutputs(map[string]string{
 					outputKey1: outputValue1,
 					outputKey2: outputValue2,
 				})
@@ -315,7 +332,7 @@ func TestReporterReportState(t *testing.T) {
 			assert: func(t *testing.T, reporter *Reporter, ctx context.Context, err error) {
 				t.Helper()
 				require.ErrorContains(t, err, "not all logs are submitted 1 remain")
-				outputs := reporter.GetOutputs()
+				outputs := reporter.cloneOutputs()
 				assert.Equal(t, map[string]string{
 					"KEY2": "VALUE2",
 				}, outputs)

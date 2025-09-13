@@ -130,6 +130,11 @@ func (r *Reporter) Fire(entry *log.Entry) error {
 					}
 				}
 			}
+			if v, ok := entry.Data["jobOutputs"]; ok {
+				_ = r.setOutputs(v.(map[string]string))
+			} else {
+				log.Panicf("received log entry with jobResult, but without jobOutputs -- outputs will be corrupted for this job")
+			}
 		}
 		if !r.duringSteps() {
 			r.logRows = appendIfNotNil(r.logRows, r.parseLogRow(entry))
@@ -209,7 +214,7 @@ func (r *Reporter) logf(format string, a ...any) {
 	}
 }
 
-func (r *Reporter) GetOutputs() map[string]string {
+func (r *Reporter) cloneOutputs() map[string]string {
 	outputs := make(map[string]string)
 	r.outputs.Range(func(k, v any) bool {
 		if val, ok := v.(string); ok {
@@ -220,10 +225,9 @@ func (r *Reporter) GetOutputs() map[string]string {
 	return outputs
 }
 
-func (r *Reporter) SetOutputs(outputs map[string]string) error {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
-
+// Errors from setOutputs are logged into the reporter automatically; the `errors` return value is only used for unit
+// tests.
+func (r *Reporter) setOutputs(outputs map[string]string) error {
 	var errs []error
 	recordError := func(format string, a ...any) {
 		r.logf(format, a...)
@@ -369,9 +373,8 @@ func (r *Reporter) ReportState() error {
 
 	r.stateMu.RLock()
 	state := proto.Clone(r.state).(*runnerv1.TaskState)
+	outputs := r.cloneOutputs()
 	r.stateMu.RUnlock()
-
-	outputs := r.GetOutputs()
 
 	resp, err := r.client.UpdateTask(r.ctx, connect.NewRequest(&runnerv1.UpdateTaskRequest{
 		State:   state,

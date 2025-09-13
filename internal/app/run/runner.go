@@ -366,7 +366,6 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	}
 
 	execErr := executor(ctx)
-	_ = reporter.SetOutputs(job.Outputs)
 	return execErr
 }
 

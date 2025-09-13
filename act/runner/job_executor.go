@@ -8,6 +8,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v11/act/common"
 	"code.forgejo.org/forgejo/runner/v11/act/container"
 	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"github.com/sirupsen/logrus"
 )
 
 type jobInfo interface {
@@ -191,7 +192,12 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		jobResultMessage = "failed"
 	}
 
-	logger.WithField("jobResult", jobResult).Infof("\U0001F3C1  Job %s", jobResultMessage)
+	logger.
+		WithFields(logrus.Fields{
+			"jobResult":  jobResult,
+			"jobOutputs": rc.Run.Job().Outputs,
+		}).
+		Infof("\U0001F3C1  Job %s", jobResultMessage)
 }
 
 func setJobOutputs(ctx context.Context, rc *RunContext) {
