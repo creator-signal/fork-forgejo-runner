@@ -104,7 +104,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		}
 	}
 
-	postExecutor = postExecutor.Finally(func(ctx context.Context) error {
+	setJobResults := func(ctx context.Context) error {
 		jobError := common.JobError(ctx)
 
 		// Fresh context to ensure job result output works even if prev. context was a cancelled job
@@ -113,28 +113,32 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		setJobResult(ctx, info, rc, jobError == nil)
 		setJobOutputs(ctx, rc)
 
+		return nil
+	}
+
+	cleanupJob := func(_ctx context.Context) error {
 		var err error
-		{
-			// Separate timeout for cleanup tasks; logger is cleared so that cleanup logs go to runner, not job
-			ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-			defer cancel()
 
-			logger := common.Logger(ctx)
-			logger.Debugf("Cleaning up container for job %s", rc.jobContainerName())
-			if err = info.stopContainer()(ctx); err != nil {
-				logger.Errorf("Error while stop job container %s: %v", rc.jobContainerName(), err)
-			}
+		// Separate timeout for cleanup tasks; logger is cleared so that cleanup logs go to runner, not job
+		ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+		defer cancel()
 
-			if !rc.IsHostEnv(ctx) && rc.getNetworkCreated(ctx) {
-				networkName := rc.getNetworkName(ctx)
-				logger.Debugf("Cleaning up network %s for job %s", networkName, rc.jobContainerName())
-				if err := container.NewDockerNetworkRemoveExecutor(networkName)(ctx); err != nil {
-					logger.Errorf("Error while cleaning network %s: %v", networkName, err)
-				}
+		logger := common.Logger(ctx)
+		logger.Debugf("Cleaning up container for job %s", rc.jobContainerName())
+		if err = info.stopContainer()(ctx); err != nil {
+			logger.Errorf("Error while stop job container %s: %v", rc.jobContainerName(), err)
+		}
+
+		if !rc.IsHostEnv(ctx) && rc.getNetworkCreated(ctx) {
+			networkName := rc.getNetworkName(ctx)
+			logger.Debugf("Cleaning up network %s for job %s", networkName, rc.jobContainerName())
+			if err := container.NewDockerNetworkRemoveExecutor(networkName)(ctx); err != nil {
+				logger.Errorf("Error while cleaning network %s: %v", networkName, err)
 			}
 		}
+
 		return err
-	})
+	}
 
 	pipeline := make([]common.Executor, 0)
 	pipeline = append(pipeline, preSteps...)
@@ -152,6 +156,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return postExecutor(ctx)
 		}).
 		Finally(info.interpolateOutputs()).
+		Finally(setJobResults).
+		Finally(cleanupJob).
 		Finally(info.closeContainer()))
 }
 

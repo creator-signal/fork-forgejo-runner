@@ -12,9 +12,13 @@ import (
 	"code.forgejo.org/forgejo/runner/v11/act/common"
 	"code.forgejo.org/forgejo/runner/v11/act/container"
 	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"code.forgejo.org/forgejo/runner/v11/act/runner/mocks"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+//go:generate mockery --srcpkg=github.com/sirupsen/logrus --name=FieldLogger
 
 func TestJobExecutor(t *testing.T) {
 	tables := []TestJobFileInfo{
@@ -127,8 +131,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			executedSteps: []string{
 				"startContainer",
 				"step1",
-				"stopContainer",
 				"interpolateOutputs",
+				"setJobResults",
+				"stopContainer",
 				"closeContainer",
 			},
 			result:   "success",
@@ -144,8 +149,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			executedSteps: []string{
 				"startContainer",
 				"step1",
-				"stopContainer",
 				"interpolateOutputs",
+				"setJobResults",
+				"stopContainer",
 				"closeContainer",
 			},
 			result:   "failure",
@@ -162,8 +168,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"startContainer",
 				"pre1",
 				"step1",
-				"stopContainer",
 				"interpolateOutputs",
+				"setJobResults",
+				"stopContainer",
 				"closeContainer",
 			},
 			result:   "success",
@@ -180,8 +187,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"startContainer",
 				"step1",
 				"post1",
-				"stopContainer",
 				"interpolateOutputs",
+				"setJobResults",
+				"stopContainer",
 				"closeContainer",
 			},
 			result:   "success",
@@ -199,8 +207,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"pre1",
 				"step1",
 				"post1",
-				"stopContainer",
 				"interpolateOutputs",
+				"setJobResults",
+				"stopContainer",
 				"closeContainer",
 			},
 			result:   "success",
@@ -229,8 +238,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"step3",
 				"post3",
 				"post2",
-				"stopContainer",
 				"interpolateOutputs",
+				"setJobResults",
+				"stopContainer",
 				"closeContainer",
 			},
 			result:   "success",
@@ -246,7 +256,19 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fmt.Printf("::group::%s\n", tt.name)
 
-			ctx := common.WithJobErrorContainer(t.Context())
+			executorOrder := make([]string, 0)
+
+			mockLogger := mocks.NewFieldLogger(t)
+			mockLogger.On("Debugf", mock.Anything, mock.Anything).Return(0).Maybe()
+			mockLogger.On("WithField", "jobResult", mock.Anything).
+				Run(func(args mock.Arguments) {
+					executorOrder = append(executorOrder, "setJobResults")
+				}).
+				Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
+			mockLogger.On("WithField", mock.Anything, mock.Anything).Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
+			mockLogger.On("WithFields", mock.Anything).Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
+
+			ctx := common.WithLogger(common.WithJobErrorContainer(t.Context()), mockLogger)
 			jim := &jobInfoMock{}
 			sfm := &stepFactoryMock{}
 			rc := &RunContext{
@@ -262,7 +284,6 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				Config: &Config{},
 			}
 			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
-			executorOrder := make([]string, 0)
 
 			jim.On("steps").Return(tt.steps)
 
