@@ -112,7 +112,6 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		ctx, cancel := context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), time.Minute)
 		defer cancel()
 		setJobResult(ctx, info, rc, jobError == nil)
-		setJobOutputs(ctx, rc)
 
 		return nil
 	}
@@ -192,27 +191,27 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		jobResultMessage = "failed"
 	}
 
+	jobOutputs := rc.Run.Job().Outputs
+	if rc.caller != nil {
+		// Rewrite the job's outputs into the workflow_call outputs...
+		jobOutputs = make(map[string]string)
+		ee := rc.NewExpressionEvaluator(ctx)
+		for k, v := range rc.Run.Workflow.WorkflowCallConfig().Outputs {
+			jobOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
+		}
+		// FIXME: I'm not 100% sure when this in-memory copy of the job's outputs are used... typically when a job is
+		// done the next job comes fresh from the job poller and there's no need to keep an in-memory copy of outputs
+		// from previous jobs.  Maybe for `forgejo-runner one-job` local executions?  Maybe just for integration
+		// testing?
+		rc.caller.runContext.Run.Job().Outputs = jobOutputs
+	}
+
 	logger.
 		WithFields(logrus.Fields{
 			"jobResult":  jobResult,
-			"jobOutputs": rc.Run.Job().Outputs,
+			"jobOutputs": jobOutputs,
 		}).
 		Infof("\U0001F3C1  Job %s", jobResultMessage)
-}
-
-func setJobOutputs(ctx context.Context, rc *RunContext) {
-	if rc.caller != nil {
-		// map outputs for reusable workflows
-		callerOutputs := make(map[string]string)
-
-		ee := rc.NewExpressionEvaluator(ctx)
-
-		for k, v := range rc.Run.Workflow.WorkflowCallConfig().Outputs {
-			callerOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
-		}
-
-		rc.caller.runContext.Run.Job().Outputs = callerOutputs
-	}
 }
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
