@@ -116,7 +116,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return nil
 	}
 
-	cleanupJob := func(_ctx context.Context) error {
+	cleanupJob := func(_ context.Context) error {
 		var err error
 
 		// Separate timeout for cleanup tasks; logger is cleared so that cleanup logs go to runner, not job
@@ -199,10 +199,10 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		for k, v := range rc.Run.Workflow.WorkflowCallConfig().Outputs {
 			jobOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
 		}
-		// FIXME: I'm not 100% sure when this in-memory copy of the job's outputs are used... typically when a job is
-		// done the next job comes fresh from the job poller and there's no need to keep an in-memory copy of outputs
-		// from previous jobs.  Maybe for `forgejo-runner one-job` local executions?  Maybe just for integration
-		// testing?
+		// When running as a daemon and receiving jobs from Forgejo, the next job (and any of it's `needs` outputs) will
+		// be provided by Forgejo based upon the data sent to the logger below.  However, when running `forgejo-runner
+		// exec` with a reusable workflow, the next job will only be able to read outputs if those outputs are stored on
+		// the workflow -- that's what is accomplished here:
 		rc.caller.runContext.Run.Job().Outputs = jobOutputs
 	}
 
