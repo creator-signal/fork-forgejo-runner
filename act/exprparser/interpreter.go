@@ -158,6 +158,8 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 		return impl.env.Github, nil
 	case "forge":
 		return impl.env.Github, nil
+	case "forgejo":
+		return impl.env.Github, nil
 	case "env":
 		return impl.env.Env, nil
 	case "job":
