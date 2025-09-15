@@ -18,11 +18,11 @@ lxc-helpers.sh - LXC container management helpers
 SYNOPSIS
 
    lxc-helpers.sh [-v|--verbose] [-h|--help]
-		  [-o|--os {bookworm|bullseye} (default bookworm)]
+		  [-o|--os {trixie|bookworm|bullseye} (default bookworm)]
 		  command [arguments]
 
    lxc-helpers.sh [-v|--verbose] [-h|--help]
-		  [-o|--os {bookworm|bullseye} (default bookworm)]
+		  [-o|--os {trixie|bookworm|bullseye} (default bookworm)]
 		  [-c|--config {unprivileged lxc libvirt docker k8s} (default "lxc libvirt docker")]
 		  lxc_container_create [arguments]
 

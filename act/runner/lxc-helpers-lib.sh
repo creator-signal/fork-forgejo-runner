@@ -413,7 +413,7 @@ function lxc_install_lxc_inside() {
     local prefixv6="${2:-$LXC_IPV6_PREFIX_DEFAULT}"
 
     local packages="make git libvirt0 libpam-cgfs bridge-utils uidmap dnsmasq-base dnsmasq dnsmasq-utils qemu-user-static lxc-templates debootstrap"
-    if test "$(lxc_release)" = bookworm; then
+    if test "$(lxc_release)" != bullseye; then
         packages="$packages distro-info"
     fi
 
