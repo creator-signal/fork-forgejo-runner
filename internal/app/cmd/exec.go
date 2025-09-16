@@ -444,37 +444,62 @@ func loadExecCmd(ctx context.Context) *cobra.Command {
 		RunE:  runExec(ctx, &execArg),
 	}
 
-	execCmd.Flags().BoolVarP(&execArg.runList, "list", "l", false, "list workflows")
-	execCmd.Flags().StringVarP(&execArg.job, "job", "j", "", "run a specific job ID")
-	execCmd.Flags().StringVarP(&execArg.event, "event", "E", "", "run a event name")
-	execCmd.PersistentFlags().StringVarP(&execArg.workflowsPath, "workflows", "W", "./.forgejo/workflows/", "path to workflow file(s)")
-	execCmd.PersistentFlags().StringVarP(&execArg.workdir, "directory", "C", ".", "working directory")
-	execCmd.PersistentFlags().BoolVarP(&execArg.noWorkflowRecurse, "no-recurse", "", false, "Flag to disable running workflows from subdirectories of specified path in '--workflows'/'-W' flag")
-	execCmd.Flags().BoolVarP(&execArg.autodetectEvent, "detect-event", "", false, "Use first event type from workflow as event that triggered the workflow")
-	execCmd.Flags().BoolVarP(&execArg.forcePull, "pull", "p", false, "pull docker image(s) even if already present")
-	execCmd.Flags().BoolVarP(&execArg.forceRebuild, "rebuild", "", false, "rebuild local action docker image(s) even if already present")
-	execCmd.PersistentFlags().BoolVar(&execArg.jsonLogger, "json", false, "Output logs in json format")
-	execCmd.Flags().StringArrayVarP(&execArg.envs, "env", "", []string{}, "env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv)")
-	execCmd.PersistentFlags().StringVarP(&execArg.envfile, "env-file", "", ".env", "environment file to read and use as env in the containers")
-	execCmd.Flags().StringArrayVarP(&execArg.secrets, "secret", "s", []string{}, "secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret)")
-	execCmd.Flags().StringArrayVarP(&execArg.vars, "var", "", []string{}, "variable to make available to actions with optional value (e.g. --var myvar=foo or --var myvar)")
-	execCmd.PersistentFlags().BoolVarP(&execArg.insecureSecrets, "insecure-secrets", "", false, "NOT RECOMMENDED! Doesn't hide secrets while printing logs.")
-	execCmd.Flags().BoolVar(&execArg.privileged, "privileged", false, "use privileged mode")
-	execCmd.Flags().StringVar(&execArg.usernsMode, "userns", "", "user namespace to use")
-	execCmd.PersistentFlags().StringVarP(&execArg.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
-	execCmd.PersistentFlags().StringVarP(&execArg.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Path to Docker daemon socket which will be mounted to containers")
-	execCmd.Flags().BoolVar(&execArg.useGitIgnore, "use-gitignore", true, "Controls whether paths specified in .gitignore should be copied into container")
-	execCmd.Flags().StringArrayVarP(&execArg.containerCapAdd, "container-cap-add", "", []string{}, "kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)")
-	execCmd.Flags().StringArrayVarP(&execArg.containerCapDrop, "container-cap-drop", "", []string{}, "kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)")
-	execCmd.Flags().StringVarP(&execArg.containerOptions, "container-opts", "", "", "container options")
-	execCmd.PersistentFlags().StringVarP(&execArg.defaultActionsURL, "default-actions-url", "", "https://code.forgejo.org", "Defines the default base url of the action.")
-	execCmd.PersistentFlags().BoolVarP(&execArg.noSkipCheckout, "no-skip-checkout", "", false, "Do not skip actions/checkout")
-	execCmd.PersistentFlags().BoolVarP(&execArg.debug, "debug", "d", false, "enable debug log")
-	execCmd.PersistentFlags().BoolVarP(&execArg.dryrun, "dryrun", "n", false, "dryrun mode")
-	execCmd.PersistentFlags().StringVarP(&execArg.image, "image", "i", "node:20-bullseye", "Docker image to use. Use \"-self-hosted\" to run directly on the host.")
-	execCmd.PersistentFlags().StringVarP(&execArg.network, "network", "", "", "Specify the network to which the container will connect")
-	execCmd.PersistentFlags().BoolVarP(&execArg.enableIPv6, "enable-ipv6", "6", false, "Create network with IPv6 enabled.")
-	execCmd.PersistentFlags().StringVarP(&execArg.githubInstance, "forgejo-instance", "", "", "Forgejo instance to use.")
+	execCmd.Flags().BoolVarP(&execArg.runList, "list", "l", false, "")
+	execCmd.Flags().StringVarP(&execArg.job, "job", "j", "", "")
+	execCmd.Flags().StringVarP(&execArg.event, "event", "E", "", "")
+	execCmd.PersistentFlags().StringVarP(&execArg.workflowsPath, "workflows", "W", "./.forgejo/workflows/", "")
+	execCmd.PersistentFlags().StringVarP(&execArg.workdir, "directory", "C", ".", "")
+	execCmd.PersistentFlags().BoolVarP(&execArg.noWorkflowRecurse, "no-recurse", "", false, "")
+	execCmd.Flags().BoolVarP(&execArg.autodetectEvent, "detect-event", "", false, "")
+	execCmd.Flags().BoolVarP(&execArg.forcePull, "pull", "p", false, "")
+	execCmd.Flags().BoolVarP(&execArg.forceRebuild, "rebuild", "", false, "")
+	execCmd.PersistentFlags().BoolVar(&execArg.jsonLogger, "json", false, "")
+	execCmd.Flags().StringArrayVarP(&execArg.envs, "env", "", []string{}, "")
+	execCmd.PersistentFlags().StringVarP(&execArg.envfile, "env-file", "", ".env", "")
+	execCmd.Flags().StringArrayVarP(&execArg.secrets, "secret", "s", []string{}, "")
+	execCmd.Flags().StringArrayVarP(&execArg.vars, "var", "", []string{}, "")
+	execCmd.PersistentFlags().BoolVarP(&execArg.insecureSecrets, "insecure-secrets", "", false, "")
+	execCmd.Flags().BoolVar(&execArg.privileged, "privileged", false, "")
+	execCmd.Flags().StringVar(&execArg.usernsMode, "userns", "", "")
+	execCmd.PersistentFlags().StringVarP(&execArg.containerArchitecture, "container-architecture", "", "", "")
+	execCmd.PersistentFlags().StringVarP(&execArg.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "")
+	execCmd.Flags().BoolVar(&execArg.useGitIgnore, "use-gitignore", true, "")
+	execCmd.Flags().StringArrayVarP(&execArg.containerCapAdd, "container-cap-add", "", []string{}, "")
+	execCmd.Flags().StringArrayVarP(&execArg.containerCapDrop, "container-cap-drop", "", []string{}, "")
+	execCmd.Flags().StringVarP(&execArg.containerOptions, "container-opts", "", "", "")
+	execCmd.PersistentFlags().StringVarP(&execArg.defaultActionsURL, "default-actions-url", "", "https://data.forgejo.org", "")
+	execCmd.PersistentFlags().BoolVarP(&execArg.noSkipCheckout, "no-skip-checkout", "", false, "")
+	execCmd.PersistentFlags().BoolVarP(&execArg.debug, "debug", "d", false, "")
+	execCmd.PersistentFlags().BoolVarP(&execArg.dryrun, "dryrun", "n", false, "")
+	execCmd.PersistentFlags().StringVarP(&execArg.image, "image", "i", "node:20-bookworm", "")
+	execCmd.PersistentFlags().StringVarP(&execArg.network, "network", "", "", "")
+	execCmd.PersistentFlags().BoolVarP(&execArg.enableIPv6, "enable-ipv6", "6", false, "")
+	execCmd.PersistentFlags().StringVarP(&execArg.githubInstance, "forgejo-instance", "", "", "")
 
+	// Trim the help to a subset of options that are supported. The unsupported options
+	// are made less visible in this way while still being available to avoid a breaking change.
+	// They can then be deprecated one by one.
+	execCmd.SetHelpTemplate(`Run workflow locally.
+
+Usage:
+  forgejo-runner exec [flags]
+
+Flags:
+  -d, --debug                            enable debug log.
+      --default-actions-url string       Defines the default base url of the action. (default "https://data.forgejo.org")
+  -C, --directory string                 working directory. (default ".")
+      --env stringArray                  env to make available to actions with optional value (e.g. --env myenv=foo or --env myenv).
+      --env-file string                  environment file to read and use as env in the containers. (default ".env")
+  -E, --event string                     run a event name (e.g push, pull_request, ...).
+  -h, --help                             help for exec
+  -i, --image string                     Docker image to use. (default "node:20-bookworm")
+  -j, --job string                       run a specific job ID.
+  -s, --secret stringArray               secret to make available to actions with optional value (e.g. -s mysecret=foo or -s mysecret).
+      --var stringArray                  variable to make available to actions with optional value (e.g. --var myvar=foo or --var myvar).
+  -W, --workflows string                 path to workflow file (e.g. mytestworkflow.yml) or directory containing workflows with a yml or yaml extension. (default "./.forgejo/workflows/")
+
+Global Flags:
+  -c, --config string   Config file path
+`)
 	return execCmd
 }
