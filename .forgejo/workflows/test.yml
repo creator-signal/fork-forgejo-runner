@@ -222,3 +222,53 @@ jobs:
             git diff --color=always
             exit 1
           }
+
+  validate-pre-commit:
+    name: validate pre-commit-hooks file
+    if: vars.ROLE == 'forgejo-coding'
+    runs-on: docker
+    container:
+      image: 'code.forgejo.org/oci/ci:1'
+
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v4
+
+      - name: install pre-commit
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          PIP_ROOT_USER_ACTION: ignore
+          PIP_BREAK_SYSTEM_PACKAGES: 1
+          PIP_PROGRESS_BAR: off
+        run: |
+          apt-get update -qq
+          apt-get -q install -qq -y python3-pip
+          python3 -m pip install 'pre-commit>=3.2.0'
+
+      - name: validate .pre-commit-hooks.yaml
+        run: pre-commit validate-manifest .pre-commit-hooks.yaml
+
+      # Will fail due to `act/runner/testdata/local-action-fails-schema-validation/action/action.yml`
+      - name: check pre-commit hook against local action files (should fail)
+        continue-on-error: true
+        run: |
+          pre-commit try-repo --all-files --verbose . forgejo-runner-validate
+
+      - name: check that a bad workflow file doesn’t validate (should fail)
+        continue-on-error: true
+        run: |
+          mkdir -p test-repo
+          cd test-repo
+          git config set advice.defaultBranchName false
+          git init --quiet
+          mkdir -p .forgejo/workflows
+          cp ../act/runner/testdata/local-action-fails-schema-validation/action/action.yml ./
+          touch .forgejo/workflows/bad-workflow.yml
+          cat > .pre-commit-config.yaml <<EOF
+          repos:
+            - repo: ..
+              rev: ${{ forge.sha }}
+              hooks:
+                - id: forgejo-runner-validate
+          EOF
+          git add .
+          pre-commit run --all-files --verbose forgejo-runner-validate

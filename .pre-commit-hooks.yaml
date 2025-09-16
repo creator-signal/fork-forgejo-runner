@@ -1,0 +1,16 @@
+- id: forgejo-runner-validate
+  name: Validate Forgejo Actions files
+  description: This hook validates Forgejo Actions action and workflow files.
+  language: golang
+  entry: runner validate
+  args: ['--directory', '.']
+  pass_filenames: false
+  files: (?:(?:^|/)action|^\.(?:forgejo|github|gitea)/workflows/[^/\n]+)\.ya?ml$
+  types: [yaml]
+  # 3.2.0 is when the pre-* `stages` used here were added.
+  # Old names (without the pre- prefix) are deprecated since 4.0.0.
+  minimum_pre_commit_version: '3.2.0'
+  stages: [pre-commit, pre-merge-commit, pre-push, manual]
+  # validate doesn’t currently provide non-success exit codes,
+  # so falling back to always printing verbose output for now.
+  verbose: true
