@@ -20,7 +20,7 @@ trap "rm -fr $TMPDIR" EXIT
 : ${INPUTS_TOKEN:=}
 : ${INPUTS_FORGEJO:=https://code.forgejo.org}
 : ${INPUTS_LIFETIME:=7d}
-DEFAULT_LXC_HELPERS_VERSION=1.0.3 # renovate: datasource=forgejo-tags depName=forgejo/lxc-helpers
+DEFAULT_LXC_HELPERS_VERSION=1.1.0 # renovate: datasource=forgejo-tags depName=forgejo/lxc-helpers
 : ${INPUTS_LXC_HELPERS_VERSION:=$DEFAULT_LXC_HELPERS_VERSION}
 DEFAULT_RUNNER_VERSION=11.0.0 # renovate: datasource=forgejo-releases depName=forgejo/runner
 : ${INPUTS_RUNNER_VERSION:=$DEFAULT_RUNNER_VERSION}
