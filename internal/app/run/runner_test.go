@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -355,13 +356,14 @@ func TestRunnerLXC(t *testing.T) {
 	forgejoClient.On("UpdateTask", mock.Anything, mock.Anything).
 		Return(connect.NewResponse(&runnerv1.UpdateTaskResponse{}), nil)
 
+	workdirParent := t.TempDir()
 	runner := NewRunner(
 		&config.Config{
 			Log: config.Log{
 				JobLevel: "trace",
 			},
 			Host: config.Host{
-				WorkdirParent: t.TempDir(),
+				WorkdirParent: workdirParent,
 			},
 		},
 		&config.Registration{
@@ -388,6 +390,17 @@ func TestRunnerLXC(t *testing.T) {
 		err := runner.run(ctx, task, reporter)
 		reporter.Close(nil)
 		require.NoError(t, err, description)
+		// verify there are no leftovers
+		assertDirectoryEmpty := func(t *testing.T, dir string) {
+			f, err := os.Open(dir)
+			require.NoError(t, err)
+			defer f.Close()
+
+			names, err := f.Readdirnames(-1)
+			require.NoError(t, err)
+			assert.Empty(t, names)
+		}
+		assertDirectoryEmpty(t, workdirParent)
 	}
 
 	t.Run("OK", func(t *testing.T) {
