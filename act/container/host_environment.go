@@ -407,6 +407,7 @@ func (e *HostEnvironment) Remove() common.Executor {
 		if e.CleanUp != nil {
 			e.CleanUp()
 		}
+		common.Logger(ctx).Debugf("HostEnvironment.Remove %s", e.Path)
 		return os.RemoveAll(e.Path)
 	}
 }

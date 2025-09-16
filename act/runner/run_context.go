@@ -316,7 +316,15 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			StdOut: logWriter,
 			LXC:    rc.IsLXCHostEnv(ctx),
 		}
-		rc.cleanUpJobContainer = rc.JobContainer.Remove()
+		rc.cleanUpJobContainer = func(ctx context.Context) error {
+			if err := rc.stopHostEnvironment(ctx); err != nil {
+				return err
+			}
+			if rc.JobContainer == nil {
+				return nil
+			}
+			return rc.JobContainer.Remove()(ctx)
+		}
 		for k, v := range rc.JobContainer.GetRunnerContext(ctx) {
 			if v, ok := v.(string); ok {
 				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k))] = v
@@ -890,9 +898,6 @@ func (rc *RunContext) IsHostEnv(ctx context.Context) bool {
 
 func (rc *RunContext) stopContainer() common.Executor {
 	return func(ctx context.Context) error {
-		if rc.IsLXCHostEnv(ctx) {
-			return rc.stopHostEnvironment(ctx)
-		}
 		return rc.stopJobContainer()(ctx)
 	}
 }
@@ -900,9 +905,6 @@ func (rc *RunContext) stopContainer() common.Executor {
 func (rc *RunContext) closeContainer() common.Executor {
 	return func(ctx context.Context) error {
 		if rc.JobContainer != nil {
-			if rc.IsLXCHostEnv(ctx) {
-				return rc.stopHostEnvironment(ctx)
-			}
 			return rc.JobContainer.Close()(ctx)
 		}
 		return nil
