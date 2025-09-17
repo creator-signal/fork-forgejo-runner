@@ -27,9 +27,19 @@ func Test_validateCmd(t *testing.T) {
 			message: "one of --workflow or --action must be set",
 		},
 		{
-			name:    "MutuallyExclusive",
+			name:    "MutuallyExclusiveActionWorkflow",
 			args:    []string{"--action", "--workflow", "--path", "/tmp"},
 			message: "[action workflow] were all set",
+		},
+		{
+			name:    "MutuallyExclusiveRepositoryDirectory",
+			args:    []string{"--repository", "example.com", "--directory", "."},
+			message: "[directory repository] were all set",
+		},
+		{
+			name:    "MutuallyExclusiveClonedirDirectory",
+			args:    []string{"--clonedir", ".", "--directory", "."},
+			message: "[clonedir directory] were all set",
 		},
 		{
 			name:   "PathActionOK",
@@ -50,6 +60,21 @@ func Test_validateCmd(t *testing.T) {
 			name:   "PathWorkflowNOK",
 			args:   []string{"--workflow", "--path", "testdata/validate/bad-workflow.yml"},
 			stdOut: "Unknown Property ruins-on",
+		},
+		{
+			name:   "DirectoryOK",
+			args:   []string{"--directory", "testdata/validate/good-directory"},
+			stdOut: "action.yml action schema validation OK\nsubaction/action.yaml action schema validation OK\n.forgejo/workflows/action.yml workflow schema validation OK\n.forgejo/workflows/workflow1.yml workflow schema validation OK\n.forgejo/workflows/workflow2.yaml workflow schema validation OK",
+		},
+		{
+			name:   "DirectoryActionNOK",
+			args:   []string{"--directory", "testdata/validate/bad-directory"},
+			stdOut: "action.yml action schema validation failed",
+		},
+		{
+			name:   "DirectoryWorkflowNOK",
+			args:   []string{"--directory", "testdata/validate/bad-directory"},
+			stdOut: ".forgejo/workflows/workflow1.yml workflow schema validation failed",
 		},
 		{
 			name:   "RepositoryOK",

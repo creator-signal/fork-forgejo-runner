@@ -35,6 +35,10 @@ git clone --bare $tmpdir/good good-repository
 rm -fr good-repository/hooks
 touch good-repository/refs/placeholder
 
+rm -fr good-directory
+git clone $tmpdir/good good-directory
+rm -fr good-directory/.git
+
 # bad
 
 mkdir $tmpdir/bad
@@ -54,3 +58,7 @@ rm -fr bad-repository
 git clone --bare $tmpdir/bad bad-repository
 rm -fr bad-repository/hooks
 touch bad-repository/refs/placeholder
+
+rm -fr bad-directory
+git clone $tmpdir/bad bad-directory
+rm -fr bad-directory/.git

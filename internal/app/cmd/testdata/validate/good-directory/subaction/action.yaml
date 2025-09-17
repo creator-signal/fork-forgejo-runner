@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: MIT
+name: 'Forgejo release download and upload'
+author: 'Forgejo authors'
+description: |
+  Upload or download the assets of a release to a Forgejo instance.
+inputs:
+  url:
+    description: 'URL of the Forgejo instance'
+    default: '${{ env.FORGEJO_SERVER_URL }}'
+  repo:
+    description: 'owner/project relative to the URL'
+    default: '${{ forge.repository }}'
+  tag:
+    description: 'Tag of the release'
+    default: '${{ forge.ref_name }}'
+  title:
+    description: 'Title of the release (defaults to tag)'
+  sha:
+    description: 'SHA of the release'
+    default: '${{ forge.sha }}'
+  token:
+    description: 'Forgejo application token'
+    default: '${{ forge.token }}'
+  release-dir:
+    description: 'Directory in whichs release assets are uploaded or downloaded'
+    required: true
+  release-notes:
+    description: 'Release notes'
+  direction:
+    description: 'Can either be `download` or `upload`'
+    required: true
+  gpg-private-key:
+    description: 'GPG Private Key to sign the release artifacts'
+  gpg-passphrase:
+    description: 'Passphrase of the GPG Private Key'
+  download-retry:
+    description: 'Number of times to retry if the release is not ready (default 1)'
+  download-latest:
+    description: 'Download the latest release'
+    default: false
+  verbose:
+    description: 'Increase the verbosity level'
+    default: false
+  override:
+    description: 'Override an existing release by the same `{tag}`'
+    default: false
+  prerelease:
+    description: 'Mark Release as Pre-Release'
+    default: false
+  release-notes-assistant:
+    description: 'Generate release notes with Release Notes Assistant'
+    default: false
+  hide-archive-link:
+    description: 'Hide the archive links'
+    default: false
+
+runs:
+  using: "composite"
+  steps:
+    - if: ${{ inputs.release-notes-assistant }}
+      uses: https://data.forgejo.org/actions/cache@v4
+      with:
+        key: rna-${{ inputs.repo }}
+        path: ${{ forge.action_path }}/rna
+
+    - run: echo "${{ forge.action_path }}" >> $FORGEJO_PATH
+      shell: bash

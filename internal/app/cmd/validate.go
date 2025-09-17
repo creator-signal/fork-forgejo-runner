@@ -23,6 +23,7 @@ type validateArgs struct {
 	path       string
 	repository string
 	clonedir   string
+	directory  string
 	workflow   bool
 	action     bool
 }
@@ -145,8 +146,16 @@ func validateRepository(validateArgs *validateArgs) error {
 	return nil
 }
 
+func processDirectory(validateArgs *validateArgs) {
+	if len(validateArgs.directory) > 0 {
+		validateArgs.repository = validateArgs.directory
+		validateArgs.clonedir = validateArgs.directory
+	}
+}
+
 func runValidate(_ context.Context, validateArgs *validateArgs) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		processDirectory(validateArgs)
 		if len(validateArgs.path) > 0 {
 			return validatePath(validateArgs)
 		} else if len(validateArgs.repository) > 0 {
@@ -168,9 +177,15 @@ Validate workflows or actions with a schema verifying they are conformant.
 The --path argument is a filename that will be validated as a workflow
 (if the --workflow flag is set) or as an action (if the --action flag is set).
 
-The --repository argument is a URL to a Git repository. It will be
-cloned (in the --clonedir directory or a temporary location removed
-when the validation completes). The following files will be validated:
+The --repository argument is a URL to a Git repository that contains
+workflows or actions. It will be cloned (in the --clonedir directory
+or a temporary location removed when the validation completes).
+
+The --directory argument is the path a repository to be explored for
+files to validate.
+
+The following files will be validated when exploring the clone of a repository
+(--repository) or a directory (--directory):
 
 - All .forgejo/workflows/*.{yml,yaml} files as workflows
 - All **/action.{yml,yaml} files as actions
@@ -185,9 +200,11 @@ when the validation completes). The following files will be validated:
 
 	validateCmd.Flags().StringVar(&validateArgs.clonedir, "clonedir", "", "directory in which the repository will be cloned")
 	validateCmd.Flags().StringVar(&validateArgs.repository, "repository", "", "URL to a repository to validate")
+	validateCmd.Flags().StringVar(&validateArgs.directory, "directory", "", "directory to a repository to validate")
 	validateCmd.Flags().StringVar(&validateArgs.path, "path", "", "path to the file")
-	validateCmd.MarkFlagsOneRequired("repository", "path")
-	validateCmd.MarkFlagsMutuallyExclusive("repository", "path")
+	validateCmd.MarkFlagsOneRequired("repository", "path", "directory")
+	validateCmd.MarkFlagsMutuallyExclusive("repository", "path", "directory")
+	validateCmd.MarkFlagsMutuallyExclusive("directory", "clonedir")
 
 	return validateCmd
 }
