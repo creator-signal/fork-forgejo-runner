@@ -237,6 +237,9 @@ func (s *Node) UnmarshalYAML(node *yaml.Node) error {
 	if node != nil && node.Kind == yaml.DocumentNode {
 		return s.UnmarshalYAML(node.Content[0])
 	}
+	if node != nil && node.Kind == yaml.AliasNode {
+		return s.UnmarshalYAML(node.Alias)
+	}
 	def := s.Schema.GetDefinition(s.Definition)
 	if s.Context == nil {
 		s.Context = def.Context
@@ -359,6 +362,15 @@ func formatLocation(node *yaml.Node) string {
 func (s *Node) checkMapping(node *yaml.Node, def Definition) error {
 	if node.Kind != yaml.MappingNode {
 		return fmt.Errorf("%sExpected a mapping got %v", formatLocation(node), getStringKind(node.Kind))
+	}
+	// merges cannot be conveniently validated and are skipped
+	// https://yaml.org/type/merge.html
+	for i, n := range node.Content {
+		if i%2 == 0 {
+			if n.Kind == yaml.ScalarNode && n.Value == "<<" && (n.Tag == "" || n.ShortTag() == "!!merge") {
+				return nil
+			}
+		}
 	}
 	insertDirective := regexp.MustCompile(`\${{\s*insert\s*}}`)
 	var allErrors error

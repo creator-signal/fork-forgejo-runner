@@ -243,3 +243,39 @@ runs:
 		})
 	}
 }
+
+// https://yaml.org/spec/1.2.1/#id2785586
+// An anchor is denoted by the “&” indicator. It marks a node for future reference.
+// https://yaml.org/type/merge.html
+// Specify one or more mappings to be merged with the current one.
+func TestSchema_AnchorAndReference(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on: [push]
+jobs:
+  test1:
+    runs-on: docker
+    steps:
+      - &step
+        run: echo All good!
+      - *step
+  test2:
+    runs-on: docker
+    steps:
+      - << : *step
+        name: other name
+  test3:
+    runs-on: docker
+    steps:
+      - !!merge << : *step
+        name: other name
+`), &node)
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = (&Node{
+		Definition: "workflow-root",
+		Schema:     GetWorkflowSchema(),
+	}).UnmarshalYAML(&node)
+	assert.NoError(t, err)
+}
