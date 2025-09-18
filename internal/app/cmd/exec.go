@@ -371,6 +371,10 @@ func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command
 		log.Infof("cache handler listens on: %v", handler.ExternalURL())
 		execArgs.cacheHandler = handler
 
+		if execArgs.containerDaemonSocket != "/var/run/docker.sock" {
+			log.Warnf("--container-daemon-socket %s: please use the DOCKER_HOST environment variable as documented at https://forgejo.org/docs/next/admin/actions/runner-installation/#setting-up-the-container-environment instead. See https://code.forgejo.org/forgejo/runner/issues/577 for more information.", execArgs.containerDaemonSocket)
+		}
+
 		// run the plan
 		config := &runner.Config{
 			Workdir:               execArgs.Workdir(),
@@ -462,7 +466,7 @@ func loadExecCmd(ctx context.Context) *cobra.Command {
 	execCmd.Flags().BoolVar(&execArg.privileged, "privileged", false, "use privileged mode")
 	execCmd.Flags().StringVar(&execArg.usernsMode, "userns", "", "user namespace to use")
 	execCmd.PersistentFlags().StringVarP(&execArg.containerArchitecture, "container-architecture", "", "", "Architecture which should be used to run containers, e.g.: linux/amd64. If not specified, will use host default architecture. Requires Docker server API Version 1.41+. Ignored on earlier Docker server platforms.")
-	execCmd.PersistentFlags().StringVarP(&execArg.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Path to Docker daemon socket which will be mounted to containers")
+	execCmd.PersistentFlags().StringVarP(&execArg.containerDaemonSocket, "container-daemon-socket", "", "/var/run/docker.sock", "Please use the DOCKER_HOST environment variable as documented at https://forgejo.org/docs/next/admin/actions/runner-installation/#setting-up-the-container-environment instead.")
 	execCmd.Flags().BoolVar(&execArg.useGitIgnore, "use-gitignore", true, "Controls whether paths specified in .gitignore should be copied into container")
 	execCmd.Flags().StringArrayVarP(&execArg.containerCapAdd, "container-cap-add", "", []string{}, "kernel capabilities to add to the workflow containers (e.g. --container-cap-add SYS_PTRACE)")
 	execCmd.Flags().StringArrayVarP(&execArg.containerCapDrop, "container-cap-drop", "", []string{}, "kernel capabilities to remove from the workflow containers (e.g. --container-cap-drop SYS_PTRACE)")
