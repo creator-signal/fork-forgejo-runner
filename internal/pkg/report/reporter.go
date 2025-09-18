@@ -130,10 +130,12 @@ func (r *Reporter) Fire(entry *log.Entry) error {
 					}
 				}
 			}
-			if v, ok := entry.Data["jobOutputs"]; ok {
-				_ = r.setOutputs(v.(map[string]string))
-			} else {
-				log.Panicf("received log entry with jobResult, but without jobOutputs -- outputs will be corrupted for this job")
+			if r.state.Result == runnerv1.Result_RESULT_SUCCESS {
+				if v, ok := entry.Data["jobOutputs"]; ok {
+					_ = r.setOutputs(v.(map[string]string))
+				} else {
+					log.Panicf("received log entry with successful jobResult, but without jobOutputs -- outputs will be corrupted for this job")
+				}
 			}
 		}
 		if !r.duringSteps() {

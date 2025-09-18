@@ -301,6 +301,20 @@ func TestReporter_Fire(t *testing.T) {
 		value, _ := reporter.outputs.Load("key1")
 		assert.EqualValues(t, "value1", value)
 	})
+
+	t.Run("jobResult jobOutputs is absent if not success", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+
+		dataStep0 := map[string]any{
+			"stage":      "Post",
+			"stepNumber": 0,
+			"raw_output": true,
+			"jobResult":  "skipped",
+		}
+		assert.NoError(t, reporter.Fire(&log.Entry{Message: "skipped!", Data: dataStep0}))
+
+		assert.EqualValues(t, runnerv1.Result_RESULT_SKIPPED, reporter.state.Result)
+	})
 }
 
 func TestReporterReportState(t *testing.T) {
