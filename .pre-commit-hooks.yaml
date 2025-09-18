@@ -11,6 +11,3 @@
   # Old names (without the pre- prefix) are deprecated since 4.0.0.
   minimum_pre_commit_version: '3.2.0'
   stages: [pre-commit, pre-merge-commit, pre-push, manual]
-  # validate doesn’t currently provide non-success exit codes,
-  # so falling back to always printing verbose output for now.
-  verbose: true
