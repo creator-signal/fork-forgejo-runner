@@ -146,6 +146,26 @@ func WithCompositeStepLogger(ctx context.Context, stepID string) context.Context
 	}).WithContext(ctx))
 }
 
+func GetOuterStepResult(entry *logrus.Entry) any {
+	r, ok := entry.Data["stepResult"]
+	if !ok {
+		return nil
+	}
+
+	// composite actions steps log with a list of stepID
+	if s, ok := entry.Data["stepID"]; ok {
+		if stepIDs, ok := s.([]string); ok {
+			if len(stepIDs) > 1 {
+				return nil
+			}
+		}
+	} else {
+		return nil
+	}
+
+	return r
+}
+
 func withStepLogger(ctx context.Context, stepNumber int, stepID, stepName, stageName string) context.Context {
 	rtn := common.Logger(ctx).WithFields(logrus.Fields{
 		"stepNumber": stepNumber,

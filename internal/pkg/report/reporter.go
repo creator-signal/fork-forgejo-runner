@@ -13,6 +13,7 @@ import (
 	"time"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+	"code.forgejo.org/forgejo/runner/v11/act/runner"
 	"connectrpc.com/connect"
 	retry "github.com/avast/retry-go/v4"
 	log "github.com/sirupsen/logrus"
@@ -173,7 +174,7 @@ func (r *Reporter) Fire(entry *log.Entry) error {
 	} else if !r.duringSteps() {
 		r.logRows = appendIfNotNil(r.logRows, r.parseLogRow(entry))
 	}
-	if v, ok := entry.Data["stepResult"]; ok {
+	if v := runner.GetOuterStepResult(entry); v != nil {
 		if stepResult, ok := r.parseResult(v); ok {
 			if step.LogLength == 0 {
 				step.LogIndex = int64(r.logOffset + len(r.logRows))
