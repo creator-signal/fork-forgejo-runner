@@ -27,7 +27,7 @@ DEFAULT_RUNNER_VERSION=11.1.1 # renovate: datasource=forgejo-releases depName=fo
 
 : ${KILL_AFTER:=21600} # 6h == 21600
 NODEJS_VERSION=20
-DEBIAN_RELEASE=bookworm
+DEBIAN_RELEASE=trixie
 YQ_VERSION=v4.45.1
 SELF=${BASH_SOURCE[0]}
 SELF_FILENAME=$(basename "$SELF")
