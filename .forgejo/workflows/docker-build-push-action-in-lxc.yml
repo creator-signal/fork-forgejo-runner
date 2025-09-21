@@ -21,7 +21,7 @@ on:
 enable-email-notifications: true
 
 env:
-  FORGEJO_VERSION: 11.0.5 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
+  FORGEJO_VERSION: 11.0.6 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
   FORGEJO_USER: root
   FORGEJO_PASSWORD: admin1234
 
