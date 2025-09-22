@@ -138,7 +138,7 @@ cache:
   # different network than the Forgejo runner (for instance when the
   # docker server used to create containers is not running on the same
   # host as the Forgejo runner), it may be impossible to figure that
-  # out automatically. In that case you can specifify which IP or
+  # out automatically. In that case you can specify which IP or
   # hostname to use to reach the internal cache server created by the
   # Forgejo runner.
   #
