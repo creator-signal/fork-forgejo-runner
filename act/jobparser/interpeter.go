@@ -76,6 +76,36 @@ func NewInterpeter(
 	return exprparser.NewInterpeter(ee, config)
 }
 
+// Returns an interpeter used in the server in the context of workflow-level templates. Needs github, inputs, and vars
+// context only.
+func NewWorkflowInterpeter(
+	gitCtx *model.GithubContext,
+	vars map[string]string,
+	inputs map[string]any,
+) exprparser.Interpreter {
+	ee := &exprparser.EvaluationEnvironment{
+		Github:   gitCtx,
+		Env:      nil, // no need
+		Job:      nil, // no need
+		Steps:    nil, // no need
+		Runner:   nil, // no need
+		Secrets:  nil, // no need
+		Strategy: nil, // no need
+		Matrix:   nil, // no need
+		Needs:    nil, // no need
+		Inputs:   inputs,
+		Vars:     vars,
+	}
+
+	config := exprparser.Config{
+		Run:        nil,
+		WorkingDir: "", // WorkingDir is used for the function hashFiles, but it's not needed in the server
+		Context:    "workflow",
+	}
+
+	return exprparser.NewInterpeter(ee, config)
+}
+
 // JobResult is the minimum requirement of job results for Interpeter
 type JobResult struct {
 	Needs   []string
