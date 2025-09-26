@@ -193,6 +193,44 @@ func explainFailedGenerateWorkflow(task *runnerv1.Task, log func(message string,
 	return fmt.Errorf("the workflow file is not usable")
 }
 
+func getWriteIsolationKey(ctx context.Context, eventName, ref string, event map[string]any) (string, error) {
+	if eventName == "pull_request" {
+		// The "closed" action of a pull request event runs in the context of the base repository
+		// and was merged by a user with write access to the base repository. It is authorized to
+		// write the repository cache.
+		if event["action"] == "closed" {
+			pullRequest, ok := event["pull_request"].(map[string]any)
+			if !ok {
+				return "", fmt.Errorf("getWriteIsolationKey: event.pull_request is not a map[string]any but %T", event["pull_request"])
+			}
+			merged, ok := pullRequest["merged"].(bool)
+			if !ok {
+				return "", fmt.Errorf("getWriteIsolationKey: event.pull_request.merged is not a bool but %T", pullRequest["merged"])
+			}
+			if merged {
+				return "", nil
+			}
+			// a pull request that is closed but not merged falls thru and is expected to obey the same
+			// constraints as an opened pull request, it may be closed by a user with no write permissions to the
+			// base repository
+		}
+		// When performing an action on an event from an opened PR, provide a "write isolation key" to the cache. The generated
+		// ACTIONS_CACHE_URL will be able to read the cache, and write to a cache, but its writes will be isolated to
+		// future runs of the PR's workflows and won't be shared with other pull requests or actions. This is a security
+		// measure to prevent a malicious pull request from poisoning the cache with secret-stealing code which would
+		// later be executed on another action.
+		// Ensure that `ref` has the expected format so that we don't end up with a useless write isolation key
+		if !strings.HasPrefix(ref, "refs/pull/") {
+			return "", fmt.Errorf("getWriteIsolationKey: expected ref to be refs/pull/..., but was %q", ref)
+		}
+		return ref, nil
+	}
+
+	// Other events do not allow the trigger user to modify the content of the repository and
+	// are allowed to write the cache without an isolation key
+	return "", nil
+}
+
 func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.Reporter) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -226,15 +264,18 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		defaultActionURL,
 		r.client.Address())
 
+	eventName := taskContext["event_name"].GetStringValue()
+	ref := taskContext["ref"].GetStringValue()
+	event := taskContext["event"].GetStructValue().AsMap()
 	preset := &model.GithubContext{
-		Event:           taskContext["event"].GetStructValue().AsMap(),
+		Event:           event,
 		RunID:           taskContext["run_id"].GetStringValue(),
 		RunNumber:       taskContext["run_number"].GetStringValue(),
 		Actor:           taskContext["actor"].GetStringValue(),
 		Repository:      taskContext["repository"].GetStringValue(),
-		EventName:       taskContext["event_name"].GetStringValue(),
+		EventName:       eventName,
 		Sha:             taskContext["sha"].GetStringValue(),
-		Ref:             taskContext["ref"].GetStringValue(),
+		Ref:             ref,
 		RefName:         taskContext["ref_name"].GetStringValue(),
 		RefType:         taskContext["ref_type"].GetStringValue(),
 		HeadRef:         taskContext["head_ref"].GetStringValue(),
@@ -264,19 +305,9 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 
 	// Register the run with the cacheproxy and modify the CACHE_URL
 	if r.cacheProxy != nil {
-		writeIsolationKey := ""
-
-		// When performing an action on an event from a PR, provide a "write isolation key" to the cache. The generated
-		// ACTIONS_CACHE_URL will be able to read the cache, and write to a cache, but its writes will be isolated to
-		// future runs of the PR's workflows and won't be shared with other pull requests or actions. This is a security
-		// measure to prevent a malicious pull request from poisoning the cache with secret-stealing code which would
-		// later be executed on another action.
-		if taskContext["event_name"].GetStringValue() == "pull_request" {
-			// Ensure that `Ref` has the expected format so that we don't end up with a useless write isolation key
-			if !strings.HasPrefix(preset.Ref, "refs/pull/") {
-				return fmt.Errorf("write isolation key: expected preset.Ref to be refs/pull/..., but was %q", preset.Ref)
-			}
-			writeIsolationKey = preset.Ref
+		writeIsolationKey, err := getWriteIsolationKey(ctx, eventName, ref, event)
+		if err != nil {
+			return err
 		}
 
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
