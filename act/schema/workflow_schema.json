@@ -1626,14 +1626,7 @@
       }
     },
     "matrix-filter-item": {
-      "context": [
-        "forge",
-        "forgejo",
-        "github",
-        "inputs",
-        "vars",
-        "needs"
-      ],
+      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs"],
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "any"
