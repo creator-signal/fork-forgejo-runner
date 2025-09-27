@@ -1617,7 +1617,7 @@
           }
         },
         "loose-key-type": "non-empty-string",
-        "loose-value-type": "sequence"
+        "loose-value-type": "sequence-of-any-needs-context"
       }
     },
     "matrix-filter": {
@@ -1632,10 +1632,7 @@
         "github",
         "inputs",
         "vars",
-        "needs",
-        "strategy",
-        "matrix",
-        "secrets"
+        "needs"
       ],
       "mapping": {
         "loose-key-type": "non-empty-string",
@@ -2087,6 +2084,12 @@
     "sequence-of-non-empty-string": {
       "sequence": {
         "item-type": "non-empty-string"
+      }
+    },
+    "sequence-of-any-needs-context": {
+      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs"],
+      "sequence": {
+        "item-type": "any"
       }
     },
     "boolean-needs-context": {
