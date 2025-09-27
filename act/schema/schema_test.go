@@ -30,6 +30,81 @@ jobs:
 	assert.NoError(t, err)
 }
 
+func TestContextsInWorkflowStrategy(t *testing.T) {
+	t.Run("KnownContexts", func(t *testing.T) {
+		// Parse raw YAML snippet.
+		var node yaml.Node
+		err := yaml.Unmarshal([]byte(`
+on: push
+
+jobs:
+  job:
+    uses: ./.forgejo/workflow/test.yaml
+    strategy:
+      matrix:
+        input1:
+          - ${{ forge.KEY }}
+          - ${{ github.KEY }}
+          - ${{ inputs.KEY }}
+          - ${{ vars.KEY }}
+          - ${{ needs.KEY }}
+        include:
+         - forge: ${{ forge.KEY }}
+         - github: ${{ github.KEY }}
+         - inputs: ${{ inputs.KEY }}
+         - vars: ${{ vars.KEY }}
+         - needs: ${{ needs.KEY }}
+        exclude:
+         - forge: ${{ forge.KEY }}
+         - github: ${{ github.KEY }}
+         - inputs: ${{ inputs.KEY }}
+         - vars: ${{ vars.KEY }}
+         - needs: ${{ needs.KEY }}
+`), &node)
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		// Parse YAML node as a validated workflow.
+		err = (&Node{
+			Definition: "workflow-root",
+			Schema:     GetWorkflowSchema(),
+		}).UnmarshalYAML(&node)
+		assert.NoError(t, err)
+	})
+
+	t.Run("UnknownContext", func(t *testing.T) {
+		for _, property := range []string{"include", "exclude", "input1"} {
+			t.Run(property, func(t *testing.T) {
+				for _, context := range []string{"secrets", "job", "steps", "runner", "matrix", "strategy"} {
+					t.Run(context, func(t *testing.T) {
+						var node yaml.Node
+						err := yaml.Unmarshal([]byte(fmt.Sprintf(`
+on: push
+
+jobs:
+  job:
+    uses: ./.forgejo/workflow/test.yaml
+    strategy:
+      matrix:
+        %[1]s:
+          - input1: ${{ %[2]s.KEY }}
+`, property, context)), &node)
+						if !assert.NoError(t, err) {
+							return
+						}
+						err = (&Node{
+							Definition: "workflow-root",
+							Schema:     GetWorkflowSchema(),
+						}).UnmarshalYAML(&node)
+						assert.ErrorContains(t, err, "Unknown Variable Access "+context)
+					})
+				}
+			})
+		}
+	})
+}
+
 func TestReusableWorkflow(t *testing.T) {
 	t.Run("KnownContexts", func(t *testing.T) {
 		var node yaml.Node
