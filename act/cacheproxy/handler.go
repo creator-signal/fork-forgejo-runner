@@ -37,7 +37,8 @@ type Handler struct {
 
 	outboundIP string
 
-	cacheServerHost string
+	cacheServerHost        string
+	cacheProxyHostOverride string
 
 	cacheSecret string
 
@@ -55,7 +56,7 @@ func (h *Handler) CreateRunData(fullName, runNumber, timestamp, writeIsolationKe
 	}
 }
 
-func StartHandler(targetHost, outboundIP string, port uint16, cacheSecret string, logger logrus.FieldLogger) (*Handler, error) {
+func StartHandler(targetHost, outboundIP string, port uint16, cacheProxyHostOverride, cacheSecret string, logger logrus.FieldLogger) (*Handler, error) {
 	h := &Handler{}
 
 	if logger == nil {
@@ -77,6 +78,7 @@ func StartHandler(targetHost, outboundIP string, port uint16, cacheSecret string
 	}
 
 	h.cacheServerHost = targetHost
+	h.cacheProxyHostOverride = cacheProxyHostOverride
 
 	proxy, err := h.newReverseProxy(targetHost)
 	if err != nil {
@@ -153,7 +155,9 @@ func (h *Handler) newReverseProxy(targetHost string) (*httputil.ReverseProxy, er
 }
 
 func (h *Handler) ExternalURL() string {
-	// TODO: make the external url configurable if necessary
+	if h.cacheProxyHostOverride != "" {
+		return h.cacheProxyHostOverride
+	}
 	return fmt.Sprintf("http://%s", net.JoinHostPort(h.outboundIP, strconv.Itoa(h.listener.Addr().(*net.TCPAddr).Port)))
 }
 

@@ -141,6 +141,83 @@ func (m *forgejoClientMock) UpdateLog(ctx context.Context, request *connect.Requ
 	}), nil
 }
 
+func TestRunner_getWriteIsolationKey(t *testing.T) {
+	t.Run("push", func(t *testing.T) {
+		key, err := getWriteIsolationKey(t.Context(), "push", "whatever", nil)
+		require.NoError(t, err)
+		assert.Empty(t, key)
+	})
+
+	t.Run("pull_request synchronized key is ref", func(t *testing.T) {
+		expectedKey := "refs/pull/1/head"
+		actualKey, err := getWriteIsolationKey(t.Context(), "pull_request", expectedKey, map[string]any{
+			"action": "synchronized",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, expectedKey, actualKey)
+	})
+
+	t.Run("pull_request synchronized ref is invalid", func(t *testing.T) {
+		invalidKey := "refs/is/invalid"
+		key, err := getWriteIsolationKey(t.Context(), "pull_request", invalidKey, map[string]any{
+			"action": "synchronized",
+		})
+		require.Empty(t, key)
+		assert.ErrorContains(t, err, invalidKey)
+	})
+
+	t.Run("pull_request closed and not merged key is ref", func(t *testing.T) {
+		expectedKey := "refs/pull/1/head"
+		actualKey, err := getWriteIsolationKey(t.Context(), "pull_request", expectedKey, map[string]any{
+			"action": "closed",
+			"pull_request": map[string]any{
+				"merged": false,
+			},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, expectedKey, actualKey)
+	})
+
+	t.Run("pull_request closed and merged key is empty", func(t *testing.T) {
+		key, err := getWriteIsolationKey(t.Context(), "pull_request", "whatever", map[string]any{
+			"action": "closed",
+			"pull_request": map[string]any{
+				"merged": true,
+			},
+		})
+		require.NoError(t, err)
+		assert.Empty(t, key)
+	})
+
+	t.Run("pull_request missing event.pull_request", func(t *testing.T) {
+		key, err := getWriteIsolationKey(t.Context(), "pull_request", "whatever", map[string]any{
+			"action": "closed",
+		})
+		require.Empty(t, key)
+		assert.ErrorContains(t, err, "event.pull_request is not a map")
+	})
+
+	t.Run("pull_request missing event.pull_request.merge", func(t *testing.T) {
+		key, err := getWriteIsolationKey(t.Context(), "pull_request", "whatever", map[string]any{
+			"action":       "closed",
+			"pull_request": map[string]any{},
+		})
+		require.Empty(t, key)
+		assert.ErrorContains(t, err, "event.pull_request.merged is not a bool")
+	})
+
+	t.Run("pull_request with event.pull_request.merge of an unexpected type", func(t *testing.T) {
+		key, err := getWriteIsolationKey(t.Context(), "pull_request", "whatever", map[string]any{
+			"action": "closed",
+			"pull_request": map[string]any{
+				"merged": "string instead of bool",
+			},
+		})
+		require.Empty(t, key)
+		assert.ErrorContains(t, err, "not a bool but string")
+	})
+}
+
 func TestRunnerCacheConfiguration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")

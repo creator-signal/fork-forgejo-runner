@@ -342,10 +342,11 @@ func TestParseMappingNode(t *testing.T) {
 
 func TestEvaluateConcurrency(t *testing.T) {
 	tests := []struct {
-		name             string
-		input            model.RawConcurrency
-		group            string
-		cancelInProgress bool
+		name                string
+		input               model.RawConcurrency
+		group               string
+		cancelInProgressNil bool
+		cancelInProgress    bool
 	}{
 		{
 			name: "basic",
@@ -357,18 +358,18 @@ func TestEvaluateConcurrency(t *testing.T) {
 			cancelInProgress: true,
 		},
 		{
-			name:             "undefined",
-			input:            model.RawConcurrency{},
-			group:            "",
-			cancelInProgress: false,
+			name:                "undefined",
+			input:               model.RawConcurrency{},
+			group:               "",
+			cancelInProgressNil: true,
 		},
 		{
 			name: "group-evaluation",
 			input: model.RawConcurrency{
 				Group: "${{ github.workflow }}-${{ github.ref }}",
 			},
-			group:            "test_workflow-main",
-			cancelInProgress: false,
+			group:               "test_workflow-main",
+			cancelInProgressNil: true,
 		},
 		{
 			name: "cancel-evaluation-true",
@@ -393,37 +394,44 @@ func TestEvaluateConcurrency(t *testing.T) {
 			input: model.RawConcurrency{
 				Group: "user-${{ github.event.commits[0].author.username }}",
 			},
-			group:            "user-someone",
-			cancelInProgress: false,
+			group:               "user-someone",
+			cancelInProgressNil: true,
 		},
 		{
 			name: "arbitrary-var",
 			input: model.RawConcurrency{
 				Group: "${{ vars.eval_arbitrary_var }}",
 			},
-			group:            "123",
-			cancelInProgress: false,
+			group:               "123",
+			cancelInProgressNil: true,
 		},
 		{
 			name: "arbitrary-input",
 			input: model.RawConcurrency{
 				Group: "${{ inputs.eval_arbitrary_input }}",
 			},
-			group:            "456",
-			cancelInProgress: false,
+			group:               "456",
+			cancelInProgressNil: true,
+		},
+		{
+			name: "cancel-in-progress-only",
+			input: model.RawConcurrency{
+				CancelInProgress: "true",
+			},
+			group:            "",
+			cancelInProgress: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			group, cancelInProgress, err := EvaluateConcurrency(
+			group, cancelInProgress, err := EvaluateWorkflowConcurrency(
 				&test.input,
-				"job-id",
-				nil, // job
-				map[string]any{
-					"workflow": "test_workflow",
-					"ref":      "main",
-					"event": map[string]any{
+				// gitCtx
+				&model.GithubContext{
+					Workflow: "test_workflow",
+					Ref:      "main",
+					Event: map[string]any{
 						"commits": []any{
 							map[string]any{
 								"author": map[string]any{
@@ -437,20 +445,24 @@ func TestEvaluateConcurrency(t *testing.T) {
 							},
 						},
 					},
-				}, // gitCtx
-				map[string]*JobResult{
-					"job-id": {},
-				}, // results
+				},
+				// vars
 				map[string]string{
 					"eval_arbitrary_var": "123",
-				}, // vars
+				},
+				// inputs
 				map[string]any{
 					"eval_arbitrary_input": "456",
-				}, // inputs
+				},
 			)
 			assert.NoError(t, err)
 			assert.EqualValues(t, test.group, group)
-			assert.EqualValues(t, test.cancelInProgress, cancelInProgress)
+			if test.cancelInProgressNil {
+				assert.Nil(t, cancelInProgress)
+			} else {
+				require.NotNil(t, cancelInProgress)
+				assert.EqualValues(t, test.cancelInProgress, *cancelInProgress)
+			}
 		})
 	}
 }
