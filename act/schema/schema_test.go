@@ -44,18 +44,21 @@ jobs:
       matrix:
         input1:
           - ${{ forge.KEY }}
+          - ${{ forgejo.KEY }}
           - ${{ github.KEY }}
           - ${{ inputs.KEY }}
           - ${{ vars.KEY }}
           - ${{ needs.KEY }}
         include:
          - forge: ${{ forge.KEY }}
+         - forgejo: ${{ forgejo.KEY }}
          - github: ${{ github.KEY }}
          - inputs: ${{ inputs.KEY }}
          - vars: ${{ vars.KEY }}
          - needs: ${{ needs.KEY }}
         exclude:
          - forge: ${{ forge.KEY }}
+         - forgejo: ${{ forgejo.KEY }}
          - github: ${{ github.KEY }}
          - inputs: ${{ inputs.KEY }}
          - vars: ${{ vars.KEY }}
