@@ -30,7 +30,7 @@ jobs:
 	assert.NoError(t, err)
 }
 
-func TestContextsInWorkflowStrategy(t *testing.T) {
+func TestContextsInWorkflowMatrix(t *testing.T) {
 	t.Run("KnownContexts", func(t *testing.T) {
 		// Parse raw YAML snippet.
 		var node yaml.Node
