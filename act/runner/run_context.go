@@ -254,6 +254,10 @@ func (rc *RunContext) stopHostEnvironment(ctx context.Context) error {
 	logger := common.Logger(ctx)
 	logger.Debugf("stopHostEnvironment")
 
+	if !rc.IsLXCHostEnv(ctx) {
+		return nil
+	}
+
 	var stopScript bytes.Buffer
 	if err := stopTemplate.Execute(&stopScript, struct {
 		Name string
