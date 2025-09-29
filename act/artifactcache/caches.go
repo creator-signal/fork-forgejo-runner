@@ -19,12 +19,13 @@ import (
 
 //go:generate mockery --inpackage --name caches
 type caches interface {
-	openDB() (*bolthold.Store, error)
+	getDB() *bolthold.Store
 	validateMac(rundata RunData) (string, error)
 	readCache(id uint64, repo string) (*Cache, error)
 	useCache(id uint64) error
 	setgcAt(at time.Time)
 	gcCache()
+	close()
 
 	serve(w http.ResponseWriter, r *http.Request, id uint64)
 	commit(id uint64, size int64) (int64, error)
@@ -37,6 +38,8 @@ type cachesImpl struct {
 	storage *Storage
 	logger  logrus.FieldLogger
 	secret  string
+
+	db *bolthold.Store
 
 	gcing atomic.Bool
 	gcAt  time.Time
@@ -68,12 +71,6 @@ func newCaches(dir, secret string, logger logrus.FieldLogger) (caches, error) {
 	}
 	c.storage = storage
 
-	c.gcCache()
-
-	return c, nil
-}
-
-func (c *cachesImpl) openDB() (*bolthold.Store, error) {
 	file := filepath.Join(c.dir, "bolt.db")
 	db, err := bolthold.Open(file, 0o644, &bolthold.Options{
 		Encoder: json.Marshal,
@@ -87,7 +84,22 @@ func (c *cachesImpl) openDB() (*bolthold.Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Open(%s): %w", file, err)
 	}
-	return db, nil
+	c.db = db
+
+	c.gcCache()
+
+	return c, nil
+}
+
+func (c *cachesImpl) close() {
+	if c.db != nil {
+		c.db.Close()
+		c.db = nil
+	}
+}
+
+func (c *cachesImpl) getDB() *bolthold.Store {
+	return c.db
 }
 
 var findCacheWithIsolationKeyFallback = func(db *bolthold.Store, repo string, keys []string, version, writeIsolationKey string) (*Cache, error) {
@@ -156,11 +168,7 @@ func insertCache(db *bolthold.Store, cache *Cache) error {
 }
 
 func (c *cachesImpl) readCache(id uint64, repo string) (*Cache, error) {
-	db, err := c.openDB()
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
+	db := c.getDB()
 	cache := &Cache{}
 	if err := db.Get(id, cache); err != nil {
 		return nil, fmt.Errorf("readCache: Get(%v): %w", id, err)
@@ -173,11 +181,7 @@ func (c *cachesImpl) readCache(id uint64, repo string) (*Cache, error) {
 }
 
 func (c *cachesImpl) useCache(id uint64) error {
-	db, err := c.openDB()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+	db := c.getDB()
 	cache := &Cache{}
 	if err := db.Get(id, cache); err != nil {
 		return fmt.Errorf("useCache: Get(%v): %w", id, err)
@@ -232,12 +236,7 @@ func (c *cachesImpl) gcCache() {
 	c.gcAt = time.Now()
 	c.logger.Debugf("gc: %v", c.gcAt.String())
 
-	db, err := c.openDB()
-	if err != nil {
-		fatal(c.logger, err)
-		return
-	}
-	defer db.Close()
+	db := c.getDB()
 
 	// Remove the caches which are not completed for a while, they are most likely to be broken.
 	var caches []*Cache

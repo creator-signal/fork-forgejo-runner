@@ -122,6 +122,10 @@ func (h *handler) Close() error {
 		return nil
 	}
 	var retErr error
+	if h.caches != nil {
+		h.caches.close()
+		h.caches = nil
+	}
 	if h.server != nil {
 		err := h.server.Close()
 		if err != nil {
@@ -151,6 +155,9 @@ func (h *handler) getCaches() caches {
 }
 
 func (h *handler) setCaches(caches caches) {
+	if h.caches != nil {
+		h.caches.close()
+	}
 	h.caches = caches
 }
 
@@ -170,12 +177,7 @@ func (h *handler) find(w http.ResponseWriter, r *http.Request, params httprouter
 	}
 	version := r.URL.Query().Get("version")
 
-	db, err := h.caches.openDB()
-	if err != nil {
-		h.responseFatalJSON(w, r, err)
-		return
-	}
-	defer db.Close()
+	db := h.caches.getDB()
 
 	cache, err := findCacheWithIsolationKeyFallback(db, repo, keys, version, rundata.WriteIsolationKey)
 	if err != nil {
@@ -221,12 +223,7 @@ func (h *handler) reserve(w http.ResponseWriter, r *http.Request, params httprou
 	api.Key = strings.ToLower(api.Key)
 
 	cache := api.ToCache()
-	db, err := h.caches.openDB()
-	if err != nil {
-		h.responseFatalJSON(w, r, err)
-		return
-	}
-	defer db.Close()
+	db := h.caches.getDB()
 
 	now := time.Now().Unix()
 	cache.CreatedAt = now
@@ -335,12 +332,7 @@ func (h *handler) commit(w http.ResponseWriter, r *http.Request, params httprout
 	// write real size back to cache, it may be different from the current value when the request doesn't specify it.
 	cache.Size = size
 
-	db, err := h.caches.openDB()
-	if err != nil {
-		h.responseFatalJSON(w, r, err)
-		return
-	}
-	defer db.Close()
+	db := h.caches.getDB()
 
 	cache.Complete = true
 	if err := db.Update(cache.ID, cache); err != nil {

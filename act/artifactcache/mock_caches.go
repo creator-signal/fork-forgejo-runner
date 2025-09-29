@@ -19,6 +19,11 @@ type mockCaches struct {
 	mock.Mock
 }
 
+// close provides a mock function with no fields
+func (_m *mockCaches) close() {
+	_m.Called()
+}
+
 // commit provides a mock function with given fields: id, size
 func (_m *mockCaches) commit(id uint64, size int64) (int64, error) {
 	ret := _m.Called(id, size)
@@ -80,19 +85,15 @@ func (_m *mockCaches) gcCache() {
 	_m.Called()
 }
 
-// openDB provides a mock function with no fields
-func (_m *mockCaches) openDB() (*bolthold.Store, error) {
+// getDB provides a mock function with no fields
+func (_m *mockCaches) getDB() *bolthold.Store {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for openDB")
+		panic("no return value specified for getDB")
 	}
 
 	var r0 *bolthold.Store
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (*bolthold.Store, error)); ok {
-		return rf()
-	}
 	if rf, ok := ret.Get(0).(func() *bolthold.Store); ok {
 		r0 = rf()
 	} else {
@@ -101,13 +102,7 @@ func (_m *mockCaches) openDB() (*bolthold.Store, error) {
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // readCache provides a mock function with given fields: id, repo

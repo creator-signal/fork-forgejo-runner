@@ -78,9 +78,7 @@ func TestHandler(t *testing.T) {
 
 	defer func() {
 		t.Run("inspect db", func(t *testing.T) {
-			db, err := handler.getCaches().openDB()
-			require.NoError(t, err)
-			defer db.Close()
+			db := handler.getCaches().getDB()
 			require.NoError(t, db.Bolt().View(func(tx *bbolt.Tx) error {
 				return tx.Bucket([]byte("Cache")).ForEach(func(k, v []byte) error {
 					t.Logf("%s: %s", k, v)
@@ -938,39 +936,10 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 			},
 		},
 		{
-			name: "find open",
-			caches: func(t *testing.T, message string) caches {
-				caches := newMockCaches(t)
-				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
-				caches.On("openDB", mock.Anything, mock.Anything).Return(nil, errors.New(message))
-				return caches
-			},
-			call: func(t *testing.T, handler Handler, w http.ResponseWriter) {
-				req, err := http.NewRequest("GET", "example.com/cache", nil)
-				require.NoError(t, err)
-				handler.find(w, req, nil)
-			},
-		},
-		{
-			name: "reserve",
-			caches: func(t *testing.T, message string) caches {
-				caches := newMockCaches(t)
-				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
-				caches.On("openDB", mock.Anything, mock.Anything).Return(nil, errors.New(message))
-				return caches
-			},
-			call: func(t *testing.T, handler Handler, w http.ResponseWriter) {
-				body, err := json.Marshal(&Request{})
-				require.NoError(t, err)
-				req, err := http.NewRequest("POST", "example.com/caches", bytes.NewReader(body))
-				require.NoError(t, err)
-				handler.reserve(w, req, nil)
-			},
-		},
-		{
 			name: "upload",
 			caches: func(t *testing.T, message string) caches {
 				caches := newMockCaches(t)
+				caches.On("close").Return()
 				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))
 				return caches
@@ -988,6 +957,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 			name: "commit",
 			caches: func(t *testing.T, message string) caches {
 				caches := newMockCaches(t)
+				caches.On("close").Return()
 				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))
 				return caches
@@ -1005,6 +975,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 			name: "get",
 			caches: func(t *testing.T, message string) caches {
 				caches := newMockCaches(t)
+				caches.On("close").Return()
 				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))
 				return caches
@@ -1042,10 +1013,12 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "artifactcache")
 			handler, err := StartHandler(dir, "", 0, "secret", nil)
 			require.NoError(t, err)
+			defer handler.Close()
 
 			fatalMessage = "<unset>"
 
-			handler.setCaches(testCase.caches(t, message))
+			caches := testCase.caches(t, message) // doesn't need to be closed because it will be given to handler
+			handler.setCaches(caches)
 
 			w := httptest.NewRecorder()
 			testCase.call(t, handler, w)
@@ -1138,18 +1111,15 @@ func TestHandler_gcCache(t *testing.T) {
 		},
 	}
 
-	db, err := handler.getCaches().openDB()
-	require.NoError(t, err)
+	db := handler.getCaches().getDB()
 	for _, c := range cases {
 		require.NoError(t, insertCache(db, c.Cache))
 	}
-	require.NoError(t, db.Close())
 
 	handler.getCaches().setgcAt(time.Time{}) // ensure gcCache will not skip
 	handler.getCaches().gcCache()
 
-	db, err = handler.getCaches().openDB()
-	require.NoError(t, err)
+	db = handler.getCaches().getDB()
 	for i, v := range cases {
 		t.Run(fmt.Sprintf("%d_%s", i, v.Cache.Key), func(t *testing.T) {
 			cache := &Cache{}
@@ -1161,7 +1131,6 @@ func TestHandler_gcCache(t *testing.T) {
 			}
 		})
 	}
-	require.NoError(t, db.Close())
 }
 
 func TestHandler_ExternalURL(t *testing.T) {

@@ -14,6 +14,7 @@ import (
 func TestCacheReadWrite(t *testing.T) {
 	caches, err := newCaches(t.TempDir(), "secret", logrus.New())
 	require.NoError(t, err)
+	defer caches.close()
 	t.Run("NotFound", func(t *testing.T) {
 		found, err := caches.readCache(456, "repo")
 		assert.Nil(t, found)
@@ -33,9 +34,7 @@ func TestCacheReadWrite(t *testing.T) {
 	cache.Repo = repo
 
 	t.Run("Insert", func(t *testing.T) {
-		db, err := caches.openDB()
-		require.NoError(t, err)
-		defer db.Close()
+		db := caches.getDB()
 		assert.NoError(t, insertCache(db, cache))
 	})
 
