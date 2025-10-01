@@ -110,24 +110,19 @@ cache:
   #
   external_server: ""
   #
-  #######################################################################
-  #
-  # Common to the internal and external cache server
-  #
-  #######################################################################
-  #
   # The shared cache secret used to secure the communications between
   # the cache proxy and the cache server.
   #
   # If empty, it will be generated to a new secret automatically when
   # the server starts and it will stay the same until it restarts.
   #
-  # Every time the secret is modified, all cache entries that were
-  # created with it are invalidated. In order to ensure that the cache
-  # content is reused when the runner restarts, this secret must be
-  # set, for instance with the output of openssl rand -hex 40.
-  #
   secret: ""
+  #
+  #######################################################################
+  #
+  # Common to the internal and external cache server
+  #
+  #######################################################################
   #
   # The IP or hostname (195.84.20.30 or example.com) to use when constructing
   # ACTIONS_CACHE_URL which is the URL of the cache proxy.
