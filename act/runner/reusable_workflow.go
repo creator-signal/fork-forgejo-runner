@@ -71,8 +71,8 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	filename := fmt.Sprintf("%s/%s@%s", remoteReusableWorkflow.Org, remoteReusableWorkflow.Repo, remoteReusableWorkflow.Ref)
 	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(filename))
 
-	// FIXME: if the reusable workflow is from a private repository, we need to provide a token to access the repository.
-	token := ""
+	// If the repository is private, we need a token to clone it
+	token := rc.Config.GetToken()
 
 	if rc.Config.ActionCache != nil {
 		return newActionCacheReusableWorkflowExecutor(rc, filename, remoteReusableWorkflow)
