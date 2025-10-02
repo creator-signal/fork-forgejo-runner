@@ -89,7 +89,7 @@ function lxc_transaction_commit() {
         $(lxc_root $draft)/etc/hosts \
         $(lxc_root $draft)/etc/hostname
     $LXC_SUDO rm -f $(lxc_root $draft)/var/lib/dhcp/dhclient.*
-    $LXC_SUDO mv --no-copy $(lxc_directory $draft) $(lxc_directory $name)
+    $LXC_SUDO mv $(lxc_directory $draft) $(lxc_directory $name)
     lxc_transaction_unlock
 }
 
