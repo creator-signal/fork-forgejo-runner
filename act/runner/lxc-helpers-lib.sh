@@ -11,6 +11,8 @@ LXC_IPV6_PREFIX_DEFAULT="fd15"
 LXC_DOCKER_PREFIX_DEFAULT="172.17"
 LXC_IPV6_DOCKER_PREFIX_DEFAULT="fd00:d0ca"
 LXC_APT_TOO_OLD='1 week ago'
+: ${LXC_TRANSACTION_TIMEOUT:=600}
+LXC_TRANSACTION_LOCK_FILE=/tmp/lxc-helper.lock
 
 : ${LXC_SUDO:=}
 : ${LXC_CONTAINER_RELEASE:=bookworm}
@@ -28,16 +30,22 @@ function lxc_template_release() {
     echo lxc-helpers-$LXC_CONTAINER_RELEASE
 }
 
+function lxc_directory() {
+    local name="$1"
+
+    echo /var/lib/lxc/$name
+}
+
 function lxc_root() {
     local name="$1"
 
-    echo /var/lib/lxc/$name/rootfs
+    echo $(lxc_directory $name)/rootfs
 }
 
 function lxc_config() {
     local name="$1"
 
-    echo /var/lib/lxc/$name/config
+    echo $(lxc_directory $name)/config
 }
 
 function lxc_container_run() {
@@ -45,6 +53,44 @@ function lxc_container_run() {
     shift
 
     $LXC_SUDO lxc-attach --clear-env --name $name -- "$@"
+}
+
+function lxc_transaction_lock() {
+    exec 7>$LXC_TRANSACTION_LOCK_FILE
+    flock --timeout $LXC_TRANSACTION_TIMEOUT 7
+}
+
+function lxc_transaction_unlock() {
+    exec 7>&-
+}
+
+function lxc_transaction_draft_name() {
+    echo "lxc-helper-draft"
+}
+
+function lxc_transaction_begin() {
+    local name=$1 # not actually used but it helps when reading in the caller
+    local draft=$(lxc_transaction_draft_name)
+
+    lxc_transaction_lock
+    lxc_container_destroy $draft
+
+    echo $draft
+}
+
+function lxc_transaction_commit() {
+    local name=$1
+    local draft=$(lxc_transaction_draft_name)
+
+    # do not use lxc-copy because it is not atomic if lxc-copy is
+    # interrupted it may leave the $name container half populated
+    $LXC_SUDO sed -i -e "s/$draft/$name/g" \
+        $(lxc_config $draft) \
+        $(lxc_root $draft)/etc/hosts \
+        $(lxc_root $draft)/etc/hostname
+    $LXC_SUDO rm -f $(lxc_root $draft)/var/lib/dhcp/dhclient.*
+    $LXC_SUDO mv $(lxc_directory $draft) $(lxc_directory $name)
+    lxc_transaction_unlock
 }
 
 function lxc_container_run_script_as() {
@@ -242,7 +288,7 @@ function lxc_container_configure() {
 function lxc_container_install_lxc_helpers() {
     local name="$1"
 
-    $LXC_SUDO cp -a $LXC_SELF_DIR/lxc-helpers*.sh $root/$LXC_BIN
+    $LXC_SUDO cp -a $LXC_SELF_DIR/lxc-helpers*.sh $(lxc_root $name)/$LXC_BIN
     #
     # Wait for the network to come up
     #
@@ -304,10 +350,9 @@ function lxc_container_stop() {
 
 function lxc_container_destroy() {
     local name="$1"
-    local root="$2"
 
     if lxc_exists "$name"; then
-        lxc_container_stop $name $root
+        lxc_container_stop $name
         $LXC_SUDO lxc-destroy --force --name="$name"
     fi
 }
@@ -346,14 +391,15 @@ function lxc_build_template_release() {
         return
     fi
 
-    local root=$(lxc_root $name)
-    $LXC_SUDO lxc-create --name $name --template debian -- --release=$LXC_CONTAINER_RELEASE
-    echo 'lxc.apparmor.profile = unconfined' | $LXC_SUDO tee -a $(lxc_config $name)
-    lxc_container_install_lxc_helpers $name
-    lxc_container_start $name
-    lxc_container_run $name apt-get update -qq
-    lxc_apt_install $name sudo git python3
-    lxc_container_stop $name
+    local draft=$(lxc_transaction_begin $name)
+    $LXC_SUDO lxc-create --name $draft --template debian -- --release=$LXC_CONTAINER_RELEASE
+    echo 'lxc.apparmor.profile = unconfined' | $LXC_SUDO tee -a $(lxc_config $draft)
+    lxc_container_install_lxc_helpers $draft
+    lxc_container_start $draft
+    lxc_container_run $draft apt-get update -qq
+    lxc_apt_install $draft sudo git python3
+    lxc_container_stop $draft
+    lxc_transaction_commit $name
 }
 
 function lxc_build_template() {
@@ -368,10 +414,12 @@ function lxc_build_template() {
         lxc_build_template_release
     fi
 
-    if ! $LXC_SUDO lxc-copy --name=$name --newname=$newname; then
-        echo lxc-copy --name=$name --newname=$newname failed
+    local draft=$(lxc_transaction_begin $newname)
+    if ! $LXC_SUDO lxc-copy --name=$name --newname=$draft; then
+        echo lxc-copy --name=$name --newname=$draft failed
         return 1
     fi
+    lxc_transaction_commit $newname
     lxc_container_configure $newname
 }
 
