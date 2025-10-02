@@ -193,8 +193,6 @@ var lxcHelpers string
 
 var startTemplate = template.Must(template.New("start").Parse(`#!/bin/bash -e
 
-exec 5<>/tmp/forgejo-runner-lxc.lock ; flock --timeout 21600 5
-
 LXC_CONTAINER_CONFIG="{{.Config}}"
 LXC_CONTAINER_RELEASE="{{.Release}}"
 
