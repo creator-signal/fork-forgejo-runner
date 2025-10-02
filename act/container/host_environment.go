@@ -389,7 +389,7 @@ func (e *HostEnvironment) ExecWithCmdLine(command []string, cmdline string, env 
 		if err := e.exec(ctx, command, cmdline, env, user, workdir); err != nil {
 			select {
 			case <-ctx.Done():
-				return fmt.Errorf("this step has been cancelled: %w", err)
+				return fmt.Errorf("this step has been cancelled: ctx: %w, exec: %w", ctx.Err(), err)
 			default:
 				return err
 			}

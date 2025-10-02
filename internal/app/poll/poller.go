@@ -90,10 +90,10 @@ func (p *poller) Shutdown(ctx context.Context) error {
 		return nil
 
 	case <-ctx.Done():
-		log.Trace("forcing the jobs to shutdown")
+		log.Info("forcing the jobs to shutdown")
 		p.shutdownJobs()
 		<-p.done
-		log.Trace("all jobs have been shutdown")
+		log.Info("all jobs have been shutdown")
 		return ctx.Err()
 	}
 }

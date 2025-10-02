@@ -949,7 +949,7 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 			return err
 		}
 		if res {
-			timeoutctx, cancelTimeOut := evaluateTimeout(ctx, rc.ExprEval, rc.Run.Job().TimeoutMinutes)
+			timeoutctx, cancelTimeOut := evaluateTimeout(ctx, "job", rc.ExprEval, rc.Run.Job().TimeoutMinutes)
 			defer cancelTimeOut()
 
 			return executor(timeoutctx)

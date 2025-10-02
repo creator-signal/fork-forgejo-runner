@@ -48,6 +48,7 @@ type Reporter struct {
 
 	debugOutputEnabled  bool
 	stopCommandEndToken string
+	issuedLocalCancel   bool
 }
 
 func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client, task *runnerv1.Task, reportInterval time.Duration) *Reporter {
@@ -192,11 +193,19 @@ func (r *Reporter) RunDaemon() {
 		return
 	}
 	if r.ctx.Err() != nil {
+		// This shouldn't happen because DaemonContext is used for `r.ctx` which should outlive any running job.
+		log.Warnf("Terminating RunDaemon on an active job due to error: %v", r.ctx.Err())
 		return
 	}
 
-	_ = r.ReportLog(false)
-	_ = r.ReportState()
+	err := r.ReportLog(false)
+	if err != nil {
+		log.Warnf("ReportLog error: %v", err)
+	}
+	err = r.ReportState()
+	if err != nil {
+		log.Warnf("ReportState error: %v", err)
+	}
 
 	time.AfterFunc(r.reportInterval, r.RunDaemon)
 }
@@ -391,8 +400,17 @@ func (r *Reporter) ReportState() error {
 		r.outputs.Store(k, struct{}{})
 	}
 
-	switch resp.Msg.GetState().GetResult() {
+	localResultState := state.GetResult()
+	remoteResultState := resp.Msg.GetState().GetResult()
+	switch remoteResultState {
 	case runnerv1.Result_RESULT_CANCELLED, runnerv1.Result_RESULT_FAILURE:
+		// issuedLocalCancel is just used to deduplicate this log message if our local state doesn't catch up with our
+		// remote state as quickly as the report-interval, which would cause this message to repeat in the logs.
+		if !r.issuedLocalCancel && remoteResultState != localResultState {
+			log.Infof("UpdateTask returned task result %v for a task that was in local state %v - beginning local task termination",
+				remoteResultState, localResultState)
+			r.issuedLocalCancel = true
+		}
 		r.cancel()
 	}
 
