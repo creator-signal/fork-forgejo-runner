@@ -242,7 +242,7 @@ function lxc_container_configure() {
 function lxc_container_install_lxc_helpers() {
     local name="$1"
 
-    $LXC_SUDO cp -a $LXC_SELF_DIR/lxc-helpers*.sh $root/$LXC_BIN
+    $LXC_SUDO cp -a $LXC_SELF_DIR/lxc-helpers*.sh $(lxc_root $name)/$LXC_BIN
     #
     # Wait for the network to come up
     #
@@ -346,7 +346,6 @@ function lxc_build_template_release() {
         return
     fi
 
-    local root=$(lxc_root $name)
     $LXC_SUDO lxc-create --name $name --template debian -- --release=$LXC_CONTAINER_RELEASE
     echo 'lxc.apparmor.profile = unconfined' | $LXC_SUDO tee -a $(lxc_config $name)
     lxc_container_install_lxc_helpers $name
