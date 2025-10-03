@@ -491,7 +491,7 @@ jobs:
   job:
     runs-on: lxc
     steps:
-      - run: echo OK
+      - run: mkdir -p some/directory/owned/by/root
 `
 		runWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
 	})

@@ -248,6 +248,8 @@ var stopTemplate = template.Must(template.New("stop").Parse(`#!/bin/bash
 source $(dirname $0)/lxc-helpers-lib.sh
 
 lxc_container_destroy "{{.Name}}"
+lxc_maybe_sudo
+$LXC_SUDO rm -fr "{{ .Root }}"
 `))
 
 func (rc *RunContext) stopHostEnvironment(ctx context.Context) error {
@@ -314,11 +316,8 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			ToolCache: rc.getToolCache(ctx),
 			Workdir:   rc.Config.Workdir,
 			ActPath:   actPath,
-			CleanUp: func() {
-				os.RemoveAll(miscpath)
-			},
-			StdOut: logWriter,
-			LXC:    rc.IsLXCHostEnv(ctx),
+			StdOut:    logWriter,
+			LXC:       rc.IsLXCHostEnv(ctx),
 		}
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
 			if err := rc.stopHostEnvironment(ctx); err != nil {
