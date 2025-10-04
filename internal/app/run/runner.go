@@ -123,7 +123,7 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 			log.StandardLogger().WithField("module", "cache_request"),
 		)
 		if err != nil {
-			log.Error("Could not start the cache server, cache will be disabled")
+			log.Errorf("Could not start the cache server, cache will be disabled: %v", err)
 			return nil
 		}
 
