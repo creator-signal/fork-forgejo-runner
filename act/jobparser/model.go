@@ -2,6 +2,7 @@ package jobparser
 
 import (
 	"fmt"
+	"strings"
 
 	"code.forgejo.org/forgejo/runner/v11/act/model"
 	"go.yaml.in/yaml/v3"
@@ -226,7 +227,7 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 		var val string
 		err := rawOn.Decode(&val)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to interpret scalar value into a string: %w", err)
 		}
 		return []*Event{
 			{Name: val},
@@ -238,12 +239,12 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 			return nil, err
 		}
 		res := make([]*Event, 0, len(val))
-		for _, v := range val {
+		for i, v := range val {
 			switch t := v.(type) {
 			case string:
 				res = append(res, &Event{Name: t})
 			default:
-				return nil, fmt.Errorf("invalid type %T", t)
+				return nil, fmt.Errorf("value at index %d was unexpected type %[2]T; must be a string but was %#[2]v", i, v)
 			}
 		}
 		return res, nil
@@ -263,16 +264,6 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 				continue
 			}
 			switch t := v.(type) {
-			case string:
-				res = append(res, &Event{
-					Name: k,
-					acts: map[string][]string{},
-				})
-			case []string:
-				res = append(res, &Event{
-					Name: k,
-					acts: map[string][]string{},
-				})
 			case map[string]any:
 				acts := make(map[string][]string, len(t))
 				for act, branches := range t {
@@ -286,15 +277,15 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 						for i, v := range b {
 							var ok bool
 							if acts[act][i], ok = v.(string); !ok {
-								return nil, fmt.Errorf("unknown on type: %#v", branches)
+								return nil, fmt.Errorf("key %q.%q index %d had unexpected type %[4]T; a string was expected but was %#[4]v", k, act, i, v)
 							}
 						}
 					case map[string]any:
-						if isInvalidOnType(k, act) {
-							return nil, fmt.Errorf("unknown on type: %#v", v)
+						if err := isInvalidOnType(k, act); err != nil {
+							return nil, fmt.Errorf("invalid value on key %q: %w", k, err)
 						}
 					default:
-						return nil, fmt.Errorf("unknown on type: %#v", branches)
+						return nil, fmt.Errorf("key %q.%q had unexpected type %T; was %#v", k, act, branches, branches)
 					}
 				}
 				if k == "workflow_dispatch" || k == "workflow_call" {
@@ -306,19 +297,22 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 				})
 			case []any:
 				if k != "schedule" {
-					return nil, fmt.Errorf("unknown on type: %#v", v)
+					return nil, fmt.Errorf("key %q had an type %T; only the 'schedule' key is expected with this type", k, v)
 				}
 				schedules := make([]map[string]string, len(t))
 				for i, tt := range t {
 					vv, ok := tt.(map[string]any)
 					if !ok {
-						return nil, fmt.Errorf("unknown on type: %#v", v)
+						return nil, fmt.Errorf("key %q[%d] had unexpected type %[3]T; a map with a key \"cron\" was expected, but value was %#[3]v", k, i, tt)
 					}
 					schedules[i] = make(map[string]string, len(vv))
-					for k, vvv := range vv {
+					for kk, vvv := range vv {
+						if strings.ToLower(kk) != "cron" {
+							return nil, fmt.Errorf("key %q[%d] had unexpected key %q; \"cron\" was expected", k, i, kk)
+						}
 						var ok bool
-						if schedules[i][k], ok = vvv.(string); !ok {
-							return nil, fmt.Errorf("unknown on type: %#v", v)
+						if schedules[i][kk], ok = vvv.(string); !ok {
+							return nil, fmt.Errorf("key %q[%d].%q had unexpected type %[4]T; a string was expected by was %#[4]v", k, i, kk, vvv)
 						}
 					}
 				}
@@ -327,23 +321,29 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 					schedules: schedules,
 				})
 			default:
-				return nil, fmt.Errorf("unknown on type: %#v", v)
+				return nil, fmt.Errorf("key %q had unexpected type %[2]T; expected a map or array but was %#[2]v", k, v)
 			}
 		}
 		return res, nil
 	default:
-		return nil, fmt.Errorf("unknown on type: %v", rawOn.Kind)
+		return nil, fmt.Errorf("unexpected yaml node in `on`: %v", rawOn.Kind)
 	}
 }
 
-func isInvalidOnType(onType, subKey string) bool {
-	if onType == "workflow_dispatch" && subKey == "inputs" {
-		return false
+func isInvalidOnType(onType, subKey string) error {
+	if onType == "workflow_dispatch" {
+		if subKey == "inputs" {
+			return nil
+		}
+		return fmt.Errorf("workflow_dispatch only supports key \"inputs\", but key %q was found", subKey)
 	}
-	if onType == "workflow_call" && (subKey == "inputs" || subKey == "outputs") {
-		return false
+	if onType == "workflow_call" {
+		if subKey == "inputs" || subKey == "outputs" {
+			return nil
+		}
+		return fmt.Errorf("workflow_call only supports keys \"inputs\" and \"outputs\", but key %q was found", subKey)
 	}
-	return true
+	return fmt.Errorf("unexpected key %q.%q", onType, subKey)
 }
 
 // parseMappingNode parse a mapping node and preserve order.
