@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -419,6 +420,98 @@ jobs:
 `
 		runWorkflow(ctx, cancel, checkKey2Yaml, "push", "refs/heads/main", "step 5: push cache should not be polluted by PR")
 	})
+}
+
+func TestRunnerCacheStartupFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	testCases := []struct {
+		desc   string
+		listen string
+	}{
+		{
+			desc:   "disable cache server",
+			listen: "127.0.0.1:40715",
+		},
+		{
+			desc:   "disable cache proxy server",
+			listen: "127.0.0.1:40716",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			forgejoClient := &forgejoClientMock{}
+
+			forgejoClient.On("Address").Return("https://127.0.0.1:8080") // not expected to be used in this test
+			forgejoClient.On("UpdateLog", mock.Anything, mock.Anything).Return(nil, nil)
+			forgejoClient.On("UpdateTask", mock.Anything, mock.Anything).
+				Return(connect.NewResponse(&runnerv1.UpdateTaskResponse{}), nil)
+
+			// We'll be listening on some network port in this test that will conflict with the cache configuration...
+			l, err := net.Listen("tcp4", tc.listen)
+			require.NoError(t, err)
+			defer l.Close()
+
+			runner := NewRunner(
+				&config.Config{
+					Cache: config.Cache{
+						Port:      40715,
+						ProxyPort: 40716,
+						Dir:       t.TempDir(),
+					},
+					Host: config.Host{
+						WorkdirParent: t.TempDir(),
+					},
+				},
+				&config.Registration{
+					Labels: []string{"ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm"},
+				},
+				forgejoClient)
+			require.NotNil(t, runner)
+
+			// Ensure that cacheProxy failed to start
+			assert.Nil(t, runner.cacheProxy)
+
+			runWorkflow := func(ctx context.Context, cancel context.CancelFunc, yamlContent string) {
+				task := &runnerv1.Task{
+					WorkflowPayload: []byte(yamlContent),
+					Context: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"token":                       structpb.NewStringValue("some token here"),
+							"forgejo_default_actions_url": structpb.NewStringValue("https://data.forgejo.org"),
+							"repository":                  structpb.NewStringValue("runner"),
+							"event_name":                  structpb.NewStringValue("push"),
+							"ref":                         structpb.NewStringValue("refs/heads/main"),
+						},
+					},
+				}
+
+				reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second)
+				err := runner.run(ctx, task, reporter)
+				reporter.Close(nil)
+				require.NoError(t, err)
+			}
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			checkCacheYaml := `
+name: Verify No ACTIONS_CACHE_URL
+on:
+  push:
+jobs:
+  job-cache-check-1:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo $ACTIONS_CACHE_URL
+      - run: '[[ "$ACTIONS_CACHE_URL" = "" ]] || exit 1'
+`
+			runWorkflow(ctx, cancel, checkCacheYaml)
+		})
+	}
 }
 
 func TestRunnerLXC(t *testing.T) {

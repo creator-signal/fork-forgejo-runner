@@ -150,9 +150,9 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 	)
 	if err != nil {
 		log.Errorf("cannot init cache proxy, cache will be disabled: %v", err)
+	} else {
+		envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
 	}
-
-	envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
 
 	return cacheProxy
 }
