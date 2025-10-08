@@ -2,7 +2,7 @@ module code.forgejo.org/forgejo/runner/v11
 
 go 1.24.0
 
-toolchain go1.24.7
+toolchain go1.24.8
 
 require (
 	code.forgejo.org/forgejo/actions-proto v0.5.2
@@ -13,11 +13,11 @@ require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/creack/pty v1.1.24
 	github.com/distribution/reference v0.6.0
-	github.com/docker/cli v28.4.0+incompatible
+	github.com/docker/cli v28.5.0+incompatible
 	github.com/docker/docker v28.4.0+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/go-git/go-billy/v5 v5.6.2
-	github.com/go-git/go-git/v5 v5.16.2
+	github.com/go-git/go-git/v5 v5.16.3
 	github.com/gobwas/glob v0.2.3
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
@@ -39,7 +39,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/term v0.35.0
 	golang.org/x/time v0.13.0
-	google.golang.org/protobuf v1.36.9
+	google.golang.org/protobuf v1.36.10
 	gotest.tools/v3 v3.5.2
 )
 

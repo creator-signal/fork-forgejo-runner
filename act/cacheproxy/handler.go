@@ -64,7 +64,7 @@ func StartHandler(targetHost, outboundIP string, port uint16, cacheProxyHostOver
 		discard.Out = io.Discard
 		logger = discard
 	}
-	logger = logger.WithField("module", "artifactcache")
+	logger = logger.WithField("module", "cacheproxy")
 	h.logger = logger
 
 	h.cacheSecret = cacheSecret
@@ -139,6 +139,7 @@ func (h *Handler) newReverseProxy(targetHost string) (*httputil.ReverseProxy, er
 
 			r.SetURL(targetURL)
 			r.Out.URL.Path = uri
+			h.logger.Debugf("proxy req %s %q to %q", r.In.Method, r.In.URL, r.Out.URL)
 
 			r.Out.Header.Set("Forgejo-Cache-Repo", runData.RepositoryFullName)
 			r.Out.Header.Set("Forgejo-Cache-RunNumber", runData.RunNumber)
@@ -149,6 +150,10 @@ func (h *Handler) newReverseProxy(targetHost string) (*httputil.ReverseProxy, er
 			if runData.WriteIsolationKey != "" {
 				r.Out.Header.Set("Forgejo-Cache-WriteIsolationKey", runData.WriteIsolationKey)
 			}
+		},
+		ModifyResponse: func(r *http.Response) error {
+			h.logger.Debugf("proxy resp %s w/ %d bytes", r.Status, r.ContentLength)
+			return nil
 		},
 	}
 	return proxy, nil

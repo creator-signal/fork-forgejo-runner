@@ -16,6 +16,7 @@ func TestParseRawOn(t *testing.T) {
 	kases := []struct {
 		input  string
 		result []*Event
+		err    string
 	}{
 		{
 			input: "on: issue_comment",
@@ -33,7 +34,10 @@ func TestParseRawOn(t *testing.T) {
 				},
 			},
 		},
-
+		{
+			input: "on: [123]",
+			err:   "value at index 0 was unexpected type int; must be a string but was 123",
+		},
 		{
 			input: "on:\n  - push\n  - pull_request",
 			result: []*Event{
@@ -44,6 +48,19 @@ func TestParseRawOn(t *testing.T) {
 					Name: "pull_request",
 				},
 			},
+		},
+		{
+			input: "on: { push: null }",
+			result: []*Event{
+				{
+					Name: "push",
+					acts: map[string][]string{},
+				},
+			},
+		},
+		{
+			input: "on: { push: 'abc' }",
+			err:   "key \"push\" had unexpected type string; expected a map or array but was \"abc\"",
 		},
 		{
 			input: "on:\n  push:\n    branches:\n      - master",
@@ -71,6 +88,10 @@ func TestParseRawOn(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			input: "on:\n  branch_protection_rule:\n    types: [123, deleted]",
+			err:   "key \"branch_protection_rule\".\"types\" index 0 had unexpected type int; a string was expected but was 123",
 		},
 		{
 			input: "on:\n  project:\n    types: [created, deleted]\n  milestone:\n    types: [opened, deleted]",
@@ -190,6 +211,22 @@ func TestParseRawOn(t *testing.T) {
 			},
 		},
 		{
+			input: "on:\n  schedule2:\n    - cron: '20 6 * * *'",
+			err:   "key \"schedule2\" had an type []interface {}; only the 'schedule' key is expected with this type",
+		},
+		{
+			input: "on:\n  schedule:\n    - 123",
+			err:   "key \"schedule\"[0] had unexpected type int; a map with a key \"cron\" was expected, but value was 123",
+		},
+		{
+			input: "on:\n  schedule:\n    - corn: '20 6 * * *'",
+			err:   "key \"schedule\"[0] had unexpected key \"corn\"; \"cron\" was expected",
+		},
+		{
+			input: "on:\n  schedule:\n    - cron: 123",
+			err:   "key \"schedule\"[0].\"cron\" had unexpected type int; a string was expected by was 123",
+		},
+		{
 			input: `
 on:
   workflow_dispatch:
@@ -222,15 +259,37 @@ on:
 				},
 			},
 		},
+		{
+			input: `
+on:
+  workflow_call:
+    mistake:
+      access-token:
+        description: 'A token passed from the caller workflow'
+        required: false
+`,
+			err: "invalid value on key \"workflow_call\": workflow_call only supports keys \"inputs\" and \"outputs\", but key \"mistake\" was found",
+		},
+		{
+			input: `
+on:
+  workflow_call: { map: 123 }
+`,
+			err: "key \"workflow_call\".\"map\" had unexpected type int; was 123",
+		},
 	}
 	for _, kase := range kases {
 		t.Run(kase.input, func(t *testing.T) {
 			origin, err := model.ReadWorkflow(strings.NewReader(kase.input), false)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			events, err := ParseRawOn(&origin.RawOn)
-			assert.NoError(t, err)
-			assert.EqualValues(t, kase.result, events, fmt.Sprintf("%#v", events))
+			if kase.err != "" {
+				assert.ErrorContains(t, err, kase.err)
+			} else {
+				assert.NoError(t, err)
+				assert.EqualValues(t, kase.result, events, fmt.Sprintf("%#v", events))
+			}
 		})
 	}
 }

@@ -14,6 +14,7 @@ env:
   SERIAL: "30"
   LIFETIME: "60"
   SYSTEMD_OPTIONS: "--no-pager --full"
+  USE_VERSION: 11.0.6 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
 
 jobs:
   example-lxc-systemd:
@@ -57,7 +58,7 @@ jobs:
          with:
            user: root
            password: admin1234
-           binary: https://code.forgejo.org/forgejo/forgejo/releases/download/v7.0.12/forgejo-7.0.12-linux-amd64
+           binary: https://code.forgejo.org/forgejo/forgejo/releases/download/v${{ env.USE_VERSION }}/forgejo-${{ env.USE_VERSION }}-linux-amd64
            # must be the same as LXC_IPV4_PREFIX in examples/lxc-systemd/forgejo-runner-service.sh
            lxc-ip-prefix: 10.105.7
 

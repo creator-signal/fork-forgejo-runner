@@ -34,7 +34,6 @@ type HostEnvironment struct {
 	Workdir   string
 	ActPath   string
 	Root      string
-	CleanUp   func()
 	StdOut    io.Writer
 	LXC       bool
 }
@@ -389,7 +388,7 @@ func (e *HostEnvironment) ExecWithCmdLine(command []string, cmdline string, env 
 		if err := e.exec(ctx, command, cmdline, env, user, workdir); err != nil {
 			select {
 			case <-ctx.Done():
-				return fmt.Errorf("this step has been cancelled: %w", err)
+				return fmt.Errorf("this step has been cancelled: ctx: %w, exec: %w", ctx.Err(), err)
 			default:
 				return err
 			}
@@ -404,11 +403,12 @@ func (e *HostEnvironment) UpdateFromEnv(srcPath string, env *map[string]string) 
 
 func (e *HostEnvironment) Remove() common.Executor {
 	return func(ctx context.Context) error {
-		if e.CleanUp != nil {
-			e.CleanUp()
+		if e.GetLXC() {
+			// there may be files owned by root: removal
+			// is the responsibility of the LXC backend
+			return nil
 		}
-		common.Logger(ctx).Debugf("HostEnvironment.Remove %s", e.Path)
-		return os.RemoveAll(e.Path)
+		return os.RemoveAll(e.Root)
 	}
 }
 

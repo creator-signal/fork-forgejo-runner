@@ -38,7 +38,7 @@ func (o *masker) add(secret string) {
 		})
 		// a multiline secret transformed into a single line by replacing
 		// newlines with \ followed by n must also be redacted
-		secret = strings.Join(lines, "\\n")
+		o.lines = append(o.lines, strings.Join(lines, "\\n"))
 	}
 
 	o.lines = append(o.lines, secret)

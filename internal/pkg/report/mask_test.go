@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -267,4 +269,17 @@ SIX`
 			assert.Equal(t, testCase.out, rowsToString(rows))
 		})
 	}
+
+	t.Run("MultilineSecretInSingleRow", func(t *testing.T) {
+		secret := "ABC\nDEF\nGHI"
+		m := newMasker()
+		m.add(secret)
+		rows := []*runnerv1.LogRow{
+			{Content: fmt.Sprintf("BEFORE%sAFTER", secret)},
+		}
+		noMore := false
+		needMore := m.replace(rows, noMore)
+		assert.False(t, needMore)
+		assert.Equal(t, "BEFORE***AFTER\n", rowsToString(rows))
+	})
 }

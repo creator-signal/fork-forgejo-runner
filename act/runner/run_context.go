@@ -193,8 +193,6 @@ var lxcHelpers string
 
 var startTemplate = template.Must(template.New("start").Parse(`#!/bin/bash -e
 
-exec 5<>/tmp/forgejo-runner-lxc.lock ; flock --timeout 21600 5
-
 LXC_CONTAINER_CONFIG="{{.Config}}"
 LXC_CONTAINER_RELEASE="{{.Release}}"
 
@@ -248,6 +246,8 @@ var stopTemplate = template.Must(template.New("stop").Parse(`#!/bin/bash
 source $(dirname $0)/lxc-helpers-lib.sh
 
 lxc_container_destroy "{{.Name}}"
+lxc_maybe_sudo
+$LXC_SUDO rm -fr "{{ .Root }}"
 `))
 
 func (rc *RunContext) stopHostEnvironment(ctx context.Context) error {
@@ -314,11 +314,8 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			ToolCache: rc.getToolCache(ctx),
 			Workdir:   rc.Config.Workdir,
 			ActPath:   actPath,
-			CleanUp: func() {
-				os.RemoveAll(miscpath)
-			},
-			StdOut: logWriter,
-			LXC:    rc.IsLXCHostEnv(ctx),
+			StdOut:    logWriter,
+			LXC:       rc.IsLXCHostEnv(ctx),
 		}
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
 			if err := rc.stopHostEnvironment(ctx); err != nil {
@@ -949,7 +946,7 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 			return err
 		}
 		if res {
-			timeoutctx, cancelTimeOut := evaluateTimeout(ctx, rc.ExprEval, rc.Run.Job().TimeoutMinutes)
+			timeoutctx, cancelTimeOut := evaluateTimeout(ctx, "job", rc.ExprEval, rc.Run.Job().TimeoutMinutes)
 			defer cancelTimeOut()
 
 			return executor(timeoutctx)
