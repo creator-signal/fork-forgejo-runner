@@ -6,20 +6,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestConfig_GetToken verifies token priority: ACTIONS_TOKEN > GITEA_TOKEN > GITHUB_TOKEN
+// TestConfig_GetToken verifies token priority: FORGEJO_ACTIONS_TOKEN > GITEA_TOKEN > GITHUB_TOKEN
 func TestConfig_GetToken(t *testing.T) {
-	t.Run("returns ACTIONS_TOKEN when all tokens present", func(t *testing.T) {
+	t.Run("returns FORGEJO_ACTIONS_TOKEN when all tokens present", func(t *testing.T) {
 		c := &Config{
 			Secrets: map[string]string{
-				"GITHUB_TOKEN":  "github-token",
-				"GITEA_TOKEN":   "gitea-token",
-				"ACTIONS_TOKEN": "actions-token",
+				"GITHUB_TOKEN":          "github-token",
+				"GITEA_TOKEN":           "gitea-token",
+				"FORGEJO_ACTIONS_TOKEN": "forgejo-actions-token",
 			},
 		}
-		assert.Equal(t, "actions-token", c.GetToken())
+		assert.Equal(t, "forgejo-actions-token", c.GetToken())
 	})
 
-	t.Run("returns GITEA_TOKEN when ACTIONS_TOKEN absent", func(t *testing.T) {
+	t.Run("returns GITEA_TOKEN when FORGEJO_ACTIONS_TOKEN absent", func(t *testing.T) {
 		c := &Config{
 			Secrets: map[string]string{
 				"GITHUB_TOKEN": "github-token",
@@ -51,6 +51,96 @@ func TestConfig_GetToken(t *testing.T) {
 	})
 }
 
+// TestIsSameInstance verifies same-instance detection for token security
+func TestIsSameInstance(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		instance string
+		expected bool
+	}{
+		{
+			name:     "exact match",
+			url:      "code.forgejo.org",
+			instance: "code.forgejo.org",
+			expected: true,
+		},
+		{
+			name:     "https prefix in url",
+			url:      "https://code.forgejo.org",
+			instance: "code.forgejo.org",
+			expected: true,
+		},
+		{
+			name:     "https prefix in instance",
+			url:      "code.forgejo.org",
+			instance: "https://code.forgejo.org",
+			expected: true,
+		},
+		{
+			name:     "both with https prefix",
+			url:      "https://code.forgejo.org",
+			instance: "https://code.forgejo.org",
+			expected: true,
+		},
+		{
+			name:     "trailing slash in url",
+			url:      "code.forgejo.org/",
+			instance: "code.forgejo.org",
+			expected: true,
+		},
+		{
+			name:     "trailing slash in instance",
+			url:      "code.forgejo.org",
+			instance: "code.forgejo.org/",
+			expected: true,
+		},
+		{
+			name:     "case insensitive",
+			url:      "Code.Forgejo.Org",
+			instance: "code.forgejo.org",
+			expected: true,
+		},
+		{
+			name:     "different hosts",
+			url:      "github.com",
+			instance: "code.forgejo.org",
+			expected: false,
+		},
+		{
+			name:     "http vs https same host",
+			url:      "http://localhost:3000",
+			instance: "https://localhost:3000",
+			expected: true,
+		},
+		{
+			name:     "with path in url",
+			url:      "https://code.forgejo.org/some/path",
+			instance: "code.forgejo.org",
+			expected: true,
+		},
+		{
+			name:     "empty strings",
+			url:      "",
+			instance: "",
+			expected: true,
+		},
+		{
+			name:     "whitespace handling",
+			url:      " code.forgejo.org ",
+			instance: "code.forgejo.org",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isSameInstance(tt.url, tt.instance)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 // TestRemoteReusableWorkflow_CloneURL verifies URL formatting for different instances
 func TestRemoteReusableWorkflow_CloneURL(t *testing.T) {
 	t.Run("adds https prefix when missing", func(t *testing.T) {
@@ -72,6 +162,42 @@ func TestRemoteReusableWorkflow_CloneURL(t *testing.T) {
 	})
 
 	t.Run("preserves http prefix", func(t *testing.T) {
+		rw := &remoteReusableWorkflow{
+			URL:  "http://localhost:3000",
+			Org:  "owner",
+			Repo: "repo",
+		}
+		assert.Equal(t, "http://localhost:3000/owner/repo", rw.CloneURL())
+	})
+}
+
+// TestRemoteReusableWorkflow_CloneURL_TrailingSlash_NoScheme verifies trimming the trailing slash and adding https scheme when base URL has no scheme
+func TestRemoteReusableWorkflow_CloneURL_TrailingSlash_NoScheme(t *testing.T) {
+	t.Run("trims trailing slash when no scheme", func(t *testing.T) {
+		rw := &remoteReusableWorkflow{
+			URL:  "code.forgejo.org/",
+			Org:  "owner",
+			Repo: "repo",
+		}
+		assert.Equal(t, "https://code.forgejo.org/owner/repo", rw.CloneURL())
+	})
+}
+
+// TestRemoteReusableWorkflow_CloneURL_TrailingSlash verifies trimming the trailing slash when base URL already includes http/https to avoid double slashes
+func TestRemoteReusableWorkflow_CloneURL_TrailingSlash(t *testing.T) {
+	t.Run("trims trailing slash in URL", func(t *testing.T) {
+		rw := &remoteReusableWorkflow{
+			URL:  "https://code.forgejo.org/",
+			Org:  "owner",
+			Repo: "repo",
+		}
+		assert.Equal(t, "https://code.forgejo.org/owner/repo", rw.CloneURL())
+	})
+}
+
+// TestRemoteReusableWorkflow_CloneURL_Ports verifies that a custom port in the base URL is preserved when constructing the clone URL
+func TestRemoteReusableWorkflow_CloneURL_Ports(t *testing.T) {
+	t.Run("preserves custom port", func(t *testing.T) {
 		rw := &remoteReusableWorkflow{
 			URL:  "http://localhost:3000",
 			Org:  "owner",

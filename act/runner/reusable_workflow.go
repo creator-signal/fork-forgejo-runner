@@ -65,14 +65,24 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 		return common.NewErrorExecutor(fmt.Errorf("expected format {owner}/{repo}/.{git_platform}/workflows/{filename}@{ref}. Actual '%s' Input string was not in a correct format", url.Path))
 	}
 
+	// Host fallback: if 'uses' has no host specified, use the instance from configuration (rc.Config.GitHubInstance)
+	if remoteReusableWorkflow.URL == "" {
+		remoteReusableWorkflow.URL = rc.Config.GitHubInstance
+	}
+
 	// uses with safe filename makes the target directory look something like this {owner}-{repo}-.github-workflows-{filename}@{ref}
 	// instead we will just use {owner}-{repo}@{ref} as our target directory. This should also improve performance when we are using
 	// multiple reusable workflows from the same repository and ref since for each workflow we won't have to clone it again
 	filename := fmt.Sprintf("%s/%s@%s", remoteReusableWorkflow.Org, remoteReusableWorkflow.Repo, remoteReusableWorkflow.Ref)
 	workflowDir := fmt.Sprintf("%s/%s", rc.ActionCacheDir(), safeFilename(filename))
 
-	// If the repository is private, we need a token to clone it
-	token := rc.Config.GetToken()
+	// Provide token only if the reusable workflow is from the same instance.
+	// This allows cloning private repositories from the current Forgejo instance,
+	// while avoiding token leakage to external instances.
+	token := ""
+	if isSameInstance(remoteReusableWorkflow.URL, rc.Config.GitHubInstance) {
+		token = rc.Config.GetToken()
+	}
 
 	if rc.Config.ActionCache != nil {
 		return newActionCacheReusableWorkflowExecutor(rc, filename, remoteReusableWorkflow)
@@ -198,11 +208,12 @@ type remoteReusableWorkflow struct {
 }
 
 func (r *remoteReusableWorkflow) CloneURL() string {
+	base := strings.TrimSuffix(r.URL, "/")
 	// In Gitea, r.URL always has the protocol prefix, we don't need to add extra prefix in this case.
-	if strings.HasPrefix(r.URL, "http://") || strings.HasPrefix(r.URL, "https://") {
-		return fmt.Sprintf("%s/%s/%s", r.URL, r.Org, r.Repo)
+	if strings.HasPrefix(base, "http://") || strings.HasPrefix(base, "https://") {
+		return fmt.Sprintf("%s/%s/%s", base, r.Org, r.Repo)
 	}
-	return fmt.Sprintf("https://%s/%s/%s", r.URL, r.Org, r.Repo)
+	return fmt.Sprintf("https://%s/%s/%s", base, r.Org, r.Repo)
 }
 
 func (r *remoteReusableWorkflow) FilePath() string {
@@ -228,4 +239,20 @@ func newRemoteReusableWorkflowWithPlat(url, uses string) *remoteReusableWorkflow
 		Ref:         matches[5],
 		URL:         url,
 	}
+}
+
+// isSameInstance checks if two URLs/hosts refer to the same instance.
+// Normalizes protocol prefixes, trailing slashes, and case.
+func isSameInstance(urlOrHost, instance string) bool {
+	normalize := func(s string) string {
+		s = strings.TrimSpace(s)
+		s = strings.TrimSuffix(s, "/")
+		if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
+			if u, err := url.Parse(s); err == nil && u.Host != "" {
+				return strings.ToLower(u.Host)
+			}
+		}
+		return strings.ToLower(s)
+	}
+	return normalize(urlOrHost) == normalize(instance)
 }

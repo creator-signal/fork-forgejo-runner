@@ -76,17 +76,18 @@ type Config struct {
 	ContainerNetworkEnableIPv6 bool // create the network with IPv6 support enabled
 }
 
+// GetToken: Adapt to Gitea/Forgejo
 // GetToken returns the authentication token for git operations.
-// Priority: ACTIONS_TOKEN > GITEA_TOKEN > GITHUB_TOKEN
+// Priority: FORGEJO_ACTIONS_TOKEN > GITEA_TOKEN > GITHUB_TOKEN
 func (c Config) GetToken() string {
-	token := c.Secrets["GITHUB_TOKEN"]
-	if c.Secrets["GITEA_TOKEN"] != "" {
-		token = c.Secrets["GITEA_TOKEN"]
+	// Explicit token for Forgejo Actions (reusable workflows)
+	if t := c.Secrets["FORGEJO_ACTIONS_TOKEN"]; t != "" {
+		return t
 	}
-	if c.Secrets["ACTIONS_TOKEN"] != "" {
-		token = c.Secrets["ACTIONS_TOKEN"]
+	if t := c.Secrets["GITEA_TOKEN"]; t != "" {
+		return t
 	}
-	return token
+	return c.Secrets["GITHUB_TOKEN"]
 }
 
 func (c *Config) GetContainerDaemonSocket() string {
