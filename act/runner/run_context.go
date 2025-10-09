@@ -260,6 +260,12 @@ func (rc *RunContext) stopHostEnvironment(ctx context.Context) error {
 		return nil
 	}
 
+	// Skip LXC script execution on Windows - LXC is not supported on Windows
+	if runtime.GOOS == "windows" {
+		logger.Debugf("Skipping LXC cleanup on Windows")
+		return rc.performWindowsHostCleanup(ctx)
+	}
+
 	var stopScript bytes.Buffer
 	if err := stopTemplate.Execute(&stopScript, struct {
 		Name string
@@ -279,6 +285,24 @@ func (rc *RunContext) stopHostEnvironment(ctx context.Context) error {
 		}),
 		rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/stop-lxc.sh"}, map[string]string{}, "root", "/tmp"),
 	)(ctx)
+}
+
+func (rc *RunContext) performWindowsHostCleanup(ctx context.Context) error {
+	logger := common.Logger(ctx)
+
+	// Clean up the container root directory
+	if rc.JobContainer != nil {
+		root := rc.JobContainer.GetRoot()
+		if root != "" {
+			logger.Debugf("Cleaning up Windows host directory: %s", root)
+			if err := os.RemoveAll(root); err != nil {
+				logger.Debugf("Failed to remove directory %s: %v", root, err)
+				// Don't fail cleanup if directory removal fails - this prevents blocking
+				// the runner from picking up new jobs due to file system issues
+			}
+		}
+	}
+	return nil
 }
 
 func (rc *RunContext) startHostEnvironment() common.Executor {
