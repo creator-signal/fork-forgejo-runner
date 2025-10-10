@@ -180,31 +180,35 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		jobResult = "failure"
 	}
 
+	// Set local result on current job (child or parent)
 	info.result(jobResult)
+
 	if rc.caller != nil {
-		// set reusable workflow job result
+		// Child reusable workflow:
+		// 1) propagate result to parent job state
 		rc.caller.runContext.result(jobResult)
+
+		// 2) copy workflow_call outputs from child to parent (as in upstream)
+		jobOutputs := make(map[string]string)
+		ee := rc.NewExpressionEvaluator(ctx)
+		if wfcc := rc.Run.Workflow.WorkflowCallConfig(); wfcc != nil {
+			for k, v := range wfcc.Outputs {
+				jobOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
+			}
+		}
+		rc.caller.runContext.Run.Job().Outputs = jobOutputs
+
+		// 3) DO NOT print banner in child job (prevents premature token revocation)
+		logger.Debugf("Reusable job result=%s (parent will finalize, no banner)", jobResult)
+		return
 	}
 
+	// Parent job: print the final banner ONCE (job-level)
 	jobResultMessage := "succeeded"
 	if jobResult != "success" {
 		jobResultMessage = "failed"
 	}
-
 	jobOutputs := rc.Run.Job().Outputs
-	if rc.caller != nil {
-		// Rewrite the job's outputs into the workflow_call outputs...
-		jobOutputs = make(map[string]string)
-		ee := rc.NewExpressionEvaluator(ctx)
-		for k, v := range rc.Run.Workflow.WorkflowCallConfig().Outputs {
-			jobOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
-		}
-		// When running as a daemon and receiving jobs from Forgejo, the next job (and any of it's `needs` outputs) will
-		// be provided by Forgejo based upon the data sent to the logger below.  However, when running `forgejo-runner
-		// exec` with a reusable workflow, the next job will only be able to read outputs if those outputs are stored on
-		// the workflow -- that's what is accomplished here:
-		rc.caller.runContext.Run.Job().Outputs = jobOutputs
-	}
 
 	logger.
 		WithFields(logrus.Fields{

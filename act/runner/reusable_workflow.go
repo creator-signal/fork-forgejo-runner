@@ -16,6 +16,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v11/act/common"
 	"code.forgejo.org/forgejo/runner/v11/act/common/git"
 	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"github.com/sirupsen/logrus"
 )
 
 func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
@@ -115,7 +116,10 @@ func newActionCacheReusableWorkflowExecutor(rc *RunContext, filename string, rem
 			return err
 		}
 
-		return runner.NewPlanExecutor(plan)(ctx)
+		planErr := runner.NewPlanExecutor(plan)(ctx)
+
+		// Finalize from parent context: one job-level banner
+		return finalizeReusableWorkflow(ctx, rc, planErr)
 	}
 }
 
@@ -171,7 +175,10 @@ func newReusableWorkflowExecutor(rc *RunContext, directory, workflow string) com
 			return err
 		}
 
-		return runner.NewPlanExecutor(plan)(ctx)
+		planErr := runner.NewPlanExecutor(plan)(ctx)
+
+		// Finalize from parent context: one job-level banner
+		return finalizeReusableWorkflow(ctx, rc, planErr)
 	}
 }
 
@@ -228,4 +235,30 @@ func newRemoteReusableWorkflowWithPlat(url, uses string) *remoteReusableWorkflow
 		Ref:         matches[5],
 		URL:         url,
 	}
+}
+
+// finalizeReusableWorkflow prints the final job banner from the parent job context.
+//
+// The Forgejo reporter waits for this banner (log entry with "jobResult"
+// field and without stage="Main") before marking the job as complete and revoking
+// tokens. Printing this banner from the child reusable workflow would cause
+// premature token revocation, breaking subsequent steps in the parent workflow.
+func finalizeReusableWorkflow(ctx context.Context, rc *RunContext, planErr error) error {
+	jobResult := "success"
+	jobResultMessage := "succeeded"
+	if planErr != nil {
+		jobResult = "failure"
+		jobResultMessage = "failed"
+	}
+
+	// Outputs should already be present in the parent context:
+	// - copied by child's setJobResult branch (rc.caller != nil)
+	jobOutputs := rc.Run.Job().Outputs
+
+	common.Logger(ctx).WithFields(logrus.Fields{
+		"jobResult":  jobResult,
+		"jobOutputs": jobOutputs,
+	}).Infof("\U0001F3C1  Job %s", jobResultMessage)
+
+	return planErr
 }
