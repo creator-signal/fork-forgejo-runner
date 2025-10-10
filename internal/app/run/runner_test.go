@@ -71,6 +71,7 @@ func TestLabelUpdate(t *testing.T) {
 
 type forgejoClientMock struct {
 	mock.Mock
+	sent string
 }
 
 func (m *forgejoClientMock) Address() string {
@@ -123,11 +124,20 @@ func (m *forgejoClientMock) UpdateTask(ctx context.Context, request *connect.Req
 	return args.Get(0).(*connect.Response[runnerv1.UpdateTaskResponse]), args.Error(1)
 }
 
+func rowsToString(rows []*runnerv1.LogRow) string {
+	s := ""
+	for _, row := range rows {
+		s += row.Content + "\n"
+	}
+	return s
+}
+
 func (m *forgejoClientMock) UpdateLog(ctx context.Context, request *connect.Request[runnerv1.UpdateLogRequest]) (*connect.Response[runnerv1.UpdateLogResponse], error) {
 	// Enable for log output from runs if needed.
 	// for _, row := range request.Msg.Rows {
 	// 	println(fmt.Sprintf("UpdateLog: %q", row.Content))
 	// }
+	m.sent += rowsToString(request.Msg.Rows)
 	args := m.Called(ctx, request)
 	mockRetval := args.Get(0)
 	mockError := args.Error(1)
@@ -587,5 +597,161 @@ jobs:
       - run: mkdir -p some/directory/owned/by/root
 `
 		runWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
+	})
+}
+
+func TestRunnerResources(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	forgejoClient := &forgejoClientMock{}
+
+	forgejoClient.On("Address").Return("https://127.0.0.1:8080") // not expected to be used in this test
+	forgejoClient.On("UpdateLog", mock.Anything, mock.Anything).Return(nil, nil)
+	forgejoClient.On("UpdateTask", mock.Anything, mock.Anything).
+		Return(connect.NewResponse(&runnerv1.UpdateTaskResponse{}), nil)
+
+	workdirParent := t.TempDir()
+
+	runWorkflow := func(ctx context.Context, cancel context.CancelFunc, yamlContent, options, errorMessage, logMessage string) {
+		task := &runnerv1.Task{
+			WorkflowPayload: []byte(yamlContent),
+			Context: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"token":                       structpb.NewStringValue("some token here"),
+					"forgejo_default_actions_url": structpb.NewStringValue("https://data.forgejo.org"),
+					"repository":                  structpb.NewStringValue("runner"),
+					"event_name":                  structpb.NewStringValue("push"),
+					"ref":                         structpb.NewStringValue("refs/heads/main"),
+				},
+			},
+		}
+
+		runner := NewRunner(
+			&config.Config{
+				Log: config.Log{
+					JobLevel: "trace",
+				},
+				Host: config.Host{
+					WorkdirParent: workdirParent,
+				},
+				Container: config.Container{
+					Options: options,
+				},
+			},
+			&config.Registration{
+				Labels: []string{"docker:docker://code.forgejo.org/oci/node:20-bookworm"},
+			},
+			forgejoClient)
+		require.NotNil(t, runner)
+
+		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second)
+		err := runner.run(ctx, task, reporter)
+		reporter.Close(nil)
+		if len(errorMessage) > 0 {
+			require.Error(t, err)
+			assert.ErrorContains(t, err, errorMessage)
+		} else {
+			require.NoError(t, err)
+		}
+		if len(logMessage) > 0 {
+			assert.Contains(t, forgejoClient.sent, logMessage)
+		}
+	}
+
+	t.Run("config.yaml --memory set and enforced", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+on:
+  push:
+jobs:
+  job:
+    runs-on: docker
+    steps:
+      - run: |
+          # more than 300MB
+          perl -e '$a = "a" x (300 * 1024 * 1024)'
+`
+		runWorkflow(ctx, cancel, workflow, "--memory 200M", "Job 'job' failed", "Killed")
+	})
+
+	t.Run("config.yaml --memory set and within limits", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+on:
+  push:
+jobs:
+  job:
+    runs-on: docker
+    steps:
+      - run: echo OK
+`
+		runWorkflow(ctx, cancel, workflow, "--memory 200M", "", "")
+	})
+
+	t.Run("config.yaml --memory set and container fails to increase it", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+on:
+  push:
+jobs:
+  job:
+    runs-on: docker
+    container:
+      image: code.forgejo.org/oci/node:20-bookworm
+      options: --memory 4G
+    steps:
+      - run: |
+          # more than 300MB
+          perl -e '$a = "a" x (300 * 1024 * 1024)'
+`
+		runWorkflow(ctx, cancel, workflow, "--memory 200M", "option found in the workflow cannot be greater than", "")
+	})
+
+	t.Run("container --memory set and enforced", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+on:
+  push:
+jobs:
+  job:
+    runs-on: docker
+    container:
+      image: code.forgejo.org/oci/node:20-bookworm
+      options: --memory 200M
+    steps:
+      - run: |
+          # more than 300MB
+          perl -e '$a = "a" x (300 * 1024 * 1024)'
+`
+		runWorkflow(ctx, cancel, workflow, "", "Job 'job' failed", "Killed")
+	})
+
+	t.Run("container --memory set and within limits", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+on:
+  push:
+jobs:
+  job:
+    runs-on: docker
+    container:
+      image: code.forgejo.org/oci/node:20-bookworm
+      options: --memory 200M
+    steps:
+      - run: echo OK
+`
+		runWorkflow(ctx, cancel, workflow, "", "", "")
 	})
 }

@@ -483,6 +483,14 @@ func (cr *containerReference) mergeJobOptions(ctx context.Context, config *conta
 		}
 	}
 
+	if jobConfig.HostConfig.Memory > 0 {
+		logger.Debugf("--memory %v", jobConfig.HostConfig.Memory)
+		if hostConfig.Memory > 0 && jobConfig.HostConfig.Memory > hostConfig.Memory {
+			return nil, nil, fmt.Errorf("the --memory %v option found in the workflow cannot be greater than the --memory %v option from the runner configuration file", jobConfig.HostConfig.Memory, hostConfig.Memory)
+		}
+		hostConfig.Memory = jobConfig.HostConfig.Memory
+	}
+
 	if len(jobConfig.Config.Hostname) > 0 {
 		logger.Debugf("--hostname %v", jobConfig.Config.Hostname)
 		config.Hostname = jobConfig.Config.Hostname
