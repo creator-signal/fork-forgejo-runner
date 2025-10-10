@@ -1,0 +1,8 @@
+name: local-action-env-input
+on: push
+jobs:
+  test:
+    runs-on: docker
+    uses: ./testdata/.github/workflows/local-reusable-env-input.yml
+    with:
+      greet_target: 'Mona the Octocat'

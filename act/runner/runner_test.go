@@ -263,6 +263,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "uses-workflow", "pull_request", "", platforms, map[string]string{"secret": "keep_it_private"}},
 		{workdir, "uses-docker-url", "push", "", platforms, secrets},
 		{workdir, "act-composite-env-test", "push", "", platforms, secrets},
+		{workdir, "uses-workflow-env-input", "push", "", platforms, secrets},
 
 		// Eval
 		{workdir, "evalmatrix", "push", "", platforms, secrets},

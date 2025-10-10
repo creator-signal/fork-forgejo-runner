@@ -1,0 +1,21 @@
+name: "use-inputs-impl"
+
+on:
+  workflow_call:
+    inputs:
+      greet_target:
+        type: string
+        required: false
+        default: "Some Default Value"
+
+jobs:
+  works:
+    runs-on: ubuntu-latest
+    env:
+      MY_INPUT_TEST: ${{ inputs.greet_target }}
+      INPUT_TEST: ${{ inputs.greet_target }}
+      INPUT_GREET_TARGET: ${{ inputs.greet_target }}
+    steps:
+      - run: '[ "$MY_INPUT_TEST" = "Mona the Octocat" ] || exit 1'
+      - run: '[ "$INPUT_TEST" = "Mona the Octocat" ] || exit 1'
+      - run: '[ "$INPUT_GREET_TARGET" = "Mona the Octocat" ] || exit 1'
