@@ -1355,7 +1355,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 
 	{ // Adapt to Forgejo
 		instance := rc.Config.GitHubInstance
-		if !strings.HasPrefix(instance, "http://") &&
+		if instance != "" && !strings.HasPrefix(instance, "http://") &&
 			!strings.HasPrefix(instance, "https://") {
 			instance = "https://" + instance
 		}
