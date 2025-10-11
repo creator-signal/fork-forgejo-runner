@@ -444,3 +444,71 @@ func TestSetJobResultConcurrency(t *testing.T) {
 
 	assert.Equal(t, "failure", lastResult)
 }
+
+func TestSetJobResult_SkipsBannerInChildReusableWorkflow(t *testing.T) {
+	// Test that child reusable workflow does not print final banner
+	// to prevent premature token revocation
+
+	mockLogger := mocks.NewFieldLogger(t)
+	mockLogger.On("Debugf", mock.Anything, mock.Anything, mock.Anything).Return(0).Maybe()
+
+	ctx := common.WithLogger(common.WithJobErrorContainer(t.Context()), mockLogger)
+
+	// Setup parent job
+	parentJob := &model.Job{
+		Result: "success",
+	}
+	parentRC := &RunContext{
+		Config: &Config{}, // Must have Config to avoid nil pointer
+		Run: &model.Run{
+			JobID: "parent",
+			Workflow: &model.Workflow{
+				Jobs: map[string]*model.Job{
+					"parent": parentJob,
+				},
+			},
+		},
+	}
+
+	// Setup child job with caller reference
+	childJob := &model.Job{
+		Result: "success",
+	}
+	childRC := &RunContext{
+		Config: &Config{}, // Must have Config
+		Run: &model.Run{
+			JobID: "child",
+			Workflow: &model.Workflow{
+				Jobs: map[string]*model.Job{
+					"child": childJob,
+				},
+			},
+		},
+		caller: &caller{
+			runContext: parentRC,
+		},
+	}
+
+	jim := &jobInfoMock{}
+	jim.On("matrix").Return(map[string]any{}) // REQUIRED: setJobResult always calls matrix()
+	jim.On("result", "success")
+
+	// Call setJobResult for child workflow
+	setJobResult(ctx, jim, childRC, true)
+
+	// Verify:
+	// 1. Child result is set
+	jim.AssertCalled(t, "result", "success")
+
+	// 2. Parent result is propagated
+	assert.Equal(t, "success", parentJob.Result)
+
+	// 3. Logger.Debugf was called (not Infof with banner)
+	// This proves final banner was NOT printed by child
+	mockLogger.AssertCalled(t, "Debugf", mock.Anything, mock.Anything, mock.Anything)
+	mockLogger.AssertNotCalled(t, "WithFields", mock.MatchedBy(func(fields logrus.Fields) bool {
+		_, okJobResult := fields["jobResult"]
+		_, okJobOutput := fields["jobOutputs"]
+		return okJobOutput && okJobResult
+	}))
+}
