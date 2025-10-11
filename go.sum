@@ -1,5 +1,5 @@
-code.forgejo.org/forgejo/actions-proto v0.5.2 h1:2+j3pXKk7l4cqATb7de75ZPPsNqc6e7RWX7xJ8DmySY=
-code.forgejo.org/forgejo/actions-proto v0.5.2/go.mod h1:6CtsEiLzyODMO/3sqsdoTij4Y3gyQ29Nn8QnWunOw98=
+code.forgejo.org/forgejo/actions-proto v0.5.3 h1:dDProRNB4CDvEl9gfo8jkiVfGdiW7fXAt5TM9Irka28=
+code.forgejo.org/forgejo/actions-proto v0.5.3/go.mod h1:33iTdur/jVa/wAQP+BuciRTK9WZcVaxy0BNEnSWWFDM=
 connectrpc.com/connect v1.19.1 h1:R5M57z05+90EfEvCY1b7hBxDVOUl45PrtXtAV2fOC14=
 connectrpc.com/connect v1.19.1/go.mod h1:tN20fjdGlewnSFeZxLKb0xwIZ6ozc3OQs2hTXy4du9w=
 dario.cat/mergo v1.0.2 h1:85+piFYR1tMbRrLcDwR18y4UKJ3aH1Tbzi24VRW1TK8=
