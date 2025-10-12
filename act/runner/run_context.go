@@ -1208,7 +1208,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 			ghc.RetentionDays = preset.RetentionDays
 
 			instance := rc.Config.GitHubInstance
-			if !strings.HasPrefix(instance, "http://") &&
+			if instance != "" && !strings.HasPrefix(instance, "http://") &&
 				!strings.HasPrefix(instance, "https://") {
 				instance = "https://" + instance
 			}
@@ -1251,7 +1251,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 
 	{ // Adapt to Gitea
 		instance := rc.Config.GitHubInstance
-		if !strings.HasPrefix(instance, "http://") &&
+		if instance != "" && !strings.HasPrefix(instance, "http://") &&
 			!strings.HasPrefix(instance, "https://") {
 			instance = "https://" + instance
 		}
@@ -1352,16 +1352,6 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	set("HEAD_REF", github.HeadRef)
 	set("SERVER_URL", github.ServerURL)
 	set("API_URL", github.APIURL)
-
-	{ // Adapt to Forgejo
-		instance := rc.Config.GitHubInstance
-		if instance != "" && !strings.HasPrefix(instance, "http://") &&
-			!strings.HasPrefix(instance, "https://") {
-			instance = "https://" + instance
-		}
-		set("SERVER_URL", instance)
-		set("API_URL", instance+"/api/v1")
-	}
 
 	if rc.Config.ArtifactServerPath != "" {
 		setActionRuntimeVars(rc, env)
