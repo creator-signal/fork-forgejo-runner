@@ -283,13 +283,13 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 func TestRunContext_GetGithubContextURL(t *testing.T) {
 	table := []struct {
 		instance  string
-		serverUrl string
-		APIUrl    string
+		serverURL string
+		APIURL    string
 	}{
-		{instance: "", serverUrl: "", APIUrl: "/api/v1"},
-		{instance: "example.com", serverUrl: "https://example.com", APIUrl: "https://example.com/api/v1"},
-		{instance: "http://example.com", serverUrl: "http://example.com", APIUrl: "http://example.com/api/v1"},
-		{instance: "https://example.com", serverUrl: "https://example.com", APIUrl: "https://example.com/api/v1"},
+		{instance: "", serverURL: "", APIURL: "/api/v1"},
+		{instance: "example.com", serverURL: "https://example.com", APIURL: "https://example.com/api/v1"},
+		{instance: "http://example.com", serverURL: "http://example.com", APIURL: "http://example.com/api/v1"},
+		{instance: "https://example.com", serverURL: "https://example.com", APIURL: "https://example.com/api/v1"},
 	}
 	for _, data := range table {
 		t.Run(data.instance, func(t *testing.T) {
@@ -307,10 +307,9 @@ func TestRunContext_GetGithubContextURL(t *testing.T) {
 
 			ghc := rc.getGithubContext(t.Context())
 
-			assert.Equal(t, data.serverUrl, ghc.ServerURL)
-			assert.Equal(t, data.APIUrl, ghc.APIURL)
+			assert.Equal(t, data.serverURL, ghc.ServerURL)
+			assert.Equal(t, data.APIURL, ghc.APIURL)
 		})
-
 	}
 }
 
