@@ -82,7 +82,7 @@ func StartHandler(targetHost, outboundIP string, port uint16, cacheProxyHostOver
 
 	proxy, err := h.newReverseProxy(targetHost)
 	if err != nil {
-		return nil, fmt.Errorf("unable to set up proxy to target host")
+		return nil, fmt.Errorf("unable to set up proxy to target host: %v", err)
 	}
 
 	router := httprouter.New()
