@@ -86,9 +86,6 @@ func (c Config) GetToken() string {
 }
 
 func (c *Config) GetContainerDaemonSocket() string {
-	if c.ContainerDaemonSocket == "" {
-		return "/var/run/docker.sock"
-	}
 	return c.ContainerDaemonSocket
 }
 
