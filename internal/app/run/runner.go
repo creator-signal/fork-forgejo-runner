@@ -117,7 +117,7 @@ func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler 
 
 		cacheServer, err := artifactcache.StartHandler(
 			cfg.Cache.Dir,
-			"localhost",
+			"", // automatically detect
 			cfg.Cache.Port,
 			cacheSecret,
 			log.StandardLogger().WithField("module", "cache_request"),
