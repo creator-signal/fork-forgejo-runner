@@ -282,13 +282,13 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 		}
 	}
 
-  logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
-  return r, nil
+	logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
+	return r, nil
 }
 
 func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
 	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"}
-  fetchOptions.Force = true
+	fetchOptions.Force = true
 	pullOptions.Force = true
 
 	if token != "" {
@@ -337,12 +337,11 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		}
 
 		var hash *plumbing.Hash
-    rev := plumbing.Revision(input.Ref)
+		rev := plumbing.Revision(input.Ref)
 		if hash, err = r.ResolveRevision(rev); err != nil {
 			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
-      return err
+			return err
 		}
-
 
 		if hash.String() != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash.String(), input.Ref) {
 			return &Error{
@@ -351,16 +350,16 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 			}
 		}
 
-    var head *plumbing.Reference
-    if head, err = r.Head(); err != nil {
-      logger.Errorf("Unable to get repository head")
-      return err
-    }
+		var head *plumbing.Reference
+		if head, err = r.Head(); err != nil {
+			logger.Errorf("Unable to get repository head")
+			return err
+		}
 
-    if head.Hash() == *hash {
-      // HEAD is already at the target hash, so we don't have to do anything
-      return err
-    }
+		if head.Hash() == *hash {
+			// HEAD is already at the target hash, so we don't have to do anything
+			return err
+		}
 
 		// At this point we need to know if it's a tag or a branch
 		// And the easiest way to do it is duck typing
