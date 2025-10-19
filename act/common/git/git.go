@@ -280,9 +280,9 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 		if err = os.Chmod(input.Dir, 0o755); err != nil {
 			return nil, err
 		}
+		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 	}
 
-	logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
 	return r, nil
 }
 
