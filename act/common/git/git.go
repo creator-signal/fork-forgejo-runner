@@ -282,11 +282,13 @@ func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 		}
 	}
 
-	return r, nil
+  logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
+  return r, nil
 }
 
 func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
 	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"}
+  fetchOptions.Force = true
 	pullOptions.Force = true
 
 	if token != "" {
@@ -335,10 +337,12 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		}
 
 		var hash *plumbing.Hash
-		rev := plumbing.Revision(input.Ref)
+    rev := plumbing.Revision(input.Ref)
 		if hash, err = r.ResolveRevision(rev); err != nil {
 			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+      return err
 		}
+
 
 		if hash.String() != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash.String(), input.Ref) {
 			return &Error{
@@ -347,20 +351,28 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 			}
 		}
 
+    var head *plumbing.Reference
+    if head, err = r.Head(); err != nil {
+      logger.Errorf("Unable to get repository head")
+      return err
+    }
+
+    if head.Hash() == *hash {
+      // HEAD is already at the target hash, so we don't have to do anything
+      return err
+    }
+
 		// At this point we need to know if it's a tag or a branch
 		// And the easiest way to do it is duck typing
 		//
 		// If err is nil, it's a tag so let's proceed with that hash like we would if
 		// it was a sha
-		refType := "tag"
 		rev = plumbing.Revision(path.Join("refs", "tags", input.Ref))
 		if _, err := r.Tag(input.Ref); errors.Is(err, git.ErrTagNotFound) {
 			rName := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
 			if _, err := r.Reference(rName, false); errors.Is(err, plumbing.ErrReferenceNotFound) {
-				refType = "sha"
 				rev = plumbing.Revision(input.Ref)
 			} else {
-				refType = "branch"
 				rev = plumbing.Revision(rName)
 			}
 		}
@@ -372,44 +384,6 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 
 		var w *git.Worktree
 		if w, err = r.Worktree(); err != nil {
-			return err
-		}
-
-		// If the hash resolved doesn't match the ref provided in a workflow then we're
-		// using a branch or tag ref, not a sha
-		//
-		// Repos on disk point to commit hashes, and need to checkout input.Ref before
-		// we try and pull down any changes
-		if hash.String() != input.Ref && refType == "branch" {
-			logger.Debugf("Provided ref is not a sha. Checking out branch before pulling changes")
-			sourceRef := plumbing.ReferenceName(path.Join("refs", "remotes", "origin", input.Ref))
-			if err = w.Checkout(&git.CheckoutOptions{
-				Branch: sourceRef,
-				Force:  true,
-			}); err != nil {
-				logger.Errorf("Unable to checkout %s: %v", sourceRef, err)
-				return err
-			}
-		}
-		if !isOfflineMode {
-			if err = w.Pull(&pullOptions); err != nil && err != git.NoErrAlreadyUpToDate {
-				logger.Debugf("Unable to pull %s: %v", refName, err)
-			}
-		}
-		logger.Debugf("Cloned %s to %s", input.URL, input.Dir)
-
-		if hash.String() != input.Ref && refType == "branch" {
-			logger.Debugf("Provided ref is not a sha. Updating branch ref after pull")
-			if hash, err = r.ResolveRevision(rev); err != nil {
-				logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
-				return err
-			}
-		}
-		if err = w.Checkout(&git.CheckoutOptions{
-			Hash:  *hash,
-			Force: true,
-		}); err != nil {
-			logger.Errorf("Unable to checkout %s: %v", *hash, err)
 			return err
 		}
 
