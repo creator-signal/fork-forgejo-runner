@@ -74,8 +74,6 @@ function lxc_transaction_begin() {
 
     lxc_transaction_lock
     lxc_container_destroy $draft
-
-    echo $draft
 }
 
 function lxc_transaction_commit() {
@@ -391,7 +389,8 @@ function lxc_build_template_release() {
         return
     fi
 
-    local draft=$(lxc_transaction_begin $name)
+    lxc_transaction_begin $name
+    local draft=$(lxc_transaction_draft_name)
     $LXC_SUDO lxc-create --name $draft --template debian -- --release=$LXC_CONTAINER_RELEASE
     echo 'lxc.apparmor.profile = unconfined' | $LXC_SUDO tee -a $(lxc_config $draft)
     lxc_container_install_lxc_helpers $draft
@@ -414,7 +413,8 @@ function lxc_build_template() {
         lxc_build_template_release
     fi
 
-    local draft=$(lxc_transaction_begin $newname)
+    lxc_transaction_begin $name
+    local draft=$(lxc_transaction_draft_name)
     if ! $LXC_SUDO lxc-copy --name=$name --newname=$draft; then
         echo lxc-copy --name=$name --newname=$draft failed
         return 1
