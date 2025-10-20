@@ -385,11 +385,13 @@ function lxc_running() {
 function lxc_build_template_release() {
     local name="$(lxc_template_release)"
 
+    lxc_transaction_begin $name
+
     if lxc_exists_and_apt_not_old $name; then
+        lxc_transaction_unlock
         return
     fi
 
-    lxc_transaction_begin $name
     local draft=$(lxc_transaction_draft_name)
     $LXC_SUDO lxc-create --name $draft --template debian -- --release=$LXC_CONTAINER_RELEASE
     echo 'lxc.apparmor.profile = unconfined' | $LXC_SUDO tee -a $(lxc_config $draft)
@@ -405,15 +407,16 @@ function lxc_build_template() {
     local name="$1"
     local newname="$2"
 
-    if lxc_exists_and_apt_not_old $newname; then
-        return
-    fi
-
     if test "$name" = "$(lxc_template_release)"; then
         lxc_build_template_release
     fi
 
     lxc_transaction_begin $name
+    if lxc_exists_and_apt_not_old $newname; then
+        lxc_transaction_unlock
+        return
+    fi
+
     local draft=$(lxc_transaction_draft_name)
     if ! $LXC_SUDO lxc-copy --name=$name --newname=$draft; then
         echo lxc-copy --name=$name --newname=$draft failed
