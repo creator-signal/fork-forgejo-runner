@@ -1,4 +1,4 @@
-FROM alpine:3
+FROM code.forgejo.org/oci/alpine:latest
 
 COPY entrypoint.sh /entrypoint.sh
 
