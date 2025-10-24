@@ -1,6 +1,6 @@
 FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/xx AS xx
 
-FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/golang:1.24-alpine3.22 AS build-env
+FROM --platform=$BUILDPLATFORM data.forgejo.org/oci/golang:1.25-alpine3.22 AS build-env
 
 #
 # Transparently cross compile for the target platform
