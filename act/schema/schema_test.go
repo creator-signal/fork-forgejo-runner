@@ -242,7 +242,7 @@ jobs:
     name: Build Silo Frontend DEV
     runs-on: ubuntu-latest
     container:
-      image: code.forgejo.org/oci/node:22-bookworm
+      image: code.forgejo.org/oci/${{ env.IMAGE }}
     uses: ./.forgejo/workflows/${{ vars.PATHNAME }}
     with:
       STAGE: dev
