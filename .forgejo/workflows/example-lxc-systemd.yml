@@ -14,7 +14,7 @@ env:
   SERIAL: "30"
   LIFETIME: "60"
   SYSTEMD_OPTIONS: "--no-pager --full"
-  USE_VERSION: 11.0.6 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
+  USE_VERSION: 11.0.7 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
 
 jobs:
   example-lxc-systemd:
