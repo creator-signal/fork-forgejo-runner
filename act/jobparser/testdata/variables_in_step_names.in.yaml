@@ -1,0 +1,9 @@
+name: test
+env:
+  NODE_VERSION: 22.x
+jobs:
+  job1:
+    runs-on: linux
+    steps:
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        run: echo "${{ env.NODE_VERSION }}"

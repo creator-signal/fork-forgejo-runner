@@ -52,6 +52,11 @@ func TestParse(t *testing.T) {
 			options: nil,
 			wantErr: false,
 		},
+		{
+			name:    "variables_in_step_names",
+			options: nil,
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

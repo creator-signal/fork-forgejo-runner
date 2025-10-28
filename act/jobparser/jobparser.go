@@ -48,7 +48,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		}
 		for _, matrix := range matricxes {
 			job := job.Clone()
-			evaluator := NewExpressionEvaluator(NewInterpeter(id, origin.GetJob(id), matrix, pc.gitContext, results, pc.vars, nil))
+			evaluator := NewExpressionEvaluator(NewInterpeter(id, origin.GetJob(id), matrix, pc.gitContext, results, pc.vars, nil, origin.Env))
 			if job.Name == "" {
 				job.Name = nameWithMatrix(id, matrix)
 			} else {
@@ -62,6 +62,11 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				runsOn[i] = evaluator.Interpolate(v)
 			}
 			job.RawRunsOn = encodeRunsOn(runsOn)
+
+			for _, v := range job.Steps {
+				v.Name = evaluator.Interpolate(v.Name)
+			}
+
 			swf := &SingleWorkflow{
 				Name:     workflow.Name,
 				RawOn:    workflow.RawOn,
@@ -95,10 +100,17 @@ func WithVars(vars map[string]string) ParseOption {
 	}
 }
 
+func WithEnv(env map[string]string) ParseOption {
+	return func(c *parseContext) {
+		c.env = env
+	}
+}
+
 type parseContext struct {
 	jobResults map[string]string
 	gitContext *model.GithubContext
 	vars       map[string]string
+	env        map[string]string
 }
 
 type ParseOption func(c *parseContext)
