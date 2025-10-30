@@ -7,3 +7,7 @@ jobs:
     steps:
       - name: Use Node.js ${{ env.NODE_VERSION }}
         run: echo "${{ env.NODE_VERSION }}"
+
+      # Step with no name to ensure variable interpolation does not create empty step names.
+      - run: |
+          true

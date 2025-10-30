@@ -6,9 +6,6 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// NewInterpeter returns an interpeter used in the server,
-// need github, needs, strategy, matrix, inputs context only,
-// see https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
 func NewInterpeter(
 	jobID string,
 	job *model.Job,
