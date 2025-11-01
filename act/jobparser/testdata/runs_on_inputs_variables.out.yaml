@@ -1,0 +1,17 @@
+"on":
+  workflow_dispatch:
+    inputs:
+      chosen-os:
+        required: true
+        type: choice
+        options:
+          - Ubuntu
+          - macOS
+jobs:
+  with-inputs:
+    name: with-inputs
+    runs-on:
+      - self-hosted
+      - Ubuntu
+    steps:
+      - run: echo Hello world!

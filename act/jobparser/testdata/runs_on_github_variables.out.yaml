@@ -1,0 +1,8 @@
+jobs:
+  with-github:
+    name: with-github
+    runs-on:
+      - self-hosted
+      - run-id-25
+    steps:
+      - run: echo Hello world!

@@ -1,0 +1,7 @@
+jobs:
+  with-vars:
+    runs-on:
+      - self-hosted
+      - "${{ vars.RUNNER }}"
+    steps:
+      - run: echo Hello world!

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"code.forgejo.org/forgejo/runner/v11/act/model"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
@@ -50,6 +51,26 @@ func TestParse(t *testing.T) {
 		{
 			name:    "job_concurrency_eval",
 			options: nil,
+			wantErr: false,
+		},
+		{
+			name:    "runs_on_forge_variables",
+			options: []ParseOption{WithGitContext(&model.GithubContext{RunID: "18"})},
+			wantErr: false,
+		},
+		{
+			name:    "runs_on_github_variables",
+			options: []ParseOption{WithGitContext(&model.GithubContext{RunID: "25"})},
+			wantErr: false,
+		},
+		{
+			name:    "runs_on_inputs_variables",
+			options: []ParseOption{WithInputs(map[string]any{"chosen-os": "Ubuntu"})},
+			wantErr: false,
+		},
+		{
+			name:    "runs_on_vars_variables",
+			options: []ParseOption{WithVars(map[string]string{"RUNNER": "Windows"})},
 			wantErr: false,
 		},
 	}

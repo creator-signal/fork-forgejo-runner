@@ -1,0 +1,7 @@
+jobs:
+  with-forge:
+    runs-on:
+      - self-hosted
+      - "run-id-${{ forge.run_id }}"
+    steps:
+      - run: echo Hello world!

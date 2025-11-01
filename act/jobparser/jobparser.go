@@ -48,7 +48,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		}
 		for _, matrix := range matricxes {
 			job := job.Clone()
-			evaluator := NewExpressionEvaluator(NewInterpeter(id, origin.GetJob(id), matrix, pc.gitContext, results, pc.vars, nil))
+			evaluator := NewExpressionEvaluator(NewInterpeter(id, origin.GetJob(id), matrix, pc.gitContext, results, pc.vars, pc.inputs))
 			if job.Name == "" {
 				job.Name = nameWithMatrix(id, matrix)
 			} else {
@@ -89,6 +89,12 @@ func WithGitContext(context *model.GithubContext) ParseOption {
 	}
 }
 
+func WithInputs(inputs map[string]any) ParseOption {
+	return func(c *parseContext) {
+		c.inputs = inputs
+	}
+}
+
 func WithVars(vars map[string]string) ParseOption {
 	return func(c *parseContext) {
 		c.vars = vars
@@ -98,6 +104,7 @@ func WithVars(vars map[string]string) ParseOption {
 type parseContext struct {
 	jobResults map[string]string
 	gitContext *model.GithubContext
+	inputs     map[string]any
 	vars       map[string]string
 }
 

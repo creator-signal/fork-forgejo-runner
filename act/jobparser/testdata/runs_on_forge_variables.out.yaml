@@ -1,0 +1,8 @@
+jobs:
+  with-forge:
+    name: with-forge
+    runs-on:
+      - self-hosted
+      - run-id-18
+    steps:
+      - run: echo Hello world!

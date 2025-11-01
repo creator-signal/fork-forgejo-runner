@@ -1,0 +1,8 @@
+jobs:
+  with-vars:
+    name: with-vars
+    runs-on:
+      - self-hosted
+      - Windows
+    steps:
+      - run: echo Hello world!

@@ -1,0 +1,7 @@
+jobs:
+  with-github:
+    runs-on:
+      - self-hosted
+      - "run-id-${{ github.run_id }}"
+    steps:
+      - run: echo Hello world!
