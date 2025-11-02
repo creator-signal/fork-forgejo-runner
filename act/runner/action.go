@@ -418,6 +418,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd, entrypo
 		}
 		return true
 	})
+	stepContainerName := createSimpleContainerName(rc.jobContainerName(), "STEP-"+stepModel.ID)
 	envList := make([]string, 0)
 	for k, v := range *step.getEnv() {
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
@@ -427,6 +428,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd, entrypo
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", container.RunnerArch(ctx)))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_CONTAINER_NAME", stepContainerName))
 
 	binds, mounts, validVolumes := rc.GetBindsAndMounts(ctx)
 	networkMode := fmt.Sprintf("container:%s", rc.jobContainerName())
@@ -440,7 +442,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd, entrypo
 		Image:        image,
 		Username:     rc.Config.Secrets["DOCKER_USERNAME"],
 		Password:     rc.Config.Secrets["DOCKER_PASSWORD"],
-		Name:         createSimpleContainerName(rc.jobContainerName(), "STEP-"+stepModel.ID),
+		Name:         stepContainerName,
 		Env:          envList,
 		ToolCache:    rc.getToolCache(ctx),
 		Mounts:       mounts,

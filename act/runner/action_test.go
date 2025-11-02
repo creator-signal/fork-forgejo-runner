@@ -247,3 +247,37 @@ func TestActionRunner(t *testing.T) {
 		})
 	}
 }
+
+func TestExposeContainerName(t *testing.T) {
+	ctx := t.Context()
+	step := stepActionRemote{
+		Step: &model.Step{
+			Uses: "org/repo/path@ref",
+		},
+		RunContext: &RunContext{
+			Config: &Config{},
+			Run: &model.Run{
+				JobID: "job",
+				Workflow: &model.Workflow{
+					Jobs: map[string]*model.Job{
+						"job": {
+							Name: "job",
+						},
+					},
+				},
+			},
+			JobContainer: &containerMock{},
+		},
+		action: &model.Action{
+			Runs: model.ActionRuns{
+				Using: "node16",
+			},
+		},
+	}
+
+	cmd := strings.Split("some command", " ")
+	entrypoint := strings.Split("/usr/bin/bash", " ")
+	newStepContainer(ctx, &step, "image", cmd, entrypoint)
+
+	// not sure how I can access the env variables in the container and check that the name is there
+}
