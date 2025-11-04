@@ -6,10 +6,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// NewInterpeter returns an interpeter used in the server,
-// need github, needs, strategy, matrix, inputs context only,
-// see https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
-func NewInterpeter(
+func NewInterpreter(
 	jobID string,
 	job *model.Job,
 	matrix map[string]any,
@@ -73,12 +70,12 @@ func NewInterpeter(
 		Context:    "job",
 	}
 
-	return exprparser.NewInterpeter(ee, config)
+	return exprparser.NewInterpreter(ee, config)
 }
 
-// Returns an interpeter used in the server in the context of workflow-level templates. Needs github, inputs, and vars
+// Returns an interpreter used in the server in the context of workflow-level templates. Needs github, inputs, and vars
 // context only.
-func NewWorkflowInterpeter(
+func NewWorkflowInterpreter(
 	gitCtx *model.GithubContext,
 	vars map[string]string,
 	inputs map[string]any,
@@ -103,10 +100,10 @@ func NewWorkflowInterpeter(
 		Context:    "workflow",
 	}
 
-	return exprparser.NewInterpeter(ee, config)
+	return exprparser.NewInterpreter(ee, config)
 }
 
-// JobResult is the minimum requirement of job results for Interpeter
+// JobResult is the minimum requirement of job results for Interpreter
 type JobResult struct {
 	Needs   []string
 	Result  string

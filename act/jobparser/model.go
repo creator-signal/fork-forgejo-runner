@@ -199,7 +199,7 @@ func (evt *Event) Schedules() []map[string]string {
 // returned concurrency group will be "" and cancel-in-progress will be nil -- this can be used to distinguish from an
 // explicit cancel-in-progress choice even if a group isn't specified.
 func EvaluateWorkflowConcurrency(rc *model.RawConcurrency, gitCtx *model.GithubContext, vars map[string]string, inputs map[string]any) (string, *bool, error) {
-	evaluator := NewExpressionEvaluator(NewWorkflowInterpeter(gitCtx, vars, inputs))
+	evaluator := NewExpressionEvaluator(NewWorkflowInterpreter(gitCtx, vars, inputs))
 	var node yaml.Node
 	if err := node.Encode(rc); err != nil {
 		return "", nil, fmt.Errorf("failed to encode concurrency: %w", err)

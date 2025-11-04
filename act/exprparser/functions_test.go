@@ -44,14 +44,14 @@ func TestFunctionContains(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
 		})
 	}
 
-	_, err := NewInterpeter(env, Config{}).Evaluate("contains('one')", DefaultStatusCheckNone)
+	_, err := NewInterpreter(env, Config{}).Evaluate("contains('one')", DefaultStatusCheckNone)
 	assert.Error(t, err)
 }
 
@@ -76,14 +76,14 @@ func TestFunctionStartsWith(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
 		})
 	}
 
-	_, err := NewInterpeter(env, Config{}).Evaluate("startsWith('one')", DefaultStatusCheckNone)
+	_, err := NewInterpreter(env, Config{}).Evaluate("startsWith('one')", DefaultStatusCheckNone)
 	assert.Error(t, err)
 }
 
@@ -108,14 +108,14 @@ func TestFunctionEndsWith(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
 		})
 	}
 
-	_, err := NewInterpeter(env, Config{}).Evaluate("endsWith('one')", DefaultStatusCheckNone)
+	_, err := NewInterpreter(env, Config{}).Evaluate("endsWith('one')", DefaultStatusCheckNone)
 	assert.Error(t, err)
 }
 
@@ -138,14 +138,14 @@ func TestFunctionJoin(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
 		})
 	}
 
-	_, err := NewInterpeter(env, Config{}).Evaluate("join()", DefaultStatusCheckNone)
+	_, err := NewInterpreter(env, Config{}).Evaluate("join()", DefaultStatusCheckNone)
 	assert.Error(t, err)
 }
 
@@ -167,14 +167,14 @@ func TestFunctionToJSON(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
 		})
 	}
 
-	_, err := NewInterpeter(env, Config{}).Evaluate("tojson()", DefaultStatusCheckNone)
+	_, err := NewInterpreter(env, Config{}).Evaluate("tojson()", DefaultStatusCheckNone)
 	assert.Error(t, err)
 }
 
@@ -193,14 +193,14 @@ func TestFunctionFromJSON(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
 		})
 	}
 
-	_, err := NewInterpeter(env, Config{}).Evaluate("fromjson()", DefaultStatusCheckNone)
+	_, err := NewInterpreter(env, Config{}).Evaluate("fromjson()", DefaultStatusCheckNone)
 	assert.Error(t, err)
 }
 
@@ -226,7 +226,7 @@ func TestFunctionHashFiles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			workdir, err := filepath.Abs("testdata")
 			assert.Nil(t, err)
-			output, err := NewInterpeter(env, Config{WorkingDir: workdir}).Evaluate(tt.input, DefaultStatusCheckNone)
+			output, err := NewInterpreter(env, Config{WorkingDir: workdir}).Evaluate(tt.input, DefaultStatusCheckNone)
 			assert.Nil(t, err)
 
 			assert.Equal(t, tt.expected, output)
@@ -264,7 +264,7 @@ func TestFunctionFormat(t *testing.T) {
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			output, err := NewInterpeter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
+			output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			if tt.error != nil {
 				assert.Equal(t, tt.error, err.Error())
 			} else {
@@ -274,7 +274,7 @@ func TestFunctionFormat(t *testing.T) {
 		})
 	}
 
-	_, err := NewInterpeter(env, Config{}).Evaluate("format()", DefaultStatusCheckNone)
+	_, err := NewInterpreter(env, Config{}).Evaluate("format()", DefaultStatusCheckNone)
 	assert.Error(t, err)
 }
 
@@ -292,7 +292,7 @@ func TestMapContains(t *testing.T) {
 		},
 	}
 
-	output, err := NewInterpeter(env, Config{}).Evaluate("contains(needs.*.result, 'failure')", DefaultStatusCheckNone)
+	output, err := NewInterpreter(env, Config{}).Evaluate("contains(needs.*.result, 'failure')", DefaultStatusCheckNone)
 	assert.NoError(t, err)
 
 	assert.Equal(t, true, output)

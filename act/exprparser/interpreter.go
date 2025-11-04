@@ -71,7 +71,7 @@ type interperterImpl struct {
 	config Config
 }
 
-func NewInterpeter(env *EvaluationEnvironment, config Config) Interpreter {
+func NewInterpreter(env *EvaluationEnvironment, config Config) Interpreter {
 	return &interperterImpl{
 		env:    env,
 		config: config,
