@@ -494,6 +494,109 @@ func TestPollerPoll(t *testing.T) {
 	})
 }
 
+func TestPollerPollOnce(t *testing.T) {
+	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.Client, *mock_runner.RunnerInterface, Poller) {
+		mockClient := mocks.NewClient(t)
+		mockClient.On("FetchInterval").Return(10 * time.Millisecond)
+		mockClient.On("Address").Return("https://client")
+		mockRunner := mock_runner.NewRunnerInterface(t)
+		poller := New(pollingCtx, &config.Config{
+			Runner: config.Runner{
+				Capacity: 3, // PollOnce should ignore this and use 1
+			},
+		}, []client.Client{mockClient}, []run.RunnerInterface{mockRunner})
+		return mockClient, mockRunner, poller
+	}
+	teardown := func(t *testing.T, mockClient *mocks.Client, mockRunner *mock_runner.RunnerInterface) {
+		mockClient.AssertExpectations(t)
+		mockRunner.AssertExpectations(t)
+	}
+	emptyResponse := connect.NewResponse(&runnerv1.FetchTaskResponse{
+		Task:            nil,
+		TasksVersion:    int64(1),
+		AdditionalTasks: nil,
+	})
+	task1 := &runnerv1.Task{}
+	oneTaskResponse := connect.NewResponse(&runnerv1.FetchTaskResponse{
+		Task:            task1,
+		TasksVersion:    int64(1),
+		AdditionalTasks: nil,
+	})
+
+	t.Run("PollOnce requests capacity of 1", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					req := args.Get(1).(*connect.Request[runnerv1.FetchTaskRequest])
+					assert.EqualValues(t, 0, req.Msg.GetTasksVersion(), "GetTasksVersion")
+					assert.EqualValues(t, 1, req.Msg.GetTaskCapacity(), "GetTaskCapacity should be 1 for PollOnce")
+				}).
+				Return(emptyResponse, nil)
+
+			go poller.PollOnce()
+			time.Sleep(1 * time.Millisecond)
+			require.NoError(t, poller.Shutdown(t.Context()))
+
+			teardown(t, mockClient, mockRunner)
+		})
+	})
+
+	t.Run("PollOnce stops polling after receiving a task", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Once().
+				Return(oneTaskResponse, nil)
+			mockRunner.On("Run", mock.Anything, mock.Anything).
+				Return(nil)
+
+			go poller.PollOnce()
+			time.Sleep(1 * time.Millisecond)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 1)
+
+			time.Sleep(30 * time.Millisecond)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 1)
+
+			require.NoError(t, poller.Shutdown(t.Context()))
+
+			teardown(t, mockClient, mockRunner)
+		})
+	})
+
+	t.Run("PollOnce continues polling if no task received", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).Return(emptyResponse, nil)
+
+			go poller.PollOnce()
+
+			time.Sleep(1 * time.Millisecond)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 1)
+
+			time.Sleep(10 * time.Millisecond)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 2)
+
+			time.Sleep(10 * time.Millisecond)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 3)
+
+			require.NoError(t, poller.Shutdown(t.Context()))
+
+			teardown(t, mockClient, mockRunner)
+		})
+	})
+}
+
 func TestPollerPollMultipleClients(t *testing.T) {
 	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.Client, *mocks.Client, *mock_runner.RunnerInterface, Poller) {
 		mockClient1 := mocks.NewClient(t)

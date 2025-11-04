@@ -37,6 +37,7 @@ func Execute(ctx context.Context) {
 	registerCmd.Flags().StringVar(&regArgs.Token, "token", "", "Runner token")
 	registerCmd.Flags().StringVar(&regArgs.RunnerName, "name", "", "Runner name")
 	registerCmd.Flags().StringVar(&regArgs.Labels, "labels", "", "Runner tags, comma separated")
+	registerCmd.Flags().BoolVar(&regArgs.Ephemeral, "ephemeral", false, "instruct Forgejo to delete this runner after it has run one job")
 	rootCmd.AddCommand(registerCmd)
 
 	rootCmd.AddCommand(createRunnerFileCmd(ctx, &configFile))
@@ -49,12 +50,14 @@ func Execute(ctx context.Context) {
 	}
 	rootCmd.AddCommand(daemonCmd)
 
+	var runJobArgs runJobArgs
 	jobCmd := &cobra.Command{
 		Use:   "one-job",
 		Short: "Run only one job",
 		Args:  cobra.MaximumNArgs(1),
-		RunE:  runJob(ctx, &configFile),
+		RunE:  runJob(ctx, &configFile, &runJobArgs),
 	}
+	jobCmd.Flags().BoolVarP(&runJobArgs.wait, "wait", "w", false, "waits until task has been assigned")
 	rootCmd.AddCommand(jobCmd)
 
 	rootCmd.AddCommand(loadExecCmd(ctx))

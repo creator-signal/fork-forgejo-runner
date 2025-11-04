@@ -18,6 +18,11 @@ func (_m *Poller) Poll() {
 	_m.Called()
 }
 
+// PollOnce provides a mock function with no fields
+func (_m *Poller) PollOnce() {
+	_m.Called()
+}
+
 // Shutdown provides a mock function with given fields: ctx
 func (_m *Poller) Shutdown(ctx context.Context) error {
 	ret := _m.Called(ctx)

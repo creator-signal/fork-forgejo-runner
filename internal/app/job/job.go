@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
@@ -35,7 +36,15 @@ func NewJob(cfg *config.Config, client client.Client, runner run.RunnerInterface
 	return j
 }
 
-func (j *Job) Run(ctx context.Context) error {
+var NewPoller = poll.New
+
+func (j *Job) Run(ctx context.Context, wait bool) error {
+	if wait {
+		poller := NewPoller(ctx, j.cfg, []client.Client{j.client}, []run.RunnerInterface{j.runner})
+		poller.PollOnce()
+		return nil
+	}
+
 	task, ok := j.fetchTask(ctx)
 	if !ok {
 		return fmt.Errorf("could not fetch task")

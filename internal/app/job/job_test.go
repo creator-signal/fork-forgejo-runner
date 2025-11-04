@@ -11,6 +11,10 @@ import (
 	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
+	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
+	pollmocks "code.forgejo.org/forgejo/runner/v12/internal/app/poll/mocks"
+	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 
 	log "github.com/sirupsen/logrus"
@@ -167,6 +171,101 @@ func TestJob_fetchTask(t *testing.T) {
 			} else {
 				assert.False(t, ok)
 				assert.Nil(t, task)
+			}
+		})
+	}
+}
+
+func TestJob_Run_Wait(t *testing.T) {
+	setTrace(t)
+
+	mockPoller := pollmocks.NewPoller(t)
+	mockPoller.On("PollOnce").Return()
+
+	originalNewPoller := NewPoller
+	NewPoller = func(ctx context.Context, cfg *config.Config, client []client.Client, runner []run.RunnerInterface) poll.Poller {
+		return mockPoller
+	}
+	defer func() { NewPoller = originalNewPoller }()
+
+	j := NewJob(&config.Config{}, &mockClient{}, &mockRunner{})
+
+	err := j.Run(t.Context(), true)
+	assert.NoError(t, err)
+	mockPoller.AssertCalled(t, "PollOnce")
+}
+
+func TestJob_Run_NoWait(t *testing.T) {
+	setTrace(t)
+
+	for _, testCase := range []struct {
+		name          string
+		noTask        bool
+		clientErr     error
+		runnerErr     error
+		runnerPanics  bool
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:        "Success",
+			expectError: false,
+		},
+		{
+			name:          "FetchTask fails - no task",
+			noTask:        true,
+			expectError:   true,
+			errorContains: "could not fetch task",
+		},
+		{
+			name:          "FetchTask fails - client error",
+			clientErr:     fmt.Errorf("fetch error"),
+			expectError:   true,
+			errorContains: "could not fetch task",
+		},
+		{
+			name:        "Runner error",
+			runnerErr:   fmt.Errorf("runner failed"),
+			expectError: true,
+		},
+		{
+			name:         "Runner panics",
+			runnerPanics: true,
+			expectError:  false,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			logChan := make(chan string, 10)
+			configRunner := config.Runner{
+				FetchTimeout: 1 * time.Second,
+				Timeout:      10 * time.Millisecond,
+			}
+
+			j := NewJob(
+				&config.Config{
+					Runner: configRunner,
+				},
+				&mockClient{
+					noTask: testCase.noTask,
+					err:    testCase.clientErr,
+				},
+				&mockRunner{
+					cfg:    &configRunner,
+					log:    logChan,
+					panics: testCase.runnerPanics,
+					err:    testCase.runnerErr,
+				},
+			)
+
+			err := j.Run(t.Context(), false)
+
+			if testCase.expectError {
+				assert.Error(t, err)
+				if testCase.errorContains != "" {
+					assert.Contains(t, err.Error(), testCase.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

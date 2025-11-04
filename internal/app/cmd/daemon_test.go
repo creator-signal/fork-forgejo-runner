@@ -5,9 +5,11 @@ package cmd
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
+	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
 	mock_poller "code.forgejo.org/forgejo/runner/v12/internal/app/poll/mocks"
@@ -18,6 +20,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/testutils"
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -115,4 +118,136 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 
 	// Wait for the daemon goroutine to stop
 	<-runDaemonComplete
+}
+
+func TestRunDaemonEphemeral_pollTask_StopsAfterOneJob(t *testing.T) {
+	mockPoller := mock_poller.NewPoller(t)
+	mockPoller.On("PollOnce").Return(nil)
+
+	pollTask(t.Context(), mockPoller, true)
+	mockPoller.AssertCalled(t, "PollOnce", mock.Anything)
+	mockPoller.AssertNotCalled(t, "Poll", mock.Anything)
+}
+
+// expecting that pollTask returns when PollOnce succeeds
+func TestRunDaemonEphemeral_pollTask_DoneContextFinished(t *testing.T) {
+	mockPoller := mock_poller.NewPoller(t)
+	mockPoller.On("PollOnce").Run(func(args mock.Arguments) {}).Return(nil)
+
+	osSignal := t.Context()
+
+	pollFinishedChan := make(chan interface{})
+	go func() {
+		defer close(pollFinishedChan)
+		pollTask(osSignal, mockPoller, true)
+	}()
+
+	select {
+	case <-pollFinishedChan:
+		// good case
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "routine 'pollTask' took too long to finish")
+		// bad case
+	}
+
+	mockPoller.AssertNumberOfCalls(t, "PollOnce", 1)
+}
+
+// expecting that pollTask respects provided context
+func TestRunDaemonEphemeral_pollTask_ReactsOnContext(t *testing.T) {
+	osSignal, cancelOsSignal := context.WithCancel(t.Context())
+	mockPoller := mock_poller.NewPoller(t)
+	mockPoller.On("PollOnce").Run(func(args mock.Arguments) {
+		cancelOsSignal()
+		// block until test is done
+		<-t.Context().Done()
+	}).Return(nil)
+
+	pollFinishedChan := make(chan interface{})
+	go func() {
+		defer close(pollFinishedChan)
+		pollTask(osSignal, mockPoller, true)
+	}()
+
+	select {
+	case <-pollFinishedChan:
+		// good case
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "routine 'pollTask' took too long to finish")
+		// bad case
+	}
+
+	mockPoller.AssertNumberOfCalls(t, "PollOnce", 1)
+}
+
+func TestRunDaemon_pollTask_ReactsOnContext(t *testing.T) {
+	osSignal, cancelOsSignal := context.WithCancel(t.Context())
+	mockPoller := mock_poller.NewPoller(t)
+	mockPoller.On("Poll").Run(func(args mock.Arguments) {
+		cancelOsSignal()
+		// block until test is done
+		<-t.Context().Done()
+	}).Return(nil)
+
+	pollFinishedChan := make(chan interface{})
+	go func() {
+		defer close(pollFinishedChan)
+		pollTask(osSignal, mockPoller, false)
+	}()
+
+	select {
+	case <-pollFinishedChan:
+		// good case
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "routine 'pollTask' took too long to finish")
+		// bad case
+	}
+
+	mockPoller.AssertNumberOfCalls(t, "Poll", 1)
+}
+
+func TestCreateRunner_PopulatesEphemeralFromClientResponse(t *testing.T) {
+	ctx := t.Context()
+
+	tempDir := t.TempDir()
+	runnerFile := filepath.Join(tempDir, ".runner")
+
+	cfg := &config.Config{
+		Runner: config.Runner{
+			File: runnerFile,
+		},
+	}
+	reg := &config.Registration{
+		Address: "https://example.com",
+		UUID:    "test-uuid",
+		Token:   "test-token",
+	}
+	ls := labels.Labels{}
+
+	mockClient := mock_client.NewClient(t)
+	mockClient.On("Address").Return("https://example.com")
+
+	expectedEphemeral := true
+	mockDeclareResponse := &connect.Response[runnerv1.DeclareResponse]{
+		Msg: &runnerv1.DeclareResponse{
+			Runner: &runnerv1.Runner{
+				Name:      "test-runner",
+				Version:   "v1.0.0",
+				Labels:    []string{"test-label"},
+				Ephemeral: expectedEphemeral,
+			},
+		},
+	}
+
+	mockClient.On("Declare", mock.Anything, mock.Anything).Return(mockDeclareResponse, nil)
+
+	runner, runnerName, err := createRunner(ctx, cfg, reg, mockClient, ls)
+
+	require.NoError(t, err)
+	assert.NotNil(t, runner)
+	assert.Equal(t, "test-runner", runnerName)
+
+	assert.Equal(t, expectedEphemeral, reg.Ephemeral, "reg.Ephemeral should be populated from the Declare response")
+
+	mockClient.AssertCalled(t, "Declare", mock.Anything, mock.Anything)
 }

@@ -86,9 +86,8 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 
 	poller := createPoller(ctx, cfg, []client.Client{cli}, []run.RunnerInterface{runner})
 
-	go poller.Poll()
+	pollTask(signalContext, poller, reg.Ephemeral)
 
-	<-signalContext.Done()
 	log.Infof("runner: %s shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", runnerName, cfg.Runner.ShutdownTimeout)
 
 	shutdownCtx, cancel := context.WithTimeout(daemonContext, cfg.Runner.ShutdownTimeout)
@@ -99,6 +98,29 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 		log.Warnf("runner: %s cancelled in progress jobs during shutdown", runnerName)
 	}
 	return nil
+}
+
+func pollTask(ctx context.Context, poller poll.Poller, ephemeral bool) {
+	if ephemeral {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			poller.PollOnce()
+		}()
+
+		// shutdown when we complete a job or cancel is requested
+		select {
+		case <-ctx.Done():
+			log.Info("runner: received shutdown signal")
+		case <-done:
+			log.Info("runner: ephemeral runner shutting down after job has completed")
+		}
+		return
+	}
+
+	go poller.Poll()
+	<-ctx.Done()
+	log.Info("runner: received shutdown signal")
 }
 
 var initializeConfig = func(configFile *string) (*config.Config, error) {
@@ -227,8 +249,10 @@ var createRunner = func(ctx context.Context, cfg *config.Config, reg *config.Reg
 		return nil, "", err
 	}
 
-	log.Infof("runner: %s, with version: %s, with labels: %v, declared successfully",
-		resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels())
+	reg.Ephemeral = resp.Msg.GetRunner().GetEphemeral()
+
+	log.Infof("runner: %s, with version: %s, with labels: %v, ephemeral: %v, declared successfully",
+		resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels(), resp.Msg.GetRunner().GetEphemeral())
 	// if declared successfully, override the labels in the.runner file with valid labels in the config file (if specified)
 	runner.Update(ctx, ls)
 	reg.Labels = ls.ToStrings()

@@ -331,6 +331,7 @@ func TestReporterReportState(t *testing.T) {
 		name    string
 		fixture func(t *testing.T, reporter *Reporter, client *mocks.Client)
 		assert  func(t *testing.T, reporter *Reporter, ctx context.Context, err error)
+		noMore  bool
 	}{
 		{
 			name: "PartialOutputs",
@@ -376,6 +377,7 @@ func TestReporterReportState(t *testing.T) {
 				require.NoError(t, err)
 				assert.NoError(t, ctx.Err())
 			},
+			noMore: true,
 		},
 		{
 			name: "Canceled",
@@ -415,6 +417,21 @@ func TestReporterReportState(t *testing.T) {
 				assert.ErrorIs(t, ctx.Err(), context.Canceled)
 			},
 		},
+		{
+			name: "should not send final update when it is not the final message",
+			fixture: func(t *testing.T, reporter *Reporter, client *mocks.Client) {
+				t.Helper()
+				reporter.state = &runnerv1.TaskState{
+					Result: runnerv1.Result_RESULT_SUCCESS,
+				}
+			},
+			assert: func(t *testing.T, reporter *Reporter, ctx context.Context, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				reporter.client.(*mocks.Client).AssertNotCalled(t, "UpdateTask")
+			},
+			noMore: false,
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			client := mocks.NewClient(t)
@@ -426,7 +443,7 @@ func TestReporterReportState(t *testing.T) {
 			}, time.Second, &config.Retry{})
 
 			testCase.fixture(t, reporter, client)
-			err = reporter.ReportState()
+			err = reporter.ReportState(testCase.noMore)
 			testCase.assert(t, reporter, ctx, err)
 		})
 	}

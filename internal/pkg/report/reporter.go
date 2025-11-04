@@ -213,7 +213,7 @@ func (r *Reporter) RunDaemon() {
 	if err != nil {
 		r.log.Warnf("ReportLog error: %v", err)
 	}
-	err = r.ReportState()
+	err = r.ReportState(false)
 	if err != nil {
 		r.log.Warnf("ReportState error: %v", err)
 	}
@@ -322,7 +322,8 @@ func (r *Reporter) Close(runErr error) error {
 			r.log.Warnf("uploading final logs failed, but will be retried: %v", err)
 			return err
 		}
-		if err := r.ReportState(); err != nil {
+
+		if err := r.ReportState(true); err != nil {
 			r.log.Warnf("uploading final status failed, but will be retried: %v", err)
 			return err
 		}
@@ -403,7 +404,7 @@ func (r *Reporter) ReportLog(noMore bool) error {
 	return nil
 }
 
-func (r *Reporter) ReportState() error {
+func (r *Reporter) ReportState(noMore bool) error {
 	r.clientM.Lock()
 	defer r.clientM.Unlock()
 
@@ -411,6 +412,12 @@ func (r *Reporter) ReportState() error {
 	state := proto.Clone(r.state).(*runnerv1.TaskState)
 	outputs := r.cloneOutputs()
 	r.stateMu.RUnlock()
+
+	if !noMore && state.Result != runnerv1.Result_RESULT_UNSPECIFIED {
+		// skip final ReportState so ReportLog called from reporter.Close() can send its log before the job finishes
+		r.log.Debugf("Skipping ReportState to ensure ReportLog can be executed")
+		return nil
+	}
 
 	resp, err := r.client.UpdateTask(r.ctx, connect.NewRequest(&runnerv1.UpdateTaskRequest{
 		State:   state,

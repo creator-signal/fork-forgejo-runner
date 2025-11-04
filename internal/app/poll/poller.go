@@ -25,6 +25,7 @@ const PollerID = "PollerID"
 //go:generate mockery --name Poller
 type Poller interface {
 	Poll()
+	PollOnce()
 	Shutdown(ctx context.Context) error
 }
 
@@ -71,18 +72,25 @@ func (p *poller) init(ctx context.Context, cfg *config.Config, clients []client.
 }
 
 func (p *poller) Poll() {
+	capacity := int64(p.cfg.Runner.Capacity)
+	p.poll(capacity, false)
+}
+
+func (p *poller) PollOnce() {
+	p.poll(1, true)
+}
+
+func (p *poller) poll(capacity int64, ephemeral bool) {
 	limiters := make([]*rate.Limiter, len(p.clients))
 	for i := range p.clients {
 		limiters[i] = rate.NewLimiter(rate.Every(p.clients[i].FetchInterval()), 1)
 	}
 	taskVersions := make([]atomic.Int64, len(p.clients))
-
-	capacity := int64(p.cfg.Runner.Capacity)
 	inProgressTasks := atomic.Int64{}
 	wg := &sync.WaitGroup{}
 
 	// When we start a FetchTask, we'll be requesting (capacity - inProgressTasks) tasks from a remote and may receive
-	// up to that number.  We can't perform multiple fetches simulanteously or else we could be overprovisioned for
+	// up to that number.  We can't perform multiple fetches simultaneously or else we could be overprovisioned for
 	// capacity.  fetchMutex is held during each fetch.  It's not a sync.Mutex because those aren't supported by
 	// synctest; a buffered channel of size 1 is used as a replacement.
 	fetchMutex := make(chan any, 1)
@@ -90,7 +98,7 @@ func (p *poller) Poll() {
 	log.Infof("[poller] launched")
 	for i := range p.clients {
 		wg.Go(func() {
-			p.pollForClient(limiters[i], p.clients[i], p.runners[i], capacity, fetchMutex, &taskVersions[i], &inProgressTasks, wg)
+			p.pollForClient(limiters[i], p.clients[i], p.runners[i], capacity, fetchMutex, &taskVersions[i], &inProgressTasks, wg, ephemeral)
 		})
 	}
 
@@ -101,7 +109,12 @@ func (p *poller) Poll() {
 	close(p.done)
 }
 
-func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runner run.RunnerInterface, capacity int64, fetchMutex chan any, taskVersions, inProgressTasks *atomic.Int64, wg *sync.WaitGroup) {
+func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runner run.RunnerInterface, capacity int64, fetchMutex chan any, taskVersions, inProgressTasks *atomic.Int64, wg *sync.WaitGroup, ephemeral bool) {
+	if ephemeral && capacity > 1 {
+		log.Infof("[poller] connot run ephemeral runner with more than 1 capacity")
+		return
+	}
+
 	for {
 		if err := limiter.Wait(p.pollingCtx); err != nil {
 			log.Infof("[poller] shutdown begin, %d tasks currently running", inProgressTasks.Load())
@@ -114,6 +127,9 @@ func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runn
 			log.Tracef("[poller] fetching at most %d tasks from client %s", availableCapacity, client.Address())
 			tasks, ok := p.fetchTasks(p.pollingCtx, client, taskVersions, availableCapacity)
 			inProgressTasks.Add(int64(len(tasks)))
+			if len(tasks) > 0 && ephemeral {
+				p.shutdownPolling()
+			}
 			<-fetchMutex // unlock mutex by draining channel
 			if !ok {
 				continue

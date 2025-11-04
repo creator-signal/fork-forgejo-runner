@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"connectrpc.com/connect"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -23,7 +22,11 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/ver"
 )
 
-func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, args []string) error {
+type runJobArgs struct {
+	wait bool
+}
+
+func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.New(config.FromFile(*configFile))
 		if err != nil {
@@ -95,7 +98,7 @@ func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, ar
 
 		var cacheProxy *cacheproxy.Handler
 		if cfg.Cache.Enabled {
-			cacheProxy = run.SetupCache(cfg)
+		  cacheProxy = run.SetupCache(cfg)
 			defer func() {
 				if cacheProxy != nil {
 					err := cacheProxy.Close()
@@ -106,26 +109,12 @@ func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, ar
 			}()
 		}
 
-		runner := run.NewRunner(cfg, reg, cli, cacheProxy)
-		// declare the labels of the runner before fetching tasks
-		resp, err := runner.Declare(ctx, ls.Names())
-		if err != nil && connect.CodeOf(err) == connect.CodeUnimplemented {
-			log.Warn("Because the Forgejo instance is an old version, skipping declaring the labels and version.")
-		} else if err != nil {
-			log.WithError(err).Error("fail to invoke Declare")
+		runner, _, err := createRunner(ctx, cfg, reg, cli, ls, cacheProxy)
+		if err != nil {
 			return err
-		} else {
-			log.Infof("runner: %s, with version: %s, with labels: %v, declared successfully",
-				resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels())
-			// if declared successfully, override the labels in the.runner file with valid labels in the config file (if specified)
-			runner.Update(ctx, ls)
-			reg.Labels = ls.ToStrings()
-			if err := config.SaveRegistration(cfg.Runner.File, reg); err != nil {
-				return fmt.Errorf("failed to save runner config: %w", err)
-			}
 		}
 
 		j := job.NewJob(cfg, cli, runner)
-		return j.Run(ctx)
+		return j.Run(ctx, runJobArgs.wait)
 	}
 }
