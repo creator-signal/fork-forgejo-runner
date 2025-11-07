@@ -344,10 +344,6 @@ func (r *Reporter) ReportLog(noMore bool) error {
 	rows := r.logRows
 	r.stateMu.RUnlock()
 
-	if len(rows) == 0 {
-		return nil
-	}
-
 	if needMore := r.masker.replace(rows, noMore); needMore {
 		return NewErrRetry(errRetryNeedMoreRows)
 	}

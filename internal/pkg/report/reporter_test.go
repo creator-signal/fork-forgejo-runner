@@ -461,41 +461,47 @@ func TestReporterReportLog(t *testing.T) {
 	multiLineSecret := firstLine + "\nTWO\nTHREE\n"
 
 	for _, testCase := range []struct {
-		name     string
-		outgoing string
-		received int
-		sent     string
-		noMore   bool
-		err      error
+		name            string
+		outgoing        string
+		received        int
+		sent            string
+		noMore          bool
+		expectUpdateLog bool
+		err             error
 	}{
 		{
-			name:     "SecretsAreMasked",
-			outgoing: fmt.Sprintf(">>>%s<<< (((%s)))", secret, multiLineSecret),
-			sent:     ">>>***<<< (((***\n***\n***\n***)))\n",
-			err:      nil,
+			name:            "SecretsAreMasked",
+			outgoing:        fmt.Sprintf(">>>%s<<< (((%s)))", secret, multiLineSecret),
+			sent:            ">>>***<<< (((***\n***\n***\n***)))\n",
+			expectUpdateLog: true,
+			err:             nil,
 		},
 		{
-			name: "NoRowsToSend",
-			err:  nil,
+			name:            "NoRowsToSend",
+			expectUpdateLog: true,
+			err:             nil,
 		},
 		{
-			name:     "RetryToMaskSecrets",
-			outgoing: firstLine,
-			err:      NewErrRetry(errRetryNeedMoreRows),
+			name:            "RetryToMaskSecrets",
+			outgoing:        firstLine,
+			expectUpdateLog: false,
+			err:             NewErrRetry(errRetryNeedMoreRows),
 		},
 		{
-			name:     "OnlyTheFirstLineIsReceived",
-			outgoing: "A\nB\nC",
-			received: 1,
-			sent:     "A\n",
+			name:            "OnlyTheFirstLineIsReceived",
+			outgoing:        "A\nB\nC",
+			received:        1,
+			sent:            "A\n",
+			expectUpdateLog: true,
 		},
 		{
-			name:     "RetrySendAll",
-			outgoing: "A\nB\nC",
-			received: 1,
-			sent:     "A\n",
-			noMore:   true,
-			err:      NewErrRetry(errRetrySendAll, 2),
+			name:            "RetrySendAll",
+			outgoing:        "A\nB\nC",
+			received:        1,
+			sent:            "A\n",
+			noMore:          true,
+			expectUpdateLog: true,
+			err:             NewErrRetry(errRetrySendAll, 2),
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -506,7 +512,7 @@ func TestReporterReportLog(t *testing.T) {
 			reporter.logRows = rows
 
 			sent := ""
-			if testCase.sent != "" {
+			if testCase.expectUpdateLog {
 				client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
 					t.Logf("UpdateLogRequest: %s", req.Msg.String())
 					rows := req.Msg.Rows
@@ -550,17 +556,19 @@ func TestReporterClose(t *testing.T) {
 	mockReporterCloser := func(t *testing.T, message *string, result *runnerv1.Result) *Reporter {
 		t.Helper()
 		reporter, client, _ := mockReporter(t)
-		if message != nil {
-			client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
+		client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
+			resp := &runnerv1.UpdateLogResponse{}
+			if message != nil {
 				t.Logf("UpdateLogRequest: %s", req.Msg.String())
 				assert.Equal(t, (*message)+"\n", rowsToString(req.Msg.Rows))
-				resp := &runnerv1.UpdateLogResponse{
-					AckIndex: req.Msg.Index + 1,
-				}
-				t.Logf("UpdateLogResponse: %s", resp.String())
-				return connect_go.NewResponse(resp), nil
-			})
-		}
+				resp.AckIndex = req.Msg.Index + 1
+			} else {
+				assert.Empty(t, req.Msg.Rows)
+			}
+			assert.True(t, req.Msg.NoMore)
+			t.Logf("UpdateLogResponse: %s", resp.String())
+			return connect_go.NewResponse(resp), nil
+		})
 
 		if result != nil {
 			client.On("UpdateTask", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
