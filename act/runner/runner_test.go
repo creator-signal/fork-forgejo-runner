@@ -281,6 +281,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "job-container", "push", "", platforms, secrets},
 		{workdir, "job-container-non-root", "push", "", platforms, secrets},
 		{workdir, "job-container-invalid-credentials", "push", "failed to handle credentials: failed to interpolate container.credentials.password", platforms, secrets},
+		{workdir, "job-container-env-reference", "push", "", platforms, map[string]string{"ALPINE_TAG": "3.22"}},
 		{workdir, "container-hostname", "push", "", platforms, secrets},
 		{workdir, "remote-action-docker", "push", "", platforms, secrets},
 		{workdir, "remote-action-js", "push", "", platforms, secrets},

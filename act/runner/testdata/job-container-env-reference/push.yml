@@ -1,0 +1,21 @@
+name: job-container
+on: push
+
+env:
+  ATdirect: 3.22
+  ATvar: ${{ secrets.ALPINE_TAG }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/alpine:${{ env.ATdirect }}
+    steps:
+      - run: cat /etc/os-release
+      - run: echo ${{ env.ATdirect }}
+      - run: echo ${{ env.ATvar }}
+  test2:
+    runs-on: ubuntu-latest
+    container: code.forgejo.org/oci/alpine:${{ env.ATvar }}
+    steps:
+      - run: cat /etc/os-release

@@ -42,6 +42,21 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		return common.NewDebugExecutor("No steps found")
 	}
 
+	// setupWorkflowLevelEnv evaluates expressions in env, but only for workflow-level environment variables that can be
+	// evaluated before a job container is created.
+	setupWorkflowLevelEnv := func(ctx context.Context) error {
+		// Have to be skipped for some Tests
+		if rc.Run == nil {
+			return nil
+		}
+		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+		// evaluate environment variables since they can contain
+		// GitHub's special environment variables.
+		for k, v := range rc.Run.Workflow.Env {
+			rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+		}
+		return nil
+	}
 	preSteps = append(preSteps, func(ctx context.Context) error {
 		// Have to be skipped for some Tests
 		if rc.Run == nil {
@@ -144,21 +159,24 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	pipeline = append(pipeline, preSteps...)
 	pipeline = append(pipeline, steps...)
 
-	return common.NewPipelineExecutor(info.startContainer(), common.NewPipelineExecutor(pipeline...).
-		Finally(func(ctx context.Context) error { //nolint:contextcheck
-			var cancel context.CancelFunc
-			if ctx.Err() == context.Canceled {
-				// in case of an aborted run, we still should execute the
-				// post steps to allow cleanup.
-				ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), cleanupTimeout)
-				defer cancel()
-			}
-			return postExecutor(ctx)
-		}).
-		Finally(info.interpolateOutputs()).
-		Finally(setJobResults).
-		Finally(cleanupJob).
-		Finally(info.closeContainer()))
+	return common.NewPipelineExecutor(
+		setupWorkflowLevelEnv, // allows workflow-level env to be used in the job container's definition
+		info.startContainer(),
+		common.NewPipelineExecutor(pipeline...).
+			Finally(func(ctx context.Context) error { //nolint:contextcheck
+				var cancel context.CancelFunc
+				if ctx.Err() == context.Canceled {
+					// in case of an aborted run, we still should execute the
+					// post steps to allow cleanup.
+					ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), cleanupTimeout)
+					defer cancel()
+				}
+				return postExecutor(ctx)
+			}).
+			Finally(info.interpolateOutputs()).
+			Finally(setJobResults).
+			Finally(cleanupJob).
+			Finally(info.closeContainer()))
 }
 
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {
