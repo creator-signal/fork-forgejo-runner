@@ -51,7 +51,7 @@ func GetHostInfo(ctx context.Context) (info system.Info, err error) {
 	return system.Info{}, nil
 }
 
-func NewDockerVolumeRemoveExecutor(volume string, force bool) common.Executor {
+func NewDockerVolumesRemoveExecutor(volumeNames []string) common.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}
