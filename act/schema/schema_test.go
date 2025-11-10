@@ -39,6 +39,7 @@ on: push
 
 jobs:
   job:
+    if: forge.KEY || forgejo.KEY || github.KEY || inputs.KEY || vars.KEY || needs.KEY || secrets.KEY || env.THINGY == 'true'
     uses: ./.forgejo/workflow/test.yaml
     strategy:
       matrix:

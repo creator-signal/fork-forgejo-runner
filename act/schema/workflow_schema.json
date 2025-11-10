@@ -1526,7 +1526,8 @@
         "failure(0,MAX)",
         "cancelled(0,0)",
         "success(0,MAX)",
-        "secrets"
+        "secrets",
+        "env"
       ],
       "string": {
         "is-expression": true
