@@ -1,0 +1,8 @@
+{
+  "inputs": {
+    "string": "yes",
+    "boolean": "true",
+    "yes": "YES",
+    "off": "off"
+  }
+}

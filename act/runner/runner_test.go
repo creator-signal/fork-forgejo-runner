@@ -319,6 +319,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "workflow_dispatch_no_inputs_mapping", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "workflow_dispatch-scalar", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "workflow_dispatch-scalar-composite-action", "workflow_dispatch", "", platforms, secrets},
+		{workdir, "workflow_dispatch-yaml-conversion", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "uses-workflow-defaults", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "job-needs-context-contains-result", "push", "", platforms, secrets},
 		{"../model/testdata", "strategy", "push", "", platforms, secrets}, // TODO: move all testdata into pkg so we can validate it with planner and runner

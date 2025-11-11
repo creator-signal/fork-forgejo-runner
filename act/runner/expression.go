@@ -503,7 +503,12 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 					value = v.Default
 				}
 				if v.Type == "boolean" {
-					inputs[k] = value == "true"
+					if stringValue, ok := value.(string); ok {
+						inputs[k] = yamlTruePattern.MatchString(stringValue)
+					} else {
+						// If it's not a string, it cannot be `true`.
+						inputs[k] = false
+					}
 				} else {
 					inputs[k] = value
 				}
@@ -587,3 +592,6 @@ func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 func getWorkflowVars(_ context.Context, rc *RunContext) map[string]string {
 	return rc.Config.Vars
 }
+
+// See https://yaml.org/type/bool.html for the specification.
+var yamlTruePattern = regexp.MustCompile(`y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON$`)
