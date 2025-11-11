@@ -56,7 +56,7 @@ jobs:
           systemctl restart docker
 
       - uses: https://data.forgejo.org/docker/setup-qemu-action@v3
-      - uses: https://data.forgejo.org/docker/setup-buildx-action@v2
+      - uses: https://data.forgejo.org/docker/setup-buildx-action@v3
         with:
           # insecure / http connections to the registry are allowed
           config-inline: |
