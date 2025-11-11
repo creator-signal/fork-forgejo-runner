@@ -525,7 +525,12 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 					_ = v.Default.Decode(&value)
 				}
 				if v.Type == "boolean" {
-					inputs[k] = value == "true"
+					if stringValue, ok := value.(string); ok {
+						inputs[k] = yamlTruePattern.MatchString(stringValue)
+					} else {
+						// If it's not a string, it cannot be `true`.
+						inputs[k] = false
+					}
 				} else {
 					inputs[k] = value
 				}

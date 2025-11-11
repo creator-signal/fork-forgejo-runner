@@ -1,0 +1,40 @@
+name: workflow_call
+
+on:
+  workflow_call:
+    inputs:
+      string:
+        description: a string input with a boolean value
+        required: true
+      boolean:
+        description: a classic boolean
+        required: true
+      yes:
+        description: a string that is true in YAML
+        required: true
+        type: boolean
+      no:
+        description: a string that is false in YAML
+        required: true
+        type: boolean
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: String `yes` should remain `yes`
+        run: |
+          echo "inputs.string=${{ inputs.string }}"
+          [[ "${{ inputs.string }}" = "yes" ]] || exit 1
+      - name: Normal boolean `true` should be `true`
+        run: |
+          echo inputs.boolean=${{ tojson(inputs.boolean) }}
+          [[ "${{ tojson(inputs.boolean) }}" = "true" ]] || exit 1
+      - name: YAML boolean `yes` should be `true`
+        run: |
+          echo inputs.yes=${{ tojson(inputs.yes) }}
+          [[ "${{ tojson(inputs.yes) }}" = "true" ]] || exit 1
+      - name: YAML boolean `no` should be `false`
+        run: |
+          echo inputs.no=${{ tojson(inputs.no) }}
+          [[ "${{ tojson(inputs.no) }}" = "false" ]] || exit 1
