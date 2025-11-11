@@ -121,7 +121,7 @@ function lxc_create() {
   local lib=$LIB/$name
   local etc=$ETC/$INPUTS_SERIAL
 
-  lxc-helpers.sh --config "$INPUTS_LXC_CONFIG" lxc_container_create $name
+  lxc-helpers.sh --os ${DEBIAN_RELEASE} --config "$INPUTS_LXC_CONFIG" lxc_container_create $name
   echo "lxc.start.auto = 1" | sudo tee -a /var/lib/lxc/$name/config
 
   local bin=/var/lib/lxc/$name/rootfs/usr/local/bin
