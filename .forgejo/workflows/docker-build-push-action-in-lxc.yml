@@ -71,7 +71,7 @@ jobs:
           password: ${{ env.FORGEJO_PASSWORD }}
 
       - name: build and push to the Forgejo registry
-        uses: https://data.forgejo.org/docker/build-push-action@v5
+        uses: https://data.forgejo.org/docker/build-push-action@v6
         with:
           context: examples/docker-build-push-action
           push: true
