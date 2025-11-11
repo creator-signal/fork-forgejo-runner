@@ -183,11 +183,11 @@ func (impl *interperterImpl) fromJSON(value reflect.Value) (any, error) {
 func (impl *interperterImpl) hashFiles(paths ...reflect.Value) (string, error) {
 	var ps []gitignore.Pattern
 
-	const cwdPrefix = "." + string(filepath.Separator)
-	const excludeCwdPrefix = "!" + cwdPrefix
+	const cwdPrefix = "./"
+	const excludeCwdPrefix = "!./"
 	for _, path := range paths {
 		if path.Kind() == reflect.String {
-			cleanPath := path.String()
+			cleanPath := filepath.ToSlash(path.String()) // use '/' for cross-platform consistency
 			if strings.HasPrefix(cleanPath, cwdPrefix) {
 				cleanPath = cleanPath[len(cwdPrefix):]
 			} else if strings.HasPrefix(cleanPath, excludeCwdPrefix) {
