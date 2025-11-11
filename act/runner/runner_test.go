@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	assert "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
+	"gotest.tools/v3/skip"
 
 	"code.forgejo.org/forgejo/runner/v11/act/common"
 	"code.forgejo.org/forgejo/runner/v11/act/model"
@@ -228,6 +230,7 @@ func TestRunner_RunEvent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	ctx := t.Context()
 
@@ -376,6 +379,7 @@ func TestRunner_DryrunEvent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	ctx := common.WithDryrun(t.Context(), true)
 
@@ -405,6 +409,7 @@ func TestRunner_DockerActionForcePullForceRebuild(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	ctx := t.Context()
 
@@ -430,6 +435,7 @@ func TestRunner_RunDifferentArchitecture(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	tjfi := TestJobFileInfo{
 		workdir:      workdir,
@@ -462,6 +468,7 @@ func TestRunner_RunSkipped(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	for _, what := range []string{"step", "job"} {
 		t.Run(what, func(t *testing.T) {
@@ -524,6 +531,7 @@ func TestRunner_MaskValues(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	log.SetLevel(log.DebugLevel)
 
@@ -547,6 +555,7 @@ func TestRunner_RunEventSecrets(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 	workflowPath := "secrets"
 
 	tjfi := TestJobFileInfo{
@@ -569,6 +578,7 @@ func TestRunner_RunWithService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	log.SetLevel(log.DebugLevel)
 	ctx := t.Context()
@@ -606,6 +616,7 @@ func TestRunner_RunActionInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 	workflowPath := "input-from-cli"
 
 	tjfi := TestJobFileInfo{
@@ -627,6 +638,7 @@ func TestRunner_RunEventPullRequest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	workflowPath := "pull-request"
 
@@ -645,6 +657,7 @@ func TestRunner_RunMatrixWithUserDefinedInclusions(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 	workflowPath := "matrix-with-user-inclusions"
 
 	tjfi := TestJobFileInfo{
@@ -674,6 +687,7 @@ func TestRunner_RunsOnMatrix(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	log.SetLevel(log.DebugLevel)
 

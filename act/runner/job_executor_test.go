@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"slices"
 	"sync"
 	"testing"
@@ -16,11 +17,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"gotest.tools/v3/skip"
 )
 
 //go:generate mockery --srcpkg=github.com/sirupsen/logrus --name=FieldLogger
 
 func TestJobExecutor(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
 	tables := []TestJobFileInfo{
 		{workdir, "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, secrets},
 		{workdir, "uses-github-empty", "push", "job:test step:empty", platforms, secrets},

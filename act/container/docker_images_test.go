@@ -2,12 +2,14 @@ package container
 
 import (
 	"io"
+	"runtime"
 	"testing"
 
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"gotest.tools/v3/skip"
 )
 
 func init() {
@@ -15,6 +17,7 @@ func init() {
 }
 
 func TestImageExistsLocally(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}

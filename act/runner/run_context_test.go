@@ -15,6 +15,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v11/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v11/act/model"
 	"code.forgejo.org/forgejo/runner/v11/testutils"
+	"gotest.tools/v3/skip"
 
 	"github.com/docker/go-connections/nat"
 	log "github.com/sirupsen/logrus"
@@ -710,6 +711,7 @@ func TestRunContext_SanitizeNetworkAlias(t *testing.T) {
 }
 
 func TestRunContext_PrepareJobContainer(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
 	yaml := `
 on:
   push:

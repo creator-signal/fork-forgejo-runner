@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"connectrpc.com/connect"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/structpb"
+	"gotest.tools/v3/skip"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -233,6 +235,7 @@ func TestRunnerCacheConfiguration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	forgejoClient := &forgejoClientMock{}
 
@@ -436,6 +439,7 @@ func TestRunnerCacheStartupFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	testCases := []struct {
 		desc   string
@@ -528,6 +532,7 @@ func TestRunnerLXC(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	forgejoClient := &forgejoClientMock{}
 
@@ -604,6 +609,7 @@ func TestRunnerResources(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	forgejoClient := &forgejoClientMock{}
 
@@ -679,6 +685,7 @@ jobs:
 	})
 
 	t.Run("config.yaml --memory set and within limits", func(t *testing.T) {
+		skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
@@ -737,6 +744,7 @@ jobs:
 	})
 
 	t.Run("container --memory set and within limits", func(t *testing.T) {
+		skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
