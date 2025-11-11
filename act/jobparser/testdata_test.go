@@ -3,7 +3,7 @@ package jobparser
 import (
 	"bytes"
 	"embed"
-	"path/filepath"
+	"path"
 	"testing"
 
 	"code.forgejo.org/forgejo/runner/v11/act/model"
@@ -16,7 +16,7 @@ var testdata embed.FS
 
 func ReadTestdata(t *testing.T, name string) []byte {
 	t.Helper()
-	filename := filepath.Join("testdata", name)
+	filename := path.Join("testdata", name)
 	content, err := testdata.ReadFile(filename)
 	require.NoError(t, err, filename)
 	_, err = model.ReadWorkflow(bytes.NewReader(content), true)
