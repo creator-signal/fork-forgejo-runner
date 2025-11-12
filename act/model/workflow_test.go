@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -679,7 +680,7 @@ func TestStepUsesHash(t *testing.T) {
 			s := &Step{
 				Uses: tt.fields.Uses,
 			}
-			assert.Equalf(t, tt.want, s.UsesHash(), "UsesHash()")
+			assert.Equalf(t, filepath.FromSlash(tt.want), s.UsesHash(), "UsesHash()")
 		})
 	}
 }
