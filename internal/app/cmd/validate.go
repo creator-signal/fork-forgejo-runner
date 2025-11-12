@@ -42,7 +42,7 @@ func validate(dir, path string, isWorkflow, isAction bool) error {
 	}
 
 	if len(dir) > 0 {
-		dir += "/"
+		dir = filepath.FromSlash(dir) + string(filepath.Separator)
 	}
 	shortPath := strings.TrimPrefix(path, dir)
 	kind := "workflow"
@@ -63,7 +63,7 @@ func validatePath(validateArgs *validateArgs) error {
 	if !validateArgs.workflow && !validateArgs.action {
 		return errors.New("one of --workflow or --action must be set")
 	}
-	return validate("", validateArgs.path, validateArgs.workflow, validateArgs.action)
+	return validate("", filepath.FromSlash(validateArgs.path), validateArgs.workflow, validateArgs.action)
 }
 
 func validatePathMatch(existing, search string) bool {
@@ -72,7 +72,7 @@ func validatePathMatch(existing, search string) bool {
 	}
 	existing = strings.TrimSuffix(existing, ".yml")
 	existing = strings.TrimSuffix(existing, ".yaml")
-	return existing == search || strings.HasSuffix(existing, "/"+search)
+	return existing == search || strings.HasSuffix(existing, string(filepath.Separator)+search)
 }
 
 func validateHasYamlSuffix(s string) bool {

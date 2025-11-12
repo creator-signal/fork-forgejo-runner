@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -111,12 +112,12 @@ func Test_validateCmd(t *testing.T) {
 			cmd := loadValidateCmd(ctx)
 			cmdOut, stdOut, stdErr, err := executeCommand(ctx, t, cmd, testCase.args...)
 			if testCase.message != "" {
-				assert.ErrorContains(t, err, testCase.message)
+				assert.ErrorContains(t, err, filepath.FromSlash(testCase.message))
 			} else {
 				assert.NoError(t, err)
 			}
 			if testCase.stdOut != "" {
-				assert.Contains(t, stdOut, testCase.stdOut)
+				assert.Contains(t, stdOut, filepath.FromSlash(testCase.stdOut))
 			} else {
 				assert.Empty(t, stdOut)
 			}
