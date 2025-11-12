@@ -108,3 +108,7 @@ jobs:
           debug: ${{ vars.DEBUG == 'yes' }}
           wait-iteration: 120
           update: .forgejo/cascading-forgejo
+         env:
+             # forgejo can be infront and then go mod tidy fails
+             # setup-go v6+ set's toolchain to local
+            GOTOOLCHAIN: auto
