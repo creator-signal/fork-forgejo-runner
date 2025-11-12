@@ -233,19 +233,32 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 	}
 
 	t.Run("ContainerVolumeMountTest", func(t *testing.T) {
+		type PlatformRestriction int
+
+		const (
+			WindowsOnly    PlatformRestriction = iota // Shall run only on Windows
+			NonWindowsOnly                            // Shall run only on non-Windows
+			Always                                    // Shall always run, regardless of OS
+		)
+
 		tests := []struct {
+			platform  PlatformRestriction
 			name      string
 			volumes   []string
 			wantbind  string
 			wantmount map[string]string
 		}{
-			{"BindAnonymousVolume", []string{"/volume"}, "/volume", map[string]string{}},
-			{"BindHostFile", []string{"/path/to/file/on/host:/volume"}, "/path/to/file/on/host:/volume", map[string]string{}},
-			{"MountExistingVolume", []string{"volume-id:/volume"}, "", map[string]string{"volume-id": "/volume"}},
+			{Always, "BindAnonymousVolume", []string{"/volume"}, "/volume", map[string]string{}},
+			{NonWindowsOnly, "BindHostFile", []string{"/path/to/file/on/host:/volume"}, "/path/to/file/on/host:/volume", map[string]string{}},
+			{WindowsOnly, "BindWindowsHostFile", []string{"C:\\path\\to\\file\\on\\host:/volume"}, "C:\\path\\to\\file\\on\\host:/volume", map[string]string{}},
+			{Always, "MountExistingVolume", []string{"volume-id:/volume"}, "", map[string]string{"volume-id": "/volume"}},
 		}
 
 		for _, testcase := range tests {
 			t.Run(testcase.name, func(t *testing.T) {
+				skip.If(t, isWindows && testcase.platform == NonWindowsOnly)
+				skip.If(t, !isWindows && testcase.platform == WindowsOnly)
+
 				job := &model.Job{}
 				err := job.RawContainer.Encode(map[string][]string{
 					"volumes": testcase.volumes,
