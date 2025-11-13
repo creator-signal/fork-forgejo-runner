@@ -308,6 +308,7 @@ func RunnerArch(ctx context.Context) string {
 		"386":     "X86",
 		"aarch64": "ARM64",
 		"arm64":   "ARM64",
+		"loong64": "LoongArch64",
 	}
 	if arch, ok := archMapper[info.Architecture]; ok {
 		return arch
