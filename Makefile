@@ -7,7 +7,7 @@ GO ?= $(shell go env GOROOT)/bin/go
 SHASUM ?= shasum -a 256
 HAS_GO = $(shell hash $(GO) > /dev/null 2>&1 && echo "GO" || echo "NOGO" )
 
-LINUX_ARCHS ?= linux/amd64,linux/arm64
+LINUX_ARCHS ?= linux/amd64,linux/arm64,linux/loong64
 DARWIN_ARCHS ?= darwin-12/amd64,darwin-12/arm64
 WINDOWS_ARCHS ?= windows/amd64
 GO_FMT_FILES := $(shell find . -type f -name "*.go" ! -name "generated.*")
