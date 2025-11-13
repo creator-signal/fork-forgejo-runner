@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/timshannon/bolthold"
 	"go.etcd.io/bbolt"
+	"gotest.tools/v3/skip"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1193,6 +1195,7 @@ func waitSig(t *testing.T, c <-chan os.Signal, sig os.Signal) {
 }
 
 func TestHandler_fatal(t *testing.T) {
+	skip.If(t, runtime.GOOS == "windows") // Windows does not terminate in an awaitable manner
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM)
 	defer signal.Stop(c)
