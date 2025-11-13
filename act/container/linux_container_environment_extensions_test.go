@@ -35,13 +35,18 @@ func TestContainerPath(t *testing.T) {
 			{fmt.Sprintf("/mnt/%v/act", rootDriveLetter), "act", fmt.Sprintf("%s\\", rootDrive)},
 		} {
 			if v.workDir != "" {
-				t.Chdir(v.workDir)
+				if err := os.Chdir(v.workDir); err != nil {
+					log.Error(err)
+					t.Fail()
+				}
 			}
 
 			assert.Equal(t, v.destinationPath, linuxcontainerext.ToContainerPath(v.sourcePath))
 		}
 
-		t.Chdir(cwd)
+		if err := os.Chdir(cwd); err != nil {
+			log.Error(err)
+		}
 	} else {
 		cwd, err := os.Getwd()
 		if err != nil {
