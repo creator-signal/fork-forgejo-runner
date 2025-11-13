@@ -35,6 +35,7 @@ func TestContainerPath(t *testing.T) {
 			{fmt.Sprintf("/mnt/%v/act", rootDriveLetter), "act", fmt.Sprintf("%s\\", rootDrive)},
 		} {
 			if v.workDir != "" {
+				//nolint:usetesting
 				if err := os.Chdir(v.workDir); err != nil {
 					log.Error(err)
 					t.Fail()
@@ -44,6 +45,7 @@ func TestContainerPath(t *testing.T) {
 			assert.Equal(t, v.destinationPath, linuxcontainerext.ToContainerPath(v.sourcePath))
 		}
 
+		//nolint:usetesting
 		if err := os.Chdir(cwd); err != nil {
 			log.Error(err)
 		}
