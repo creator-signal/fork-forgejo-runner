@@ -2,10 +2,13 @@ package exprparser
 
 import (
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"code.forgejo.org/forgejo/runner/v11/act/model"
 	"github.com/stretchr/testify/assert"
+	"gotest.tools/v3/skip"
 )
 
 func TestFunctionContains(t *testing.T) {
@@ -231,6 +234,7 @@ func TestFunctionHashFiles(t *testing.T) {
 	env := &EvaluationEnvironment{}
 
 	for _, tt := range table {
+		skip.If(t, runtime.GOOS != "windows" && strings.HasPrefix(tt.name, "dos")) // Windows and macOS cannot run linux docker container natively
 		t.Run(tt.name, func(t *testing.T) {
 			workdir, err := filepath.Abs("testdata")
 			assert.Nil(t, err)
