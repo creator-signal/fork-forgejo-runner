@@ -60,8 +60,12 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	if err != nil {
 		return common.NewErrorExecutor(fmt.Errorf("'%s' cannot be parsed as a URL: %v", uses, err))
 	}
+	host := url.Host
+	if host == "" {
+		host = rc.Config.GitHubInstance
+	}
 
-	remoteReusableWorkflow := newRemoteReusableWorkflowWithPlat(url.Host, strings.TrimPrefix(url.Path, "/"))
+	remoteReusableWorkflow := newRemoteReusableWorkflowWithPlat(host, strings.TrimPrefix(url.Path, "/"))
 	if remoteReusableWorkflow == nil {
 		return common.NewErrorExecutor(fmt.Errorf("expected format {owner}/{repo}/.{git_platform}/workflows/{filename}@{ref}. Actual '%s' Input string was not in a correct format", url.Path))
 	}

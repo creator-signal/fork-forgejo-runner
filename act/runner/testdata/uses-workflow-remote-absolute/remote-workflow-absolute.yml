@@ -2,7 +2,7 @@ on: push
 
 jobs:
   reusable-workflow:
-    uses: https://code.forgejo.org/forgejo/act-test-actions/.github/workflows/reusable-workflow.yml@main
+    uses: https://code.forgejo.org/forgejo/act-test-actions/.github/workflows/reusable-workflow.yml@tag3
     with:
       string_required: string
       bool_required: ${{ true }}
@@ -11,7 +11,7 @@ jobs:
       secret: keep_it_private
 
   reusable-workflow-with-inherited-secrets:
-    uses: https://code.forgejo.org/forgejo/act-test-actions/.github/workflows/reusable-workflow.yml@main
+    uses: https://code.forgejo.org/forgejo/act-test-actions/.github/workflows/reusable-workflow.yml@tag4
     with:
       string_required: string
       bool_required: ${{ true }}

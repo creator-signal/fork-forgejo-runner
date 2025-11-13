@@ -1,5 +1,5 @@
 name: local-reusable-workflows
-on: pull_request
+on: push
 
 jobs:
   reusable-workflow:
