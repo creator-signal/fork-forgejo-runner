@@ -36,6 +36,7 @@ func TestContainerPath(t *testing.T) {
 		} {
 			if v.workDir != "" {
 				//nolint:usetesting
+				// 2025-11-14: t.Chdir does not work because it relies on os.Open(".").Chdir() which fails on Windows
 				if err := os.Chdir(v.workDir); err != nil {
 					log.Error(err)
 					t.Fail()
@@ -46,6 +47,7 @@ func TestContainerPath(t *testing.T) {
 		}
 
 		//nolint:usetesting
+		// 2025-11-14: t.Chdir does not work because it relies on os.Open(".").Chdir() which fails on Windows
 		if err := os.Chdir(cwd); err != nil {
 			log.Error(err)
 		}
