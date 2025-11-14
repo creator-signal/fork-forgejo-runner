@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"archive/tar"
 	"context"
 	"errors"
 	"fmt"
@@ -79,52 +78,10 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	// FIXME: if the reusable workflow is from a private repository, we need to provide a token to access the repository.
 	token := ""
 
-	if rc.Config.ActionCache != nil {
-		return newActionCacheReusableWorkflowExecutor(rc, filename, remoteReusableWorkflow)
-	}
-
 	return common.NewPipelineExecutor(
 		newMutexExecutor(cloneIfRequired(rc, *remoteReusableWorkflow, workflowDir, token)),
 		newReusableWorkflowExecutor(rc, workflowDir, remoteReusableWorkflow.FilePath()),
 	)
-}
-
-func newActionCacheReusableWorkflowExecutor(rc *RunContext, filename string, remoteReusableWorkflow *remoteReusableWorkflow) common.Executor {
-	return func(ctx context.Context) error {
-		ghctx := rc.getGithubContext(ctx)
-		remoteReusableWorkflow.URL = ghctx.ServerURL
-		sha, err := rc.Config.ActionCache.Fetch(ctx, filename, remoteReusableWorkflow.CloneURL(), remoteReusableWorkflow.Ref, ghctx.Token)
-		if err != nil {
-			return err
-		}
-		archive, err := rc.Config.ActionCache.GetTarArchive(ctx, filename, sha, fmt.Sprintf(".github/workflows/%s", remoteReusableWorkflow.Filename))
-		if err != nil {
-			return err
-		}
-		defer archive.Close()
-		treader := tar.NewReader(archive)
-		if _, err = treader.Next(); err != nil {
-			return err
-		}
-		planner, err := model.NewSingleWorkflowPlanner(remoteReusableWorkflow.Filename, treader)
-		if err != nil {
-			return err
-		}
-		plan, err := planner.PlanEvent("workflow_call")
-		if err != nil {
-			return err
-		}
-
-		runner, err := NewReusableWorkflowRunner(rc)
-		if err != nil {
-			return err
-		}
-
-		planErr := runner.NewPlanExecutor(plan)(ctx)
-
-		// Finalize from parent context: one job-level banner
-		return finalizeReusableWorkflow(ctx, rc, planErr)
-	}
 }
 
 var executorLock sync.Mutex

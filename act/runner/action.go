@@ -136,16 +136,6 @@ func maybeCopyToActionDir(ctx context.Context, step actionStep, actionDir, actio
 		containerActionDirCopy += `/`
 	}
 
-	if rc.Config != nil && rc.Config.ActionCache != nil {
-		raction := step.(*stepActionRemote)
-		ta, err := rc.Config.ActionCache.GetTarArchive(ctx, raction.cacheDir, raction.resolvedSha, "")
-		if err != nil {
-			return err
-		}
-		defer ta.Close()
-		return rc.JobContainer.CopyTarStream(ctx, containerActionDirCopy, ta)
-	}
-
 	if err := removeGitIgnore(ctx, actionDir); err != nil {
 		return err
 	}
@@ -322,13 +312,6 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir stri
 			var buildContext io.ReadCloser
 			if localAction {
 				buildContext, err = rc.JobContainer.GetContainerArchive(ctx, contextDir+"/.")
-				if err != nil {
-					return err
-				}
-				defer buildContext.Close()
-			} else if rc.Config.ActionCache != nil {
-				rstep := step.(*stepActionRemote)
-				buildContext, err = rc.Config.ActionCache.GetTarArchive(ctx, rstep.cacheDir, rstep.resolvedSha, contextDir)
 				if err != nil {
 					return err
 				}

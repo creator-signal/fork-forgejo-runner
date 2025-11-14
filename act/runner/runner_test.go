@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -191,7 +190,6 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		ContainerArchitecture: cfg.ContainerArchitecture,
 		Matrix:                cfg.Matrix,
 		JobLoggerLevel:        cfg.JobLoggerLevel,
-		ActionCache:           cfg.ActionCache,
 	}
 
 	runner, err := New(runnerConfig)
@@ -220,8 +218,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 }
 
 type TestConfig struct {
-	LocalRepositories map[string]string `yaml:"local-repositories,omitempty"`
-	Env               map[string]string `yaml:"env,omitempty"`
+	Env map[string]string `yaml:"env,omitempty"`
 }
 
 func TestRunner_RunEvent(t *testing.T) {
@@ -352,17 +349,8 @@ func TestRunner_RunEvent(t *testing.T) {
 			testConfigFile := filepath.Join(workdir, table.workflowPath, "config/config.yml")
 			if file, err := os.ReadFile(testConfigFile); err == nil {
 				testConfig := &TestConfig{}
-				if yaml.Unmarshal(file, testConfig) == nil {
-					if testConfig.LocalRepositories != nil {
-						config.ActionCache = &LocalRepositoryCache{
-							Parent: GoGitActionCache{
-								path.Clean(path.Join(workdir, "cache")),
-							},
-							LocalRepositories: testConfig.LocalRepositories,
-							CacheDirCache:     map[string]string{},
-						}
-					}
-				}
+				err := yaml.Unmarshal(file, testConfig)
+				require.NoError(t, err)
 				config.Env = testConfig.Env
 			}
 
