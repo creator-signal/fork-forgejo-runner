@@ -1,0 +1,44 @@
+name: "env in jobs.<id>.if"
+
+on:
+  push:
+
+env:
+  F: false
+  T: true
+
+jobs:
+  should-run:
+    runs-on: "ubuntu-latest"
+    if: ${{ env.T == 'true' }}
+    steps:
+      - run: "true"
+  should-run-too:
+    runs-on: "ubuntu-latest"
+    if: ${{ env.ABSOLUTELY == 'true' }}
+    env:
+      ABSOLUTELY: true
+    steps:
+      - run: "true"
+  should-not-run:
+    runs-on: "ubuntu-latest"
+    if: ${{ env.F == 'true' }}
+    steps:
+      - run: "true"
+  evaluate:
+    runs-on: "ubuntu-latest"
+    if: ${{ always() }}
+    needs:
+      - should-run
+      - should-run-too
+      - should-not-run
+    steps:
+      - run: |
+          echo "needs.should-run.result=${{ needs.should-run.result }}"
+          [[ "${{ needs.should-run.result }}" = "success" ]] || exit 1
+
+          echo "needs.should-run-too.result=${{ needs.should-run-too.result }}"
+          [[ "${{ needs.should-run-too.result }}" = "success" ]] || exit 1
+
+          echo "needs.should-not-run.result=${{ needs.should-not-run.result }}"
+          [[ "${{ needs.should-not-run.result }}" = "skipped" ]] || exit 1

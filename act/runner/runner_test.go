@@ -298,6 +298,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "issue-597", "push", "", platforms, secrets},
 		{workdir, "issue-598", "push", "", platforms, secrets},
 		{workdir, "if-env-act", "push", "", platforms, secrets},
+		{workdir, "if-access-env", "push", "", platforms, secrets},
 		{workdir, "env-and-path", "push", "", platforms, secrets},
 		{workdir, "environment-files", "push", "", platforms, secrets},
 		{workdir, "GITHUB_STATE", "push", "", platforms, secrets},
