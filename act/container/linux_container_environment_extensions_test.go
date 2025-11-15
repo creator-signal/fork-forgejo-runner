@@ -9,6 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContainerPath(t *testing.T) {
@@ -39,7 +40,7 @@ func TestContainerPath(t *testing.T) {
 				// 2025-11-14: t.Chdir does not work because it relies on os.Open(".").Chdir() which fails on Windows
 				if err := os.Chdir(v.workDir); err != nil {
 					log.Error(err)
-					t.Fail()
+					require.NoError(t, err)
 				}
 			}
 
