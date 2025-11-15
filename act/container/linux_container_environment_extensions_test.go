@@ -51,6 +51,7 @@ func TestContainerPath(t *testing.T) {
 		// 2025-11-14: t.Chdir does not work because it relies on os.Open(".").Chdir() which fails on Windows
 		if err := os.Chdir(cwd); err != nil {
 			log.Error(err)
+			require.NoError(t, err)
 		}
 	} else {
 		cwd, err := os.Getwd()
