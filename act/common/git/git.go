@@ -318,25 +318,39 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 			return err
 		}
 
-		isOfflineMode := input.OfflineMode
-
-		// fetch latest changes
-		fetchOptions, pullOptions := gitOptions(input.Token)
-
-		if input.InsecureSkipTLS { // For Gitea
-			fetchOptions.InsecureSkipTLS = true
-			pullOptions.InsecureSkipTLS = true
+		// Optimization: if `input.Ref` is a full sha and it can be found in the repo already, then we can avoid
+		// performing a fetch operation because it won't change.
+		skipFetch := false
+		var hash *plumbing.Hash
+		rev := plumbing.Revision(input.Ref)
+		hash, err = r.ResolveRevision(rev)
+		if err != nil && !errors.Is(err, plumbing.ErrReferenceNotFound) {
+			// unexpected error
+			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+			return err
+		} else if !hash.IsZero() && hash.String() == input.Ref {
+			skipFetch = true
 		}
 
-		if !isOfflineMode {
-			err = r.Fetch(&fetchOptions)
-			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-				return err
+		if !skipFetch {
+			isOfflineMode := input.OfflineMode
+
+			// fetch latest changes
+			fetchOptions, _ := gitOptions(input.Token)
+
+			if input.InsecureSkipTLS { // For Gitea
+				fetchOptions.InsecureSkipTLS = true
+			}
+
+			if !isOfflineMode {
+				err = r.Fetch(&fetchOptions)
+				if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+					return err
+				}
 			}
 		}
 
-		var hash *plumbing.Hash
-		rev := plumbing.Revision(input.Ref)
+		rev = plumbing.Revision(input.Ref)
 		if hash, err = r.ResolveRevision(rev); err != nil {
 			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
 			return err
