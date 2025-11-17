@@ -233,7 +233,7 @@ func setupEnv(ctx context.Context, step step) error {
 	// merge step env last, since it should not be overwritten
 	mergeIntoMap(step, step.getEnv(), step.getStepModel().GetEnv())
 
-	exprEval := rc.NewExpressionEvaluator(ctx)
+	exprEval := rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
 	for k, v := range *step.getEnv() {
 		if !strings.HasPrefix(k, "INPUT_") {
 			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)

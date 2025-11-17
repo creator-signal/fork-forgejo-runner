@@ -1,0 +1,15 @@
+name: env-and-path
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          [[ "${{ env.FORGEJO_EVENT_NAME == 'push' }}" = "true" ]] || exit 1
+          [[ "${{ env.EVENT }}" = "true" ]] || exit 1
+          [[ "$EVENT" = "true" ]] || exit 1
+        env:
+          # Defines a step-level env variable that requires `withGithubEnv` content to be available before the env
+          # variable is evaluated.
+          EVENT: ${{ env.FORGEJO_EVENT_NAME == 'push' }}
