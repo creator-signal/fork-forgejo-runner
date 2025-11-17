@@ -491,7 +491,7 @@ func TestCloneIfRequired(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("clone", func(t *testing.T) {
-		repo, err := CloneIfRequired(ctx, "refs/heads/main", NewGitCloneExecutorInput{
+		repo, err := cloneIfRequired(ctx, "refs/heads/main", NewGitCloneExecutorInput{
 			URL: "https://github.com/actions/checkout",
 			Dir: tempDir,
 		}, common.Logger(ctx))
@@ -500,7 +500,7 @@ func TestCloneIfRequired(t *testing.T) {
 	})
 
 	t.Run("clone different remote", func(t *testing.T) {
-		repo, err := CloneIfRequired(ctx, "refs/heads/main", NewGitCloneExecutorInput{
+		repo, err := cloneIfRequired(ctx, "refs/heads/main", NewGitCloneExecutorInput{
 			URL: "https://github.com/actions/setup-go",
 			Dir: tempDir,
 		}, common.Logger(ctx))

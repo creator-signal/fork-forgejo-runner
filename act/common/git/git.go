@@ -232,8 +232,7 @@ type NewGitCloneExecutorInput struct {
 	InsecureSkipTLS bool
 }
 
-// CloneIfRequired ...
-func CloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
 	// If the remote URL has changed, remove the directory and clone again.
 	if r, err := git.PlainOpen(input.Dir); err == nil {
 		if remote, err := r.Remote("origin"); err == nil {
@@ -313,7 +312,7 @@ func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
 		defer cloneLock.Unlock()
 
 		refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-		r, err := CloneIfRequired(ctx, refName, input, logger)
+		r, err := cloneIfRequired(ctx, refName, input, logger)
 		if err != nil {
 			return err
 		}
