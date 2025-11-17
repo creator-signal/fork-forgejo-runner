@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -231,17 +232,17 @@ type CloneInput struct {
 	InsecureSkipTLS bool   // when true, TLS verification will be skipped on remote operations
 }
 
-func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input CloneInput, logger log.FieldLogger, worktreeDir string) (*git.Repository, error) {
+func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input CloneInput, logger log.FieldLogger, repoDir string) (*git.Repository, error) {
 	// If the remote URL has changed, remove the directory and clone again.
-	if r, err := git.PlainOpen(worktreeDir); err == nil {
+	if r, err := git.PlainOpen(repoDir); err == nil {
 		if remote, err := r.Remote("origin"); err == nil {
 			if len(remote.Config().URLs) > 0 && remote.Config().URLs[0] != input.URL {
-				_ = os.RemoveAll(worktreeDir)
+				_ = os.RemoveAll(repoDir)
 			}
 		}
 	}
 
-	r, err := git.PlainOpen(worktreeDir)
+	r, err := git.PlainOpen(repoDir)
 	if err != nil {
 		var progressWriter io.Writer
 		if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
@@ -268,16 +269,18 @@ func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 			}
 		}
 
-		r, err = git.PlainCloneContext(ctx, worktreeDir, false, &cloneOptions)
+		logger.Infof("  \u2601\ufe0f  git clone '%s' # ref=%s", input.URL, input.Ref)
+		logger.Debugf("  cloning %s to %s", input.URL, repoDir)
+		r, err = git.PlainCloneContext(ctx, repoDir, true /* bare */, &cloneOptions)
 		if err != nil {
 			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
 			return nil, err
 		}
 
-		if err = os.Chmod(worktreeDir, 0o755); err != nil {
+		if err = os.Chmod(repoDir, 0o755); err != nil {
 			return nil, err
 		}
-		logger.Debugf("Cloned %s to %s", input.URL, worktreeDir)
+		logger.Debugf("Cloned %s to %s", input.URL, repoDir)
 	}
 
 	return r, nil
@@ -305,37 +308,66 @@ type Worktree interface {
 	WorktreeDir() string // fully qualified path to the work tree for this repo
 }
 
-type NoopWorktree struct {
+type gitWorktree struct {
+	repoDir     string
 	worktreeDir string
+	closed      bool
 }
 
-func (*NoopWorktree) Close() error {
-	return nil // no-op, to be expanded in the future
+func (t *gitWorktree) Close() error {
+	if !t.closed {
+		cmd := exec.Command("git", "-C", t.repoDir, "worktree", "remove", "--force", "--end-of-options", t.worktreeDir)
+		output, err := cmd.CombinedOutput()
+		worktreeOutput := strings.TrimSpace(string(output))
+		if err != nil {
+			return fmt.Errorf("git worktree remove error: %s: %v", worktreeOutput, err)
+		}
+
+		// prune will remove any record of worktrees that are removed from disk, in the event something didn't cleanup
+		// above, but was removed by some other external force from the filesystem.
+		cmd = exec.Command("git", "-C", t.repoDir, "worktree", "prune")
+		output, err = cmd.CombinedOutput()
+		worktreeOutput = strings.TrimSpace(string(output))
+		if err != nil {
+			return fmt.Errorf("git worktree prune error: %s: %v", worktreeOutput, err)
+		}
+
+		t.closed = true
+	}
+	return nil
 }
 
-func (t *NoopWorktree) WorktreeDir() string {
+func (t *gitWorktree) WorktreeDir() string {
 	return t.worktreeDir
 }
 
-// Clones a git repo.  The repo contents are stored opaquely in the provided `CacheDir`, and may be reused optimize
-// future clone operations.  The returned value contains a path to the working tree that can be used to interact with
-// the requested ref; it must be closed to indicate operations against it are complete.
+// Clones a git repo.  The repo contents are stored opaquely in the provided `CacheDir`, and may be reused by future
+// clone operations.  The returned value contains a path to the working tree that can be used to interact with the
+// requested ref; it must be closed to indicate operations against it are complete.
 func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	if input.CacheDir == "" {
 		return nil, errors.New("missing CacheDir to Clone()")
 	}
 
-	worktreeDir := filepath.Join(input.CacheDir, safeFilename(fmt.Sprintf("%s@%s", input.URL, input.Ref)))
+	// worktreeDir's format is /[0-9a-f]{2}/[0-9a-f]{62}.  Originally this was a hash of a step's `uses:` text, and the
+	// intent was to avoid a flat & wide filesystem by having one byte as a parent directory.  Then it got encoded into
+	// the Forgejo end-to-end tests as the expected directory path format for FORGEJO_ACTION_PATH and that format was
+	// retained here because it's a fine idea and for test compatibility.
+	worktreeDir := filepath.Join(input.CacheDir, common.MustRandName(1), common.MustRandName(31))
+
+	// To make the input URL into a safe path name, to use a fixed length to minimize long pathname issues, and to
+	// follow the same principal above of avoiding a flat & wide filesystem, hash the input URL and format it into a
+	// directory for the bare repo:
+	inputURLHash := common.Sha256(input.URL)
+	repoDir := filepath.Join(input.CacheDir, inputURLHash[:2], inputURLHash[2:])
 
 	logger := common.Logger(ctx)
-	logger.Infof("  \u2601\ufe0f  git clone '%s' # ref=%s", input.URL, input.Ref)
-	logger.Debugf("  cloning %s to %s", input.URL, worktreeDir)
 
 	cloneLock.Lock()
 	defer cloneLock.Unlock()
 
 	refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-	r, err := cloneIfRequired(ctx, refName, input, logger, worktreeDir)
+	r, err := cloneIfRequired(ctx, refName, input, logger, repoDir)
 	if err != nil {
 		return nil, err
 	}
@@ -352,6 +384,7 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 		return nil, err
 	} else if !hash.IsZero() && hash.String() == input.Ref {
 		skipFetch = true
+		logger.Infof("  \u2601\ufe0f  git fetch '%s' skipped; ref=%s cached", input.URL, input.Ref)
 	}
 
 	if !skipFetch {
@@ -365,6 +398,7 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 		}
 
 		if !isOfflineMode {
+			logger.Infof("  \u2601\ufe0f  git fetch '%s' # ref=%s", input.URL, input.Ref)
 			err = r.Fetch(&fetchOptions)
 			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 				return nil, err
@@ -385,33 +419,14 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 		}
 	}
 
-	var w *git.Worktree
-	if w, err = r.Worktree(); err != nil {
-		return nil, err
+	// go-git doesn't support managing multiple worktrees, so shell out to git.
+	logger.Debugf("  git worktree create for ref=%s (sha=%s) to %s", input.Ref, hash.String(), worktreeDir)
+	cmd := exec.Command("git", "-C", repoDir, "worktree", "add", "-f", "--end-of-options", worktreeDir, hash.String())
+	output, err := cmd.CombinedOutput()
+	worktreeOutput := strings.TrimSpace(string(output))
+	if err != nil {
+		return nil, fmt.Errorf("git worktree add error: %s: %v", worktreeOutput, err)
 	}
 
-	if err = w.Reset(&git.ResetOptions{
-		Mode:   git.HardReset,
-		Commit: *hash,
-	}); err != nil {
-		logger.Errorf("Unable to reset to %s: %v", hash.String(), err)
-		return nil, err
-	}
-
-	logger.Debugf("Checked out %s", input.Ref)
-	return &NoopWorktree{worktreeDir}, nil
-}
-
-func safeFilename(s string) string {
-	return strings.NewReplacer(
-		`<`, "-",
-		`>`, "-",
-		`:`, "-",
-		`"`, "-",
-		`/`, "-",
-		`\`, "-",
-		`|`, "-",
-		`?`, "-",
-		`*`, "-",
-	).Replace(s)
+	return &gitWorktree{repoDir: repoDir, worktreeDir: worktreeDir}, nil
 }

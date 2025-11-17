@@ -524,3 +524,56 @@ func TestCloneIfRequired(t *testing.T) {
 		assert.Equal(t, "https://github.com/actions/setup-go", remote.Config().URLs[0])
 	})
 }
+
+func TestFindGitRevision(t *testing.T) {
+	t.Run("on created repo", func(t *testing.T) {
+		remoteDir := makeTestRepo(t)
+
+		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
+
+		short, sha, err := FindGitRevision(t.Context(), remoteDir)
+		require.NoError(t, err)
+		assert.Equal(t, fullSHA, sha)
+		assert.Equal(t, fullSHA[:7], short)
+	})
+
+	t.Run("on cloned repo", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		remoteDir := makeTestRepo(t)
+
+		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
+
+		wt, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      fullSHA,
+		})
+		require.NoError(t, err)
+		defer wt.Close()
+
+		short, sha, err := FindGitRevision(t.Context(), wt.WorktreeDir())
+		require.NoError(t, err)
+		assert.Equal(t, fullSHA, sha)
+		assert.Equal(t, fullSHA[:7], short)
+	})
+}
+
+func TestFindGitRefOnClone(t *testing.T) {
+	cacheDir := t.TempDir()
+	remoteDir := makeTestRepo(t)
+
+	fullSHA := makeTestCommit(t, remoteDir, "initial commit")
+	makeTestTag(t, remoteDir, fullSHA, "tag-1")
+
+	wt, err := Clone(t.Context(), CloneInput{
+		CacheDir: cacheDir,
+		URL:      remoteDir,
+		Ref:      fullSHA,
+	})
+	require.NoError(t, err)
+	defer wt.Close()
+
+	ref, err := FindGitRef(t.Context(), wt.WorktreeDir())
+	require.NoError(t, err)
+	assert.Equal(t, "refs/tags/tag-1", ref)
+}

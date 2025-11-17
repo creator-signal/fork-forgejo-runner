@@ -309,17 +309,3 @@ func parseAction(action string) *remoteAction {
 		URL:  "",
 	}
 }
-
-func safeFilename(s string) string {
-	return strings.NewReplacer(
-		`<`, "-",
-		`>`, "-",
-		`:`, "-",
-		`"`, "-",
-		`/`, "-",
-		`\`, "-",
-		`|`, "-",
-		`?`, "-",
-		`*`, "-",
-	).Replace(s)
-}
