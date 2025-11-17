@@ -28,6 +28,7 @@ type stepActionRemote struct {
 	action              *model.Action
 	env                 map[string]string
 	remoteAction        *remoteAction
+	workTree            git.Worktree
 }
 
 var stepActionRemoteGitClone = git.Clone
@@ -62,37 +63,39 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			}
 		}
 
-		actionDir := filepath.Join(sar.RunContext.ActionCacheDir(), sar.Step.UsesHash())
-		err := stepActionRemoteGitClone(ctx, git.CloneInput{
-			URL:   sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance),
-			Ref:   sar.remoteAction.Ref,
-			Dir:   actionDir,
-			Token: "", /*
-				Shouldn't provide token when cloning actions,
-				the token comes from the instance which triggered the task,
-				however, it might be not the same instance which provides actions.
-				For GitHub, they are the same, always github.com.
-				But for Gitea, tasks triggered by a.com can clone actions from b.com.
-			*/
-			OfflineMode: sar.RunContext.Config.ActionOfflineMode,
-
-			InsecureSkipTLS: sar.cloneSkipTLS(), // For Gitea
-		})
 		var ntErr common.Executor
-		if err != nil {
-			if errors.Is(err, git.ErrShortRef) {
-				return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
-					sar.Step.Uses, sar.remoteAction.Ref, err.(*git.Error).Commit())
-			} else if errors.Is(err, gogit.ErrForceNeeded) { // TODO: figure out if it will be easy to shadow/alias go-git err's
-				ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
-			} else {
-				return err
+		if sar.workTree == nil {
+			wt, err := stepActionRemoteGitClone(ctx, git.CloneInput{
+				CacheDir: sar.RunContext.ActionCacheDir(),
+				URL:      sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance),
+				Ref:      sar.remoteAction.Ref,
+				Token:    "", /*
+					Shouldn't provide token when cloning actions,
+					the token comes from the instance which triggered the task,
+					however, it might be not the same instance which provides actions.
+					For GitHub, they are the same, always github.com.
+					But for Gitea, tasks triggered by a.com can clone actions from b.com.
+				*/
+				OfflineMode: sar.RunContext.Config.ActionOfflineMode,
+
+				InsecureSkipTLS: sar.cloneSkipTLS(), // For Gitea
+			})
+			if err != nil {
+				if errors.Is(err, git.ErrShortRef) {
+					return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
+						sar.Step.Uses, sar.remoteAction.Ref, err.(*git.Error).Commit())
+				} else if errors.Is(err, gogit.ErrForceNeeded) { // TODO: figure out if it will be easy to shadow/alias go-git err's
+					ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
+				} else {
+					return err
+				}
 			}
+			sar.workTree = wt
 		}
 
 		remoteReader := func(ctx context.Context) actionYamlReader {
 			return func(filename string) (io.Reader, io.Closer, error) {
-				f, err := os.Open(filepath.Join(actionDir, sar.remoteAction.Path, filename))
+				f, err := os.Open(filepath.Join(sar.workTree.WorktreeDir(), sar.remoteAction.Path, filename))
 				return f, f, err
 			}
 		}
@@ -100,7 +103,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		return common.NewPipelineExecutor(
 			ntErr,
 			func(ctx context.Context) error {
-				actionModel, err := sar.readAction(ctx, sar.Step, actionDir, sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
+				actionModel, err := sar.readAction(ctx, sar.Step, sar.workTree.WorktreeDir(), sar.remoteAction.Path, remoteReader(ctx), os.WriteFile)
 				sar.action = actionModel
 				return err
 			},
@@ -131,7 +134,7 @@ func (sar *stepActionRemote) main() common.Executor {
 				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
 			}
 
-			actionDir := filepath.Join(sar.RunContext.ActionCacheDir(), sar.Step.UsesHash())
+			actionDir := sar.workTree.WorktreeDir()
 
 			return sar.runAction(sar, actionDir, sar.remoteAction)(ctx)
 		}),
@@ -139,7 +142,17 @@ func (sar *stepActionRemote) main() common.Executor {
 }
 
 func (sar *stepActionRemote) post() common.Executor {
-	return runStepExecutor(sar, stepStagePost, runPostStep(sar)).If(hasPostStep(sar)).If(shouldRunPostStep(sar))
+	return runStepExecutor(sar, stepStagePost, runPostStep(sar)).
+		If(hasPostStep(sar)).
+		If(shouldRunPostStep(sar)).
+		Finally(func(ctx context.Context) error {
+			if sar.workTree != nil {
+				if err := sar.workTree.Close(); err != nil {
+					common.Logger(ctx).Warnf("non-fatal error cleaning up step work tree: %v", err)
+				}
+			}
+			return nil
+		})
 }
 
 func (sar *stepActionRemote) getRunContext() *RunContext {
@@ -190,7 +203,7 @@ func (sar *stepActionRemote) getActionModel() *model.Action {
 
 func (sar *stepActionRemote) getCompositeRunContext(ctx context.Context) *RunContext {
 	if sar.compositeRunContext == nil {
-		actionDir := filepath.Join(sar.RunContext.ActionCacheDir(), sar.Step.UsesHash())
+		actionDir := sar.workTree.WorktreeDir()
 		actionLocation := path.Join(actionDir, sar.remoteAction.Path)
 		_, containerActionDir := getContainerActionPaths(sar.getStepModel(), actionLocation, sar.RunContext)
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -741,11 +740,6 @@ func (s *Step) Type() StepType {
 		return StepTypeUsesActionLocal
 	}
 	return StepTypeUsesActionRemote
-}
-
-func (s *Step) UsesHash() string {
-	hashString := common.Sha256(s.Uses)
-	return filepath.Join(hashString[:2], hashString[2:])
 }
 
 // ReadWorkflow returns a list of jobs for a given workflow file reader

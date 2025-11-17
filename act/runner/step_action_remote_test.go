@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 
 	"code.forgejo.org/forgejo/runner/v11/act/common"
@@ -28,6 +29,19 @@ func (sarm *stepActionRemoteMocks) readAction(_ context.Context, step *model.Ste
 func (sarm *stepActionRemoteMocks) runAction(step actionStep, actionDir string, remoteAction *remoteAction) common.Executor {
 	args := sarm.Called(step, actionDir, remoteAction)
 	return args.Get(0).(func(context.Context) error)
+}
+
+type UselessWorktree struct {
+	closed bool
+}
+
+func (t *UselessWorktree) Close() error {
+	t.closed = true
+	return nil
+}
+
+func (t *UselessWorktree) WorktreeDir() string {
+	return ""
 }
 
 func TestStepActionRemoteOK(t *testing.T) {
@@ -122,13 +136,14 @@ func TestStepActionRemoteOK(t *testing.T) {
 
 			cm := &containerMock{}
 			sarm := &stepActionRemoteMocks{}
+			wt := &UselessWorktree{}
 
 			clonedAction := false
 
 			origStepAtionRemoteGitClone := stepActionRemoteGitClone
-			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) error {
+			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) (git.Worktree, error) {
 				clonedAction = true
-				return nil
+				return wt, nil
 			}
 			defer (func() {
 				stepActionRemoteGitClone = origStepAtionRemoteGitClone
@@ -191,6 +206,11 @@ func TestStepActionRemoteOK(t *testing.T) {
 			assert.Equal(t, tt.mocks.cloned, clonedAction)
 			assert.Equal(t, sar.RunContext.StepResults["step"], tt.result)
 
+			assert.False(t, wt.closed)
+			err = sar.post()(ctx)
+			require.NoError(t, err)
+			assert.True(t, wt.closed)
+
 			sarm.AssertExpectations(t)
 			cm.AssertExpectations(t)
 		})
@@ -218,9 +238,9 @@ func TestStepActionRemotePre(t *testing.T) {
 			sarm := &stepActionRemoteMocks{}
 
 			origStepAtionRemoteGitClone := stepActionRemoteGitClone
-			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) error {
+			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) (git.Worktree, error) {
 				clonedAction = true
-				return nil
+				return &UselessWorktree{}, nil
 			}
 			defer (func() {
 				stepActionRemoteGitClone = origStepAtionRemoteGitClone
@@ -277,11 +297,11 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 			sarm := &stepActionRemoteMocks{}
 
 			origStepAtionRemoteGitClone := stepActionRemoteGitClone
-			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) error {
+			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) (git.Worktree, error) {
 				if input.URL == "https://github.com/org/repo" {
 					clonedAction = true
 				}
-				return nil
+				return &UselessWorktree{}, nil
 			}
 			defer (func() {
 				stepActionRemoteGitClone = origStepAtionRemoteGitClone
@@ -479,8 +499,9 @@ func TestStepActionRemotePost(t *testing.T) {
 					StepResults:      tt.initialStepResults,
 					IntraActionState: tt.IntraActionState,
 				},
-				Step:   tt.stepModel,
-				action: tt.actionModel,
+				Step:     tt.stepModel,
+				action:   tt.actionModel,
+				workTree: &UselessWorktree{},
 			}
 			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
 

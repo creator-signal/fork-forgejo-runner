@@ -9,11 +9,10 @@ import (
 	"syscall"
 	"testing"
 
+	"code.forgejo.org/forgejo/runner/v11/act/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"code.forgejo.org/forgejo/runner/v11/act/common"
 )
 
 func TestFindGitSlug(t *testing.T) {
@@ -208,21 +207,24 @@ func TestClone(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			err := Clone(t.Context(), CloneInput{
-				URL: tt.URL,
-				Ref: tt.Ref,
-				Dir: t.TempDir(),
+			wt, err := Clone(t.Context(), CloneInput{
+				CacheDir: t.TempDir(),
+				URL:      tt.URL,
+				Ref:      tt.Ref,
 			})
 			if tt.Err != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.Err, err)
 			} else {
-				assert.Empty(t, err)
+				require.NoError(t, err)
+				wt.Close()
 			}
 		})
 	}
 
 	t.Run("Skips Fetch on Present Full SHA", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
 		// Create a local repo that will act as the remote to be cloned.
 		remoteDir := makeTestRepo(t)
 
@@ -230,35 +232,36 @@ func TestClone(t *testing.T) {
 		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
 
 		// Clone the repo by fullSHA
-		cloneDir := t.TempDir()
-		err := Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: fullSHA,
-			Dir: cloneDir,
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      fullSHA,
 		})
 		require.NoError(t, err)
+		defer wt1.Close()
 
 		// Verify that the head in cloneDir is correct.
-		clonedSHA := getTestRepoHead(t, cloneDir)
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
 		assert.Equal(t, fullSHA, clonedSHA)
 
 		// Create a new commit in the "remote".
 		newCommitSHA := makeTestCommit(t, remoteDir, "second commit")
 
 		// Run the clone again, still targeting the first SHA.
-		err = Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: fullSHA,
-			Dir: cloneDir,
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      fullSHA,
 		})
 		require.NoError(t, err)
+		defer wt2.Close()
 
 		// The clone should still have the original fullSHA as its HEAD...
-		clonedSHA2 := getTestRepoHead(t, cloneDir)
+		clonedSHA2 := getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, fullSHA, clonedSHA2)
 
 		// And we can be sure that the clone operation didn't do a fetch if the second commit, `newCommitSHA`, isn't present:
-		cmd := exec.Command("git", "-C", cloneDir, "log", newCommitSHA)
+		cmd := exec.Command("git", "-C", wt2.WorktreeDir(), "log", newCommitSHA)
 		output, err := cmd.CombinedOutput()
 		require.Error(t, err)
 		errorOutput := strings.TrimSpace(string(output))
@@ -266,6 +269,8 @@ func TestClone(t *testing.T) {
 	})
 
 	t.Run("Refetches Tag Fast-Forward", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
 		// Create a local repo that will act as the remote to be cloned.
 		remoteDir := makeTestRepo(t)
 
@@ -274,16 +279,16 @@ func TestClone(t *testing.T) {
 		makeTestTag(t, remoteDir, fullSHA, "tag-1")
 
 		// Clone the repo by tag
-		cloneDir := t.TempDir()
-		err := Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: "tag-1",
-			Dir: cloneDir,
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "tag-1",
 		})
 		require.NoError(t, err)
+		defer wt1.Close()
 
 		// Verify that the head in cloneDir is correct.
-		clonedSHA := getTestRepoHead(t, cloneDir)
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
 		assert.Equal(t, fullSHA, clonedSHA)
 
 		// Create a new commit in the "remote", and move the tag
@@ -291,19 +296,22 @@ func TestClone(t *testing.T) {
 		makeTestTag(t, remoteDir, newCommitSHA, "tag-1")
 
 		// Run the clone again
-		err = Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: "tag-1",
-			Dir: cloneDir,
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "tag-1",
 		})
 		require.NoError(t, err)
+		defer wt2.Close()
 
 		// The clone should be updated to the new tag ref
-		clonedSHA = getTestRepoHead(t, cloneDir)
+		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, newCommitSHA, clonedSHA)
 	})
 
 	t.Run("Refetches Tag Force-Push", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
 		// Create a local repo that will act as the remote to be cloned.
 		remoteDir := makeTestRepo(t)
 
@@ -313,16 +321,16 @@ func TestClone(t *testing.T) {
 		makeTestTag(t, remoteDir, commit2, "tag-2")
 
 		// Clone the repo by tag
-		cloneDir := t.TempDir()
-		err := Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: "tag-2",
-			Dir: cloneDir,
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "tag-2",
 		})
 		require.NoError(t, err)
+		defer wt1.Close()
 
 		// Verify that the head in cloneDir is correct.
-		clonedSHA := getTestRepoHead(t, cloneDir)
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
 		assert.Equal(t, commit2, clonedSHA)
 
 		// Do a `git reset` to revert the remoteDir back to the initial commit, then add a new commit, then move the tag
@@ -334,19 +342,22 @@ func TestClone(t *testing.T) {
 		makeTestTag(t, remoteDir, commit3, "tag-2")
 
 		// Run the clone again
-		err = Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: "tag-2",
-			Dir: cloneDir,
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "tag-2",
 		})
 		require.NoError(t, err)
+		defer wt2.Close()
 
 		// The clone should be updated to the new tag ref
-		clonedSHA = getTestRepoHead(t, cloneDir)
+		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, commit3, clonedSHA)
 	})
 
 	t.Run("Refetches Branch Fast-Forward", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
 		// Create a local repo that will act as the remote to be cloned.
 		remoteDir := makeTestRepo(t)
 
@@ -354,35 +365,38 @@ func TestClone(t *testing.T) {
 		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
 
 		// Clone the repo by branch, main
-		cloneDir := t.TempDir()
-		err := Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: "main",
-			Dir: cloneDir,
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "main",
 		})
 		require.NoError(t, err)
+		defer wt1.Close()
 
 		// Verify that the head in cloneDir is correct
-		clonedSHA := getTestRepoHead(t, cloneDir)
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
 		assert.Equal(t, fullSHA, clonedSHA)
 
 		// Create a new commit in the "remote", moving the branch forward
 		newCommitSHA := makeTestCommit(t, remoteDir, "second commit")
 
 		// Run the clone again
-		err = Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: "main",
-			Dir: cloneDir,
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "main",
 		})
 		require.NoError(t, err)
+		defer wt2.Close()
 
 		// The clone should be updated to the new branch ref
-		clonedSHA = getTestRepoHead(t, cloneDir)
+		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, newCommitSHA, clonedSHA)
 	})
 
 	t.Run("Refetches Branch Force-Push", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
 		// Create a local repo that will act as the remote to be cloned.
 		remoteDir := makeTestRepo(t)
 
@@ -391,16 +405,16 @@ func TestClone(t *testing.T) {
 		commit2 := makeTestCommit(t, remoteDir, "commit 2")
 
 		// Clone the repo by branch, main
-		cloneDir := t.TempDir()
-		err := Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: "main",
-			Dir: cloneDir,
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "main",
 		})
 		require.NoError(t, err)
+		defer wt1.Close()
 
 		// Verify that the head in cloneDir is correct.
-		clonedSHA := getTestRepoHead(t, cloneDir)
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
 		assert.Equal(t, commit2, clonedSHA)
 
 		// Do a `git reset` to revert the remoteDir back to the initial commit, then add a new commit, moving `main` in
@@ -411,15 +425,16 @@ func TestClone(t *testing.T) {
 		require.NotEqual(t, commit2, commit3)
 
 		// Run the clone again
-		err = Clone(t.Context(), CloneInput{
-			URL: remoteDir,
-			Ref: "main",
-			Dir: cloneDir,
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "main",
 		})
 		require.NoError(t, err)
+		defer wt2.Close()
 
 		// The clone should be updated to the new tag ref
-		clonedSHA = getTestRepoHead(t, cloneDir)
+		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, commit3, clonedSHA)
 	})
 }
@@ -491,8 +506,7 @@ func TestCloneIfRequired(t *testing.T) {
 	t.Run("clone", func(t *testing.T) {
 		repo, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
 			URL: "https://github.com/actions/checkout",
-			Dir: tempDir,
-		}, common.Logger(ctx))
+		}, common.Logger(ctx), tempDir)
 		assert.NoError(t, err)
 		assert.NotNil(t, repo)
 	})
@@ -500,8 +514,7 @@ func TestCloneIfRequired(t *testing.T) {
 	t.Run("clone different remote", func(t *testing.T) {
 		repo, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
 			URL: "https://github.com/actions/setup-go",
-			Dir: tempDir,
-		}, common.Logger(ctx))
+		}, common.Logger(ctx), tempDir)
 		require.NoError(t, err)
 		require.NotNil(t, repo)
 

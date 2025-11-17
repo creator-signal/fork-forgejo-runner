@@ -536,9 +536,9 @@ func runPreStep(step actionStep) common.Executor {
 			// todo: refactor into step
 			var actionDir string
 			var actionPath string
-			if _, ok := step.(*stepActionRemote); ok {
+			if sar, ok := step.(*stepActionRemote); ok {
 				actionPath = newRemoteAction(stepModel.Uses).Path
-				actionDir = filepath.Join(rc.ActionCacheDir(), stepModel.UsesHash())
+				actionDir = sar.workTree.WorktreeDir()
 			} else {
 				actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
 				actionPath = ""
@@ -587,9 +587,9 @@ func runPreStep(step actionStep) common.Executor {
 			// todo: refactor into step
 			var actionDir string
 			var actionPath string
-			if _, ok := step.(*stepActionRemote); ok {
+			if sar, ok := step.(*stepActionRemote); ok {
 				actionPath = newRemoteAction(stepModel.Uses).Path
-				actionDir = filepath.Join(rc.ActionCacheDir(), stepModel.UsesHash())
+				actionDir = sar.workTree.WorktreeDir()
 			} else {
 				actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
 				actionPath = ""
@@ -675,9 +675,9 @@ func runPostStep(step actionStep) common.Executor {
 		// todo: refactor into step
 		var actionDir string
 		var actionPath string
-		if _, ok := step.(*stepActionRemote); ok {
+		if sar, ok := step.(*stepActionRemote); ok {
 			actionPath = newRemoteAction(stepModel.Uses).Path
-			actionDir = filepath.Join(rc.ActionCacheDir(), stepModel.UsesHash())
+			actionDir = sar.workTree.WorktreeDir()
 		} else {
 			actionDir = filepath.Join(rc.Config.Workdir, stepModel.Uses)
 			actionPath = ""

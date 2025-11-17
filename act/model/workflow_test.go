@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -649,40 +648,6 @@ func TestReadWorkflow_WorkflowDispatchConfig(t *testing.T) {
 		Required: true,
 		Type:     "choice",
 	}, workflowDispatch.Inputs["logLevel"])
-}
-
-func TestStepUsesHash(t *testing.T) {
-	type fields struct {
-		Uses string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{
-			name: "regular",
-			fields: fields{
-				Uses: "https://example.com/testa/testb@v3",
-			},
-			want: "e6/d70c1e8a4cc1e1cb02e32b3b60cc8dff319bb4fe5832fbc8b800711f18e7a2",
-		},
-		{
-			name: "empty",
-			fields: fields{
-				Uses: "",
-			},
-			want: "e3/b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Step{
-				Uses: tt.fields.Uses,
-			}
-			assert.Equalf(t, filepath.FromSlash(tt.want), s.UsesHash(), "UsesHash()")
-		})
-	}
 }
 
 func TestReadWorkflow_Concurrency(t *testing.T) {
