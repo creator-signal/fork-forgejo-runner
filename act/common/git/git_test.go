@@ -181,7 +181,7 @@ func TestGitFindRef(t *testing.T) {
 	}
 }
 
-func TestGitCloneExecutor(t *testing.T) {
+func TestClone(t *testing.T) {
 	for name, tt := range map[string]struct {
 		Err      error
 		URL, Ref string
@@ -208,13 +208,11 @@ func TestGitCloneExecutor(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			clone := NewGitCloneExecutor(NewGitCloneExecutorInput{
+			err := Clone(t.Context(), CloneInput{
 				URL: tt.URL,
 				Ref: tt.Ref,
 				Dir: t.TempDir(),
 			})
-
-			err := clone(t.Context())
 			if tt.Err != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.Err, err)
@@ -233,11 +231,11 @@ func TestGitCloneExecutor(t *testing.T) {
 
 		// Clone the repo by fullSHA
 		cloneDir := t.TempDir()
-		err := NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err := Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: fullSHA,
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// Verify that the head in cloneDir is correct.
@@ -248,11 +246,11 @@ func TestGitCloneExecutor(t *testing.T) {
 		newCommitSHA := makeTestCommit(t, remoteDir, "second commit")
 
 		// Run the clone again, still targeting the first SHA.
-		err = NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err = Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: fullSHA,
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// The clone should still have the original fullSHA as its HEAD...
@@ -277,11 +275,11 @@ func TestGitCloneExecutor(t *testing.T) {
 
 		// Clone the repo by tag
 		cloneDir := t.TempDir()
-		err := NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err := Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: "tag-1",
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// Verify that the head in cloneDir is correct.
@@ -293,11 +291,11 @@ func TestGitCloneExecutor(t *testing.T) {
 		makeTestTag(t, remoteDir, newCommitSHA, "tag-1")
 
 		// Run the clone again
-		err = NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err = Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: "tag-1",
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// The clone should be updated to the new tag ref
@@ -316,11 +314,11 @@ func TestGitCloneExecutor(t *testing.T) {
 
 		// Clone the repo by tag
 		cloneDir := t.TempDir()
-		err := NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err := Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: "tag-2",
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// Verify that the head in cloneDir is correct.
@@ -336,11 +334,11 @@ func TestGitCloneExecutor(t *testing.T) {
 		makeTestTag(t, remoteDir, commit3, "tag-2")
 
 		// Run the clone again
-		err = NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err = Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: "tag-2",
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// The clone should be updated to the new tag ref
@@ -357,11 +355,11 @@ func TestGitCloneExecutor(t *testing.T) {
 
 		// Clone the repo by branch, main
 		cloneDir := t.TempDir()
-		err := NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err := Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: "main",
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// Verify that the head in cloneDir is correct
@@ -372,11 +370,11 @@ func TestGitCloneExecutor(t *testing.T) {
 		newCommitSHA := makeTestCommit(t, remoteDir, "second commit")
 
 		// Run the clone again
-		err = NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err = Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: "main",
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// The clone should be updated to the new branch ref
@@ -394,11 +392,11 @@ func TestGitCloneExecutor(t *testing.T) {
 
 		// Clone the repo by branch, main
 		cloneDir := t.TempDir()
-		err := NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err := Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: "main",
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// Verify that the head in cloneDir is correct.
@@ -413,11 +411,11 @@ func TestGitCloneExecutor(t *testing.T) {
 		require.NotEqual(t, commit2, commit3)
 
 		// Run the clone again
-		err = NewGitCloneExecutor(NewGitCloneExecutorInput{
+		err = Clone(t.Context(), CloneInput{
 			URL: remoteDir,
 			Ref: "main",
 			Dir: cloneDir,
-		})(t.Context())
+		})
 		require.NoError(t, err)
 
 		// The clone should be updated to the new tag ref
@@ -491,7 +489,7 @@ func TestCloneIfRequired(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("clone", func(t *testing.T) {
-		repo, err := cloneIfRequired(ctx, "refs/heads/main", NewGitCloneExecutorInput{
+		repo, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
 			URL: "https://github.com/actions/checkout",
 			Dir: tempDir,
 		}, common.Logger(ctx))
@@ -500,7 +498,7 @@ func TestCloneIfRequired(t *testing.T) {
 	})
 
 	t.Run("clone different remote", func(t *testing.T) {
-		repo, err := cloneIfRequired(ctx, "refs/heads/main", NewGitCloneExecutorInput{
+		repo, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
 			URL: "https://github.com/actions/setup-go",
 			Dir: tempDir,
 		}, common.Logger(ctx))

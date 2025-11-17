@@ -125,15 +125,13 @@ func TestStepActionRemoteOK(t *testing.T) {
 
 			clonedAction := false
 
-			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
-					clonedAction = true
-					return nil
-				}
+			origStepAtionRemoteGitClone := stepActionRemoteGitClone
+			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) error {
+				clonedAction = true
+				return nil
 			}
 			defer (func() {
-				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
+				stepActionRemoteGitClone = origStepAtionRemoteGitClone
 			})()
 
 			sar := &stepActionRemote{
@@ -219,15 +217,13 @@ func TestStepActionRemotePre(t *testing.T) {
 			clonedAction := false
 			sarm := &stepActionRemoteMocks{}
 
-			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
-					clonedAction = true
-					return nil
-				}
+			origStepAtionRemoteGitClone := stepActionRemoteGitClone
+			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) error {
+				clonedAction = true
+				return nil
 			}
 			defer (func() {
-				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
+				stepActionRemoteGitClone = origStepAtionRemoteGitClone
 			})()
 
 			sar := &stepActionRemote{
@@ -280,17 +276,15 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 			clonedAction := false
 			sarm := &stepActionRemoteMocks{}
 
-			origStepAtionRemoteNewCloneExecutor := stepActionRemoteNewCloneExecutor
-			stepActionRemoteNewCloneExecutor = func(input git.NewGitCloneExecutorInput) common.Executor {
-				return func(ctx context.Context) error {
-					if input.URL == "https://github.com/org/repo" {
-						clonedAction = true
-					}
-					return nil
+			origStepAtionRemoteGitClone := stepActionRemoteGitClone
+			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) error {
+				if input.URL == "https://github.com/org/repo" {
+					clonedAction = true
 				}
+				return nil
 			}
 			defer (func() {
-				stepActionRemoteNewCloneExecutor = origStepAtionRemoteNewCloneExecutor
+				stepActionRemoteGitClone = origStepAtionRemoteGitClone
 			})()
 
 			sar := &stepActionRemote{

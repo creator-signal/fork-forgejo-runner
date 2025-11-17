@@ -30,7 +30,7 @@ type stepActionRemote struct {
 	remoteAction        *remoteAction
 }
 
-var stepActionRemoteNewCloneExecutor = git.NewGitCloneExecutor
+var stepActionRemoteGitClone = git.Clone
 
 func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 	return func(ctx context.Context) error {
@@ -63,7 +63,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		}
 
 		actionDir := filepath.Join(sar.RunContext.ActionCacheDir(), sar.Step.UsesHash())
-		gitClone := stepActionRemoteNewCloneExecutor(git.NewGitCloneExecutorInput{
+		err := stepActionRemoteGitClone(ctx, git.CloneInput{
 			URL:   sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance),
 			Ref:   sar.remoteAction.Ref,
 			Dir:   actionDir,
@@ -79,7 +79,7 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			InsecureSkipTLS: sar.cloneSkipTLS(), // For Gitea
 		})
 		var ntErr common.Executor
-		if err := gitClone(ctx); err != nil {
+		if err != nil {
 			if errors.Is(err, git.ErrShortRef) {
 				return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
 					sar.Step.Uses, sar.remoteAction.Ref, err.(*git.Error).Commit())

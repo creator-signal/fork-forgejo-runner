@@ -220,19 +220,17 @@ func findGitSlug(url, githubInstance string) (string, string, error) {
 	return "", url, nil
 }
 
-// NewGitCloneExecutorInput the input for the NewGitCloneExecutor
-type NewGitCloneExecutorInput struct {
-	URL         string
-	Ref         string
-	Dir         string
-	Token       string
-	OfflineMode bool
-
-	// For Gitea
+// CloneInput is a parameter struct for the method `Clone` to simplify the multiple parameters required.
+type CloneInput struct {
+	URL             string
+	Ref             string
+	Dir             string
+	Token           string
+	OfflineMode     bool
 	InsecureSkipTLS bool
 }
 
-func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input NewGitCloneExecutorInput, logger log.FieldLogger) (*git.Repository, error) {
+func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input CloneInput, logger log.FieldLogger) (*git.Repository, error) {
 	// If the remote URL has changed, remove the directory and clone again.
 	if r, err := git.PlainOpen(input.Dir); err == nil {
 		if remote, err := r.Remote("origin"); err == nil {
@@ -301,81 +299,79 @@ func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.Pu
 	return fetchOptions, pullOptions
 }
 
-// NewGitCloneExecutor creates an executor to clone git repos
-func NewGitCloneExecutor(input NewGitCloneExecutorInput) common.Executor {
-	return func(ctx context.Context) error {
-		logger := common.Logger(ctx)
-		logger.Infof("  \u2601\ufe0f  git clone '%s' # ref=%s", input.URL, input.Ref)
-		logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
+// Clones a git repo
+func Clone(ctx context.Context, input CloneInput) error {
+	logger := common.Logger(ctx)
+	logger.Infof("  \u2601\ufe0f  git clone '%s' # ref=%s", input.URL, input.Ref)
+	logger.Debugf("  cloning %s to %s", input.URL, input.Dir)
 
-		cloneLock.Lock()
-		defer cloneLock.Unlock()
+	cloneLock.Lock()
+	defer cloneLock.Unlock()
 
-		refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-		r, err := cloneIfRequired(ctx, refName, input, logger)
-		if err != nil {
-			return err
-		}
-
-		// Optimization: if `input.Ref` is a full sha and it can be found in the repo already, then we can avoid
-		// performing a fetch operation because it won't change.
-		skipFetch := false
-		var hash *plumbing.Hash
-		rev := plumbing.Revision(input.Ref)
-		hash, err = r.ResolveRevision(rev)
-		if err != nil && !errors.Is(err, plumbing.ErrReferenceNotFound) {
-			// unexpected error
-			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
-			return err
-		} else if !hash.IsZero() && hash.String() == input.Ref {
-			skipFetch = true
-		}
-
-		if !skipFetch {
-			isOfflineMode := input.OfflineMode
-
-			// fetch latest changes
-			fetchOptions, _ := gitOptions(input.Token)
-
-			if input.InsecureSkipTLS { // For Gitea
-				fetchOptions.InsecureSkipTLS = true
-			}
-
-			if !isOfflineMode {
-				err = r.Fetch(&fetchOptions)
-				if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-					return err
-				}
-			}
-		}
-
-		rev = plumbing.Revision(input.Ref)
-		if hash, err = r.ResolveRevision(rev); err != nil {
-			logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
-			return err
-		}
-
-		if hash.String() != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash.String(), input.Ref) {
-			return &Error{
-				err:    ErrShortRef,
-				commit: hash.String(),
-			}
-		}
-
-		var w *git.Worktree
-		if w, err = r.Worktree(); err != nil {
-			return err
-		}
-
-		if err = w.Reset(&git.ResetOptions{
-			Mode:   git.HardReset,
-			Commit: *hash,
-		}); err != nil {
-			logger.Errorf("Unable to reset to %s: %v", hash.String(), err)
-			return err
-		}
-
-		logger.Debugf("Checked out %s", input.Ref)
-		return nil
+	refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
+	r, err := cloneIfRequired(ctx, refName, input, logger)
+	if err != nil {
+		return err
 	}
+
+	// Optimization: if `input.Ref` is a full sha and it can be found in the repo already, then we can avoid
+	// performing a fetch operation because it won't change.
+	skipFetch := false
+	var hash *plumbing.Hash
+	rev := plumbing.Revision(input.Ref)
+	hash, err = r.ResolveRevision(rev)
+	if err != nil && !errors.Is(err, plumbing.ErrReferenceNotFound) {
+		// unexpected error
+		logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+		return err
+	} else if !hash.IsZero() && hash.String() == input.Ref {
+		skipFetch = true
+	}
+
+	if !skipFetch {
+		isOfflineMode := input.OfflineMode
+
+		// fetch latest changes
+		fetchOptions, _ := gitOptions(input.Token)
+
+		if input.InsecureSkipTLS { // For Gitea
+			fetchOptions.InsecureSkipTLS = true
+		}
+
+		if !isOfflineMode {
+			err = r.Fetch(&fetchOptions)
+			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+				return err
+			}
+		}
+	}
+
+	rev = plumbing.Revision(input.Ref)
+	if hash, err = r.ResolveRevision(rev); err != nil {
+		logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
+		return err
+	}
+
+	if hash.String() != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash.String(), input.Ref) {
+		return &Error{
+			err:    ErrShortRef,
+			commit: hash.String(),
+		}
+	}
+
+	var w *git.Worktree
+	if w, err = r.Worktree(); err != nil {
+		return err
+	}
+
+	if err = w.Reset(&git.ResetOptions{
+		Mode:   git.HardReset,
+		Commit: *hash,
+	}); err != nil {
+		logger.Errorf("Unable to reset to %s: %v", hash.String(), err)
+		return err
+	}
+
+	logger.Debugf("Checked out %s", input.Ref)
+	return nil
 }
