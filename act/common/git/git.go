@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -28,8 +27,6 @@ var (
 	codeCommitSSHRegex  = regexp.MustCompile(`ssh://git-codecommit\.(.+)\.amazonaws.com/v1/repos/(.+)$`)
 	githubHTTPRegex     = regexp.MustCompile(`^https?://.*github.com.*/(.+)/(.+?)(?:.git)?$`)
 	githubSSHRegex      = regexp.MustCompile(`github.com[:/](.+)/(.+?)(?:.git)?$`)
-
-	cloneLock sync.Mutex
 
 	ErrShortRef = errors.New("short SHA references are not supported")
 	ErrNoRepo   = errors.New("unable to find git repo")
@@ -357,9 +354,6 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	worktreeDir := filepath.Join(input.CacheDir, common.MustRandName(1), common.MustRandName(31))
 
 	logger := common.Logger(ctx)
-
-	cloneLock.Lock()
-	defer cloneLock.Unlock()
 
 	refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
 	r, err := cloneIfRequired(ctx, refName, input, logger, repoDir)

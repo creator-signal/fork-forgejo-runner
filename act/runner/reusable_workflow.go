@@ -7,7 +7,6 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"sync"
 
 	"code.forgejo.org/forgejo/runner/v11/act/common"
 	"code.forgejo.org/forgejo/runner/v11/act/common/git"
@@ -45,7 +44,7 @@ func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
 		return newReusableWorkflowExecutor(rc, workflowDir, remoteReusableWorkflow.FilePath())
 	}
 
-	return newMutexExecutor(cloneIfRequired(rc, *remoteReusableWorkflow, token, makeWorkflowExecutorForWorkTree))
+	return cloneIfRequired(rc, *remoteReusableWorkflow, token, makeWorkflowExecutorForWorkTree)
 }
 
 func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
@@ -72,18 +71,7 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 		return newReusableWorkflowExecutor(rc, workflowDir, remoteReusableWorkflow.FilePath())
 	}
 
-	return newMutexExecutor(cloneIfRequired(rc, *remoteReusableWorkflow, token, makeWorkflowExecutorForWorkTree))
-}
-
-var executorLock sync.Mutex
-
-func newMutexExecutor(executor common.Executor) common.Executor {
-	return func(ctx context.Context) error {
-		executorLock.Lock()
-		defer executorLock.Unlock()
-
-		return executor(ctx)
-	}
+	return cloneIfRequired(rc, *remoteReusableWorkflow, token, makeWorkflowExecutorForWorkTree)
 }
 
 func cloneIfRequired(rc *RunContext, remoteReusableWorkflow remoteReusableWorkflow, token string, makeWorkflowExecutorForWorkTree func(workflowDir string) common.Executor) common.Executor {
