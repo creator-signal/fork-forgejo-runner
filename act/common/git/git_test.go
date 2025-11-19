@@ -11,6 +11,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v11/act/common"
 	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -437,6 +438,29 @@ func TestClone(t *testing.T) {
 		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, commit3, clonedSHA)
 	})
+
+	t.Run("Skips Fetch on After Clone", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		remoteDir := makeTestRepo(t)
+		makeTestCommit(t, remoteDir, "initial commit")
+
+		logger, hook := test.NewNullLogger()
+		ctx := t.Context()
+		loggerCtx := common.WithLogger(ctx, logger)
+
+		wt1, err := Clone(loggerCtx, CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "main",
+		})
+		require.NoError(t, err)
+		defer wt1.Close()
+
+		// To verify that we didn't fetch, we check that there's no log message containing 'git fetch'
+		for _, entry := range hook.AllEntries() {
+			assert.NotContains(t, entry.Message, "git fetch")
+		}
+	})
 }
 
 func makeTestRepo(t *testing.T) string {
@@ -504,15 +528,16 @@ func TestCloneIfRequired(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("clone", func(t *testing.T) {
-		repo, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
+		repo, didClone, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
 			URL: "https://github.com/actions/checkout",
 		}, common.Logger(ctx), tempDir)
 		assert.NoError(t, err)
 		assert.NotNil(t, repo)
+		assert.True(t, didClone)
 	})
 
 	t.Run("clone different remote", func(t *testing.T) {
-		repo, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
+		repo, didClone, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
 			URL: "https://github.com/actions/setup-go",
 		}, common.Logger(ctx), tempDir)
 		require.NoError(t, err)
@@ -522,6 +547,7 @@ func TestCloneIfRequired(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, remote.Config().URLs, 1)
 		assert.Equal(t, "https://github.com/actions/setup-go", remote.Config().URLs[0])
+		assert.True(t, didClone)
 	})
 }
 

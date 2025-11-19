@@ -229,7 +229,7 @@ type CloneInput struct {
 	InsecureSkipTLS bool   // when true, TLS verification will be skipped on remote operations
 }
 
-func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input CloneInput, logger log.FieldLogger, repoDir string) (*git.Repository, error) {
+func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input CloneInput, logger log.FieldLogger, repoDir string) (*git.Repository, bool, error) {
 	// If the remote URL has changed, remove the directory and clone again.
 	if r, err := git.PlainOpen(repoDir); err == nil {
 		if remote, err := r.Remote("origin"); err == nil {
@@ -239,6 +239,7 @@ func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 		}
 	}
 
+	didClone := false
 	r, err := git.PlainOpen(repoDir)
 	if err != nil {
 		var progressWriter io.Writer
@@ -271,16 +272,17 @@ func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 		r, err = git.PlainCloneContext(ctx, repoDir, true /* bare */, &cloneOptions)
 		if err != nil {
 			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
-			return nil, err
+			return nil, false, err
 		}
+		didClone = true
 
 		if err = os.Chmod(repoDir, 0o755); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		logger.Debugf("Cloned %s to %s", input.URL, repoDir)
 	}
 
-	return r, nil
+	return r, didClone, nil
 }
 
 func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
@@ -356,14 +358,16 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	logger := common.Logger(ctx)
 
 	refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-	r, err := cloneIfRequired(ctx, refName, input, logger, repoDir)
+	r, didClone, err := cloneIfRequired(ctx, refName, input, logger, repoDir)
 	if err != nil {
 		return nil, err
 	}
 
+	// No need to fetch() again if we just cloned this repo.
+	skipFetch := didClone
+
 	// Optimization: if `input.Ref` is a full sha and it can be found in the repo already, then we can avoid
 	// performing a fetch operation because it won't change.
-	skipFetch := false
 	var hash *plumbing.Hash
 	rev := plumbing.Revision(input.Ref)
 	hash, err = r.ResolveRevision(rev)
@@ -387,6 +391,7 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 		}
 
 		if !isOfflineMode {
+			// Note: this log message is used "Skips Fetch on After Clone" to detect this fetch operation
 			logger.Infof("  \u2601\ufe0f  git fetch '%s' # ref=%s", input.URL, input.Ref)
 			err = r.Fetch(&fetchOptions)
 			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
