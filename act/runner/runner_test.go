@@ -192,6 +192,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		ContainerArchitecture: cfg.ContainerArchitecture,
 		Matrix:                cfg.Matrix,
 		JobLoggerLevel:        cfg.JobLoggerLevel,
+		ContainerDaemonSocket: os.Getenv("DOCKER_HOST"),
 	}
 
 	runner, err := New(runnerConfig)
