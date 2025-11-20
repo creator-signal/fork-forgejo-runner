@@ -169,7 +169,10 @@ func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
 	reporter := report.NewReporter(ctx, cancel, r.client, task, r.cfg.Runner.ReportInterval)
 	var runErr error
 	defer func() {
-		_ = reporter.Close(runErr)
+		closeErr := reporter.Close(runErr)
+		if closeErr != nil {
+			log.Errorf("unable to send final job logs and status: %v", closeErr)
+		}
 	}()
 	reporter.RunDaemon()
 	runErr = r.run(ctx, task, reporter)

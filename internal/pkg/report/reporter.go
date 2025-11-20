@@ -308,9 +308,14 @@ func (r *Reporter) Close(runErr error) error {
 
 	return retry.Do(func() error {
 		if err := r.ReportLog(true); err != nil {
+			log.Warnf("uploading final logs failed, but will be retried: %v", err)
 			return err
 		}
-		return r.ReportState()
+		if err := r.ReportState(); err != nil {
+			log.Warnf("uploading final status failed, but will be retried: %v", err)
+			return err
+		}
+		return nil
 	}, retry.Context(r.ctx))
 }
 
