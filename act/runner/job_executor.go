@@ -88,10 +88,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			logger := common.Logger(ctx)
 			preErr := preExec(ctx)
 			if preErr != nil {
-				logger.Errorf("%v", preErr)
+				logger.WithField("raw_output", true).Errorf("%s %v", runnerLogPrefix, preErr)
 				common.SetJobError(ctx, preErr)
 			} else if ctx.Err() != nil {
-				logger.Errorf("%v", ctx.Err())
+				logger.WithField("raw_output", true).Errorf("%s %v", runnerLogPrefix, ctx.Err())
 				common.SetJobError(ctx, ctx.Err())
 			}
 			return preErr
@@ -102,10 +102,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			logger := common.Logger(ctx)
 			err := stepExec(ctx)
 			if err != nil {
-				logger.Errorf("%v", err)
+				logger.WithField("raw_output", true).Errorf("%s %v", runnerLogPrefix, err)
 				common.SetJobError(ctx, err)
 			} else if ctx.Err() != nil {
-				logger.Errorf("%v", ctx.Err())
+				logger.WithField("raw_output", true).Errorf("%s %v", runnerLogPrefix, ctx.Err())
 				common.SetJobError(ctx, ctx.Err())
 			}
 			return nil

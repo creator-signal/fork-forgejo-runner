@@ -189,11 +189,12 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			continueOnError, parseErr := isContinueOnError(ctx, stepModel.RawContinueOnError, step, stage)
 			if parseErr != nil {
 				stepResult.Conclusion = model.StepStatusFailure
-				return parseErr
+				logger.WithField("raw_output", true).Errorf("%s Failed to evaluate continue-on-error while handling original error: %v", runnerLogPrefix, err)
+				return fmt.Errorf("failed to evaluate continue-on-error: %v", parseErr)
 			}
 
 			if continueOnError {
-				logger.Infof("Failed but continue next step")
+				logger.WithField("raw_output", true).Infof("%s Failed to execute step (but continue-on-error is true): %v", runnerLogPrefix, err)
 				err = nil
 				stepResult.Conclusion = model.StepStatusSuccess
 			} else {
