@@ -42,13 +42,19 @@ var trampoline embed.FS
 
 func readActionImpl(ctx context.Context, step *model.Step, actionDir, actionPath string, readFile actionYamlReader, writeFile fileWriter) (*model.Action, error) {
 	logger := common.Logger(ctx)
-	allErrors := []error{}
+	otherErrors := []error{}
+	filesNotFound := []string{}
 	addError := func(fileName string, err error) {
 		if err != nil {
-			allErrors = append(allErrors, fmt.Errorf("failed to read '%s' from action '%s' with path '%s': %w", fileName, step.String(), actionPath, err))
+			if os.IsNotExist(err) {
+				filesNotFound = append(filesNotFound, fileName)
+			} else {
+				otherErrors = append(otherErrors, fmt.Errorf("failed to read '%s' from action '%s' with path '%s': %w", fileName, step.String(), actionPath, err))
+			}
 		} else {
 			// One successful read, clear error state
-			allErrors = nil
+			filesNotFound = nil
+			otherErrors = nil
 		}
 	}
 	reader, closer, err := readFile("action.yml")
@@ -106,8 +112,11 @@ func readActionImpl(ctx context.Context, step *model.Step, actionDir, actionPath
 			}
 		}
 	}
-	if allErrors != nil {
-		return nil, errors.Join(allErrors...)
+	if len(otherErrors) > 0 {
+		return nil, errors.Join(otherErrors...)
+	}
+	if len(filesNotFound) > 0 {
+		return nil, fmt.Errorf("failed to read action '%s', no files found after reading paths: %s", step.String(), strings.Join(filesNotFound, ", "))
 	}
 	defer closer.Close()
 
