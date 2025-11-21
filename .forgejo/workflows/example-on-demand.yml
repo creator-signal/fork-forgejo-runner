@@ -10,6 +10,7 @@ on:
 
 env:
   forgejo_version: 13.0.2 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
+  runner_version: 11.3.1 # renovate: datasource=forgejo-releases depName=forgejo/runner
   username: root
   password: admin1234
 
@@ -18,13 +19,13 @@ jobs:
     if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-trixie
     steps:
-      - name: Debug
-        run: |
-          echo "$PATH"
-          ls /usr/local/bin
-
       - name: Install dependencies
         run: "sudo apt-get install -y jq curl"
+
+      - name: Install Forgejo Runner
+        run: |
+          sudo curl --fail -sS -o /usr/local/bin/forgejo-runner "https://code.forgejo.org/forgejo/runner/releases/download/v$runner_version/forgejo-runner-$runner_version-linux-amd64"
+          sudo chmod +x /usr/local/bin/forgejo-runner
 
       - uses: https://data.forgejo.org/actions/checkout@v5
 
