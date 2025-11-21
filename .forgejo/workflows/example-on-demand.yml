@@ -18,6 +18,11 @@ jobs:
     if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-trixie
     steps:
+      - name: Debug
+        run: |
+          echo "$PATH"
+          ls /usr/local/bin
+
       - name: Install dependencies
         run: "sudo apt-get install -y jq curl"
 
