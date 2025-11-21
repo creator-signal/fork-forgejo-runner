@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: MIT
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
+    paths:
+      - examples/on-demand/**
+      - .forgejo/workflows/example-on-demand.yml
+
+env:
+  forgejo_version: 13.0.2 # renovate: datasource=docker depName=code.forgejo.org/forgejo/forgejo
+  username: root
+  password: admin1234
+
+jobs:
+  example-on-demand:
+    if: vars.ROLE == 'forgejo-coding'
+    runs-on: lxc-trixie
+    steps:
+      - name: Install dependencies
+        run: "sudo apt-get install -y jq curl"
+
+      - uses: https://data.forgejo.org/actions/checkout@v5
+
+      - uses: https://data.forgejo.org/actions/setup-forgejo@v3.0.5
+        with:
+          user: "${{ env.username }}"
+          password: "${{ env.password }}"
+          binary: https://code.forgejo.org/forgejo/forgejo/releases/download/v${{ env.forgejo_version }}/forgejo-${{ env.forgejo_version }}-linux-amd64
+
+      - name: Process four jobs
+        run: |
+          ./examples/on-demand/run.sh http://localhost:3000 "$username" "$password" 4

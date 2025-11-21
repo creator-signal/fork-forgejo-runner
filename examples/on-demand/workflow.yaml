@@ -1,0 +1,13 @@
+on:
+  schedule:
+    - cron: "* * * * *"
+jobs:
+  first-job:
+    runs-on: trixie
+    steps:
+      - run: echo "Hello World!"
+
+  second-job:
+    runs-on: [bookworm, test]
+    steps:
+      - run: echo "Hello World!"

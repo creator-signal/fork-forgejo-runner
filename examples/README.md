@@ -9,3 +9,4 @@ Other examples can be found [in the documentation](https://forgejo.org/docs/next
 | [`LXC systemd`](lxc-systemd)              | systemd unit managing LXC containers dedicated to a single runner                     |
 | [`docker-compose`](docker-compose) | all in one docker-compose with the Forgejo server, the runner and docker in docker  |
 | [`kubernetes`](kubernetes)     |  a sample deployment for the Forgejo runner |
+| [`on-demand`](on-demand)     |  create runners in response to pending Forgejo Action jobs |
