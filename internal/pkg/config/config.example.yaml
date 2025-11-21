@@ -48,6 +48,14 @@ runner:
   fetch_interval: 2s
   # The interval for reporting the job status and logs to the Forgejo instance.
   report_interval: 1s
+  # At the end of a job, retry configuration for sending logs to remote.
+  # report_retry:
+  #   # Maximum number of retry attempts.
+  #   max_retries: 10
+  #   # Initial delay between retries.  Delay between retries doubles up to `max_delay`.
+  #   initial_delay: 100ms
+  #   # Maximum delay between retries, defaults to 0, 0 is treated as no maximum.
+  #   max_delay: 0
   # The labels of a runner are used to determine which jobs the runner can run, and how to run them.
   # Like: ["macos-arm64:host", "ubuntu-latest:docker://node:20-bookworm", "ubuntu-22.04:docker://node:20-bookworm"]
   # If it's empty when registering, it will ask for inputting labels.

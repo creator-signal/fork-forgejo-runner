@@ -34,6 +34,14 @@ type Runner struct {
 	FetchInterval   time.Duration     `yaml:"fetch_interval"`   // FetchInterval specifies the interval duration for fetching resources.
 	ReportInterval  time.Duration     `yaml:"report_interval"`  // ReportInterval specifies the interval duration for reporting status and logs of a running job.
 	Labels          []string          `yaml:"labels"`           // Labels specify the labels of the runner. Labels are declared on each startup
+	ReportRetry     Retry             `yaml:"report_retry"`     // At the end of a job, configures retrying sending logs to remote.
+}
+
+// Configuration of retry options
+type Retry struct {
+	MaxRetries   uint          `yaml:"max_retries"`   // Maximum number of retry attempts, defaults to 10.
+	InitialDelay time.Duration `yaml:"initial_delay"` // Initial delay between retries, defaults to 100ms.  Delay between retries doubles up to `max_delay`.
+	MaxDelay     time.Duration `yaml:"max_delay"`     // Maximum delay between retries, defaults to 0, 0 is treated as no maximum.
 }
 
 // Cache represents the configuration for caching.
@@ -154,6 +162,12 @@ func LoadDefault(file string) (*Config, error) {
 	}
 	if cfg.Runner.ReportInterval <= 0 {
 		cfg.Runner.ReportInterval = time.Second
+	}
+	if cfg.Runner.ReportRetry.MaxRetries == 0 {
+		cfg.Runner.ReportRetry.MaxRetries = 10
+	}
+	if cfg.Runner.ReportRetry.InitialDelay <= 0 {
+		cfg.Runner.ReportRetry.InitialDelay = 100 * time.Millisecond
 	}
 
 	if cfg.Container.DockerHost == "" {

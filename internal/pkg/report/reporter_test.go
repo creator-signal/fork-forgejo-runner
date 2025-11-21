@@ -22,6 +22,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v11/internal/pkg/client/mocks"
 	"code.forgejo.org/forgejo/runner/v11/internal/pkg/common"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
 	"code.forgejo.org/forgejo/runner/v11/testutils"
 )
 
@@ -54,7 +55,7 @@ func mockReporter(t *testing.T) (*Reporter, *mocks.Client, func()) {
 	require.NoError(t, err)
 	reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, &runnerv1.Task{
 		Context: taskCtx,
-	}, time.Second)
+	}, time.Second, &config.Retry{})
 	close := func() {
 		assert.NoError(t, reporter.Close(nil))
 	}
@@ -414,7 +415,7 @@ func TestReporterReportState(t *testing.T) {
 			require.NoError(t, err)
 			reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, &runnerv1.Task{
 				Context: taskCtx,
-			}, time.Second)
+			}, time.Second, &config.Retry{})
 
 			testCase.fixture(t, reporter, client)
 			err = reporter.ReportState()

@@ -22,6 +22,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v11/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v11/internal/pkg/common"
+	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
 )
 
 var (
@@ -49,9 +50,10 @@ type Reporter struct {
 	debugOutputEnabled  bool
 	stopCommandEndToken string
 	issuedLocalCancel   bool
+	retry               *config.Retry
 }
 
-func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client, task *runnerv1.Task, reportInterval time.Duration) *Reporter {
+func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client, task *runnerv1.Task, reportInterval time.Duration, retry *config.Retry) *Reporter {
 	masker := newMasker()
 	if v := task.Context.Fields["token"].GetStringValue(); v != "" {
 		masker.add(v)
@@ -72,6 +74,7 @@ func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client
 		client:         c,
 		masker:         masker,
 		reportInterval: reportInterval,
+		retry:          retry,
 		state: &runnerv1.TaskState{
 			Id: task.Id,
 		},
@@ -316,7 +319,20 @@ func (r *Reporter) Close(runErr error) error {
 			return err
 		}
 		return nil
-	}, retry.Context(r.ctx))
+	}, r.makeRetryOption()...)
+}
+
+func (r *Reporter) makeRetryOption() []retry.Option {
+	println(fmt.Sprintf("retry = %#v", r.retry))
+	options := []retry.Option{
+		retry.Context(r.ctx),
+		retry.Attempts(r.retry.MaxRetries),
+		retry.Delay(r.retry.InitialDelay),
+	}
+	if r.retry.MaxDelay > 0 {
+		options = append(options, retry.MaxDelay(r.retry.MaxDelay))
+	}
+	return options
 }
 
 type ErrRetry struct {
