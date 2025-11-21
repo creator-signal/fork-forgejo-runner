@@ -31,4 +31,4 @@ jobs:
 
       - name: Process four jobs
         run: |
-          ./examples/on-demand/run.sh http://localhost:3000 "$username" "$password" 4
+          cd ./examples/on-demand && ./run.sh http://localhost:3000 "$username" "$password" 4
