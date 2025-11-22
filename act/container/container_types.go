@@ -11,26 +11,26 @@ import (
 
 // NewContainerInput the input for the New function
 type NewContainerInput struct {
-	Image          string
-	Username       string
-	Password       string
-	Entrypoint     []string
-	Cmd            []string
-	WorkingDir     string
-	Env            []string
-	ToolCache      string
-	Binds          []string
-	Mounts         map[string]string
-	Name           string
-	Stdout         io.Writer
-	Stderr         io.Writer
-	NetworkMode    string
-	Privileged     bool
-	UsernsMode     string
-	Platform       string
-	NetworkAliases []string
-	ExposedPorts   nat.PortSet
-	PortBindings   nat.PortMap
+	Image           string
+	Username        string
+	Password        string
+	Entrypoint      []string
+	Cmd             []string
+	WorkingDir      string
+	Env             []string
+	ToolCache       string
+	Binds           []string
+	Mounts          map[string]string
+	Name            string
+	Stdout          io.Writer
+	Stderr          io.Writer
+	NetworkMode     string
+	Privileged      bool
+	UsernsMode      string
+	DefaultPlatform string // platform if not overridden in JobOptions
+	NetworkAliases  []string
+	ExposedPorts    nat.PortSet
+	PortBindings    nat.PortMap
 
 	ConfigOptions string
 	JobOptions    string

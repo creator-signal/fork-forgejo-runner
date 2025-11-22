@@ -50,6 +50,34 @@ var NewContainer = func(input *NewContainerInput) ExecutionsEnvironment {
 	return cr
 }
 
+func (cr *containerReference) platform(ctx context.Context) (string, error) {
+	if cr.calculatedPlatform != "" {
+		return cr.calculatedPlatform, nil
+	}
+
+	platform := cr.input.DefaultPlatform
+
+	c, err := parseOptions(ctx, cr.input.JobOptions)
+	if err != nil {
+		return "", err
+	} else if c.Platform != "" {
+		platform = c.Platform
+	}
+
+	if platform == "" {
+		// cr.input.DefaultPlatform wasn't provided, --platform wasn't provided, fallback to the system platform
+		defaultPlatform, err := currentSystemPlatform(ctx)
+		if err != nil {
+			return "", err
+		}
+		platform = defaultPlatform
+		common.Logger(ctx).Debugf("platform not specified, defaulting to detected %s", defaultPlatform)
+	}
+
+	cr.calculatedPlatform = platform
+	return platform, nil
+}
+
 func (cr *containerReference) ConnectToNetwork(name string) common.Executor {
 	return common.
 		NewDebugExecutor("%sdocker network connect %s %s", logPrefix, name, cr.input.Name).
@@ -88,8 +116,16 @@ func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) b
 }
 
 func (cr *containerReference) Create(capAdd, capDrop []string) common.Executor {
-	return common.
-		NewInfoExecutor("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd, cr.input.NetworkMode).
+	var infoExecutor common.Executor = func(ctx context.Context) error {
+		platform, err := cr.platform(ctx)
+		if err != nil {
+			return err
+		}
+		logger := common.Logger(ctx)
+		logger.Infof("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q", logPrefix, cr.input.Image, platform, cr.input.Entrypoint, cr.input.Cmd, cr.input.NetworkMode)
+		return nil
+	}
+	return infoExecutor.
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -100,8 +136,16 @@ func (cr *containerReference) Create(capAdd, capDrop []string) common.Executor {
 }
 
 func (cr *containerReference) Start(attach bool) common.Executor {
-	return common.
-		NewInfoExecutor("%sdocker run image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Entrypoint, cr.input.Cmd, cr.input.NetworkMode).
+	var infoExecutor common.Executor = func(ctx context.Context) error {
+		platform, err := cr.platform(ctx)
+		if err != nil {
+			return err
+		}
+		logger := common.Logger(ctx)
+		logger.Infof("%sdocker run image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q", logPrefix, cr.input.Image, platform, cr.input.Entrypoint, cr.input.Cmd, cr.input.NetworkMode)
+		return nil
+	}
+	return infoExecutor.
 		Then(
 			common.NewPipelineExecutor(
 				cr.connect(),
@@ -123,17 +167,23 @@ func (cr *containerReference) Start(attach bool) common.Executor {
 }
 
 func (cr *containerReference) Pull(forcePull bool) common.Executor {
-	return common.
-		NewInfoExecutor("%sdocker pull image=%s platform=%s username=%s forcePull=%t", logPrefix, cr.input.Image, cr.input.Platform, cr.input.Username, forcePull).
-		Then(
-			NewDockerPullExecutor(NewDockerPullExecutorInput{
-				Image:     cr.input.Image,
-				ForcePull: forcePull,
-				Platform:  cr.input.Platform,
-				Username:  cr.input.Username,
-				Password:  cr.input.Password,
-			}),
-		)
+	return func(ctx context.Context) error {
+		platform, err := cr.platform(ctx)
+		if err != nil {
+			return err
+		}
+
+		logger := common.Logger(ctx)
+		logger.Infof("%sdocker pull image=%s platform=%s username=%s forcePull=%t", logPrefix, cr.input.Image, platform, cr.input.Username, forcePull)
+
+		return NewDockerPullExecutor(NewDockerPullExecutorInput{
+			Image:     cr.input.Image,
+			ForcePull: forcePull,
+			Platform:  platform,
+			Username:  cr.input.Username,
+			Password:  cr.input.Password,
+		})(ctx)
+	}
 }
 
 func (cr *containerReference) Copy(destPath string, files ...*FileEntry) common.Executor {
@@ -244,11 +294,12 @@ func (cr *containerReference) ReplaceLogWriter(stdout, stderr io.Writer) (io.Wri
 }
 
 type containerReference struct {
-	cli   client.APIClient
-	id    string
-	input *NewContainerInput
-	UID   int
-	GID   int
+	cli                client.APIClient
+	id                 string
+	input              *NewContainerInput
+	UID                int
+	GID                int
+	calculatedPlatform string
 	LinuxContainerEnvironmentExtensions
 }
 
@@ -562,18 +613,14 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			})
 		}
 
+		var platform string
+		var err error
 		var platSpecs *specs.Platform
 		if supportsContainerImagePlatform(ctx, cr.cli) {
-			platform := cr.input.Platform
-			if platform == "" {
-				defaultPlatform, err := currentSystemPlatform(ctx)
-				logger.Debugf("platform not specified, defaulting to detected %s", defaultPlatform)
-				if err != nil {
-					return err
-				}
-				platform = defaultPlatform
+			platform, err = cr.platform(ctx)
+			if err != nil {
+				return err
 			}
-
 			desiredPlatform := strings.SplitN(platform, `/`, 2)
 			if len(desiredPlatform) != 2 {
 				return fmt.Errorf("incorrect container platform option '%s'", platform)
@@ -596,7 +643,7 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 		}
 		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
 
-		config, hostConfig, err := cr.mergeOptions(ctx, config, hostConfig)
+		config, hostConfig, err = cr.mergeOptions(ctx, config, hostConfig)
 		if err != nil {
 			return err
 		}
@@ -626,7 +673,7 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			return fmt.Errorf("failed to create container: '%w'", err)
 		}
 
-		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, resp.ID, input.Image, input.Platform)
+		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, resp.ID, input.Image, platform)
 		logger.Debugf("ENV ==> %v", input.Env)
 
 		cr.id = resp.ID

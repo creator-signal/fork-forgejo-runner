@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -58,16 +59,12 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 		logger := common.Logger(ctx)
 		logger.Debugf("%sdocker pull %v", logPrefix, input.Image)
 
-		if common.Dryrun(ctx) {
-			return nil
+		if input.Platform == "" {
+			return errors.New("docker pull input.Platform not specified")
 		}
 
-		if input.Platform == "" {
-			platform, err := currentSystemPlatform(ctx)
-			if err != nil {
-				return err
-			}
-			input.Platform = platform
+		if common.Dryrun(ctx) {
+			return nil
 		}
 
 		pull := input.ForcePull

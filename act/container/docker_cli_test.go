@@ -23,6 +23,7 @@ import (
 	networktypes "github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/assert"
 	is "gotest.tools/v3/assert/cmp"
 	"gotest.tools/v3/skip"
@@ -971,5 +972,35 @@ func TestConvertToStandardNotation(t *testing.T) {
 		if _, err := convertToStandardNotation(ports); err == nil {
 			t.Fatalf("ConvertToStandardNotation(`%q`) should have failed conversion", ports)
 		}
+	}
+}
+
+func TestParsePlatformFlag(t *testing.T) {
+	tests := []struct {
+		input  []string
+		output string
+	}{
+		{
+			input:  []string{"--platform", "linux/amd64"},
+			output: "linux/amd64",
+		},
+		{
+			input:  []string{"--platform=linux/arm64"},
+			output: "linux/arm64",
+		},
+		{
+			input:  []string{},
+			output: "",
+		},
+	}
+	for _, tc := range tests {
+		flags, copts := setupRunFlags()
+		err := flags.Parse(tc.input)
+		require.NoError(t, err)
+
+		containerConfig, err := parse(flags, copts, runtime.GOOS)
+		require.NoError(t, err)
+
+		assert.Equal(t, tc.output, containerConfig.Platform)
 	}
 }

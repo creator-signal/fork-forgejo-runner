@@ -134,6 +134,7 @@ type containerOptions struct {
 	runtime            string
 	autoRemove         bool
 	init               bool
+	platform           string
 
 	Image string
 	Args  []string
@@ -308,6 +309,9 @@ func addFlags(flags *pflag.FlagSet) *containerOptions {
 
 	flags.BoolVar(&copts.init, "init", false, "Run an init inside the container that forwards signals and reaps processes")
 	flags.SetAnnotation("init", "version", []string{"1.25"})
+
+	flags.StringVar(&copts.platform, "platform", "", "Optional platform in the form of os[/arch[/variant]]")
+
 	return copts
 }
 
@@ -315,6 +319,7 @@ type containerConfig struct {
 	Config           *container.Config
 	HostConfig       *container.HostConfig
 	NetworkingConfig *networktypes.NetworkingConfig
+	Platform         string
 }
 
 // parse parses the args for the specified command and generates a Config,
@@ -704,6 +709,7 @@ func parse(flags *pflag.FlagSet, copts *containerOptions, serverOS string) (*con
 		Config:           config,
 		HostConfig:       hostConfig,
 		NetworkingConfig: networkingConfig,
+		Platform:         copts.platform,
 	}, nil
 }
 
