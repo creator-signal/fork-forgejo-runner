@@ -70,6 +70,7 @@ func (i *executeArgs) Envfile() string {
 	return i.resolve(i.envfile)
 }
 
+//nolint:forbidigo
 func (i *executeArgs) LoadSecrets() map[string]string {
 	s := make(map[string]string)
 	for _, secretPair := range i.secrets {
@@ -162,6 +163,7 @@ func (i *executeArgs) resolve(path string) string {
 	return path
 }
 
+//nolint:forbidigo
 func printList(plan *model.Plan) error {
 	type lineInfoDef struct {
 		jobID   string

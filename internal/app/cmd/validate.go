@@ -28,6 +28,7 @@ type validateArgs struct {
 	action     bool
 }
 
+//nolint:forbidigo
 func validate(dir, path string, isWorkflow, isAction bool) error {
 	f, err := os.Open(path)
 	if err != nil {

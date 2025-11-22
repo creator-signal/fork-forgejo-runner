@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"io"
 	"os"
 )
@@ -30,44 +29,5 @@ func CopyFile(source, dest string) (err error) {
 		}
 	}
 
-	return err
-}
-
-// CopyDir recursive copy of directory
-func CopyDir(source, dest string) (err error) {
-	// get properties of source dir
-	sourceinfo, err := os.Stat(source)
-	if err != nil {
-		return err
-	}
-
-	// create dest dir
-
-	err = os.MkdirAll(dest, sourceinfo.Mode())
-	if err != nil {
-		return err
-	}
-
-	objects, err := os.ReadDir(source)
-
-	for _, obj := range objects {
-		sourcefilepointer := source + "/" + obj.Name()
-
-		destinationfilepointer := dest + "/" + obj.Name()
-
-		if obj.IsDir() {
-			// create sub-directories - recursively
-			err = CopyDir(sourcefilepointer, destinationfilepointer)
-			if err != nil {
-				fmt.Println(err)
-			}
-		} else {
-			// perform copy
-			err = CopyFile(sourcefilepointer, destinationfilepointer)
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
-	}
 	return err
 }

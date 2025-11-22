@@ -14,5 +14,5 @@ func (*EmptyTraceWriter) Info(string, ...any) {
 type StdOutTraceWriter struct{}
 
 func (*StdOutTraceWriter) Info(format string, args ...any) {
-	fmt.Printf(format+"\n", args...)
+	fmt.Printf(format+"\n", args...) //nolint:forbidigo
 }
