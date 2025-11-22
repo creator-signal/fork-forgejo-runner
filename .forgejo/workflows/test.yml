@@ -55,7 +55,7 @@ jobs:
             exit 1
           fi
 
-      - run: make vet
+      - run: make lint-check vet
 
       - run: make build
 
