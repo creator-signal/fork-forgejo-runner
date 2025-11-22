@@ -19,8 +19,8 @@ import (
 	"go.yaml.in/yaml/v3"
 	"gotest.tools/v3/skip"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
-	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/model"
 )
 
 var (

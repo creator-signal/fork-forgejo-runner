@@ -1,4 +1,4 @@
-module code.forgejo.org/forgejo/runner/v11
+module code.forgejo.org/forgejo/runner/v12
 
 go 1.24.0
 

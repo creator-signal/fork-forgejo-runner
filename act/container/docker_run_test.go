@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"gotest.tools/v3/skip"
 
 	"github.com/docker/docker/api/types"

@@ -12,9 +12,9 @@ import (
 
 	pingv1 "code.forgejo.org/forgejo/actions-proto/ping/v1"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/labels"
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/report"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/report"
 	"connectrpc.com/connect"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/structpb"

@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v11/act/container"
-	"code.forgejo.org/forgejo/runner/v11/act/exprparser"
-	"code.forgejo.org/forgejo/runner/v11/act/model"
-	"code.forgejo.org/forgejo/runner/v11/testutils"
+	"code.forgejo.org/forgejo/runner/v12/act/container"
+	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"gotest.tools/v3/skip"
 
 	"github.com/docker/go-connections/nat"

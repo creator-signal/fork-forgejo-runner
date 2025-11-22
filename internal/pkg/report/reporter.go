@@ -13,16 +13,16 @@ import (
 	"time"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/v11/act/runner"
+	"code.forgejo.org/forgejo/runner/v12/act/runner"
 	"connectrpc.com/connect"
 	retry "github.com/avast/retry-go/v4"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/common"
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/common"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 )
 
 var (

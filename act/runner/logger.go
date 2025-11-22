@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/term"

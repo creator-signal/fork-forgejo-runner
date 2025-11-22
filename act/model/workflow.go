@@ -12,8 +12,8 @@ import (
 	"strings"
 	"sync"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
-	"code.forgejo.org/forgejo/runner/v11/act/schema"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/schema"
 	log "github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
 )

@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"github.com/docker/go-connections/nat"
 )
 

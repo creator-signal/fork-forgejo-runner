@@ -6,7 +6,7 @@ import (
 	"path"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"code.forgejo.org/forgejo/runner/v12/act/model"
 
 	"github.com/stretchr/testify/require"
 )

@@ -13,9 +13,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/v11/internal/app/run"
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 )
 
 type Job struct {

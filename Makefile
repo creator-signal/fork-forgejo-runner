@@ -62,10 +62,10 @@ else
 	endif
 endif
 
-GO_PACKAGES_TO_VET ?= $(filter-out code.forgejo.org/forgejo/runner/v11/internal/pkg/client/mocks code.forgejo.org/forgejo/runner/v11/act/artifactcache/mock_caches.go,$(shell $(GO) list ./...))
+GO_PACKAGES_TO_VET ?= $(filter-out code.forgejo.org/forgejo/runner/v12/internal/pkg/client/mocks code.forgejo.org/forgejo/runner/v12/act/artifactcache/mock_caches.go,$(shell $(GO) list ./...))
 
 TAGS ?=
-LDFLAGS ?= -X "code.forgejo.org/forgejo/runner/v11/internal/pkg/ver.version=v$(RELEASE_VERSION)"
+LDFLAGS ?= -X "code.forgejo.org/forgejo/runner/v12/internal/pkg/ver.version=v$(RELEASE_VERSION)"
 
 all: build
 

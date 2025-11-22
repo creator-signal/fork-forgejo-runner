@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"github.com/rhysd/actionlint"
 )
 

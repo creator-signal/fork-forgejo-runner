@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/image"
 )

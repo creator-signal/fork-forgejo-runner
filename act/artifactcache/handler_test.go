@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v11/testutils"
+	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"

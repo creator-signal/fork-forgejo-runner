@@ -3,7 +3,7 @@
 
 package ver
 
-// go build -ldflags "-X code.forgejo.org/forgejo/runner/v11/internal/pkg/ver.version=1.2.3"
+// go build -ldflags "-X code.forgejo.org/forgejo/runner/v12/internal/pkg/ver.version=1.2.3"
 var version = "dev"
 
 func Version() string {

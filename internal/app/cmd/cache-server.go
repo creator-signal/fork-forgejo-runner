@@ -10,9 +10,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 
-	"code.forgejo.org/forgejo/runner/v11/act/artifactcache"
+	"code.forgejo.org/forgejo/runner/v12/act/artifactcache"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

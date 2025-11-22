@@ -21,9 +21,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"golang.org/x/term"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
-	"code.forgejo.org/forgejo/runner/v11/act/filecollector"
-	"code.forgejo.org/forgejo/runner/v11/act/lookpath"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/filecollector"
+	"code.forgejo.org/forgejo/runner/v12/act/lookpath"
 )
 
 type HostEnvironment struct {

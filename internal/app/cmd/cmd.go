@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/config"
-	"code.forgejo.org/forgejo/runner/v11/internal/pkg/ver"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/ver"
 )
 
 func Execute(ctx context.Context) {

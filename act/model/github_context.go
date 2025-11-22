@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
-	"code.forgejo.org/forgejo/runner/v11/act/common/git"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/common/git"
 )
 
 type GithubContext struct {

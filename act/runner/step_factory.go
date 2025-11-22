@@ -3,7 +3,7 @@ package runner
 import (
 	"fmt"
 
-	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"code.forgejo.org/forgejo/runner/v12/act/model"
 )
 
 type stepFactory interface {

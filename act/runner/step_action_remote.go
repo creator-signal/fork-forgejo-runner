@@ -13,9 +13,9 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 
-	"code.forgejo.org/forgejo/runner/v11/act/common"
-	"code.forgejo.org/forgejo/runner/v11/act/common/git"
-	"code.forgejo.org/forgejo/runner/v11/act/model"
+	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/common/git"
+	"code.forgejo.org/forgejo/runner/v12/act/model"
 )
 
 type stepActionRemote struct {

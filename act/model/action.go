@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v11/act/schema"
+	"code.forgejo.org/forgejo/runner/v12/act/schema"
 	"go.yaml.in/yaml/v3"
 )
 
