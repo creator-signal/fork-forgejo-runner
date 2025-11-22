@@ -154,6 +154,12 @@ func LoadDefault(file string) (*Config, error) {
 		home, _ := os.UserHomeDir()
 		cfg.Host.WorkdirParent = filepath.Join(home, ".cache", "act")
 	}
+	// Ensure WorkdirParent is an absolute path so that operations in `act/common/git` work consistently.
+	workdirParent, err := filepath.Abs(cfg.Host.WorkdirParent)
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve absolute path for host.workdir_parent: %v", err)
+	}
+	cfg.Host.WorkdirParent = workdirParent
 	if cfg.Runner.FetchTimeout <= 0 {
 		cfg.Runner.FetchTimeout = 5 * time.Second
 	}

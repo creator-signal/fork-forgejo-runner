@@ -4,10 +4,14 @@
 package config
 
 import (
+	"os"
+	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigTune(t *testing.T) {
@@ -43,4 +47,17 @@ func TestDefaultSettings(t *testing.T) {
 	assert.EqualValues(t, config.Container.DockerHost, "-")
 	assert.EqualValues(t, config.Log.JobLevel, "info")
 	assert.EqualValues(t, config.Container.ForceRebuild, false)
+	assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
+}
+
+func TestConfigNormalization(t *testing.T) {
+	tmp := path.Join(t.TempDir(), "config.yml")
+	err := os.WriteFile(tmp, []byte("{ host: { workdir_parent: blah } }"), 0o644)
+	require.NoError(t, err)
+
+	config, err := LoadDefault(tmp)
+	assert.NoError(t, err)
+
+	assert.NotEqual(t, "blah", config.Host.WorkdirParent)
+	assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
 }

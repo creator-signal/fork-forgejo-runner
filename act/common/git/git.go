@@ -346,6 +346,10 @@ func (t *gitWorktree) WorktreeDir() string {
 func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	if input.CacheDir == "" {
 		return nil, errors.New("missing CacheDir to Clone()")
+	} else if !filepath.IsAbs(input.CacheDir) {
+		// `git -C repoDir ...` will change the working directory -- to ensure consistency between all operations and
+		// irrelevant of any change in $PWD, require an absolute CacheDir.
+		return nil, errors.New("relative CacheDir is not supported")
 	}
 
 	// worktreeDir's format is /[0-9a-f]{2}/[0-9a-f]{62}.  Originally this was a hash of a step's `uses:` text, and the
