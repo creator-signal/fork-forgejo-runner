@@ -115,6 +115,24 @@ func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) b
 	return constraint.Check(sv)
 }
 
+// supportsImageInspectPlatform returns true if the underlying Docker server supports using
+// `client.ImageInspectWithPlatform`, which is API version 1.49 and beyond.
+func supportsImageInspectPlatform(ctx context.Context, cli client.APIClient) bool {
+	logger := common.Logger(ctx)
+	ver, err := cli.ServerVersion(ctx)
+	if err != nil {
+		logger.Panicf("Failed to get Docker API Version: %s", err)
+		return false
+	}
+	sv, err := semver.NewVersion(ver.APIVersion)
+	if err != nil {
+		logger.Panicf("Failed to unmarshal Docker Version: %s", err)
+		return false
+	}
+	constraint, _ := semver.NewConstraint(">= 1.49")
+	return constraint.Check(sv)
+}
+
 func (cr *containerReference) Create(capAdd, capDrop []string) common.Executor {
 	var infoExecutor common.Executor = func(ctx context.Context) error {
 		platform, err := cr.platform(ctx)
@@ -621,13 +639,9 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			if err != nil {
 				return err
 			}
-			desiredPlatform := strings.SplitN(platform, `/`, 2)
-			if len(desiredPlatform) != 2 {
-				return fmt.Errorf("incorrect container platform option '%s'", platform)
-			}
-			platSpecs = &specs.Platform{
-				Architecture: desiredPlatform[1],
-				OS:           desiredPlatform[0],
+			platSpecs, err = parsePlatform(platform)
+			if err != nil {
+				return err
 			}
 		}
 

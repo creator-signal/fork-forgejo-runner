@@ -5,20 +5,53 @@ package container
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/client"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+func parsePlatform(platform string) (*v1.Platform, error) {
+	desiredPlatform := strings.SplitN(platform, `/`, 2)
+	if len(desiredPlatform) != 2 {
+		return nil, fmt.Errorf("incorrect container platform option '%s'", platform)
+	}
+	platSpecs := &v1.Platform{
+		Architecture: desiredPlatform[1],
+		OS:           desiredPlatform[0],
+	}
+	return platSpecs, nil
+}
 
 // ImageExistsLocally returns a boolean indicating if an image with the
 // requested name, tag and architecture exists in the local docker image store
 func ImageExistsLocally(ctx context.Context, imageName, platform string) (bool, error) {
+	logger := common.Logger(ctx)
+
 	cli, err := GetDockerClient(ctx)
 	if err != nil {
 		return false, err
 	}
 	defer cli.Close()
+
+	if supportsImageInspectPlatform(ctx, cli) {
+		platSpecs, err := parsePlatform(platform)
+		if err != nil {
+			return false, err
+		}
+
+		_, err = cli.ImageInspect(ctx, imageName, client.ImageInspectWithPlatform(platSpecs))
+		if cerrdefs.IsNotFound(err) {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
 
 	inspectImage, err := cli.ImageInspect(ctx, imageName)
 	if cerrdefs.IsNotFound(err) {
@@ -28,13 +61,11 @@ func ImageExistsLocally(ctx context.Context, imageName, platform string) (bool, 
 	}
 
 	imagePlatform := fmt.Sprintf("%s/%s", inspectImage.Os, inspectImage.Architecture)
-
 	if platform == "" || platform == "any" || imagePlatform == platform {
 		return true, nil
 	}
 
-	logger := common.Logger(ctx)
-	logger.Infof("image found but platform does not match: %s (image) != %s (platform)\n", imagePlatform, platform)
+	logger.Infof("Docker daemon does not support image platform inspection (API 1.49+ required) -- runner found an image but platform does not match expected: %s (image) != %s (platform)", imagePlatform, platform)
 
 	return false, nil
 }
