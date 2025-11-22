@@ -323,7 +323,6 @@ func (r *Reporter) Close(runErr error) error {
 }
 
 func (r *Reporter) makeRetryOption() []retry.Option {
-	println(fmt.Sprintf("retry = %#v", r.retry))
 	options := []retry.Option{
 		retry.Context(r.ctx),
 		retry.Attempts(r.retry.MaxRetries),
