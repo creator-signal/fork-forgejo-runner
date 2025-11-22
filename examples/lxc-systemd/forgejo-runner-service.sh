@@ -92,10 +92,10 @@ function install_self() {
 }
 
 function dependencies() {
-  if ! which curl jq retry >/dev/null; then
+  if ! which curl jq retry git >/dev/null; then
     export DEBIAN_FRONTEND=noninteractive
     $SUDO apt-get update -qq
-    $SUDO apt-get install -y -qq curl jq retry
+    $SUDO apt-get install -y -qq curl jq retry git
   fi
   if ! which yq >/dev/null; then
     $SUDO curl -L --fail -sS -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_arm64
