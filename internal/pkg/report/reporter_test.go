@@ -332,10 +332,10 @@ func TestReporterReportState(t *testing.T) {
 				outputValue1 := "VALUE1"
 				outputKey2 := "KEY2"
 				outputValue2 := "VALUE2"
-				reporter.setOutputs(map[string]string{
+				require.NoError(t, reporter.setOutputs(map[string]string{
 					outputKey1: outputValue1,
 					outputKey2: outputValue2,
-				})
+				}))
 
 				client.On("UpdateTask", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
 					t.Logf("Received UpdateTask: %s", req.Msg.String())

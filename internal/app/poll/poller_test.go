@@ -196,7 +196,7 @@ func TestPoller_Runner(t *testing.T) {
 				ctx, cancel = context.WithCancel(context.Background())
 				cancel()
 			}
-			p.Shutdown(ctx)
+			_ = p.Shutdown(ctx) // err not checked
 			<-p.done
 			assert.Equal(t, testCase.expected, <-runnerLog)
 		})

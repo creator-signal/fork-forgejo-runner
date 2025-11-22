@@ -73,11 +73,7 @@ linters:
     rules:
       - linters:
           - dupl
-          - errcheck
-          - gocyclo
-          - gosec
           - staticcheck
-          - unparam
           - forbidigo
         path: _test\.go
     paths:
