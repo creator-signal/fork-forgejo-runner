@@ -239,7 +239,7 @@ func lookupPathHost(cmd string, env map[string]string, writer io.Writer) (string
 	return f, nil
 }
 
-func setupPty(cmd *exec.Cmd, cmdline string) (*os.File, *os.File, error) {
+func setupPty(cmd *exec.Cmd) (*os.File, *os.File, error) {
 	ppty, tty, err := openPty()
 	if err != nil {
 		return nil, nil, err
@@ -255,7 +255,6 @@ func setupPty(cmd *exec.Cmd, cmdline string) (*os.File, *os.File, error) {
 	cmd.Stdin = tty
 	cmd.Stdout = tty
 	cmd.Stderr = tty
-	cmd.SysProcAttr = getSysProcAttr(cmdline, true)
 	return ppty, tty, nil
 }
 
@@ -332,7 +331,6 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 	cmd.Env = envList
 	cmd.Stderr = e.StdOut
 	cmd.Dir = wd
-	cmd.SysProcAttr = getSysProcAttr(cmdline, false)
 	var ppty *os.File
 	var tty *os.File
 	defer func() {
@@ -345,7 +343,7 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 	}()
 	if true /* allocate Terminal */ {
 		var err error
-		ppty, tty, err = setupPty(cmd, cmdline)
+		ppty, tty, err = setupPty(cmd)
 		if err != nil {
 			common.Logger(ctx).Debugf("Failed to setup Pty %v\n", err.Error())
 		}
@@ -360,7 +358,7 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 	if ppty != nil {
 		go writeKeepAlive(ppty)
 	}
-	err = cmd.Run()
+	err = runCmdInGroup(cmd, cmdline, tty != nil)
 	if err != nil {
 		return fmt.Errorf("RUN %w", err)
 	}
