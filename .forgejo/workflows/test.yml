@@ -137,13 +137,17 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: apt install docker.io
+      - name: apt install
         run: |
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -qq
-          apt-get -q install -qq -y docker.io
+          # qemu & binfmt -- for mixed architecture testing
+          # gcc -- for `go test -race`
+          apt-get -q install -qq -y \
+            docker.io \
+            qemu-user-static binfmt-support \
+            gcc
 
-      - run: apt-get -q install -qq -y gcc # required for `-race`
       - name: integration test
         run: |
           go test -race ./act/container
