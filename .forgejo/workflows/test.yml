@@ -152,6 +152,8 @@ jobs:
         run: |
           go test -race ./act/container
           go test -race -timeout 30m ./act/runner/...
+        env:
+          TEST_MUST_SUPPORT_MIXED_ARCH: true
 
   runner-integration-tests:
     name: runner integration tests

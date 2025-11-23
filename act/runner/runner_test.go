@@ -11,8 +11,14 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
 	"github.com/joho/godotenv"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -697,4 +703,90 @@ func TestRunner_RunsOnMatrix(t *testing.T) {
 
 	// job 2 should be skipped because `ubuntu-20.04` is not a valid runs-on target in `platforms`.
 	assert.Contains(t, output, "msg=\"🚧  Skipping unsupported platform -- Try running with `-P ubuntu-20.04=...`\" dryrun=false job=test/matrix-runs-on-2", "expected job 2 to be skipped, but it was not")
+}
+
+func supportsMixedArchitecture(t *testing.T) bool {
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	require.NoError(t, err)
+	cli.NegotiateAPIVersion(t.Context())
+
+	// Create minimal containers with linux/amd64 and linux/arm64 platforms, and check that both run.  If so, the test
+	// environment supports multiple architecture execution (using emulation).
+
+	testImage := "code.forgejo.org/oci/alpine:3.22"
+	for _, arch := range []string{"amd64", "aarch64"} {
+		reader, err := cli.ImagePull(t.Context(), testImage, image.PullOptions{
+			Platform: fmt.Sprintf("linux/%s", arch),
+		})
+		require.NoError(t, err)
+		_, err = io.ReadAll(reader)
+		require.NoError(t, err)
+		err = reader.Close()
+		require.NoError(t, err)
+
+		cr, err := cli.ContainerCreate(t.Context(),
+			&container.Config{
+				Image: testImage,
+				Cmd:   []string{"uname", "-a"},
+			},
+			&container.HostConfig{},
+			&network.NetworkingConfig{},
+			&v1.Platform{
+				OS:           "linux",
+				Architecture: arch,
+			},
+			fmt.Sprintf("forgejo-runner-check-linux-%s", arch))
+		require.NoError(t, err)
+		defer func(containerID string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute) // not tied to t.Context() so it can do cleanup
+			defer cancel()
+			err := cli.ContainerRemove(ctx, cr.ID, container.RemoveOptions{Force: true})
+			if err != nil {
+				t.Logf("failed to remove container %s: %v", cr.ID, err)
+			}
+		}(cr.ID)
+
+		// Wait must be invoked before `start`, as we're using WaitConditionNextExit...
+		statusCh, errCh := cli.ContainerWait(t.Context(), cr.ID, container.WaitConditionNextExit)
+
+		err = cli.ContainerStart(t.Context(), cr.ID, container.StartOptions{})
+		require.NoError(t, err)
+
+		select {
+		case err := <-errCh:
+			require.NoError(t, err)
+		case status := <-statusCh:
+			if status.StatusCode != 0 {
+				t.Logf("supportedMixedArchitecture[%s] -> false, status code %d", arch, status.StatusCode)
+				return false
+			}
+		case <-t.Context().Done():
+			t.Fatal("test exited before container finished")
+		}
+	}
+
+	return true
+}
+
+func TestRunner_MixedArchitecture(t *testing.T) {
+	if !supportsMixedArchitecture(t) {
+		// For CI testing we want confidence that this test is run, but it's OK if it's skipped for developers since it
+		// has complex environmental requiremetns.
+		if os.Getenv("TEST_MUST_SUPPORT_MIXED_ARCH") == "" {
+			t.Skip("mixed architecture docker run was not supported")
+		} else {
+			t.Fatal("mixed architecture docker run was not supported, but TEST_MUST_SUPPORT_MIXED_ARCH was set requiring the test to be completed")
+		}
+	}
+
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "multi-architecture",
+		eventName:    "push",
+		errorMessage: "",
+		platforms: map[string]string{
+			"alpine": "code.forgejo.org/oci/alpine:3.22",
+		},
+	}
+	tjfi.runTest(t.Context(), t, &Config{})
 }

@@ -1,0 +1,19 @@
+name: multi-architecture
+on: push
+jobs:
+  check-arm64:
+    runs-on: alpine
+    container:
+      options: --platform linux/arm64
+    steps:
+      - run: |
+          echo architecture is $(uname -m)
+          [[ "$(uname -m)" = "aarch64" ]] || exit 1
+  check-amd64:
+    runs-on: alpine
+    container:
+      options: --platform linux/amd64
+    steps:
+      - run: |
+          echo architecture is $(uname -m)
+          [[ "$(uname -m)" = "x86_64" ]] || exit 1
