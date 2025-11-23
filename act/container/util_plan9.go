@@ -6,10 +6,11 @@ import (
 	"syscall"
 )
 
-func getSysProcAttr(cmdLine string, tty bool) *syscall.SysProcAttr {
-	return &syscall.SysProcAttr{
+func runCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
+	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Rfork: syscall.RFNOTEG,
 	}
+	return cmd.Run()
 }
 
 func openPty() (*os.File, *os.File, error) {

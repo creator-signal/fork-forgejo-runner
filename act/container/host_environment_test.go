@@ -2,11 +2,16 @@ package container
 
 import (
 	"archive/tar"
+	"context"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -63,4 +68,60 @@ func TestGetContainerArchive(t *testing.T) {
 	assert.Equal(t, expectedContent, content)
 	_, err = reader.Next()
 	assert.ErrorIs(t, err, io.EOF)
+}
+
+func TestCancelLongRunningCommand(t *testing.T) {
+	dir := t.TempDir()
+
+	var argv []string
+	var expectedExit string
+	if runtime.GOOS == "windows" {
+		path := filepath.Join(dir, "evil.ps1")
+		contents := `Start-Job -ScriptBlock { while ($true) { sleep 1 } }
+Start-Process -FilePath 'powershell' -ArgumentList '-Command','while ($true) {echo hi}'
+while ($true) { sleep 1 }
+		`
+		powershellPath, err := exec.LookPath("pwsh")
+		if err != nil {
+			powershellPath, err = exec.LookPath("powershell")
+			if err != nil {
+				powershellPath = "powershell"
+			}
+		}
+		_ = os.WriteFile(path, []byte(contents), 0o700)
+		argv = []string{powershellPath, "-File", path}
+		expectedExit = "exit status 1"
+	} else {
+		path := filepath.Join(dir, "evil.sh")
+		contents := `#!/bin/sh
+nohup yes &
+yes | cat &
+mkfifo tmp_fifo; cat <tmp_fifo >tmp_fifo &
+sh -c 'while true; do true; done' &
+while true; do sleep 1; done
+		`
+		_ = os.WriteFile(path, []byte(contents), 0o700)
+		argv = []string{path}
+		expectedExit = "signal: killed"
+	}
+
+	e := &HostEnvironment{
+		Path:      dir,
+		TmpDir:    dir,
+		ToolCache: dir,
+		ActPath:   dir,
+		StdOut:    io.Discard,
+		Workdir:   dir,
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+
+	// Cancel the process after it's had some time to get going
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		cancel()
+	}()
+
+	err := e.Exec(argv, map[string]string{}, "", dir)(ctx)
+	assert.Error(t, err, fmt.Errorf("this step has been cancelled: ctx: context canceled, exec: RUN %s", expectedExit))
 }
