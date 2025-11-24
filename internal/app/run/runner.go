@@ -274,6 +274,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		Event:           event,
 		RunID:           taskContext["run_id"].GetStringValue(),
 		RunNumber:       taskContext["run_number"].GetStringValue(),
+		RunAttempt:      taskContext["run_attempt"].GetStringValue(),
 		Actor:           taskContext["actor"].GetStringValue(),
 		Repository:      taskContext["repository"].GetStringValue(),
 		EventName:       eventName,

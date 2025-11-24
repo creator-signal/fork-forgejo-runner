@@ -1196,6 +1196,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 			ghc.Event = preset.Event
 			ghc.RunID = preset.RunID
 			ghc.RunNumber = preset.RunNumber
+			ghc.RunAttempt = preset.RunAttempt
 			ghc.Actor = preset.Actor
 			ghc.Repository = preset.Repository
 			ghc.EventName = preset.EventName
