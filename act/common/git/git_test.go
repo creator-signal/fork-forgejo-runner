@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -555,6 +556,7 @@ func TestFindGitRevision(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, fullSHA, sha)
 		assert.Equal(t, fullSHA[:7], short)
+		runtime.GC() // release file locks held by go-git on Windows
 	})
 }
 
@@ -576,4 +578,5 @@ func TestFindGitRefOnClone(t *testing.T) {
 	ref, err := FindGitRef(t.Context(), wt.WorktreeDir())
 	require.NoError(t, err)
 	assert.Equal(t, "refs/tags/tag-1", ref)
+	runtime.GC() // release file locks held by go-git on Windows
 }
