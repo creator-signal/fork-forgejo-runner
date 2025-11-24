@@ -113,7 +113,7 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 		return "", err
 	}
 
-	// find the reference that matches the revision's has
+	// find the reference that matches the revision's hash
 	err = iter.ForEach(func(r *plumbing.Reference) error {
 		/* tags and branches will have the same hash
 		 * when a user checks out a tag, it is not mentioned explicitly
@@ -135,7 +135,7 @@ func FindGitRef(ctx context.Context, file string) (string, error) {
 			}
 		}
 
-		// we found what we where looking for
+		// we found what we were looking for
 		if refTag != "" && refBranch != "" {
 			return storer.ErrStop
 		}
