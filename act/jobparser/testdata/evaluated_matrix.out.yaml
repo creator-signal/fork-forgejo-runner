@@ -1,0 +1,56 @@
+name: evaluated matrix
+"on":
+  push:
+jobs:
+  evalm:
+    name: evalm (A)
+    runs-on: docker
+    steps:
+      - name: Check if the matrix key A exists
+        run: |
+          echo $MATRIX
+          exit ${{matrix.A && '0' || '1'}}
+        env:
+          MATRIX: ${{toJSON(matrix)}}
+    strategy:
+      matrix:
+        A:
+          - A
+---
+name: evaluated matrix
+"on":
+  push:
+jobs:
+  evalm:
+    name: evalm (B)
+    runs-on: docker
+    steps:
+      - name: Check if the matrix key A exists
+        run: |
+          echo $MATRIX
+          exit ${{matrix.A && '0' || '1'}}
+        env:
+          MATRIX: ${{toJSON(matrix)}}
+    strategy:
+      matrix:
+        A:
+          - B
+---
+name: evaluated matrix
+"on":
+  push:
+jobs:
+  evalm:
+    name: evalm (C)
+    runs-on: docker
+    steps:
+      - name: Check if the matrix key A exists
+        run: |
+          echo $MATRIX
+          exit ${{matrix.A && '0' || '1'}}
+        env:
+          MATRIX: ${{toJSON(matrix)}}
+    strategy:
+      matrix:
+        A:
+          - C

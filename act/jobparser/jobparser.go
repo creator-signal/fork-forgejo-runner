@@ -33,6 +33,13 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			Result:  pc.jobResults[id],
 			Outputs: nil, // not supported yet
 		}
+
+		if job.Strategy != nil {
+			matrixEvaluator := NewExpressionEvaluator(NewInterpreter(id, job, nil, pc.gitContext, results, pc.vars, pc.inputs))
+			if err := matrixEvaluator.EvaluateYamlNode(&job.Strategy.RawMatrix); err != nil {
+				return nil, fmt.Errorf("failure to evaluate strategy.matrix on job %s: %w", job.Name, err)
+			}
+		}
 	}
 
 	var ret []*SingleWorkflow

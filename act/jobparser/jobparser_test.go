@@ -34,6 +34,11 @@ func TestParse(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "evaluated_matrix",
+			options: nil,
+			wantErr: false,
+		},
+		{
 			name:    "has_needs",
 			options: nil,
 			wantErr: false,
