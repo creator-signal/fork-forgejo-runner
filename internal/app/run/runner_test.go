@@ -784,14 +784,22 @@ func TestRunnerContextsPopulated(t *testing.T) {
 			WorkflowPayload: []byte(yamlContent),
 			Context: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					"token":                       structpb.NewStringValue("some token here"),
-					"forgejo_default_actions_url": structpb.NewStringValue("https://data.forgejo.org"),
-					"repository":                  structpb.NewStringValue("runner"),
+					"actor":                       structpb.NewStringValue("somebody"),
 					"event_name":                  structpb.NewStringValue("push"),
-					"ref":                         structpb.NewStringValue("refs/heads/main"),
+					"forgejo_default_actions_url": structpb.NewStringValue("https://data.forgejo.org"),
+					"ref":                         structpb.NewStringValue("refs/heads/sample-patch-1"),
+					"ref_name":                    structpb.NewStringValue("sample-patch-1"),
+					"ref_type":                    structpb.NewStringValue("branch"),
+					"head_ref":                    structpb.NewStringValue("sample-patch-1"),
+					"base_ref":                    structpb.NewStringValue("main"),
+					"repository":                  structpb.NewStringValue("forgejo/runner"),
+					"repository_owner":            structpb.NewStringValue("forgejo"),
+					"retention_days":              structpb.NewStringValue("90"),
+					"run_attempt":                 structpb.NewStringValue("3"),
 					"run_id":                      structpb.NewStringValue("150"),
 					"run_number":                  structpb.NewStringValue("129"),
-					"run_attempt":                 structpb.NewStringValue("3"),
+					"token":                       structpb.NewStringValue("some-token-value"),
+					"sha":                         structpb.NewStringValue("5d64b71392b1e00a3ad893db02d381d58262c2d6"), // SHA1 of `random`
 				},
 			},
 		}
@@ -834,6 +842,7 @@ func TestRunnerContextsPopulated(t *testing.T) {
 		defer cancel()
 
 		workflow := `
+name: Predefined variables
 on:
   push:
 jobs:
@@ -873,6 +882,164 @@ jobs:
           [[ "${{ forge.run_number }}" = "129" ]] || exit 1
           echo forge.run_attempt=${{ forge.run_attempt }}
           [[ "${{ forge.run_attempt }}" = "3" ]] || exit 1
+`
+		runWorkflow(ctx, cancel, workflow, "", "", "")
+	})
+
+	// This test is for testing compatibility with GitHub Actions. Put variables that are not supported by GitHub
+	// Actions in another test.
+	//
+	// Partial list of variables: https://docs.github.com/en/actions/reference/workflows-and-actions/variables
+	t.Run("GitHub Actions environment variables", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+name: Predefined variables
+on:
+  push:
+jobs:
+  assert-environment-variables:
+    runs-on: docker
+    container:
+      image: code.forgejo.org/oci/node:20-bookworm
+    steps:
+      - name: Test presence of all variables supported by GitHub
+        run: |
+          echo CI="$CI"
+          [[ "$CI" ]] || exit 1
+          echo GITHUB_ACTION="$GITHUB_ACTION"
+          [[ "$GITHUB_ACTION" = 0 ]] || exit 1
+          echo GITHUB_ACTIONS="$GITHUB_ACTIONS"
+          [[ "$GITHUB_ACTIONS" ]] || exit 1
+          echo GITHUB_ACTION_PATH="$GITHUB_ACTION_PATH"
+          [[ ${GITHUB_ACTION_PATH-x} = "" ]] || exit 1  # Only available in composite actions.
+          echo GITHUB_ACTION_REF="$GITHUB_ACTION_REF"
+          [[ ${GITHUB_ACTION_REF-x} = "" ]] || exit 1
+          echo GITHUB_ACTION_REPOSITORY="$GITHUB_ACTION_REPOSITORY"
+          [[ ${GITHUB_ACTION_REPOSITORY-x} = "" ]] || exit 1  # Only available in steps executing an action.
+          echo GITHUB_ACTOR="$GITHUB_ACTOR"
+          [[ "$GITHUB_ACTOR" = "somebody" ]] || exit 1
+          echo GITHUB_ACTOR_ID="$GITHUB_ACTOR_ID"
+          [[ -z ${GITHUB_ACTOR_ID+x} ]] || exit 1  # Currently unsupported.
+          echo GITHUB_API_URL="$GITHUB_API_URL"
+          [[ "$GITHUB_API_URL" = "https://127.0.0.1:8080/api/v1" ]] || exit 1
+          echo GITHUB_BASE_REF="$GITHUB_BASE_REF"
+          [[ "$GITHUB_BASE_REF" = "main" ]] || exit 1  # Only available in pull requests.
+          echo GITHUB_ENV="$GITHUB_ENV"
+          [[ "$GITHUB_ENV" = "/var/run/act/workflow/envs.txt" ]] || exit 1
+          echo GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME"
+          [[ "$GITHUB_EVENT_NAME" = "push" ]] || exit 1
+          echo GITHUB_EVENT_PATH="$GITHUB_EVENT_PATH"
+          [[ "$GITHUB_EVENT_PATH" = "/var/run/act/workflow/event.json" ]] || exit 1
+          echo GITHUB_GRAPHQL_URL="$GITHUB_GRAPHQL_URL"
+          [[ -z ${GITHUB_GRAPHQL_URL+x} ]] || exit 1  # Not applicable, Forgejo does not have GraphQL endpoints.
+          echo GITHUB_HEAD_REF="$GITHUB_HEAD_REF"
+          [[ "$GITHUB_HEAD_REF" = "sample-patch-1" ]] || exit 1  # Only available in pull requests.
+          echo GITHUB_JOB="$GITHUB_JOB"
+          [[ "$GITHUB_JOB" = "assert-environment-variables" ]] || exit 1
+          echo GITHUB_OUTPUT="$GITHUB_OUTPUT"
+          [[ "$GITHUB_OUTPUT" = "/var/run/act/workflow/outputcmd.txt" ]] || exit 1
+          echo GITHUB_PATH="$GITHUB_PATH"
+          [[ "$GITHUB_PATH" = "/var/run/act/workflow/pathcmd.txt" ]] || exit 1
+          echo GITHUB_REF="$GITHUB_REF"
+          [[ "$GITHUB_REF" = "refs/heads/sample-patch-1" ]] || exit 1
+          echo GITHUB_REF_NAME="$GITHUB_REF_NAME"
+          [[ "$GITHUB_REF_NAME" = "sample-patch-1" ]] || exit 1
+          echo GITHUB_REF_PROTECTED="$GITHUB_REF_PROTECTED"
+          [[ -z ${GITHUB_REF_PROTECTED+x} ]] || exit 1  # Currently unsupported.
+          echo GITHUB_REF_TYPE="$GITHUB_REF_TYPE"
+          [[ "$GITHUB_REF_TYPE" = "branch" ]] || exit 1
+          echo GITHUB_REPOSITORY="$GITHUB_REPOSITORY"
+          [[ "$GITHUB_REPOSITORY" == "forgejo/runner" ]] || exit 1
+          echo GITHUB_REPOSITORY_ID="$GITHUB_REPOSITORY_ID"
+          [[ -z ${GITHUB_REPOSITORY_ID+x} ]] || exit 1  # Currently unsupported.
+          echo GITHUB_REPOSITORY_OWNER="$GITHUB_REPOSITORY_OWNER"
+          [[ "$GITHUB_REPOSITORY_OWNER" == "forgejo" ]] || exit 1 
+          echo GITHUB_REPOSITORY_OWNER_ID="$GITHUB_REPOSITORY_OWNER_ID"
+          [[ -z ${GITHUB_REPOSITORY_OWNER_ID+x} ]] || exit 1  # Currently unsupported.
+          echo GITHUB_RETENTION_DAYS="$GITHUB_RETENTION_DAYS"
+          [[ "$GITHUB_RETENTION_DAYS" = 90 ]] || exit 1
+          echo GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT"
+          [[ "$GITHUB_RUN_ATTEMPT" = 3 ]] || exit 1
+          echo GITHUB_RUN_ID="$GITHUB_RUN_ID"
+          [[ "$GITHUB_RUN_ID" = 150 ]] || exit 1
+          echo GITHUB_RUN_NUMBER="$GITHUB_RUN_NUMBER"
+          [[ "$GITHUB_RUN_NUMBER" = 129 ]] || exit 1
+          echo GITHUB_SERVER_URL="$GITHUB_SERVER_URL"
+          [[ "$GITHUB_SERVER_URL" = "https://127.0.0.1:8080" ]] || exit 1
+          echo GITHUB_SHA="$GITHUB_SHA"
+          [[ "$GITHUB_SHA" == "5d64b71392b1e00a3ad893db02d381d58262c2d6" ]] || exit 1
+          echo GITHUB_STATE="$GITHUB_STATE"
+          [[ "$GITHUB_STATE" = "/var/run/act/workflow/statecmd.txt" ]] || exit 1
+          echo GITHUB_STEP_SUMMARY="$GITHUB_STEP_SUMMARY"
+          [[ "$GITHUB_STEP_SUMMARY" = "/var/run/act/workflow/SUMMARY.md" ]] || exit 1
+          echo GITHUB_TRIGGERING_ACTOR="$GITHUB_TRIGGERING_ACTOR"
+          [[ -z ${GITHUB_TRIGGERING_ACTOR+x} ]] || exit 1  # Currently unsupported.
+          echo GITHUB_TOKEN="$GITHUB_TOKEN"
+          [[ "$GITHUB_TOKEN" = "some-token-value" ]] || exit 1
+          echo GITHUB_WORKFLOW="$GITHUB_WORKFLOW"
+          [[ "$GITHUB_WORKFLOW" = "Predefined variables" ]] || exit 1
+          echo GITHUB_WORKFLOW_REF="$GITHUB_WORKFLOW_REF"
+          [[ -z ${GITHUB_WORKFLOW_REF+x} ]] || exit 1  # Currently unsupported.
+          echo GITHUB_WORKFLOW_SHA="$GITHUB_WORKFLOW_SHA"
+          [[ -z ${GITHUB_WORKFLOW_SHA+x} ]] || exit 1  # Currently unsupported.
+          echo GITHUB_WORKSPACE="$GITHUB_WORKSPACE"
+          [[ -d "$GITHUB_WORKSPACE" ]] || exit 1
+          echo RUNNER_ARCH="$RUNNER_ARCH"
+          [[ -n "$RUNNER_ARCH" ]] || exit 1
+          echo RUNNER_DEBUG="$RUNNER_DEBUG"
+          [[ -z ${RUNNER_DEBUG+x} ]] || exit 1  # Currently unsupported.
+          echo RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT"
+          [[ -z ${RUNNER_ENVIRONMENT+x} ]] || exit 1  # Not applicable to Forgejo Runner.
+          echo RUNNER_NAME="$RUNNER_NAME"
+          [[ -z ${RUNNER_NAME+x} ]] || exit 1  # Currently unsupported.
+          echo RUNNER_OS="$RUNNER_OS"
+          [[ -n "$RUNNER_OS" ]] || exit 1
+          echo RUNNER_TEMP="$RUNNER_TEMP"
+          [[ -d "$RUNNER_TEMP" ]] || exit 1
+          echo RUNNER_TOOL_CACHE="$RUNNER_TOOL_CACHE"
+          [[ -n "$RUNNER_TOOL_CACHE" ]] || exit 1  # Directory only exists if users mount a volume to it.
+          echo RUNNER_TRACKING_ID="$RUNNER_TRACKING_ID"
+          [[ ${RUNNER_TRACKING_ID-x} = "" ]] || exit 1
+`
+		runWorkflow(ctx, cancel, workflow, "", "", "")
+	})
+
+	t.Run("Forgejo environment variables", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+name: Predefined variables
+on:
+  push:
+jobs:
+  assert-environment-variables:
+    runs-on: docker
+    container:
+      image: code.forgejo.org/oci/node:20-bookworm
+    steps:
+      - name: Test presence of additional variables supported by Forgejo
+        run: |
+          echo ACT="$ACT"
+          [[ "$ACT" ]] || exit 1
+          echo ACTIONS_CACHE_URL="$ACTIONS_CACHE_URL"
+          [[ -z "${ACTIONS_CACHE_URL+x}" ]] || exit 1
+          echo ACTIONS_RESULTS_URL="$ACTIONS_RESULTS_URL"
+          [[ "$ACTIONS_RESULTS_URL" = "https://127.0.0.1:8080" ]] || exit 1
+          echo ACTIONS_RUNTIME_TOKEN="$ACTIONS_RUNTIME_TOKEN"
+          [[ "$ACTIONS_RUNTIME_TOKEN" = "some-token-value" ]] || exit 1
+          echo ACTIONS_RUNTIME_URL="$ACTIONS_RUNTIME_URL"
+          [[ "$ACTIONS_RUNTIME_URL" = "https://127.0.0.1:8080/api/actions_pipeline/" ]] || exit 1
+          echo FORGEJO_ACTIONS_RUNNER_VERSION="$FORGEJO_ACTIONS_RUNNER_VERSION"
+          [[ -n "$FORGEJO_ACTIONS_RUNNER_VERSION" ]] || exit 1
+          echo ImageOS="$ImageOS"
+          [[ -n "$ImageOS" ]] || exit 1
+          echo JOB_CONTAINER_NAME="$JOB_CONTAINER_NAME"
+          [[ -n "$JOB_CONTAINER_NAME" ]] || exit 1
+          echo RUNNER_PERFLOG="$RUNNER_PERFLOG"
+          [[ -e "$RUNNER_PERFLOG" ]] || exit 1
 `
 		runWorkflow(ctx, cancel, workflow, "", "", "")
 	})
