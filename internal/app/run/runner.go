@@ -287,6 +287,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		Token:           taskContext["token"].GetStringValue(),
 		RepositoryOwner: taskContext["repository_owner"].GetStringValue(),
 		RetentionDays:   taskContext["retention_days"].GetStringValue(),
+		WorkflowRef:     taskContext["workflow_ref"].GetStringValue(),
 	}
 	if t := task.Secrets["FORGEJO_TOKEN"]; t != "" {
 		preset.Token = t

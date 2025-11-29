@@ -800,6 +800,7 @@ func TestRunnerContextsPopulated(t *testing.T) {
 					"run_number":                  structpb.NewStringValue("129"),
 					"token":                       structpb.NewStringValue("some-token-value"),
 					"sha":                         structpb.NewStringValue("5d64b71392b1e00a3ad893db02d381d58262c2d6"), // SHA1 of `random`
+					"workflow_ref":                structpb.NewStringValue("example/test/.forgejo/workflows/test.yaml@refs/heads/main"),
 				},
 			},
 		}
@@ -858,11 +859,13 @@ jobs:
           [[ "${{ github.run_number }}" = "129" ]] || exit 1
           echo github.run_attempt=${{ github.run_attempt }}
           [[ "${{ github.run_attempt }}" = "3" ]] || exit 1
+          echo github.workflow_ref=${{ github.workflow_ref }}
+          [[ "${{ github.workflow_ref }}" = "example/test/.forgejo/workflows/test.yaml@refs/heads/main" ]] || exit 1
 `
 		runWorkflow(ctx, cancel, workflow, "", "", "")
 	})
 
-	t.Run("forge", func(t *testing.T) {
+	t.Run("forgejo", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
@@ -870,18 +873,20 @@ jobs:
 on:
   push:
 jobs:
-  assert-forge-context:
+  assert-forgejo-context:
     runs-on: docker
     container:
       image: code.forgejo.org/oci/node:20-bookworm
     steps:
       - run: |
-          echo forge.run_id=${{ forge.run_id }}
-          [[ "${{ forge.run_id }}" = "150" ]] || exit 1
-          echo forge.run_number=${{ forge.run_number }}
-          [[ "${{ forge.run_number }}" = "129" ]] || exit 1
-          echo forge.run_attempt=${{ forge.run_attempt }}
-          [[ "${{ forge.run_attempt }}" = "3" ]] || exit 1
+          echo forgejo.run_id=${{ forgejo.run_id }}
+          [[ "${{ forgejo.run_id }}" = "150" ]] || exit 1
+          echo forgejo.run_number=${{ forgejo.run_number }}
+          [[ "${{ forgejo.run_number }}" = "129" ]] || exit 1
+          echo forgejo.run_attempt=${{ forgejo.run_attempt }}
+          [[ "${{ forgejo.run_attempt }}" = "3" ]] || exit 1
+          echo forgejo.workflow_ref=${{ forgejo.workflow_ref }}
+          [[ "${{ forgejo.workflow_ref }}" = "example/test/.forgejo/workflows/test.yaml@refs/heads/main" ]] || exit 1
 `
 		runWorkflow(ctx, cancel, workflow, "", "", "")
 	})
@@ -981,7 +986,7 @@ jobs:
           echo GITHUB_WORKFLOW="$GITHUB_WORKFLOW"
           [[ "$GITHUB_WORKFLOW" = "Predefined variables" ]] || exit 1
           echo GITHUB_WORKFLOW_REF="$GITHUB_WORKFLOW_REF"
-          [[ -z ${GITHUB_WORKFLOW_REF+x} ]] || exit 1  # Currently unsupported.
+          [[ "$GITHUB_WORKFLOW_REF" = "example/test/.forgejo/workflows/test.yaml@refs/heads/main"  ]] || exit 1
           echo GITHUB_WORKFLOW_SHA="$GITHUB_WORKFLOW_SHA"
           [[ -z ${GITHUB_WORKFLOW_SHA+x} ]] || exit 1  # Currently unsupported.
           echo GITHUB_WORKSPACE="$GITHUB_WORKSPACE"

@@ -40,6 +40,7 @@ type GithubContext struct {
 	ServerURL        string         `json:"server_url"`
 	APIURL           string         `json:"api_url"`
 	GraphQLURL       string         `json:"graphql_url"`
+	WorkflowRef      string         `json:"workflow_ref"`
 }
 
 func asString(v any) string {

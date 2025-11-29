@@ -1158,6 +1158,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		RefType:          rc.Config.Env["GITHUB_REF_TYPE"],
 		BaseRef:          rc.Config.Env["GITHUB_BASE_REF"],
 		HeadRef:          rc.Config.Env["GITHUB_HEAD_REF"],
+		WorkflowRef:      rc.Config.Env["GITHUB_WORKFLOW_REF"],
 		Workspace:        rc.Config.Env["GITHUB_WORKSPACE"],
 	}
 	if rc.JobContainer != nil {
@@ -1209,6 +1210,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 			ghc.Token = preset.Token
 			ghc.RepositoryOwner = preset.RepositoryOwner
 			ghc.RetentionDays = preset.RetentionDays
+			ghc.WorkflowRef = preset.WorkflowRef
 
 			instance := rc.Config.GitHubInstance
 			if instance != "" && !strings.HasPrefix(instance, "http://") &&
@@ -1355,6 +1357,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	set("HEAD_REF", github.HeadRef)
 	set("SERVER_URL", github.ServerURL)
 	set("API_URL", github.APIURL)
+	set("WORKFLOW_REF", github.WorkflowRef)
 
 	if rc.Config.ArtifactServerPath != "" {
 		setActionRuntimeVars(rc, env)
