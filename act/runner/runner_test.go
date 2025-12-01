@@ -769,6 +769,7 @@ func supportsMixedArchitecture(t *testing.T) bool {
 }
 
 func TestRunner_MixedArchitecture(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 	if !supportsMixedArchitecture(t) {
 		// For CI testing we want confidence that this test is run, but it's OK if it's skipped for developers since it
 		// has complex environmental requiremetns.
