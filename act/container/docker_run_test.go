@@ -375,6 +375,16 @@ func TestMergeJobOptions(t *testing.T) {
 			config:     &container.Config{},
 			hostConfig: &container.HostConfig{},
 		},
+		{
+			name:    "MergeUserAndGroupAdd",
+			options: "--user asdf --user root --group-add group1 --group-add wheel --group-add system --group-add wheel --group-add group1",
+			config: &container.Config{
+				User: "root",
+			},
+			hostConfig: &container.HostConfig{
+				GroupAdd: []string{"group1", "wheel", "system"},
+			},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cr := &containerReference{

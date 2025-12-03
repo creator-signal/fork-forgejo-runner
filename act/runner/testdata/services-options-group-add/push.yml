@@ -1,0 +1,26 @@
+name: services-options-group-add
+on: push
+
+jobs:
+  # test service groups
+  service-with-default-groups:
+    runs-on: ubuntu-latest
+    services:
+      nginx:
+        image: 'nginx:latest'
+        # this runs the webserver iff the condition is ok. We then look for the webserver in the job steps
+        cmd: ["sh", "-c", "(groups | grep \"^root$\") && nginx -g 'daemon off;'"]
+    steps:
+      - name: Test whether webserver is reachable
+        run: curl -sfI http://nginx:80
+  service-with-additional-groups:
+    runs-on: ubuntu-latest
+    services:
+      nginx:
+        options: --group-add users --group-add daemon
+        image: 'nginx:latest'
+        # this runs the webserver iff the condition is ok. We then look for the webserver in the job steps
+        cmd: ["sh", "-c", "(groups | grep \"^root daemon users$\") && nginx -g 'daemon off;'"]
+    steps:
+      - name: Test whether webserver is reachable
+        run: curl -sfI http://nginx:80

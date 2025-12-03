@@ -1,0 +1,17 @@
+name: job-container-options-group-add
+on: push
+
+jobs:
+  # test job groups
+  job-with-default-groups:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check default groups
+        run: groups | grep "^root$" || exit 1
+  job-with-additional-groups:
+    runs-on: ubuntu-latest
+    container:
+      options: --group-add users --group-add daemon
+    steps:
+      - name: Check added groups
+        run: groups | grep "^root daemon users$" || exit 1

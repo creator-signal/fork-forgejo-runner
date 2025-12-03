@@ -346,6 +346,8 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "job-container-invalid-credentials", "push", "failed to handle credentials: failed to interpolate container.credentials.password", platforms, secrets},
 		{workdir, "job-container-non-root", "push", "", platforms, secrets},
 		{workdir, "job-container-options", "push", "", platforms, secrets},
+		{workdir, "job-container-options-group-add", "push", "", platforms, secrets},
+		{workdir, "job-container-options-user", "push", "", platforms, secrets},
 
 		// services
 		{workdir, "services", "push", "", platforms, secrets},
@@ -353,6 +355,8 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "mysql-service-container-with-health-check", "push", "", platforms, secrets},
 		{workdir, "mysql-service-container-premature-terminate", "push", "service [maindb]", platforms, secrets},
 		{workdir, "services-empty-image", "push", "", platforms, secrets},
+		{workdir, "services-options-group-add", "push", "", platforms, secrets},
+		{workdir, "services-options-user", "push", "", platforms, secrets},
 		{workdir, "services-context-expression", "push", "", platforms, secrets},
 	}
 

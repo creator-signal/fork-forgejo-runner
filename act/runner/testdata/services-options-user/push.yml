@@ -1,0 +1,25 @@
+name: services-options-user
+on: push
+
+jobs:
+  # test service user
+  service-as-default-user:
+    runs-on: ubuntu-latest
+    services:
+      nginx:
+        image: 'nginx:latest'
+        # this runs the webserver iff the condition is ok. We then look for the webserver in the job steps
+        cmd: ["sh", "-c", "(whoami | grep \"^root$\") && nginx -g 'daemon off;'"]
+    steps:
+      - name: Test whether webserver is reachable
+        run: curl -sfI http://nginx:80
+  service-as-nobody:
+    runs-on: ubuntu-latest
+    services:
+      nginx:
+        options: --user nobody
+        image: 'nginx:latest'
+        # Here we try to run the webserver but expect a failure since nobody cannot bind to port 80.
+    steps:
+      - name: Test whether webserver is reachable
+        run: bash -c '! curl -sfI http://nginx:80'

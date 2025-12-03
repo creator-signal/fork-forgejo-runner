@@ -1,0 +1,17 @@
+name: job-container-options-user
+on: push
+
+jobs:
+  # test job user
+  job-as-default-user:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check default user is root
+        run: whoami | grep "^root$" || exit 1
+  job-as-nobody:
+    runs-on: ubuntu-latest
+    container:
+      options: --user nobody
+    steps:
+      - name: Check user is now nobody
+        run: whoami | grep "^nobody$" || exit 1

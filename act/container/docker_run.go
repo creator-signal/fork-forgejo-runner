@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -577,6 +578,18 @@ func (cr *containerReference) mergeJobOptions(ctx context.Context, config *conta
 	if len(jobConfig.Config.Hostname) > 0 {
 		logger.Debugf("--hostname %v", jobConfig.Config.Hostname)
 		config.Hostname = jobConfig.Config.Hostname
+	}
+
+	if len(jobConfig.Config.User) > 0 {
+		logger.Debugf("--user %v", jobConfig.Config.User)
+		config.User = jobConfig.Config.User
+	}
+
+	for _, group := range jobConfig.HostConfig.GroupAdd {
+		if !slices.Contains(hostConfig.GroupAdd, group) {
+			logger.Debugf("--group-add %v", group)
+			hostConfig.GroupAdd = append(hostConfig.GroupAdd, group)
+		}
 	}
 
 	return config, hostConfig, nil
