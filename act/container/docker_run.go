@@ -19,6 +19,8 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver"
+	"github.com/avast/retry-go/v4"
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/cli/cli/compose/loader"
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -444,17 +446,29 @@ func (cr *containerReference) remove() common.Executor {
 		}
 
 		logger := common.Logger(ctx)
-		err := cr.cli.ContainerRemove(ctx, cr.id, container.RemoveOptions{
-			RemoveVolumes: true,
-			Force:         true,
-		})
-		if err != nil {
-			logger.Error(fmt.Errorf("failed to remove container: %w", err))
-		}
+		return retry.Do(
+			func() error {
+				err := cr.cli.ContainerRemove(ctx, cr.id, container.RemoveOptions{
+					RemoveVolumes: true,
+					Force:         true,
+				})
+				if err != nil {
+					if cerrdefs.IsNotFound(err) {
+						logger.Debugf("container %s not found, considering this as a success", cr.id)
+						return nil
+					}
+					return err
+				}
 
-		logger.Debugf("Removed container: %v", cr.id)
-		cr.id = ""
-		return nil
+				logger.Debugf("Removed container: %v", cr.id)
+				cr.id = ""
+				return nil
+			},
+			retry.Context(ctx),
+			retry.OnRetry(func(n uint, err error) {
+				logger.Warnf("failed to remove docker container %s (retry #%d): %s\n", cr.id, n, err)
+			}),
+		)
 	}
 }
 

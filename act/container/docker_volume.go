@@ -7,6 +7,8 @@ import (
 	"slices"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"github.com/avast/retry-go/v4"
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 )
@@ -45,13 +47,29 @@ func removeExecutor(volume string) common.Executor {
 			return nil
 		}
 
-		cli, err := GetDockerClient(ctx)
-		if err != nil {
-			return err
-		}
-		defer cli.Close()
+		return retry.Do(
+			func() error {
+				cli, err := GetDockerClient(ctx)
+				if err != nil {
+					return err
+				}
+				defer cli.Close()
 
-		force := false
-		return cli.VolumeRemove(ctx, volume, force)
+				force := false
+				err = cli.VolumeRemove(ctx, volume, force)
+				if err != nil {
+					if cerrdefs.IsNotFound(err) {
+						logger.Debugf("volume %s not found, considering this as a success", volume)
+						return nil
+					}
+					return err
+				}
+				return nil
+			},
+			retry.Context(ctx),
+			retry.OnRetry(func(n uint, err error) {
+				logger.Warnf("failed to remove docker volume %s (retry #%d): %s\n", volume, n, err)
+			}),
+		)
 	}
 }
