@@ -1,0 +1,23 @@
+on:
+  workflow_call:
+    inputs:
+      example-string-required:
+        required: true
+        type: string
+      example-boolean-required:
+        required: true
+        type: boolean
+      example-number-required:
+        required: true
+        type: number
+
+name: test
+jobs:
+  job1:
+    runs-on: ${{ inputs.example-string-required }}${{ inputs.callee-invalid-input }}
+    steps:
+      - name: Echo inputs
+        run: |
+          echo example-string-required=${{ inputs.example-string-required }}
+          echo example-boolean-required=${{ inputs.example-boolean-required }}
+          echo example-number-required=${{ inputs.example-number-required }}

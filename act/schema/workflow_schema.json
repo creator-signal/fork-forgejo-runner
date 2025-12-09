@@ -1139,7 +1139,7 @@
     },
     "workflow-call-input-default": {
       "description": "If a `default` parameter is not set, the default value of the input is `false` for boolean, `0` for a number, and `\"\"` for a string.",
-      "context": ["forge", "forgejo", "github", "inputs", "vars"],
+      "context": ["forge", "forgejo", "github", "vars"],
       "one-of": ["string", "boolean", "number"]
     },
     "workflow-call-secrets": {

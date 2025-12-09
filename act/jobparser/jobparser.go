@@ -22,6 +22,8 @@ type bothJobTypes struct {
 	jobParserJob *Job
 	workflowJob  *model.Job
 	ignore       bool
+
+	overrideOnClause *yaml.Node
 }
 
 func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWorkflow, error) {
@@ -95,7 +97,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 
 	// Expand reusable workflows:
 	if pc.localWorkflowFetcher != nil || pc.remoteWorkflowFetcher != nil {
-		newJobs, err := expandReusableWorkflows(jobs, validate, options, pc)
+		newJobs, err := expandReusableWorkflows(jobs, validate, options, pc, results)
 		if err != nil {
 			return nil, err
 		}
@@ -187,6 +189,9 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				Env:      workflow.Env,
 				Defaults: workflow.Defaults,
 			}
+			if bothJobs.overrideOnClause != nil {
+				swf.RawOn = *bothJobs.overrideOnClause
+			}
 			if refErr := incompleteMatrix[id]; refErr != nil {
 				swf.IncompleteMatrix = true
 				swf.IncompleteMatrixNeeds = &IncompleteNeeds{
@@ -216,7 +221,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 	return ret, nil
 }
 
-func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []ParseOption, pc *parseContext) ([]*bothJobTypes, error) {
+func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult) ([]*bothJobTypes, error) {
 	retval := []*bothJobTypes{}
 	for _, bothJobs := range jobs {
 		if bothJobs.ignore {
@@ -257,7 +262,7 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []Pars
 		}
 		if reusableWorkflow != nil {
 			bothJobs.ignore = true // drop the job that referenced the reusable workflow
-			newJobs, err := expandReusableWorkflow(reusableWorkflow, validate, options, pc)
+			newJobs, err := expandReusableWorkflow(reusableWorkflow, validate, options, pc, jobResults, bothJobs)
 			if err != nil {
 				return nil, fmt.Errorf("error expanding reusable workflow %q: %v", workflowJob.Uses, err)
 			}
@@ -267,9 +272,23 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []Pars
 	return retval, nil
 }
 
-func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext) ([]*bothJobTypes, error) {
+func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult, calleeJob *bothJobTypes) ([]*bothJobTypes, error) {
 	innerParseOptions := append([]ParseOption{}, options...) // copy original slice
 	innerParseOptions = append(innerParseOptions, withRecursionDepth(pc.recursionDepth+1))
+
+	// Compute the inputs to the workflow call from `calleeJob`'s `with` clause.  There are two outputs from this
+	// calculation; one is the raw inputs which are passed to the next jobparser to expand the reusable workflow,
+	// allowing things like `runs-on` to be populated if they directly reference an input (that's `WithInputs` below).
+	// The second output is a rebuilt version of the `on.workflow_call` clause of the job which is returned in the
+	// `SingleWorkflow` from the expansion, and the inputs in this clause should be used when this job is later executed
+	// in order to fill in any other `${{ inputs... }}` evaluations in the jobs.
+	inputs, rebuiltOn, err := evaluateReusableWorkflowInputs(contents, validate, pc, jobResults, calleeJob)
+	if err != nil {
+		return nil, fmt.Errorf("failure to evaluate workflow inputs: %w", err)
+	}
+	// due to parse options being applied in-order, this will replace the callee job's inputs (if provided) with the
+	// inputs of the workflow call:
+	innerParseOptions = append(innerParseOptions, WithInputs(inputs))
 
 	innerWorkflows, err := Parse(contents, validate, innerParseOptions...)
 	if err != nil {
@@ -282,17 +301,109 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 		if err != nil {
 			return nil, fmt.Errorf("unable to marshal SingleWorkflow: %w", err)
 		}
+
 		workflow, err := model.ReadWorkflow(bytes.NewReader(content), validate)
 		if err != nil {
 			return nil, fmt.Errorf("model.ReadWorkflow: %w", err)
 		}
+
 		retval = append(retval, &bothJobTypes{
-			id:           id,
-			jobParserJob: job,
-			workflowJob:  workflow.GetJob(id),
+			id:               id,
+			jobParserJob:     job,
+			workflowJob:      workflow.GetJob(id),
+			overrideOnClause: rebuiltOn,
 		})
 	}
 	return retval, nil
+}
+
+func evaluateReusableWorkflowInputs(contents []byte, validate bool, pc *parseContext, jobResults map[string]*JobResult, calleeJob *bothJobTypes) (map[string]any, *yaml.Node, error) {
+	workflow, err := model.ReadWorkflow(bytes.NewReader(contents), validate)
+	if err != nil {
+		return nil, nil, fmt.Errorf("model.ReadWorkflow: %w", err)
+	}
+
+	jobNeeds := pc.workflowNeeds
+	if jobNeeds == nil {
+		jobNeeds = calleeJob.jobParserJob.Needs()
+	}
+
+	// For evaluating on the callee side's `with` fields, expected contexts to be available: env, forgejo, inputs, job,
+	// matrix, needs, runner, secrets, steps, strategy, vars
+	calleeEvaluator := NewExpressionEvaluator(NewInterpreter(calleeJob.id, calleeJob.workflowJob, nil, pc.gitContext,
+		jobResults, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds))
+
+	// For evaluating on the reusable workflow's side, with `on.workflow_call.inputs.<input_name>.default`, expected
+	// contexts to be available: forgejo, vars
+	reusableEvaluator := NewExpressionEvaluator(NewInterpreter(calleeJob.id, calleeJob.workflowJob, nil, pc.gitContext,
+		nil, pc.vars, nil, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, nil))
+
+	workflowConfig := workflow.WorkflowCallConfig()
+	withInput := calleeJob.workflowJob.With
+
+	retval := make(map[string]any)
+
+	for name, input := range workflowConfig.Inputs {
+		value := withInput[name]
+
+		if value != nil {
+			node := yaml.Node{}
+			err = node.Encode(value)
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to yaml encode value for input %q: %w", name, err)
+			}
+			err = calleeEvaluator.EvaluateYamlNode(&node)
+			// TODO: Near future: `with: ...` could contain references, direct or indirect, to another job through ${{
+			// needs... }} and that other job hasn't completed.  Need to handle InvalidJobOutputReferencedError &
+			// InvalidMatrixDimensionReferencedError errors and mark this new job as incomplete, requiring evaluation of
+			// an dependency first.
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to evaluate expression for input %q: %w", name, err)
+			}
+			err = node.Decode(&value)
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to yaml decode value for input %q: %w", name, err)
+			}
+		}
+
+		if value == nil {
+			def := input.Default
+			err = reusableEvaluator.EvaluateYamlNode(&def)
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to evaluate expression for default value of input %q: %w", name, err)
+			}
+			err = def.Decode(&value)
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to yaml decode value for default value of input %q: %w", name, err)
+			}
+		}
+
+		retval[name] = value
+	}
+
+	if len(retval) == 0 {
+		// Don't bother rebuild the `on.workflow_call` for no inputs.
+		return retval, nil, nil
+	}
+
+	// `retval` contains the evaluated inputs which are ready to be used in re-parsing this workflow.  But later when
+	// this workflow is actually executed, we need to store these inputs so that they can be used.  To do this, we
+	// rebuild the `on.workflow_call` section of the workflow and provide the now-evaluated values as the default values
+	// of each input -- that way the `with` clause from the callee isn't needed again to run this workflow.
+	rebuildInputs := make(map[string]any, len(retval))
+	for name, input := range workflowConfig.Inputs {
+		rebuildInputs[name] = map[string]any{
+			"type":    input.Type,
+			"default": retval[name],
+		}
+	}
+	var rebuiltOn yaml.Node
+	err = rebuiltOn.Encode(map[string]any{"workflow_call": map[string]any{"inputs": rebuildInputs}})
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to yaml encode `on.workflow_call` of single workflow: %w", err)
+	}
+
+	return retval, &rebuiltOn, nil
 }
 
 func WithJobResults(results map[string]string) ParseOption {

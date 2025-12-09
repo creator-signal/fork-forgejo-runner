@@ -195,6 +195,19 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		{
+			name:                    "expand_inputs",
+			reparsingSingleWorkflow: true,
+			options: []ParseOption{
+				WithInputs(map[string]any{
+					"callee-invalid-input": "this shouldn't appear in the reusable workflow",
+				}),
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					content := ReadTestdata(t, "expand_inputs_reusable.yaml", true)
+					return content, nil
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -223,4 +236,100 @@ func TestParse(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEvaluateReusableWorkflowInputs(t *testing.T) {
+	testWorkflow := `
+on:
+  workflow_call:
+    inputs:
+      example-string-required:
+        required: true
+        type: string
+      example-boolean-required:
+        required: true
+        type: boolean
+      example-number-required:
+        required: true
+        type: number
+      context-forgejo:
+        type: string
+      context-inputs:
+        type: string
+      context-matrix:
+        type: string
+      context-needs:
+        type: string
+      context-strategy:
+        type: string
+      context-vars:
+        type: string
+      default-forgejo:
+        type: string
+        default: ${{ forgejo.event_name }}
+      default-vars:
+        type: string
+        default: ${{ vars.best-var }}
+jobs:
+  job:
+    steps: []
+`
+
+	inputs, rebuildInputs, err := evaluateReusableWorkflowInputs(
+		[]byte(testWorkflow),
+		true,
+		&parseContext{
+			gitContext: &model.GithubContext{
+				EventName: "workflow_call",
+			},
+			inputs:        map[string]any{"my_input": "my_input_value"},
+			workflowNeeds: []string{"some-job"},
+			vars:          map[string]string{"best-var": "the-best-var"},
+		},
+		map[string]*JobResult{
+			"some-job": {
+				Outputs: map[string]string{"some-output": "some-output-value"},
+			},
+		},
+		&bothJobTypes{
+			workflowJob: &model.Job{
+				With: map[string]any{
+					"example-string-required":  "example string",
+					"example-boolean-required": true,
+					"example-number-required":  123.456,
+					"context-forgejo":          "${{ forgejo.event_name }}",
+					"context-inputs":           "${{ inputs.my_input }}",
+					"context-needs":            "${{ needs.some-job.outputs.some-output }}",
+					"context-strategy":         "${{ strategy.fail-fast }}",
+					"context-vars":             "${{ vars.best-var }}",
+					// TODO: matrix evaluation of the callee job not yet supported
+					// "context-matrix":           "${{ matrix.os }}",
+				},
+				Strategy: &model.Strategy{
+					FailFast: true,
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, rebuildInputs)
+
+	// These could all be one `assert.Subset`, but then it's hard to see in the test output what value was missing
+
+	// Simple value inputs passed in from `with: ...`
+	assert.Subset(t, inputs, map[string]any{"example-string-required": "example string"})
+	assert.Subset(t, inputs, map[string]any{"example-boolean-required": true})
+	assert.Subset(t, inputs, map[string]any{"example-number-required": 123.456})
+
+	// Variable-accessing values passed in from `with: ...`
+	assert.Subset(t, inputs, map[string]any{"context-forgejo": "workflow_call"})
+	assert.Subset(t, inputs, map[string]any{"context-inputs": "my_input_value"})
+	// assert.Subset(t, inputs, map[string]any{"context-matrix":  "nixos"}), // matrix evaluation of the callee job not yet supported
+	assert.Subset(t, inputs, map[string]any{"context-needs": "some-output-value"})
+	assert.Subset(t, inputs, map[string]any{"context-strategy": true})
+	assert.Subset(t, inputs, map[string]any{"context-vars": "the-best-var"})
+
+	// Variable-accessing values defined in `on.workflow_call.inputs.<input_name>.default`
+	assert.Subset(t, inputs, map[string]any{"default-forgejo": "workflow_call"})
+	assert.Subset(t, inputs, map[string]any{"default-vars": "the-best-var"})
 }

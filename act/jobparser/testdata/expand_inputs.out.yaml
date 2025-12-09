@@ -1,0 +1,45 @@
+"on":
+  workflow_call:
+    inputs:
+      example-boolean-required:
+        default: true
+        type: boolean
+      example-number-required:
+        default: 123
+        type: number
+      example-string-required:
+        default: reusable-1
+        type: string
+jobs:
+  job1:
+    name: job1
+    runs-on: reusable-1
+    steps:
+      - name: Echo inputs
+        run: |
+          echo example-string-required=${{ inputs.example-string-required }}
+          echo example-boolean-required=${{ inputs.example-boolean-required }}
+          echo example-number-required=${{ inputs.example-number-required }}
+---
+"on":
+  workflow_call:
+    inputs:
+      example-boolean-required:
+        default: false
+        type: boolean
+      example-number-required:
+        default: 456
+        type: number
+      example-string-required:
+        default: reusable-2
+        type: string
+jobs:
+  job1:
+    name: job1
+    runs-on: reusable-2
+    steps:
+      - name: Echo inputs
+        run: |
+          echo example-string-required=${{ inputs.example-string-required }}
+          echo example-boolean-required=${{ inputs.example-boolean-required }}
+          echo example-number-required=${{ inputs.example-number-required }}

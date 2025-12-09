@@ -1,0 +1,16 @@
+on:
+  pull_request:
+
+jobs:
+  reusable-1:
+    uses: ./.forgejo/workflows/expand_inputs_reusable.yml
+    with:
+      example-string-required: "${{ 'reusable-1' }}"
+      example-boolean-required: true
+      example-number-required: 123
+  reusable-2:
+    uses: ./.forgejo/workflows/expand_inputs_reusable.yml
+    with:
+      example-string-required: reusable-2
+      example-boolean-required: false
+      example-number-required: 456
