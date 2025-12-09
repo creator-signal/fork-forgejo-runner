@@ -13,6 +13,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Obsolete, but not deprecated: when reusable workflows are executed by Forgejo, the jobparser attempts to split them
+// into multiple distinct jobs (using `ExpandLocalReusableWorkflows` and `ExpandRemoteReusableWorkflows`).  In that
+// situation, none of the executors here will be used -- jobs will appear to the runner as individual jobs the same as
+// any other.  This code is retained for three cases: `forgejo-runner exec` uses it, if the Expand* methods return
+// `ErrUnsupportedReusableWorkflowFetch` it is used, and it is used when older instances of Forgejo before the expansion
+// capabilities are used.
 func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	if !rc.Config.NoSkipCheckout {
 		fullPath := rc.Run.Job().Uses
@@ -49,6 +55,7 @@ func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	return cloneIfRequired(rc, reusable, token, makeWorkflowExecutorForWorkTree)
 }
 
+// See "Obsolete" note on newLocalReusableWorkflowExecutor -- applies to this as well.
 func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	uses := rc.Run.Job().Uses
 
