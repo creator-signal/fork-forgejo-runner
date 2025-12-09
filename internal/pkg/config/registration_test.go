@@ -15,7 +15,7 @@ import (
 
 func TestConfig_Registration(t *testing.T) {
 	reg := Registration{
-		Warning: registrationWarning,
+		Warning: RegistrationWarning,
 		ID:      1234,
 		UUID:    "UUID",
 		Name:    "NAME",

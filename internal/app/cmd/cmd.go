@@ -83,6 +83,14 @@ func Execute(ctx context.Context) {
 	cacheCmd.Flags().StringVarP(&cacheArgs.Secret, "secret", "", "", "Shared cache secret")
 	rootCmd.AddCommand(cacheCmd)
 
+	connect := &cobra.Command{
+		Use:   "connect",
+		Short: "Connect this runner to a Forgejo instance (experimental)",
+		Args:  cobra.MaximumNArgs(0),
+	}
+	connect.AddCommand(createConnectTokenCmd(&configFile))
+	rootCmd.AddCommand(connect)
+
 	// hide completion command
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
