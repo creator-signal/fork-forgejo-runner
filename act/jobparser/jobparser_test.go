@@ -1,6 +1,7 @@
 package jobparser
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"strings"
@@ -236,6 +237,18 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		{
+			name: "expand_reusable_outputs",
+			options: []ParseOption{
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_outputs_reusable-1.yml" {
+						content := ReadTestdata(t, "expand_reusable_outputs_reusable-1.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -303,9 +316,11 @@ jobs:
     steps: []
 `
 
+	workflow, err := model.ReadWorkflow(bytes.NewReader([]byte(testWorkflow)), true)
+	require.NoError(t, err)
+
 	inputs, rebuildInputs, err := evaluateReusableWorkflowInputs(
-		[]byte(testWorkflow),
-		true,
+		workflow,
 		&parseContext{
 			gitContext: &model.GithubContext{
 				EventName: "workflow_call",

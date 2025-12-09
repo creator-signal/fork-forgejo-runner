@@ -1,0 +1,37 @@
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1
+    needs:
+      - reusable-1.job1
+      - reusable-1.job2
+    runs-on: []
+    if: false
+    outputs:
+      workflow_output_1: ${{ needs[format('{0}.{1}', 'reusable-1', 'job1')].outputs.job1output }}
+      workflow_output_2: ${{ toJSON(needs[format('{0}.{1}', 'reusable-1', 'job2')].outputs) }}
+---
+name: test
+jobs:
+  finalize:
+    name: finalize
+    needs: [reusable-1]
+    runs-on: ubuntu
+    steps:
+      - run: echo ${{ needs.reusable-1.outputs.output-1 }}
+---
+name: test
+jobs:
+  reusable-1.job1:
+    name: job1
+    runs-on: linux
+    outputs:
+      job1output: Hello, world!
+---
+name: test
+jobs:
+  reusable-1.job2:
+    name: job2
+    runs-on: linux
+    outputs:
+      job2output: Hello, world!
