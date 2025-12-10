@@ -35,9 +35,8 @@ func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
-	if reusable.Host == nil {
-		// Non-URL qualified remote reusable workflow; default Host for cloning to the currently configured forgejo
-		reusable.Host = getHost(rc.Config.GitHubInstance)
+	if reusable.BaseURL == nil {
+		reusable.BaseURL = getBaseURL(rc.Config.GitHubInstance)
 	}
 
 	// If the repository is private, we need a token to clone it
@@ -57,9 +56,8 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
-	if reusable.Host == nil {
-		// Non-URL qualified remote reusable workflow; default Host for cloning to the currently configured forgejo
-		reusable.Host = getHost(rc.Config.GitHubInstance)
+	if reusable.BaseURL == nil {
+		reusable.BaseURL = getBaseURL(rc.Config.GitHubInstance)
 	}
 
 	// FIXME: if the reusable workflow is from a private repository, we need to provide a token to access the repository.
@@ -72,17 +70,19 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	return cloneIfRequired(rc, reusable, token, makeWorkflowExecutorForWorkTree)
 }
 
-func getHost(gitHubInstance string) *string {
+// gitHubInstance can be a URL or just a hostname -- return a URL for consistency
+func getBaseURL(gitHubInstance string) *string {
 	if gitHubInstance != "" {
 		if u, err := url.Parse(gitHubInstance); err == nil && u.Host != "" {
-			return &u.Host
+			return &gitHubInstance
 		}
-		return &gitHubInstance
+		baseURL := fmt.Sprintf("https://%s", gitHubInstance)
+		return &baseURL
 	}
 	return nil
 }
 
-func cloneIfRequired(rc *RunContext, remoteReusableWorkflow *model.RemoteReusableWorkflowWithHost, token string, makeWorkflowExecutorForWorkTree func(workflowDir string) common.Executor) common.Executor {
+func cloneIfRequired(rc *RunContext, remoteReusableWorkflow *model.RemoteReusableWorkflowWithBaseURL, token string, makeWorkflowExecutorForWorkTree func(workflowDir string) common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		// Do not change the remoteReusableWorkflow.URL, because:
 		// 	1. Gitea doesn't support specifying GithubContext.ServerURL by the GITHUB_SERVER_URL env

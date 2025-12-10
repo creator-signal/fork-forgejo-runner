@@ -41,38 +41,42 @@ func (r *RemoteReusableWorkflow) FilePath() string {
 	return fmt.Sprintf("./.%s/workflows/%s", r.GitPlatform, r.Filename)
 }
 
-type RemoteReusableWorkflowWithHost struct {
+type RemoteReusableWorkflowWithBaseURL struct {
 	RemoteReusableWorkflow
-	Host *string
+	BaseURL *string
 }
 
-func (r *RemoteReusableWorkflowWithHost) CloneURL() string {
-	if r.Host == nil {
+func (r *RemoteReusableWorkflowWithBaseURL) CloneURL() string {
+	if r.BaseURL == nil {
 		return ""
 	}
-	return fmt.Sprintf("https://%s/%s/%s", *r.Host, r.Org, r.Repo)
+	return fmt.Sprintf("%s/%s/%s", *r.BaseURL, r.Org, r.Repo)
 }
 
 // Parses a `uses` declaration for a "remote" (not this repo) reusable workflow.  Typically something like
 // "some-org/some-repo/.forgejo/workflows/called-workflow.yml@v1".  Can also be domain-qualified, in which case the
 // `BaseURL` field will be populated -- otherwise it should be assumed to be an org/repo on the same Forgejo instance as
 // the `uses: ...` was declared.
-func ParseRemoteReusableWorkflow(uses string) (*RemoteReusableWorkflowWithHost, error) {
+func ParseRemoteReusableWorkflow(uses string) (*RemoteReusableWorkflowWithBaseURL, error) {
 	url, err := url.Parse(uses)
 	if err != nil {
 		return nil, fmt.Errorf("'%s' cannot be parsed as a URL: %v", uses, err)
 	}
-	host := &url.Host
-	if *host == "" {
-		host = nil
+	host := url.Host
+	var baseURL *string
+	if host == "" {
+		baseURL = nil
+	} else {
+		innerBaseURL := fmt.Sprintf("%s://%s", url.Scheme, url.Host)
+		baseURL = &innerBaseURL
 	}
 
 	remoteReusableWorkflow := NewRemoteReusableWorkflowWithPlat(strings.TrimPrefix(url.Path, "/"))
 	if remoteReusableWorkflow == nil {
 		return nil, fmt.Errorf("expected format {owner}/{repo}/.{git_platform}/workflows/{filename}@{ref}. Actual '%s' Input string was not in a correct format", url.Path)
 	}
-	return &RemoteReusableWorkflowWithHost{
+	return &RemoteReusableWorkflowWithBaseURL{
 		RemoteReusableWorkflow: *remoteReusableWorkflow,
-		Host:                   host,
+		BaseURL:                baseURL,
 	}, nil
 }

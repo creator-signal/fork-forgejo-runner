@@ -163,7 +163,7 @@ func TestParse(t *testing.T) {
 		{
 			name: "expand_remote_workflow",
 			options: []ParseOption{
-				ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithHost) ([]byte, error) {
+				ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
 					if ref.Org != "some-org" {
 						return nil, fmt.Errorf("unexpected remote Org: %q", ref.Org)
 					}
@@ -173,15 +173,15 @@ func TestParse(t *testing.T) {
 					if ref.GitPlatform != "forgejo" {
 						return nil, fmt.Errorf("unexpected remote GitPlatform: %q", ref.GitPlatform)
 					}
-					if ref.Host == nil {
+					if ref.BaseURL == nil {
 						// relative reference in expand_remote_workflow.in.yaml
 						if ref.Filename != "expand_remote_workflow_reusable-2.yml" {
 							return nil, fmt.Errorf("unexpected remote Filename: %q", ref.Filename)
 						}
 					} else {
 						// absolute reference in expand_remote_workflow.in.yaml
-						if *ref.Host != "example.com" {
-							return nil, fmt.Errorf("unexpected remote Host: %v", ref.Host)
+						if *ref.BaseURL != "https://example.com" {
+							return nil, fmt.Errorf("unexpected remote Host: %v", ref.BaseURL)
 						}
 						if ref.Filename != "expand_remote_workflow_reusable-1.yml" {
 							return nil, fmt.Errorf("unexpected remote Filename: %q", ref.Filename)

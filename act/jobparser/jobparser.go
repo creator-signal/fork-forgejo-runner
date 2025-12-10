@@ -370,7 +370,7 @@ func ExpandLocalReusableWorkflows(localWorkflowFetcher func(path string) ([]byte
 // the target workflow for job parsing.  The job will go to the "fallback" mode of operation where its internal jobs are
 // not expanded into the parsed workflow, and it can still be executed as a single monolithic job.  All other errors are
 // considered fatal for job parsing.
-func ExpandRemoteReusableWorkflows(remoteWorkflowFetcher func(ref *model.RemoteReusableWorkflowWithHost) ([]byte, error)) ParseOption {
+func ExpandRemoteReusableWorkflows(remoteWorkflowFetcher func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error)) ParseOption {
 	return func(c *parseContext) {
 		c.remoteWorkflowFetcher = remoteWorkflowFetcher
 	}
@@ -391,7 +391,7 @@ type parseContext struct {
 	workflowNeeds           []string
 	supportIncompleteRunsOn bool
 	localWorkflowFetcher    func(path string) ([]byte, error)
-	remoteWorkflowFetcher   func(ref *model.RemoteReusableWorkflowWithHost) ([]byte, error)
+	remoteWorkflowFetcher   func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error)
 	recursionDepth          int
 }
 

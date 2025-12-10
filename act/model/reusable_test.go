@@ -12,7 +12,7 @@ func TestParseRemoteReusableWorkflow(t *testing.T) {
 		name             string
 		url              string
 		uses             string
-		expectedHost     string
+		expectedBaseURL  string
 		expectedOrg      string
 		expectedRepo     string
 		expectedPlatform string
@@ -33,7 +33,18 @@ func TestParseRemoteReusableWorkflow(t *testing.T) {
 		{
 			name:             "valid qualified workflow",
 			uses:             "https://example.com/forgejo/runner/.gitea/workflows/build.yaml@v1.0.0",
-			expectedHost:     "example.com",
+			expectedBaseURL:  "https://example.com",
+			expectedOrg:      "forgejo",
+			expectedRepo:     "runner",
+			expectedPlatform: "gitea",
+			expectedFilename: "build.yaml",
+			expectedRef:      "v1.0.0",
+			shouldFail:       false,
+		},
+		{
+			name:             "valid qualified non-https",
+			uses:             "http://example.com/forgejo/runner/.gitea/workflows/build.yaml@v1.0.0",
+			expectedBaseURL:  "http://example.com",
 			expectedOrg:      "forgejo",
 			expectedRepo:     "runner",
 			expectedPlatform: "gitea",
@@ -57,11 +68,11 @@ func TestParseRemoteReusableWorkflow(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, result)
-				if tt.expectedHost != "" {
-					require.NotNil(t, result.Host)
-					assert.Equal(t, tt.expectedHost, *result.Host)
+				if tt.expectedBaseURL != "" {
+					require.NotNil(t, result.BaseURL)
+					assert.Equal(t, tt.expectedBaseURL, *result.BaseURL)
 				} else {
-					assert.Nil(t, result.Host)
+					assert.Nil(t, result.BaseURL)
 				}
 				assert.Equal(t, tt.expectedOrg, result.Org)
 				assert.Equal(t, tt.expectedRepo, result.Repo)
@@ -136,13 +147,13 @@ func TestNewRemoteReusableWorkflowWithPlat(t *testing.T) {
 }
 
 func TestRemoteReusableWorkflow_CloneURL(t *testing.T) {
-	host := "code.forgejo.org"
-	rw := &RemoteReusableWorkflowWithHost{
+	baseURL := "https://code.forgejo.org"
+	rw := &RemoteReusableWorkflowWithBaseURL{
 		RemoteReusableWorkflow: RemoteReusableWorkflow{
 			Org:  "owner",
 			Repo: "repo",
 		},
-		Host: &host,
+		BaseURL: &baseURL,
 	}
 	assert.Equal(t, "https://code.forgejo.org/owner/repo", rw.CloneURL())
 }
