@@ -36,7 +36,8 @@ func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	}
 	if reusable.Host == nil {
 		// Non-URL qualified remote reusable workflow; default Host for cloning to the currently configured forgejo
-		reusable.Host = &rc.Config.GitHubInstance
+		normalizedHost := normalizeHost(rc.Config.GitHubInstance)
+		reusable.Host = &normalizedHost
 	}
 
 	// If the repository is private, we need a token to clone it

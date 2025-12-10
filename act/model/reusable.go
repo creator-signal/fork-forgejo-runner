@@ -47,19 +47,10 @@ type RemoteReusableWorkflowWithHost struct {
 }
 
 func (r *RemoteReusableWorkflowWithHost) CloneURL() string {
-	if r.Host == nil || *r.Host == "" {
+	if r.Host == nil {
 		return ""
 	}
-
-	host := strings.TrimSpace(*r.Host)
-	host = strings.TrimSuffix(host, "/")
-
-	// Extract hostname if full URL is provided
-	if u, err := url.Parse(host); err == nil && u.Host != "" {
-		host = u.Host
-	}
-
-	return fmt.Sprintf("https://%s/%s/%s", host, r.Org, r.Repo)
+	return fmt.Sprintf("https://%s/%s/%s", *r.Host, r.Org, r.Repo)
 }
 
 // Parses a `uses` declaration for a "remote" (not this repo) reusable workflow.  Typically something like
