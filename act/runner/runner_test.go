@@ -200,6 +200,9 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		JobLoggerLevel:        cfg.JobLoggerLevel,
 		ContainerDaemonSocket: os.Getenv("DOCKER_HOST"),
 	}
+	if cfg.GitHubInstance != "" {
+		runnerConfig.GitHubInstance = cfg.GitHubInstance
+	}
 
 	runner, err := New(runnerConfig)
 	assert.Nil(t, err, j.workflowPath)
@@ -790,4 +793,21 @@ func TestRunner_MixedArchitecture(t *testing.T) {
 		},
 	}
 	tjfi.runTest(t.Context(), t, &Config{})
+}
+
+func TestRunner_ReusableWorkflowGitHubInstance(t *testing.T) {
+	for _, gitHubInstance := range []string{"code.forgejo.org", "https://code.forgejo.org"} {
+		t.Run(gitHubInstance, func(t *testing.T) {
+			tjfi := TestJobFileInfo{
+				workdir:      workdir,
+				workflowPath: "uses-workflow-remote-relative",
+				eventName:    "push",
+				errorMessage: "",
+				platforms: map[string]string{
+					"alpine": "code.forgejo.org/oci/alpine:3.22",
+				},
+			}
+			tjfi.runTest(t.Context(), t, &Config{GitHubInstance: gitHubInstance})
+		})
+	}
 }

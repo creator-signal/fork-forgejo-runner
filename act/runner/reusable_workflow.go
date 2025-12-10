@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"path"
 	"strings"
 
@@ -36,7 +37,7 @@ func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	}
 	if reusable.Host == nil {
 		// Non-URL qualified remote reusable workflow; default Host for cloning to the currently configured forgejo
-		reusable.Host = &rc.Config.GitHubInstance
+		reusable.Host = getHost(rc.Config.GitHubInstance)
 	}
 
 	// If the repository is private, we need a token to clone it
@@ -58,7 +59,7 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	}
 	if reusable.Host == nil {
 		// Non-URL qualified remote reusable workflow; default Host for cloning to the currently configured forgejo
-		reusable.Host = &rc.Config.GitHubInstance
+		reusable.Host = getHost(rc.Config.GitHubInstance)
 	}
 
 	// FIXME: if the reusable workflow is from a private repository, we need to provide a token to access the repository.
@@ -69,6 +70,16 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	}
 
 	return cloneIfRequired(rc, reusable, token, makeWorkflowExecutorForWorkTree)
+}
+
+func getHost(gitHubInstance string) *string {
+	if gitHubInstance != "" {
+		if u, err := url.Parse(gitHubInstance); err == nil && u.Host != "" {
+			return &u.Host
+		}
+		return &gitHubInstance
+	}
+	return nil
 }
 
 func cloneIfRequired(rc *RunContext, remoteReusableWorkflow *model.RemoteReusableWorkflowWithHost, token string, makeWorkflowExecutorForWorkTree func(workflowDir string) common.Executor) common.Executor {
