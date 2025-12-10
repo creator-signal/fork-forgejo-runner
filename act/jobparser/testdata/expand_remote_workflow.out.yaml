@@ -1,6 +1,28 @@
 name: test
 jobs:
-  job1:
+  reusable-1:
+    name: reusable-1
+    needs:
+      - reusable-1.job1
+      - reusable-1.job2
+      - reusable-1.job3
+    runs-on: []
+    if: false
+---
+name: test
+jobs:
+  reusable-2:
+    name: reusable-2
+    needs:
+      - reusable-2.job1
+      - reusable-2.job2
+      - reusable-2.job3
+    runs-on: []
+    if: false
+---
+name: test
+jobs:
+  reusable-1.job1:
     name: job1
     runs-on: linux
     steps:
@@ -8,25 +30,28 @@ jobs:
 ---
 name: test
 jobs:
-  job2:
+  reusable-1.job2:
     name: job2
-    needs: job1
+    needs:
+      - reusable-1.job1
     runs-on: linux
     steps:
       - run: uname -a
 ---
 name: test
 jobs:
-  job3:
+  reusable-1.job3:
     name: job3
-    needs: [job1, job2]
+    needs:
+      - reusable-1.job1
+      - reusable-1.job2
     runs-on: linux
     steps:
       - run: uname -a
 ---
 name: test
 jobs:
-  job1:
+  reusable-2.job1:
     name: job1
     runs-on: linux
     steps:
@@ -34,18 +59,21 @@ jobs:
 ---
 name: test
 jobs:
-  job2:
+  reusable-2.job2:
     name: job2
-    needs: job1
+    needs:
+      - reusable-2.job1
     runs-on: linux
     steps:
       - run: uname -a
 ---
 name: test
 jobs:
-  job3:
+  reusable-2.job3:
     name: job3
-    needs: [job1, job2]
+    needs:
+      - reusable-2.job1
+      - reusable-2.job2
     runs-on: linux
     steps:
       - run: uname -a

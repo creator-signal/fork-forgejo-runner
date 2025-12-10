@@ -1,4 +1,24 @@
 "on":
+  pull_request:
+jobs:
+  reusable-1:
+    name: reusable-1
+    needs:
+      - reusable-1.job1
+    runs-on: []
+    if: false
+---
+"on":
+  pull_request:
+jobs:
+  reusable-2:
+    name: reusable-2
+    needs:
+      - reusable-2.job1
+    runs-on: []
+    if: false
+---
+"on":
   workflow_call:
     inputs:
       example-boolean-required:
@@ -11,7 +31,7 @@
         default: reusable-1
         type: string
 jobs:
-  job1:
+  reusable-1.job1:
     name: job1
     runs-on: reusable-1
     steps:
@@ -34,7 +54,7 @@ jobs:
         default: reusable-2
         type: string
 jobs:
-  job1:
+  reusable-2.job1:
     name: job1
     runs-on: reusable-2
     steps:

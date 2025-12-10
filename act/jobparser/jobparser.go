@@ -21,7 +21,6 @@ type bothJobTypes struct {
 	id           string
 	jobParserJob *Job
 	workflowJob  *model.Job
-	ignore       bool
 
 	overrideOnClause *yaml.Node
 }
@@ -106,10 +105,6 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 
 	var ret []*SingleWorkflow
 	for _, bothJobs := range jobs {
-		if bothJobs.ignore {
-			continue
-		}
-
 		id := bothJobs.id
 		jobParserJob := bothJobs.jobParserJob
 		workflowJob := bothJobs.workflowJob
@@ -224,9 +219,6 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult) ([]*bothJobTypes, error) {
 	retval := []*bothJobTypes{}
 	for _, bothJobs := range jobs {
-		if bothJobs.ignore {
-			continue
-		}
 		workflowJob := bothJobs.workflowJob
 
 		jobType, err := workflowJob.Type()
@@ -261,11 +253,18 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []Pars
 			reusableWorkflow = contents
 		}
 		if reusableWorkflow != nil {
-			bothJobs.ignore = true // drop the job that referenced the reusable workflow
 			newJobs, err := expandReusableWorkflow(reusableWorkflow, validate, options, pc, jobResults, bothJobs)
 			if err != nil {
 				return nil, fmt.Errorf("error expanding reusable workflow %q: %v", workflowJob.Uses, err)
 			}
+
+			// The "callee" job will still exist in order to act as a `sentinel` for `needs` job ordering & output
+			// moment we'll just mark it as a job with `if: false` and remove the `uses: ...` to ensure that it never
+			// gets executed as its own reusable workflow.
+			_ = bothJobs.jobParserJob.If.Encode(false)
+			bothJobs.jobParserJob.Uses = ""
+			bothJobs.jobParserJob.With = nil
+
 			retval = append(retval, newJobs...)
 		}
 	}
