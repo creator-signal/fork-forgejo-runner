@@ -492,6 +492,15 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 
 	// add service containers
 	for serviceID, spec := range rc.Run.Job().Services {
+		// Interpolate image first to check if we should skip this service
+		interpolatedImage := rc.ExprEval.Interpolate(ctx, spec.Image)
+
+		// Skip service if image is empty (allows conditional services via expressions)
+		if interpolatedImage == "" {
+			logger.Infof("Skipping service '%s' because image is empty", serviceID)
+			continue
+		}
+
 		// interpolate env
 		interpolatedEnvs := make(map[string]string, len(spec.Env))
 		for k, v := range spec.Env {
@@ -529,7 +538,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		serviceContainerName := createContainerName(rc.jobContainerName(), serviceID)
 		c := container.NewContainer(&container.NewContainerInput{
 			Name:            serviceContainerName,
-			Image:           rc.ExprEval.Interpolate(ctx, spec.Image),
+			Image:           interpolatedImage,
 			Username:        username,
 			Password:        password,
 			Cmd:             interpolatedCmd,
