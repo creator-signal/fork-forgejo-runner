@@ -220,6 +220,22 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		{
+			name: "expand_reusable_needs_recursive",
+			options: []ParseOption{
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_needs_recursive-1.yml" {
+						content := ReadTestdata(t, "expand_reusable_needs_recursive-1.yaml", true)
+						return content, nil
+					}
+					if path == "./.forgejo/workflows/expand_reusable_needs_recursive-2.yml" {
+						content := ReadTestdata(t, "expand_reusable_needs_recursive-2.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

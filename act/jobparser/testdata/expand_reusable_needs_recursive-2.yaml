@@ -1,0 +1,6 @@
+name: test
+jobs:
+  job1:
+    runs-on: linux
+    steps:
+      - run: uname -a

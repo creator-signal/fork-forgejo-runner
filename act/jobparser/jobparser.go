@@ -318,9 +318,12 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 
 		originalNeeds := job.Needs()
 		newNeeds := make([]string, len(originalNeeds))
+		// Rewrite the `needs` of the job to be qualified within the job so they depend upon each other.
 		for i := range originalNeeds {
 			newNeeds[i] = fmt.Sprintf("%s.%s", calleeJob.id, originalNeeds[i])
 		}
+		// Add all the jobs that the reusable workflow `needs`'d to the jobs within the reusable workflow as well:
+		newNeeds = append(newNeeds, calleeJob.jobParserJob.Needs()...)
 		if len(newNeeds) != 0 {
 			err = job.RawNeeds.Encode(newNeeds)
 			if err != nil {
