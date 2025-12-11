@@ -248,7 +248,7 @@ func (ee expressionEvaluator) evaluateScalarYamlNode(ctx context.Context, node *
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
 		return nil, nil
 	}
-	expr, _ := rewriteSubExpression(ctx, in, false)
+	expr := rewriteSubExpression(ctx, in, false)
 	res, err := ee.evaluate(ctx, expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		return nil, err
@@ -379,7 +379,7 @@ func (ee expressionEvaluator) Interpolate(ctx context.Context, in string) string
 		return in
 	}
 
-	expr, _ := rewriteSubExpression(ctx, in, true)
+	expr := rewriteSubExpression(ctx, in, true)
 	evaluated, err := ee.evaluate(ctx, expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		common.Logger(ctx).Errorf("Unable to interpolate expression '%s': %s", expr, err)
@@ -396,7 +396,7 @@ func (ee expressionEvaluator) Interpolate(ctx context.Context, in string) string
 
 // EvalBool evaluates an expression against given evaluator
 func EvalBool(ctx context.Context, evaluator ExpressionEvaluator, expr string, defaultStatusCheck exprparser.DefaultStatusCheck) (bool, error) {
-	nextExpr, _ := rewriteSubExpression(ctx, expr, false)
+	nextExpr := rewriteSubExpression(ctx, expr, false)
 
 	evaluated, err := evaluator.evaluate(ctx, nextExpr, defaultStatusCheck)
 	if err != nil {
@@ -406,74 +406,12 @@ func EvalBool(ctx context.Context, evaluator ExpressionEvaluator, expr string, d
 	return exprparser.IsTruthy(evaluated), nil
 }
 
-func escapeFormatString(in string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(in, "{", "{{"), "}", "}}")
-}
-
-func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) (string, error) {
-	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
-		return in, nil
-	}
-
-	strPattern := regexp.MustCompile("(?:''|[^'])*'")
-	pos := 0
-	exprStart := -1
-	strStart := -1
-	var results []string
-	formatOut := ""
-	for pos < len(in) {
-		if strStart > -1 {
-			matches := strPattern.FindStringIndex(in[pos:])
-			if matches == nil {
-				panic("unclosed string.")
-			}
-
-			strStart = -1
-			pos += matches[1]
-		} else if exprStart > -1 {
-			exprEnd := strings.Index(in[pos:], "}}")
-			strStart = strings.Index(in[pos:], "'")
-
-			if exprEnd > -1 && strStart > -1 {
-				if exprEnd < strStart {
-					strStart = -1
-				} else {
-					exprEnd = -1
-				}
-			}
-
-			if exprEnd > -1 {
-				formatOut += fmt.Sprintf("{%d}", len(results))
-				results = append(results, strings.TrimSpace(in[exprStart:pos+exprEnd]))
-				pos += exprEnd + 2
-				exprStart = -1
-			} else if strStart > -1 {
-				pos += strStart + 1
-			} else {
-				panic("unclosed expression.")
-			}
-		} else {
-			exprStart = strings.Index(in[pos:], "${{")
-			if exprStart != -1 {
-				formatOut += escapeFormatString(in[pos : pos+exprStart])
-				exprStart = pos + exprStart + 3
-				pos = exprStart
-			} else {
-				formatOut += escapeFormatString(in[pos:])
-				pos = len(in)
-			}
-		}
-	}
-
-	if len(results) == 1 && formatOut == "{0}" && !forceFormat {
-		return in, nil
-	}
-
-	out := fmt.Sprintf("format('%s', %s)", strings.ReplaceAll(formatOut, "'", "''"), strings.Join(results, ", "))
+func rewriteSubExpression(ctx context.Context, in string, forceFormat bool) string {
+	out := exprparser.RewriteSubExpression(in, forceFormat)
 	if in != out {
 		common.Logger(ctx).Debugf("expression '%s' rewritten to '%s'", in, out)
 	}
-	return out, nil
+	return out
 }
 
 func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *model.GithubContext) map[string]any {

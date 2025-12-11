@@ -33,7 +33,7 @@ func (ee ExpressionEvaluator) evaluateScalarYamlNode(node *yaml.Node) error {
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
 		return nil
 	}
-	expr, _ := rewriteSubExpression(in, false)
+	expr := exprparser.RewriteSubExpression(in, false)
 	res, err := ee.evaluate(expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func (ee ExpressionEvaluator) Interpolate(in string) string {
 		return in
 	}
 
-	expr, _ := rewriteSubExpression(in, true)
+	expr := exprparser.RewriteSubExpression(in, true)
 	evaluated, err := ee.evaluate(expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		return ""
@@ -115,71 +115,4 @@ func (ee ExpressionEvaluator) Interpolate(in string) string {
 	}
 
 	return value
-}
-
-func escapeFormatString(in string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(in, "{", "{{"), "}", "}}")
-}
-
-func rewriteSubExpression(in string, forceFormat bool) (string, error) {
-	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
-		return in, nil
-	}
-
-	strPattern := regexp.MustCompile("(?:''|[^'])*'")
-	pos := 0
-	exprStart := -1
-	strStart := -1
-	var results []string
-	formatOut := ""
-	for pos < len(in) {
-		if strStart > -1 {
-			matches := strPattern.FindStringIndex(in[pos:])
-			if matches == nil {
-				panic("unclosed string.")
-			}
-
-			strStart = -1
-			pos += matches[1]
-		} else if exprStart > -1 {
-			exprEnd := strings.Index(in[pos:], "}}")
-			strStart = strings.Index(in[pos:], "'")
-
-			if exprEnd > -1 && strStart > -1 {
-				if exprEnd < strStart {
-					strStart = -1
-				} else {
-					exprEnd = -1
-				}
-			}
-
-			if exprEnd > -1 {
-				formatOut += fmt.Sprintf("{%d}", len(results))
-				results = append(results, strings.TrimSpace(in[exprStart:pos+exprEnd]))
-				pos += exprEnd + 2
-				exprStart = -1
-			} else if strStart > -1 {
-				pos += strStart + 1
-			} else {
-				panic("unclosed expression.")
-			}
-		} else {
-			exprStart = strings.Index(in[pos:], "${{")
-			if exprStart != -1 {
-				formatOut += escapeFormatString(in[pos : pos+exprStart])
-				exprStart = pos + exprStart + 3
-				pos = exprStart
-			} else {
-				formatOut += escapeFormatString(in[pos:])
-				pos = len(in)
-			}
-		}
-	}
-
-	if len(results) == 1 && formatOut == "{0}" && !forceFormat {
-		return in, nil
-	}
-
-	out := fmt.Sprintf("format('%s', %s)", strings.ReplaceAll(formatOut, "'", "''"), strings.Join(results, ", "))
-	return out, nil
 }
