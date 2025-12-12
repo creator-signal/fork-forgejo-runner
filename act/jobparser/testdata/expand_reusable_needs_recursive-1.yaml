@@ -1,0 +1,9 @@
+name: test
+jobs:
+  job1:
+    runs-on: linux
+    steps:
+      - run: uname -a
+  reusable-2:
+    uses: ./.forgejo/workflows/expand_reusable_needs_recursive-2.yml
+    needs: job1

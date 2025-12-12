@@ -1,0 +1,15 @@
+name: test
+jobs:
+  basic-1:
+    runs-on: ubuntu
+    steps: []
+  reusable-1:
+    needs: basic-1
+    uses: ./.forgejo/workflows/expand_local_workflow_reusable-1.yml
+  reusable-2:
+    needs: reusable-1
+    uses: ./.forgejo/workflows/expand_local_workflow_reusable-1.yml
+  finalize:
+    needs: [basic-1, reusable-1, reusable-2]
+    runs-on: ubuntu
+    steps: []

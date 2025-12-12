@@ -1,0 +1,4 @@
+name: test
+jobs:
+  reusable-1:
+    uses: ./.forgejo/workflows/expand_local_workflow_recursion_limit-reusable-1.yml

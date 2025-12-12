@@ -1,0 +1,6 @@
+name: test
+jobs:
+  reusable-1:
+    uses: https://example.com/some-org/some-repo/.forgejo/workflows/expand_remote_workflow_reusable-1.yml@v1
+  reusable-2:
+    uses: some-org/some-repo/.forgejo/workflows/expand_remote_workflow_reusable-2.yml@v1
