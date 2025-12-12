@@ -1,0 +1,17 @@
+name: services skip empty image
+on: push
+jobs:
+  optional-service:
+    runs-on: ubuntu-latest
+    env:
+      USE_OPTIONAL_SERVICE: 'false'
+    services:
+      conditional-db:
+        image: ${{ env.USE_OPTIONAL_SERVICE == 'true' && 'code.forgejo.org/oci/postgres:16' || '' }}
+        env:
+          POSTGRES_PASSWORD: optional
+        ports:
+          - 5433:5432
+    steps:
+      - name: Confirm steps still run without the optional service
+        run: echo "workflow continues even when the service is skipped"
