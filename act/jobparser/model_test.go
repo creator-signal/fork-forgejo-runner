@@ -525,3 +525,109 @@ func TestEvaluateConcurrency(t *testing.T) {
 		})
 	}
 }
+
+func TestEvaluateWorkflowCallOutputs(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   *Job
+		outputs map[string]string
+	}{
+		{
+			name: "empty",
+			input: &Job{
+				Outputs: map[string]string{},
+			},
+			outputs: map[string]string{},
+		},
+		{
+			name: "static calc",
+			input: &Job{
+				Outputs: map[string]string{
+					"o1": "${{ format('abc {0}', 123) }}",
+					"o2": "${{ format('def {0}', 456) }}",
+				},
+			},
+			outputs: map[string]string{
+				"o1": "abc 123",
+				"o2": "def 456",
+			},
+		},
+		{
+			name: "forgejo context",
+			input: &Job{
+				Outputs: map[string]string{
+					"o1": "${{ forgejo.ref }}",
+				},
+			},
+			outputs: map[string]string{
+				"o1": "main",
+			},
+		},
+		{
+			name: "needs context",
+			input: &Job{
+				Outputs: map[string]string{
+					"o1": "${{ needs.job-1.outputs.output-1 }}",
+					"o2": "${{ needs.job-1.result }}",
+				},
+			},
+			outputs: map[string]string{
+				"o1": "abc",
+				"o2": "success",
+			},
+		},
+		{
+			name: "vars context",
+			input: &Job{
+				Outputs: map[string]string{
+					"o1": "${{ vars.eval_arbitrary_Var }}",
+				},
+			},
+			outputs: map[string]string{
+				"o1": "123",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			outputs := EvaluateWorkflowCallOutputs(
+				test.input,
+				// gitCtx
+				&model.GithubContext{
+					Workflow: "test_workflow",
+					Ref:      "main",
+					Event: map[string]any{
+						"commits": []any{
+							map[string]any{
+								"author": map[string]any{
+									"username": "someone",
+								},
+							},
+							map[string]any{
+								"author": map[string]any{
+									"username": "someone-else",
+								},
+							},
+						},
+					},
+				},
+				// vars
+				map[string]string{
+					"eval_arbitrary_var": "123",
+				},
+				// needs
+				[]string{"job-1"},
+				// jobResults
+				map[string]string{"job-1": "success"},
+				// jobOutputs
+				map[string]map[string]string{
+					"job-1": {
+						"output-1": "abc",
+					},
+				},
+			)
+			assert.EqualValues(t, test.outputs, outputs)
+		})
+	}
+}

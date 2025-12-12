@@ -400,3 +400,34 @@ func parseMappingNode[T any](node *yaml.Node) ([]string, []T, error) {
 
 	return scalars, datas, nil
 }
+
+// Outputs from a reusable workflow are translated into outputs on the callee job, which is transformed into a
+// placeholder job that is never really executed.  Because it isn't executed, special handling for evaluating its
+// outputs is required, which `EvaluateWorkflowCallOutputs` provides.
+func EvaluateWorkflowCallOutputs(calleeJob *Job, gitCtx *model.GithubContext, vars map[string]string, needs []string, jobResults map[string]string, jobOutputs map[string]map[string]string) map[string]string {
+	// Documented supported contexts: forgejo, inputs, jobs, vars
+	//
+	// `jobs` is rewritten during workflow evaluation to `needs` that reference other jobs, so we can replace `jobs`
+	// context with `needs` context in the above list.
+	//
+	// TODO: `inputs` for a workflow call is really the `with` content of the callee, which was already evaluated when
+	// the workflow was expanded, but we never saved a value of those evaluated `with` -> `inputs` in a way that can be
+	// accessed from the callee's workflow... perhaps we can smuggle it forward from that initial expansion, but for the
+	// moment we won't support inputs.
+
+	results := map[string]*JobResult{}
+	for _, id := range needs {
+		results[id] = &JobResult{
+			Result:  jobResults[id],
+			Outputs: jobOutputs[id],
+		}
+	}
+
+	evaluator := NewExpressionEvaluator(newWorkflowCallOutputsInterpreter(gitCtx, vars, results, needs))
+
+	outputs := map[string]string{}
+	for key, value := range calleeJob.Outputs {
+		outputs[key] = evaluator.Interpolate(value)
+	}
+	return outputs
+}

@@ -104,6 +104,48 @@ func NewWorkflowInterpreter(
 	return exprparser.NewInterpreter(ee, config)
 }
 
+// Returns an interpreter used in the server in the context of workflow-level templates. Needs github, inputs, and vars
+// context only.
+func newWorkflowCallOutputsInterpreter(
+	gitCtx *model.GithubContext,
+	vars map[string]string,
+	results map[string]*JobResult,
+	needs []string,
+) exprparser.Interpreter {
+	using := map[string]exprparser.Needs{}
+	for _, jobID := range needs {
+		v, ok := results[jobID]
+		if ok {
+			using[jobID] = exprparser.Needs{
+				Outputs: v.Outputs,
+				Result:  v.Result,
+			}
+		}
+	}
+
+	ee := &exprparser.EvaluationEnvironment{
+		Github:   gitCtx,
+		Env:      nil, // no need
+		Job:      nil, // no need
+		Steps:    nil, // no need
+		Runner:   nil, // no need
+		Secrets:  nil, // no need
+		Strategy: nil, // no need
+		Matrix:   nil, // no need
+		Inputs:   nil, // TODO: supported later, see comment in EvaluateWorkflowCallOutputs
+		Needs:    using,
+		Vars:     vars,
+	}
+
+	config := exprparser.Config{
+		Run:        nil,
+		WorkingDir: "", // WorkingDir is used for the function hashFiles, but it's not needed in the server
+		Context:    "workflow",
+	}
+
+	return exprparser.NewInterpreter(ee, config)
+}
+
 // JobResult is the minimum requirement of job results for Interpreter
 type JobResult struct {
 	Needs   []string
