@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/rhysd/actionlint"
+	"go.yaml.in/yaml/v3"
 )
 
 // Given a workflow string which may contain an expression, apply an expression `Mutation` to the string and return a
@@ -53,6 +54,61 @@ func Mutate(input string, mutations ...Mutation) (string, error) {
 	builder.WriteString(" }}")
 
 	return builder.String(), nil
+}
+
+// Where `Mutate` operates on a single expression string, `MutateYamlNode` will iterate through an entire yaml tree and
+// perform the mutations on all string values found within.
+func MutateYamlNode(node *yaml.Node, mutations ...Mutation) error {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		return mutateScalarYamlNode(node, mutations...)
+	case yaml.MappingNode:
+		return mutateMappingYamlNode(node, mutations...)
+	case yaml.SequenceNode:
+		return mutateSequenceYamlNode(node, mutations...)
+	default:
+		return nil
+	}
+}
+
+func mutateScalarYamlNode(node *yaml.Node, mutations ...Mutation) error {
+	if node.ShortTag() != "!!str" {
+		return nil
+	}
+	var in string
+	if err := node.Decode(&in); err != nil {
+		return err
+	}
+	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
+		return nil
+	}
+	res, err := Mutate(in, mutations...)
+	if err != nil {
+		return err
+	}
+	return node.Encode(res)
+}
+
+func mutateMappingYamlNode(node *yaml.Node, mutations ...Mutation) error {
+	for i := 0; i < len(node.Content)/2; {
+		// k := node.Content[i*2]
+		v := node.Content[i*2+1]
+		if err := MutateYamlNode(v, mutations...); err != nil {
+			return err
+		}
+		i++
+	}
+	return nil
+}
+
+func mutateSequenceYamlNode(node *yaml.Node, mutations ...Mutation) error {
+	for i := range node.Content {
+		v := node.Content[i]
+		if err := MutateYamlNode(v, mutations...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Mutations are provided to `Mutate` to change an expression.

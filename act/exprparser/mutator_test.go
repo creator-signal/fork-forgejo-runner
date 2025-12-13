@@ -7,6 +7,7 @@ import (
 	"github.com/rhysd/actionlint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.yaml.in/yaml/v3"
 )
 
 func TestRender(t *testing.T) {
@@ -164,4 +165,51 @@ func TestMutate(t *testing.T) {
 	assert.Equal(t, input, output)
 }
 
+func TestMutateYamlNode(t *testing.T) {
+	testCases := []struct {
+		input  string
+		output string
+	}{
+		{
+			input:  "hello ${{ var.world }}",
+			output: "${{ format('hello {0}', rewritten-var['world']) }}\n",
+		},
+		{
+			input:  "3.1415926",
+			output: "3.1415926\n",
+		},
+		{
+			input:  "- hello ${{ var.world }}\n- goodbye, ${{ var.something }}\n",
+			output: "- ${{ format('hello {0}', rewritten-var['world']) }}\n- ${{ format('goodbye, {0}', rewritten-var['something']) }}\n",
+		},
+		{
+			input:  "key: hello ${{ var.world }}\n",
+			output: "key: ${{ format('hello {0}', rewritten-var['world']) }}\n",
+		},
+	}
+
+	vam := &VariableAccessMutator{
+		Variable: "var",
+		Rewriter: func(property actionlint.ExprNode) actionlint.ExprNode {
+			return &actionlint.IndexAccessNode{
+				Operand: &actionlint.VariableNode{Name: "rewritten-var"},
+				Index:   property,
+			}
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.input, func(t *testing.T) {
+			var node yaml.Node
+			err := yaml.Unmarshal([]byte(tc.input), &node)
+			require.NoError(t, err)
+
+			err = MutateYamlNode(node.Content[0], vam)
+			require.NoError(t, err)
+
+			myYaml, err := yaml.Marshal(node.Content[0])
+			require.NoError(t, err)
+			assert.Equal(t, tc.output, string(myYaml))
+		})
+	}
 }
