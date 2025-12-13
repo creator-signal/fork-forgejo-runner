@@ -1,0 +1,13 @@
+name: test
+jobs:
+  reusable:
+    name: reusable
+    needs: define-with
+    runs-on: []
+    uses: ./.forgejo/workflows/expand_reusable_incomplete2_reusable.yml
+    with:
+      runner: ${{ needs.define-with.outputs.runner }}
+incomplete_with: true
+incomplete_with_needs:
+  job: define-with
+  output: runner

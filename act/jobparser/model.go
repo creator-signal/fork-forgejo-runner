@@ -28,6 +28,12 @@ type SingleWorkflow struct {
 	IncompleteRunsOn       bool              `yaml:"incomplete_runs_on,omitempty"`
 	IncompleteRunsOnNeeds  *IncompleteNeeds  `yaml:"incomplete_runs_on_needs,omitempty"`
 	IncompleteRunsOnMatrix *IncompleteMatrix `yaml:"incomplete_runs_on_matrix,omitempty"`
+
+	// IncompleteWith indicates that it wasn't possible to evaluate the `with` section of a job that is calling a
+	// reusable workflow because it references a job output that is currently undefined.
+	IncompleteWith      bool             `yaml:"incomplete_with,omitempty"`
+	IncompleteWithNeeds *IncompleteNeeds `yaml:"incomplete_with_needs,omitempty"`
+	// IncompleteWithOnMatrix *IncompleteMatrix `yaml:"incomplete_with_matrix,omitempty"` // FIXME: may not be needed, would hit IncompleteMatrix only?
 }
 
 type IncompleteNeeds struct {

@@ -1,0 +1,15 @@
+name: test
+jobs:
+  define-with:
+    runs-on: docker
+    outputs:
+      runner: ${{ steps.runner.outputs.runner }}
+    steps:
+      - id: runner
+        run: |
+          echo 'runner=ubuntu-latest' >> "$GITHUB_OUTPUT"
+  reusable:
+    needs: define-with
+    uses: ./.forgejo/workflows/expand_reusable_incomplete2_reusable.yml
+    with:
+      runner: ${{ needs.define-with.outputs.runner }}

@@ -1,0 +1,25 @@
+name: test
+jobs:
+  reusable:
+    name: reusable
+    needs:
+      - define-with
+      - reusable.job1
+    runs-on: []
+    if: false
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      runner:
+        default: ubuntu-29.99
+        type: string
+jobs:
+  reusable.job1:
+    name: job1
+    needs:
+      - define-with
+    runs-on: ubuntu-29.99
+    steps:
+      - run: echo "Woohoo!"
