@@ -75,12 +75,13 @@ func TestNoopMutator(t *testing.T) {
 			require.Nil(t, exprErr)
 
 			mutator := &mutator{}
-			newExprNode, err := mutator.mutate(exprNode)
+			newExprNode, hasEffect, err := mutator.mutate(exprNode)
 			require.NoError(t, err)
 
 			var builder strings.Builder
 			err = render(&builder, newExprNode)
 			require.NoError(t, err)
+			assert.False(t, hasEffect)
 			assert.Equal(t, tc.input, builder.String())
 		})
 	}
@@ -155,4 +156,12 @@ func TestMutate(t *testing.T) {
 	output, err := Mutate("Hello ${{ variable.content }}, welcome to ${{ constant.real-world }}.", vam1, vam2)
 	require.NoError(t, err)
 	assert.Equal(t, "${{ format('Hello {0}, welcome to {1}.', outputs['content'], forgejo['real-world']) }}", output)
+
+	// Verify that a string with no mutations performed is returned identical to input.
+	input := "Hello ${{ vars.content }}, welcome to ${{ consts.real-world }}."
+	output, err = Mutate(input, vam1, vam2)
+	require.NoError(t, err)
+	assert.Equal(t, input, output)
+}
+
 }
