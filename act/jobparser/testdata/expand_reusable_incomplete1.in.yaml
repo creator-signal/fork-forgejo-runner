@@ -1,0 +1,18 @@
+name: test
+jobs:
+  define-runs-on:
+    runs-on: docker
+    outputs:
+      runners: ${{ steps.runners.outputs.runners }}
+    steps:
+      - id: runners
+        run: |
+          echo 'runners=["a", "b", "c"]' >> "$GITHUB_OUTPUT"
+  reusable:
+    needs: define-runs-on
+    strategy:
+      matrix:
+        runner: ${{ fromJSON(needs.define-runs-on.outputs.runners) }}
+    uses: ./.forgejo/workflows/expand_reusable_incomplete1_reusable.yml
+    with:
+      runner: ${{ matrix.runner }}

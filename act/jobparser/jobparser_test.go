@@ -273,6 +273,44 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		// `expand_reusable_incomplete1` covers a test case where the caller of a reusable workflow has a `matrix` job
+		// that references `${{ needs... }}`, and therefore requires job outputs before it can be expanded.
+		{
+			name: "expand_reusable_incomplete1",
+			options: []ParseOption{
+				WithJobOutputs(map[string]map[string]string{}),
+				SupportIncompleteRunsOn(),
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_incomplete1_reusable.yml" {
+						content := ReadTestdata(t, "expand_reusable_incomplete1_reusable.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
+		// `expand_reusable_incomplete1_complete` covers reparsing the incomplete workflow from
+		// `expand_reusable_incomplete1` after the `needs` is defined, allowing the matrix to be expanded.
+		{
+			name:                    "expand_reusable_incomplete1_complete",
+			reparsingSingleWorkflow: true,
+			options: []ParseOption{
+				WithWorkflowNeeds([]string{"define-runs-on"}),
+				WithJobOutputs(map[string]map[string]string{
+					"define-runs-on": {
+						"runners": "[\"runner-a\", \"runner-b\"]",
+					},
+				}),
+				SupportIncompleteRunsOn(),
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_incomplete1_reusable.yml" {
+						content := ReadTestdata(t, "expand_reusable_incomplete1_reusable.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

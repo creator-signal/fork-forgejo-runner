@@ -106,7 +106,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 
 	// Expand reusable workflows `uses:...` into inner jobs:
 	if pc.localWorkflowFetcher != nil || pc.remoteWorkflowFetcher != nil {
-		newJobs, err := expandReusableWorkflows(postMatrixJobs, validate, options, pc, results)
+		newJobs, err := expandReusableWorkflows(postMatrixJobs, validate, incompleteMatrix, options, pc, results)
 		if err != nil {
 			return nil, err
 		}
@@ -251,9 +251,14 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 	return retval, nil
 }
 
-func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult) ([]*bothJobTypes, error) {
+func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, incompleteMatrix map[string]*exprparser.InvalidJobOutputReferencedError, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult) ([]*bothJobTypes, error) {
 	retval := []*bothJobTypes{}
 	for _, bothJobs := range jobs {
+		if _, incomplete := incompleteMatrix[bothJobs.id]; incomplete {
+			// Don't attempt to expand a reusable workflow when the caller doesn't have a fully evaluated matrix yet.
+			continue
+		}
+
 		workflowJob := bothJobs.workflowJob
 
 		jobType, err := workflowJob.Type()

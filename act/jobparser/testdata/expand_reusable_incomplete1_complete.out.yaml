@@ -1,0 +1,59 @@
+name: test
+jobs:
+  reusable:
+    name: reusable (runner-a)
+    needs:
+      - define-runs-on
+      - reusable.job1
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        runner:
+          - runner-a
+---
+name: test
+jobs:
+  reusable:
+    name: reusable (runner-b)
+    needs:
+      - define-runs-on
+      - reusable.job1
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        runner:
+          - runner-b
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      runner:
+        default: runner-a
+        type: string
+jobs:
+  reusable.job1:
+    name: job1
+    needs:
+      - define-runs-on
+    runs-on: runner-a
+    steps:
+      - run: echo "Woohoo!"
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      runner:
+        default: runner-b
+        type: string
+jobs:
+  reusable.job1:
+    name: job1
+    needs:
+      - define-runs-on
+    runs-on: runner-b
+    steps:
+      - run: echo "Woohoo!"

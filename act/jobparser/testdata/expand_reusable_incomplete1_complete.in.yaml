@@ -1,0 +1,16 @@
+name: test
+jobs:
+  reusable:
+    name: reusable (incomplete matrix)
+    needs: define-runs-on
+    runs-on: []
+    strategy:
+      matrix:
+        runner: ${{ fromJSON(needs.define-runs-on.outputs.runners) }}
+    uses: ./.forgejo/workflows/expand_reusable_incomplete1_reusable.yml
+    with:
+      runner: ${{ matrix.runner }}
+incomplete_matrix: true
+incomplete_matrix_needs:
+  job: define-runs-on
+  output: runners
