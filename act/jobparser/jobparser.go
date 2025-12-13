@@ -23,6 +23,9 @@ type bothJobTypes struct {
 	jobParserJob *Job
 	workflowJob  *model.Job
 
+	matrix   map[string]any
+	jobNeeds []string
+
 	overrideOnClause *yaml.Node
 }
 
@@ -86,9 +89,9 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		return nil, fmt.Errorf("invalid jobs: %w", err)
 	}
 
-	jobs := make([]*bothJobTypes, len(ids))
+	preMatrixJobs := make([]*bothJobTypes, len(ids))
 	for i, jobName := range ids {
-		jobs[i] = &bothJobTypes{
+		preMatrixJobs[i] = &bothJobTypes{
 			id:           jobName,
 			jobParserJob: jobParserJobs[i],
 			workflowJob:  origin.GetJob(jobName),
@@ -97,14 +100,93 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 
 	// Expand reusable workflows:
 	if pc.localWorkflowFetcher != nil || pc.remoteWorkflowFetcher != nil {
-		newJobs, err := expandReusableWorkflows(jobs, validate, options, pc, results)
+		newJobs, err := expandReusableWorkflows(preMatrixJobs, validate, options, pc, results)
 		if err != nil {
 			return nil, err
 		}
-		jobs = append(jobs, newJobs...)
+		preMatrixJobs = append(preMatrixJobs, newJobs...)
+	}
+
+	postMatrixJobs, err := expandMatrixJobs(preMatrixJobs, incompleteMatrix, pc, results)
+	if err != nil {
+		return nil, fmt.Errorf("failure to expand matrix jobs: %w", err)
 	}
 
 	var ret []*SingleWorkflow
+	for _, bothJobs := range postMatrixJobs {
+		id := bothJobs.id
+		job := bothJobs.jobParserJob
+		workflowJob := bothJobs.workflowJob
+		matrix := bothJobs.matrix
+		jobNeeds := bothJobs.jobNeeds
+
+		evaluator := NewExpressionEvaluator(NewInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, 0, jobNeeds))
+
+		var runsOnInvalidJobReference *exprparser.InvalidJobOutputReferencedError
+		var runsOnInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
+		var runsOn []string
+		if pc.supportIncompleteRunsOn {
+			evaluatorOutputAware := NewExpressionEvaluator(NewInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds))
+			rawRunsOn := workflowJob.RawRunsOn
+			// Evaluate the entire `runs-on` node at once, which permits behavior like `runs-on: ${{ fromJSON(...) }}`
+			// where it can generate an array
+			err = evaluatorOutputAware.EvaluateYamlNode(&rawRunsOn)
+			if err != nil {
+				// Store error and we'll use it to tag `IncompleteRunsOn`
+				errors.As(err, &runsOnInvalidJobReference)
+				errors.As(err, &runsOnInvalidMatrixReference)
+			}
+			runsOn = model.FlattenRunsOnNode(rawRunsOn)
+		} else {
+			// Legacy behaviour; run interpolator on each individual entry in the `runsOn` array without support for
+			// `IncompleteRunsOn` detection:
+			runsOn = workflowJob.RunsOn()
+			for i, v := range runsOn {
+				runsOn[i] = evaluator.Interpolate(v)
+			}
+		}
+
+		job.RawRunsOn = encodeRunsOn(runsOn)
+		swf := &SingleWorkflow{
+			Name:     workflow.Name,
+			RawOn:    workflow.RawOn,
+			Env:      workflow.Env,
+			Defaults: workflow.Defaults,
+		}
+		if bothJobs.overrideOnClause != nil {
+			swf.RawOn = *bothJobs.overrideOnClause
+		}
+		if refErr := incompleteMatrix[id]; refErr != nil {
+			swf.IncompleteMatrix = true
+			swf.IncompleteMatrixNeeds = &IncompleteNeeds{
+				Job:    refErr.JobID,
+				Output: refErr.OutputName,
+			}
+		}
+		if runsOnInvalidJobReference != nil {
+			swf.IncompleteRunsOn = true
+			swf.IncompleteRunsOnNeeds = &IncompleteNeeds{
+				Job:    runsOnInvalidJobReference.JobID,
+				Output: runsOnInvalidJobReference.OutputName,
+			}
+		}
+		if runsOnInvalidMatrixReference != nil {
+			swf.IncompleteRunsOn = true
+			swf.IncompleteRunsOnMatrix = &IncompleteMatrix{
+				Dimension: runsOnInvalidMatrixReference.Dimension,
+			}
+		}
+		if err := swf.SetJob(id, job); err != nil {
+			return nil, fmt.Errorf("SetJob: %w", err)
+		}
+		ret = append(ret, swf)
+	}
+	return ret, nil
+}
+
+func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprparser.InvalidJobOutputReferencedError, pc *parseContext, results map[string]*JobResult) ([]*bothJobTypes, error) {
+	retval := make([]*bothJobTypes, 0, len(jobs))
+
 	for _, bothJobs := range jobs {
 		id := bothJobs.id
 		jobParserJob := bothJobs.jobParserJob
@@ -154,67 +236,18 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				}
 			}
 
-			var runsOnInvalidJobReference *exprparser.InvalidJobOutputReferencedError
-			var runsOnInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
-			var runsOn []string
-			if pc.supportIncompleteRunsOn {
-				evaluatorOutputAware := NewExpressionEvaluator(NewInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds))
-				rawRunsOn := workflowJob.RawRunsOn
-				// Evaluate the entire `runs-on` node at once, which permits behavior like `runs-on: ${{ fromJSON(...)
-				// }}` where it can generate an array
-				err = evaluatorOutputAware.EvaluateYamlNode(&rawRunsOn)
-				if err != nil {
-					// Store error and we'll use it to tag `IncompleteRunsOn`
-					errors.As(err, &runsOnInvalidJobReference)
-					errors.As(err, &runsOnInvalidMatrixReference)
-				}
-				runsOn = model.FlattenRunsOnNode(rawRunsOn)
-			} else {
-				// Legacy behaviour; run interpolator on each individual entry in the `runsOn` array without support for
-				// `IncompleteRunsOn` detection:
-				runsOn = workflowJob.RunsOn()
-				for i, v := range runsOn {
-					runsOn[i] = evaluator.Interpolate(v)
-				}
-			}
-
-			job.RawRunsOn = encodeRunsOn(runsOn)
-			swf := &SingleWorkflow{
-				Name:     workflow.Name,
-				RawOn:    workflow.RawOn,
-				Env:      workflow.Env,
-				Defaults: workflow.Defaults,
-			}
-			if bothJobs.overrideOnClause != nil {
-				swf.RawOn = *bothJobs.overrideOnClause
-			}
-			if refErr := incompleteMatrix[id]; refErr != nil {
-				swf.IncompleteMatrix = true
-				swf.IncompleteMatrixNeeds = &IncompleteNeeds{
-					Job:    refErr.JobID,
-					Output: refErr.OutputName,
-				}
-			}
-			if runsOnInvalidJobReference != nil {
-				swf.IncompleteRunsOn = true
-				swf.IncompleteRunsOnNeeds = &IncompleteNeeds{
-					Job:    runsOnInvalidJobReference.JobID,
-					Output: runsOnInvalidJobReference.OutputName,
-				}
-			}
-			if runsOnInvalidMatrixReference != nil {
-				swf.IncompleteRunsOn = true
-				swf.IncompleteRunsOnMatrix = &IncompleteMatrix{
-					Dimension: runsOnInvalidMatrixReference.Dimension,
-				}
-			}
-			if err := swf.SetJob(id, job); err != nil {
-				return nil, fmt.Errorf("SetJob: %w", err)
-			}
-			ret = append(ret, swf)
+			retval = append(retval, &bothJobTypes{
+				id:               id,
+				jobParserJob:     job,
+				workflowJob:      workflowJob,
+				matrix:           matrix,
+				jobNeeds:         jobNeeds,
+				overrideOnClause: bothJobs.overrideOnClause,
+			})
 		}
 	}
-	return ret, nil
+
+	return retval, nil
 }
 
 func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult) ([]*bothJobTypes, error) {
