@@ -1,0 +1,25 @@
+name: test
+jobs:
+  job1:
+    runs-on: linux
+    steps:
+      - id: step1
+        run: echo "my-step-output=$(uname -a)" >> $GITHUB_OUTPUT
+    outputs:
+      my-job-output: ${{ steps.step1.outputs.my-step-output }}
+  job2:
+    runs-on: linux
+    needs: job1
+    steps:
+      - id: output-arch
+        run: echo "my-arch=$(uname -m)"
+      - run: "That's better than ${{ needs.job1.outputs.my-job-output }}, right?"
+    outputs:
+      my-arch: ${{ steps.output-arch.outputs.my-arch }}
+  job3:
+    runs-on: linux
+    container:
+      options: "--platform ${{ needs.job2.outputs.my-arch }}"
+    steps:
+      - run: uname -a
+    needs: [job1, job2]

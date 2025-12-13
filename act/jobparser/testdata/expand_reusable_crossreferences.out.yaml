@@ -1,0 +1,48 @@
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1
+    needs:
+      - reusable-1.job1
+      - reusable-1.job2
+      - reusable-1.job3
+    runs-on: []
+    if: false
+---
+name: test
+jobs:
+  reusable-1.job1:
+    name: job1
+    runs-on: linux
+    steps:
+      - id: step1
+        run: echo "my-step-output=$(uname -a)" >> $GITHUB_OUTPUT
+    outputs:
+      my-job-output: ${{ steps.step1.outputs.my-step-output }}
+---
+name: test
+jobs:
+  reusable-1.job2:
+    name: job2
+    needs:
+      - reusable-1.job1
+    runs-on: linux
+    steps:
+      - id: output-arch
+        run: echo "my-arch=$(uname -m)"
+      - run: ${{ format('That''s better than {0}, right?', needs[format('{0}.{1}', 'reusable-1', 'job1')].outputs.my-job-output) }}
+    outputs:
+      my-arch: ${{ steps.output-arch.outputs.my-arch }}
+---
+name: test
+jobs:
+  reusable-1.job3:
+    name: job3
+    needs:
+      - reusable-1.job1
+      - reusable-1.job2
+    runs-on: linux
+    steps:
+      - run: uname -a
+    container:
+      options: ${{ format('--platform {0}', needs[format('{0}.{1}', 'reusable-1', 'job2')].outputs.my-arch) }}

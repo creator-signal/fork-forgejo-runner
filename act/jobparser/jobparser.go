@@ -316,6 +316,11 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	}
 	retval := []*bothJobTypes{}
 	for _, swf := range innerWorkflows {
+		err := rewriteReusableWorkflowNeeds(&swf.RawJobs, callerJob.id)
+		if err != nil {
+			return nil, fmt.Errorf("unable to rewrite reusable workflow needs: %w", err)
+		}
+
 		id, job := swf.Job()
 		content, err := swf.Marshal()
 		if err != nil {
@@ -471,6 +476,29 @@ func migrateReusableWorkflowOutputs(workflow *model.Workflow, callerJob *bothJob
 	}
 
 	return nil
+}
+
+func rewriteReusableWorkflowNeeds(job *yaml.Node, prefix string) error {
+	// Rewrite `needs.<job-id>....` into `needs[format("{0}.{1}", parent-job-id, job-id)]....`
+	vam := &exprparser.VariableAccessMutator{
+		// "Variable access": Whenever we find `needs[x]` or `needs.x`...
+		Variable: "needs",
+		Rewriter: func(property actionlint.ExprNode) actionlint.ExprNode {
+			// "Mutator": replace it with `needs[format('{0}.{1}', "y", x)]`, where "y" is the caller job's ID.
+			return &actionlint.IndexAccessNode{
+				Operand: &actionlint.VariableNode{Name: "needs"},
+				Index: &actionlint.FuncCallNode{
+					Callee: "format",
+					Args: []actionlint.ExprNode{
+						&actionlint.StringNode{Value: "{0}.{1}"},
+						&actionlint.StringNode{Value: prefix},
+						property,
+					},
+				},
+			}
+		},
+	}
+	return exprparser.MutateYamlNode(job, vam)
 }
 
 func WithJobResults(results map[string]string) ParseOption {
