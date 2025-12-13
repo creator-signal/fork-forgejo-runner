@@ -1,0 +1,9 @@
+name: test
+jobs:
+  reusable.inner-use-runs-on:
+    name: inner-use-runs-on
+    needs:
+      - reusable.inner-define-runs-on
+    runs-on: ubuntu-29.99
+    steps:
+      - run: echo "Hello, world!"

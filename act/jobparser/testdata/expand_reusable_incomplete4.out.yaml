@@ -1,0 +1,34 @@
+name: test
+jobs:
+  reusable:
+    name: reusable
+    needs:
+      - reusable.inner-define-runs-on
+      - reusable.inner-use-runs-on
+    runs-on: []
+    if: false
+---
+name: test
+jobs:
+  reusable.inner-define-runs-on:
+    name: inner-define-runs-on
+    runs-on: docker
+    steps:
+      - id: runner
+        run: |
+          echo 'runner=ubuntu-latest' >> "$GITHUB_OUTPUT"
+    outputs:
+      runner: ${{ steps.runner.outputs.runner }}
+---
+name: test
+jobs:
+  reusable.inner-use-runs-on:
+    name: inner-use-runs-on
+    needs:
+      - reusable.inner-define-runs-on
+    runs-on: ${{ needs[format('{0}.{1}', 'reusable', 'inner-define-runs-on')].outputs.runner }}
+    steps:
+      - run: echo "Hello, world!"
+incomplete_runs_on: true
+incomplete_runs_on_needs:
+  job: reusable.inner-define-runs-on

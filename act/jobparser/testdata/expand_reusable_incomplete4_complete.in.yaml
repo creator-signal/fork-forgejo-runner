@@ -1,0 +1,12 @@
+name: test
+jobs:
+  reusable.inner-use-runs-on:
+    name: inner-use-runs-on
+    needs:
+      - reusable.inner-define-runs-on
+    runs-on: ${{ needs[format('{0}.{1}', 'reusable', 'inner-define-runs-on')].outputs.runner }}
+    steps:
+      - run: echo "Hello, world!"
+incomplete_runs_on: true
+incomplete_runs_on_needs:
+  job: reusable.inner-define-runs-on

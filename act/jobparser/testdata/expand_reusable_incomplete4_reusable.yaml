@@ -1,0 +1,17 @@
+on:
+  workflow_call:
+
+jobs:
+  inner-define-runs-on:
+    runs-on: docker
+    outputs:
+      runner: ${{ steps.runner.outputs.runner }}
+    steps:
+      - id: runner
+        run: |
+          echo 'runner=ubuntu-latest' >> "$GITHUB_OUTPUT"
+  inner-use-runs-on:
+    needs: inner-define-runs-on
+    runs-on: ${{ needs.inner-define-runs-on.outputs.runner }}
+    steps:
+      - run: echo "Hello, world!"
