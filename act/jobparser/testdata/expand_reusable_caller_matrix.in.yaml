@@ -1,0 +1,11 @@
+name: test
+jobs:
+  reusable-1:
+    strategy:
+      matrix:
+        os: [debian, nixos]
+        platform: [amd64, arm64]
+    uses: ./.forgejo/workflows/expand_reusable_caller_matrix_reusable-1.yml
+    with:
+      os: ${{ matrix.os }}
+      platform: ${{ matrix.platform }}

@@ -261,6 +261,18 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		{
+			name: "expand_reusable_caller_matrix",
+			options: []ParseOption{
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_caller_matrix_reusable-1.yml" {
+						content := ReadTestdata(t, "expand_reusable_caller_matrix_reusable-1.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -346,6 +358,9 @@ jobs:
 				Outputs: map[string]string{"some-output": "some-output-value"},
 			},
 		},
+		map[string]any{
+			"os": "nixos",
+		},
 		&bothJobTypes{
 			workflowJob: &model.Job{
 				With: map[string]any{
@@ -357,8 +372,7 @@ jobs:
 					"context-needs":            "${{ needs.some-job.outputs.some-output }}",
 					"context-strategy":         "${{ strategy.fail-fast }}",
 					"context-vars":             "${{ vars.best-var }}",
-					// TODO: matrix evaluation of the caller job not yet supported
-					// "context-matrix":           "${{ matrix.os }}",
+					"context-matrix":           "${{ matrix.os }}",
 				},
 				Strategy: &model.Strategy{
 					FailFast: true,
@@ -379,7 +393,7 @@ jobs:
 	// Variable-accessing values passed in from `with: ...`
 	assert.Subset(t, inputs, map[string]any{"context-forgejo": "workflow_call"})
 	assert.Subset(t, inputs, map[string]any{"context-inputs": "my_input_value"})
-	// assert.Subset(t, inputs, map[string]any{"context-matrix":  "nixos"}), // matrix evaluation of the caller job not yet supported
+	assert.Subset(t, inputs, map[string]any{"context-matrix": "nixos"})
 	assert.Subset(t, inputs, map[string]any{"context-needs": "some-output-value"})
 	assert.Subset(t, inputs, map[string]any{"context-strategy": true})
 	assert.Subset(t, inputs, map[string]any{"context-vars": "the-best-var"})

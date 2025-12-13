@@ -1,0 +1,16 @@
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+      platform:
+        type: string
+
+name: test
+jobs:
+  job1:
+    runs-on: ubuntu
+    steps:
+      - run: |
+          echo os=${{ inputs.os }}
+          echo platform=${{ inputs.platform }}

@@ -98,18 +98,19 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		}
 	}
 
-	// Expand reusable workflows:
-	if pc.localWorkflowFetcher != nil || pc.remoteWorkflowFetcher != nil {
-		newJobs, err := expandReusableWorkflows(preMatrixJobs, validate, options, pc, results)
-		if err != nil {
-			return nil, err
-		}
-		preMatrixJobs = append(preMatrixJobs, newJobs...)
-	}
-
+	// Expand `strategy.matrix` into multiple jobs:
 	postMatrixJobs, err := expandMatrixJobs(preMatrixJobs, incompleteMatrix, pc, results)
 	if err != nil {
 		return nil, fmt.Errorf("failure to expand matrix jobs: %w", err)
+	}
+
+	// Expand reusable workflows `uses:...` into inner jobs:
+	if pc.localWorkflowFetcher != nil || pc.remoteWorkflowFetcher != nil {
+		newJobs, err := expandReusableWorkflows(postMatrixJobs, validate, options, pc, results)
+		if err != nil {
+			return nil, err
+		}
+		postMatrixJobs = append(postMatrixJobs, newJobs...)
 	}
 
 	var ret []*SingleWorkflow
@@ -287,7 +288,7 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []Pars
 			reusableWorkflow = contents
 		}
 		if reusableWorkflow != nil {
-			newJobs, err := expandReusableWorkflow(reusableWorkflow, validate, options, pc, jobResults, bothJobs)
+			newJobs, err := expandReusableWorkflow(reusableWorkflow, validate, options, pc, jobResults, bothJobs.matrix, bothJobs)
 			if err != nil {
 				return nil, fmt.Errorf("error expanding reusable workflow %q: %v", workflowJob.Uses, err)
 			}
@@ -315,7 +316,7 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []Pars
 	return retval, nil
 }
 
-func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult, callerJob *bothJobTypes) ([]*bothJobTypes, error) {
+func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult, matrix map[string]any, callerJob *bothJobTypes) ([]*bothJobTypes, error) {
 	innerParseOptions := append([]ParseOption{}, options...) // copy original slice
 	innerParseOptions = append(innerParseOptions, withRecursionDepth(pc.recursionDepth+1))
 
@@ -330,7 +331,7 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	// The second output is a rebuilt version of the `on.workflow_call` clause of the job which is returned in the
 	// `SingleWorkflow` from the expansion, and the inputs in this clause should be used when this job is later executed
 	// in order to fill in any other `${{ inputs... }}` evaluations in the jobs.
-	inputs, rebuiltOn, err := evaluateReusableWorkflowInputs(workflow, pc, jobResults, callerJob)
+	inputs, rebuiltOn, err := evaluateReusableWorkflowInputs(workflow, pc, jobResults, matrix, callerJob)
 	if err != nil {
 		return nil, fmt.Errorf("failure to evaluate workflow inputs: %w", err)
 	}
@@ -390,7 +391,7 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	return retval, nil
 }
 
-func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, jobResults map[string]*JobResult, callerJob *bothJobTypes) (map[string]any, *yaml.Node, error) {
+func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, jobResults map[string]*JobResult, matrix map[string]any, callerJob *bothJobTypes) (map[string]any, *yaml.Node, error) {
 	jobNeeds := pc.workflowNeeds
 	if jobNeeds == nil {
 		jobNeeds = callerJob.jobParserJob.Needs()
@@ -398,7 +399,7 @@ func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, 
 
 	// For evaluating on the caller side's `with` fields, expected contexts to be available: env, forgejo, inputs, job,
 	// matrix, needs, runner, secrets, steps, strategy, vars
-	callerEvaluator := NewExpressionEvaluator(NewInterpreter(callerJob.id, callerJob.workflowJob, nil, pc.gitContext,
+	callerEvaluator := NewExpressionEvaluator(NewInterpreter(callerJob.id, callerJob.workflowJob, matrix, pc.gitContext,
 		jobResults, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds))
 
 	// For evaluating on the reusable workflow's side, with `on.workflow_call.inputs.<input_name>.default`, expected
