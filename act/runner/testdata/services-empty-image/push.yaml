@@ -13,5 +13,12 @@ jobs:
         ports:
           - 5433:5432
     steps:
+      - name: Assert optional service is skipped
+        shell: bash
+        run: |
+          if getent hosts conditional-db; then
+            echo "conditional-db should not run when USE_OPTIONAL_SERVICE is false"
+            exit 1
+          fi
       - name: Confirm steps still run without the optional service
         run: echo "workflow continues even when the service is skipped"
