@@ -264,12 +264,12 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []Pars
 			for i, b := range newJobs {
 				additionalNeeds[i] = b.id
 			}
-			calleeNeeds := bothJobs.jobParserJob.Needs()
-			calleeNeeds = append(calleeNeeds, additionalNeeds...)
-			_ = bothJobs.jobParserJob.RawNeeds.Encode(calleeNeeds)
+			callerNeeds := bothJobs.jobParserJob.Needs()
+			callerNeeds = append(callerNeeds, additionalNeeds...)
+			_ = bothJobs.jobParserJob.RawNeeds.Encode(callerNeeds)
 
-			// The "callee" job will still exist in order to act as a `sentinel` for `needs` job ordering & output
-			// access.  There may be some need for specialized detection of this case on the Forgejo side, but at the
+			// The calling job will still exist in order to act as a `sentinel` for `needs` job ordering & output
+			// access. There may be some need for specialized detection of this case on the Forgejo side, but at the
 			// moment we'll just mark it as a job with `if: false` and remove the `uses: ...` to ensure that it never
 			// gets executed as its own reusable workflow.
 			_ = bothJobs.jobParserJob.If.Encode(false)
@@ -282,7 +282,7 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, options []Pars
 	return retval, nil
 }
 
-func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult, calleeJob *bothJobTypes) ([]*bothJobTypes, error) {
+func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult, callerJob *bothJobTypes) ([]*bothJobTypes, error) {
 	innerParseOptions := append([]ParseOption{}, options...) // copy original slice
 	innerParseOptions = append(innerParseOptions, withRecursionDepth(pc.recursionDepth+1))
 
@@ -291,21 +291,21 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 		return nil, fmt.Errorf("model.ReadWorkflow: %w", err)
 	}
 
-	// Compute the inputs to the workflow call from `calleeJob`'s `with` clause.  There are two outputs from this
+	// Compute the inputs to the workflow call from `callerJob`'s `with` clause.  There are two outputs from this
 	// calculation; one is the raw inputs which are passed to the next jobparser to expand the reusable workflow,
 	// allowing things like `runs-on` to be populated if they directly reference an input (that's `WithInputs` below).
 	// The second output is a rebuilt version of the `on.workflow_call` clause of the job which is returned in the
 	// `SingleWorkflow` from the expansion, and the inputs in this clause should be used when this job is later executed
 	// in order to fill in any other `${{ inputs... }}` evaluations in the jobs.
-	inputs, rebuiltOn, err := evaluateReusableWorkflowInputs(workflow, pc, jobResults, calleeJob)
+	inputs, rebuiltOn, err := evaluateReusableWorkflowInputs(workflow, pc, jobResults, callerJob)
 	if err != nil {
 		return nil, fmt.Errorf("failure to evaluate workflow inputs: %w", err)
 	}
-	// due to parse options being applied in-order, this will replace the callee job's inputs (if provided) with the
+	// due to parse options being applied in-order, this will replace the calling job's inputs (if provided) with the
 	// inputs of the workflow call:
 	innerParseOptions = append(innerParseOptions, WithInputs(inputs))
 
-	err = migrateReusableWorkflowOutputs(workflow, calleeJob)
+	err = migrateReusableWorkflowOutputs(workflow, callerJob)
 	if err != nil {
 		return nil, fmt.Errorf("failure to migrate workflow outputs: %w", err)
 	}
@@ -331,10 +331,10 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 		newNeeds := make([]string, len(originalNeeds))
 		// Rewrite the `needs` of the job to be qualified within the job so they depend upon each other.
 		for i := range originalNeeds {
-			newNeeds[i] = fmt.Sprintf("%s.%s", calleeJob.id, originalNeeds[i])
+			newNeeds[i] = fmt.Sprintf("%s.%s", callerJob.id, originalNeeds[i])
 		}
 		// Add all the jobs that the reusable workflow `needs`'d to the jobs within the reusable workflow as well:
-		newNeeds = append(newNeeds, calleeJob.jobParserJob.Needs()...)
+		newNeeds = append(newNeeds, callerJob.jobParserJob.Needs()...)
 		if len(newNeeds) != 0 {
 			err = job.RawNeeds.Encode(newNeeds)
 			if err != nil {
@@ -343,7 +343,7 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 		}
 
 		retval = append(retval, &bothJobTypes{
-			id:               fmt.Sprintf("%s.%s", calleeJob.id, id),
+			id:               fmt.Sprintf("%s.%s", callerJob.id, id),
 			jobParserJob:     job,
 			workflowJob:      workflow.GetJob(id),
 			overrideOnClause: rebuiltOn,
@@ -352,24 +352,24 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	return retval, nil
 }
 
-func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, jobResults map[string]*JobResult, calleeJob *bothJobTypes) (map[string]any, *yaml.Node, error) {
+func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, jobResults map[string]*JobResult, callerJob *bothJobTypes) (map[string]any, *yaml.Node, error) {
 	jobNeeds := pc.workflowNeeds
 	if jobNeeds == nil {
-		jobNeeds = calleeJob.jobParserJob.Needs()
+		jobNeeds = callerJob.jobParserJob.Needs()
 	}
 
-	// For evaluating on the callee side's `with` fields, expected contexts to be available: env, forgejo, inputs, job,
+	// For evaluating on the caller side's `with` fields, expected contexts to be available: env, forgejo, inputs, job,
 	// matrix, needs, runner, secrets, steps, strategy, vars
-	calleeEvaluator := NewExpressionEvaluator(NewInterpreter(calleeJob.id, calleeJob.workflowJob, nil, pc.gitContext,
+	callerEvaluator := NewExpressionEvaluator(NewInterpreter(callerJob.id, callerJob.workflowJob, nil, pc.gitContext,
 		jobResults, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds))
 
 	// For evaluating on the reusable workflow's side, with `on.workflow_call.inputs.<input_name>.default`, expected
 	// contexts to be available: forgejo, vars
-	reusableEvaluator := NewExpressionEvaluator(NewInterpreter(calleeJob.id, calleeJob.workflowJob, nil, pc.gitContext,
+	reusableEvaluator := NewExpressionEvaluator(NewInterpreter(callerJob.id, callerJob.workflowJob, nil, pc.gitContext,
 		nil, pc.vars, nil, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, nil))
 
 	workflowConfig := workflow.WorkflowCallConfig()
-	withInput := calleeJob.workflowJob.With
+	withInput := callerJob.workflowJob.With
 
 	retval := make(map[string]any)
 
@@ -382,7 +382,7 @@ func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, 
 			if err != nil {
 				return nil, nil, fmt.Errorf("unable to yaml encode value for input %q: %w", name, err)
 			}
-			err = calleeEvaluator.EvaluateYamlNode(&node)
+			err = callerEvaluator.EvaluateYamlNode(&node)
 			// TODO: Near future: `with: ...` could contain references, direct or indirect, to another job through ${{
 			// needs... }} and that other job hasn't completed.  Need to handle InvalidJobOutputReferencedError &
 			// InvalidMatrixDimensionReferencedError errors and mark this new job as incomplete, requiring evaluation of
@@ -419,7 +419,7 @@ func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, 
 	// `retval` contains the evaluated inputs which are ready to be used in re-parsing this workflow.  But later when
 	// this workflow is actually executed, we need to store these inputs so that they can be used.  To do this, we
 	// rebuild the `on.workflow_call` section of the workflow and provide the now-evaluated values as the default values
-	// of each input -- that way the `with` clause from the callee isn't needed again to run this workflow.
+	// of each input -- that way the `with` clause from the caller isn't needed again to run this workflow.
 	rebuildInputs := make(map[string]any, len(retval))
 	for name, input := range workflowConfig.Inputs {
 		rebuildInputs[name] = map[string]any{
@@ -436,26 +436,25 @@ func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, 
 	return retval, &rebuiltOn, nil
 }
 
-// `on.workflow_call.outputs` on the reusable workflow will be converted into an `job.<job_id>.outputs` on the callee job.
-func migrateReusableWorkflowOutputs(workflow *model.Workflow, calleeJob *bothJobTypes) error {
+// `on.workflow_call.outputs` on the reusable workflow will be converted into an `job.<job_id>.outputs` on the caller job.
+func migrateReusableWorkflowOutputs(workflow *model.Workflow, callerJob *bothJobTypes) error {
 	// Rewrite `jobs.<job-id>....` into `needs[format("{0}.{1}", parent-job-id, job-id)]....`
 	vam := &exprparser.VariableAccessMutator{
 		// "Variable access": Whenever we find `jobs[x]` or `jobs.x`...
 		Variable: "jobs",
 		Rewriter: func(property actionlint.ExprNode) actionlint.ExprNode {
-			// "Mutator": replace it with `needs[format('{0}.{1}', "y", x)]`, where "y" is the callee job's ID.
+			// "Mutator": replace it with `needs[format('{0}.{1}', "y", x)]`, where "y" is the caller job's ID.
 			return &actionlint.IndexAccessNode{
 				Operand: &actionlint.VariableNode{Name: "needs"},
 				Index: &actionlint.FuncCallNode{
 					Callee: "format",
 					Args: []actionlint.ExprNode{
 						&actionlint.StringNode{Value: "{0}.{1}"},
-						&actionlint.StringNode{Value: calleeJob.id},
+						&actionlint.StringNode{Value: callerJob.id},
 						property,
 					},
 				},
 			}
-
 		},
 	}
 
@@ -465,10 +464,10 @@ func migrateReusableWorkflowOutputs(workflow *model.Workflow, calleeJob *bothJob
 		if err != nil {
 			return fmt.Errorf("failure to mutate output value: %w", err)
 		}
-		if calleeJob.jobParserJob.Outputs == nil {
-			calleeJob.jobParserJob.Outputs = make(map[string]string)
+		if callerJob.jobParserJob.Outputs == nil {
+			callerJob.jobParserJob.Outputs = make(map[string]string)
 		}
-		calleeJob.jobParserJob.Outputs[key] = mutatedOutputValue
+		callerJob.jobParserJob.Outputs[key] = mutatedOutputValue
 	}
 
 	return nil

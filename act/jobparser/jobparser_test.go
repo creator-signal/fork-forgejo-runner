@@ -201,7 +201,7 @@ func TestParse(t *testing.T) {
 			reparsingSingleWorkflow: true,
 			options: []ParseOption{
 				WithInputs(map[string]any{
-					"callee-invalid-input": "this shouldn't appear in the reusable workflow",
+					"caller-invalid-input": "this shouldn't appear in the reusable workflow",
 				}),
 				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
 					content := ReadTestdata(t, "expand_inputs_reusable.yaml", true)
@@ -345,7 +345,7 @@ jobs:
 					"context-needs":            "${{ needs.some-job.outputs.some-output }}",
 					"context-strategy":         "${{ strategy.fail-fast }}",
 					"context-vars":             "${{ vars.best-var }}",
-					// TODO: matrix evaluation of the callee job not yet supported
+					// TODO: matrix evaluation of the caller job not yet supported
 					// "context-matrix":           "${{ matrix.os }}",
 				},
 				Strategy: &model.Strategy{
@@ -367,7 +367,7 @@ jobs:
 	// Variable-accessing values passed in from `with: ...`
 	assert.Subset(t, inputs, map[string]any{"context-forgejo": "workflow_call"})
 	assert.Subset(t, inputs, map[string]any{"context-inputs": "my_input_value"})
-	// assert.Subset(t, inputs, map[string]any{"context-matrix":  "nixos"}), // matrix evaluation of the callee job not yet supported
+	// assert.Subset(t, inputs, map[string]any{"context-matrix":  "nixos"}), // matrix evaluation of the caller job not yet supported
 	assert.Subset(t, inputs, map[string]any{"context-needs": "some-output-value"})
 	assert.Subset(t, inputs, map[string]any{"context-strategy": true})
 	assert.Subset(t, inputs, map[string]any{"context-vars": "the-best-var"})

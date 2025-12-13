@@ -14,7 +14,7 @@ on:
 name: test
 jobs:
   job1:
-    runs-on: ${{ inputs.example-string-required }}${{ inputs.callee-invalid-input }}
+    runs-on: ${{ inputs.example-string-required }}${{ inputs.caller-invalid-input }}
     steps:
       - name: Echo inputs
         run: |
