@@ -16,6 +16,8 @@ type SingleWorkflow struct {
 	RawJobs  yaml.Node         `yaml:"jobs,omitempty"`
 	Defaults Defaults          `yaml:"defaults,omitempty"`
 
+	IncompleteRecursionDepth int `yaml:"incomplete_recursion_depth,omitempty"`
+
 	// IncompleteMatrix flag indicates that it wasn't possible to evaluate the `strategy.matrix` section of the job
 	// because it references a job output that is currently undefined.  The workflow that this job came from will need
 	// to be reparsed using the `WithJobOutputs()` option, and it may result in this job being expanded into multiple

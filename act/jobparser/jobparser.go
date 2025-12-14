@@ -51,6 +51,9 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 	if pc.recursionDepth > 5 {
 		return nil, fmt.Errorf("failed to parse workflow due to exceeding the workflow recursion limit (5)")
 	}
+	if workflow.IncompleteRecursionDepth != 0 {
+		pc.recursionDepth = workflow.IncompleteRecursionDepth
+	}
 
 	results := map[string]*JobResult{}
 	for id, job := range origin.Jobs {
@@ -211,6 +214,13 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				swf.IncompleteWith = true
 				swf.IncompleteWithMatrix = bothJobs.internalIncompleteState.IncompleteWithMatrix
 				swf.IncompleteWithNeeds = bothJobs.internalIncompleteState.IncompleteWithNeeds
+			}
+		}
+		if swf.IncompleteMatrix || swf.IncompleteRunsOn || swf.IncompleteWith {
+			if bothJobs.internalIncompleteState != nil {
+				swf.IncompleteRecursionDepth = bothJobs.internalIncompleteState.IncompleteRecursionDepth
+			} else {
+				swf.IncompleteRecursionDepth = pc.recursionDepth
 			}
 		}
 		if err := swf.SetJob(id, job); err != nil {

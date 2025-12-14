@@ -42,6 +42,7 @@ jobs:
     uses: ./.forgejo/workflows/expand_reusable_incomplete5_reusable.yml
     with:
       job-input: ${{ needs[format('{0}.{1}', 'reusable', 'inner-define-runs-on')].outputs.runner }}
+incomplete_recursion_depth: 1
 incomplete_with: true
 incomplete_with_needs:
   job: reusable.inner-define-runs-on

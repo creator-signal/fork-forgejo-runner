@@ -557,3 +557,93 @@ jobs:
 	assert.Subset(t, inputs, map[string]any{"default-forgejo": "workflow_call"})
 	assert.Subset(t, inputs, map[string]any{"default-vars": "the-best-var"})
 }
+
+func TestRecursionDepthLimit(t *testing.T) {
+	t.Run("basic", func(t *testing.T) {
+		testWorkflow := `
+on:
+  pull_request:
+jobs:
+  job:
+    uses: some-org/some-repo/.forgejo/workflows/recursive.yaml@v1
+`
+
+		swf, err := Parse(
+			[]byte(testWorkflow),
+			false,
+			ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+				return []byte(testWorkflow), nil
+			}),
+		)
+		require.ErrorContains(t, err, "exceeding the workflow recursion limit")
+		assert.Nil(t, swf)
+	})
+
+	// An incomplete workflow requires reparsing and that can lost the recursion tracking state if it's not separately
+	// supported for this case.
+	t.Run("incomplete", func(t *testing.T) {
+		outerWorkflow := `
+on:
+  pull_request:
+jobs:
+  job:
+    uses: some-org/some-repo/.forgejo/workflows/recursive.yaml@v1
+`
+		innerWorkflow := `
+on:
+  workflow_call:
+    inputs:
+      input:
+        type: string
+jobs:
+  # theoretically 'some-other-job' would be here, but we'll mock it's output
+  job:
+    uses: some-org/some-repo/.forgejo/workflows/recursive.yaml@v1
+    needs: some-other-job
+    with:
+      input: ${{ needs.some-other-job.outputs.some-output }}
+`
+
+		jobOutputs := map[string]map[string]string{}
+
+		swf, err := Parse(
+			[]byte(outerWorkflow),
+			false,
+			WithJobOutputs(jobOutputs),
+			ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+				return []byte(innerWorkflow), nil
+			}),
+		)
+		require.NoError(t, err)
+
+		require.Len(t, swf, 2) // two jobs - the parent placeholder for the caller, and the incomplete job from the reusable workflow
+		assert.False(t, swf[0].IncompleteWith)
+		assert.True(t, swf[1].IncompleteWith)
+		assert.Equal(t, 1, swf[1].IncompleteRecursionDepth) // should have tracked that we had to recurse one level already to get here
+
+		// Now we'll re-parse the second job and provide the missing inputs.  The goal is to get a recursion error here,
+		// and because we already recursed one level in the first parsing, to get the recursion error in less than 5
+		// iterations.
+		incompleteWorkflow, err := swf[1].Marshal()
+		require.NoError(t, err)
+
+		callCount := 0
+		_, err = Parse(
+			incompleteWorkflow,
+			false,
+			WithJobOutputs(map[string]map[string]string{
+				// Make sure it's complete now:
+				"some-other-job": {
+					"some-output": "abc",
+				},
+			}),
+			WithWorkflowNeeds([]string{"some-other-job"}),
+			ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+				callCount++
+				return []byte(outerWorkflow), nil
+			}),
+		)
+		require.ErrorContains(t, err, "exceeding the workflow recursion limit")
+		assert.Equal(t, 5, callCount) // would reach 6 if internal state of the first track wasn't persisted
+	})
+}

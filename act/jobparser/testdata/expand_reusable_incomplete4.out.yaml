@@ -29,6 +29,7 @@ jobs:
     runs-on: ${{ needs[format('{0}.{1}', 'reusable', 'inner-define-runs-on')].outputs.runner }}
     steps:
       - run: echo "Hello, world!"
+incomplete_recursion_depth: 1
 incomplete_runs_on: true
 incomplete_runs_on_needs:
   job: reusable.inner-define-runs-on
