@@ -24,10 +24,17 @@ func TestParse(t *testing.T) {
 	defer func() { model.OnDecodeNodeError = origOnDecodeNodeError }()
 
 	tests := []struct {
-		name                    string
-		options                 []ParseOption
-		wantErr                 string
+		name    string
+		options []ParseOption
+		wantErr string
+
+		// If we're expecting {name}.in.yaml to be a SingleWorkflow, which has additional fields that a normal workflow
+		// doesn't have, then we can't validate the input as a workflow.
 		reparsingSingleWorkflow bool
+
+		// If we're expecting {name}.out.yaml to have additional fields (incomplete_*) that a normal workflow doesn't
+		// have, then we can't validate the output as a workflow.
+		expectingInvalidWorkflowOutput bool
 	}{
 		{
 			name:    "multiple_named_matrix",
@@ -350,6 +357,24 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		// `expand_reusable_incomplete3` covers accessing `${{ matrix.something }}` in a `with` clause for a reusable
+		// workflow when `something` isn't actually defined in the job's matrix.
+		{
+			name:                           "expand_reusable_incomplete3",
+			reparsingSingleWorkflow:        true,
+			expectingInvalidWorkflowOutput: true,
+			options: []ParseOption{
+				WithJobOutputs(map[string]map[string]string{}),
+				SupportIncompleteRunsOn(),
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_incomplete3_reusable.yml" {
+						content := ReadTestdata(t, "expand_reusable_incomplete3_reusable.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -361,7 +386,7 @@ func TestParse(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				want := ReadTestdata(t, tt.name+".out.yaml", false)
+				want := ReadTestdata(t, tt.name+".out.yaml", tt.expectingInvalidWorkflowOutput)
 				builder := &strings.Builder{}
 				for _, v := range got {
 					if builder.Len() > 0 {

@@ -1,0 +1,11 @@
+name: test
+jobs:
+  reusable:
+    name: reusable
+    runs-on: []
+    uses: ./.forgejo/workflows/expand_reusable_incomplete3_reusable.yml
+    with:
+      runner: ${{ matrix.rummer-oops-no-such-dimension }}
+incomplete_with: true
+incomplete_with_matrix:
+  dimension: rummer-oops-no-such-dimension

@@ -28,7 +28,8 @@ type bothJobTypes struct {
 
 	overrideOnClause *yaml.Node
 
-	withInvalidJobReference *exprparser.InvalidJobOutputReferencedError
+	withInvalidJobReference    *exprparser.InvalidJobOutputReferencedError
+	withInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
 }
 
 func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWorkflow, error) {
@@ -186,6 +187,12 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				Output: bothJobs.withInvalidJobReference.OutputName,
 			}
 		}
+		if bothJobs.withInvalidMatrixReference != nil {
+			swf.IncompleteWith = true
+			swf.IncompleteWithMatrix = &IncompleteMatrix{
+				Dimension: bothJobs.withInvalidMatrixReference.Dimension,
+			}
+		}
 		if err := swf.SetJob(id, job); err != nil {
 			return nil, fmt.Errorf("SetJob: %w", err)
 		}
@@ -306,16 +313,19 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, incompleteMatr
 			// clause referencing a job output that isn't present yet.  In this case, don't expand the job, but provide
 			// the error back in `bothJobTypes` so that it can be returned in the `SingleWorkflow`.
 			var withInvalidJobReference *exprparser.InvalidJobOutputReferencedError
+			// Same type of error, but for accessing an invalid matrix during `with:`.
+			var withInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
 
 			newJobs, err := expandReusableWorkflow(reusableWorkflow, validate, options, pc, jobResults, bothJobs.matrix, bothJobs)
 			if err != nil {
 				errors.As(err, &withInvalidJobReference)
-				if withInvalidJobReference == nil {
+				errors.As(err, &withInvalidMatrixReference)
+				if withInvalidJobReference == nil && withInvalidMatrixReference == nil {
 					return nil, fmt.Errorf("error expanding reusable workflow %q: %v", workflowJob.Uses, err)
 				}
 			}
 
-			if withInvalidJobReference == nil {
+			if withInvalidJobReference == nil && withInvalidMatrixReference == nil {
 				// Append the inner jobs' IDs to the `needs` of the parent job.
 				additionalNeeds := make([]string, len(newJobs))
 				for i, b := range newJobs {
@@ -335,6 +345,7 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, incompleteMatr
 			} else {
 				// Retain all the original data of the job until it's really expanded, with its inputs, later
 				bothJobs.withInvalidJobReference = withInvalidJobReference
+				bothJobs.withInvalidMatrixReference = withInvalidMatrixReference
 			}
 
 			retval = append(retval, newJobs...)
