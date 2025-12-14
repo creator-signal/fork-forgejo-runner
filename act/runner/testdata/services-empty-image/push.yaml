@@ -16,8 +16,8 @@ jobs:
       - name: Assert optional service is skipped
         shell: bash
         run: |
-          if getent hosts conditional-db; then
-            echo "conditional-db should not run when USE_OPTIONAL_SERVICE is false"
+          if timeout 2 bash -c '>/dev/tcp/conditional-db/5432' 2>/dev/null; then
+            echo "ERROR: DB port is reachable, but service should have been skipped"
             exit 1
           fi
       - name: Confirm steps still run without the optional service
