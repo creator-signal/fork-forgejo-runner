@@ -410,6 +410,24 @@ func TestParse(t *testing.T) {
 				SupportIncompleteRunsOn(),
 			},
 		},
+		// `expand_reusable_incomplete5` tests a job within a reusable workflow that can't be expanded because it also
+		// references a reusable workflow, and it has a `with:` that has a dependency on another job within the same
+		// workflow.  This is similar to `expand_reusable_incomplete4` but the `with` clause was identified as requiring
+		// special handling in the reusable workflow expansion.
+		{
+			name: "expand_reusable_incomplete5",
+			options: []ParseOption{
+				WithJobOutputs(map[string]map[string]string{}),
+				SupportIncompleteRunsOn(),
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_incomplete5_reusable.yml" {
+						content := ReadTestdata(t, "expand_reusable_incomplete5_reusable.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

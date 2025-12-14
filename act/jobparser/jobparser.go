@@ -30,6 +30,7 @@ type bothJobTypes struct {
 
 	withInvalidJobReference    *exprparser.InvalidJobOutputReferencedError
 	withInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
+	internalIncompleteState    *SingleWorkflow
 }
 
 func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWorkflow, error) {
@@ -191,6 +192,25 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			swf.IncompleteWith = true
 			swf.IncompleteWithMatrix = &IncompleteMatrix{
 				Dimension: bothJobs.withInvalidMatrixReference.Dimension,
+			}
+		}
+		// If a job was noticed as incomplete during reusable workflow expansion, that information would be lost in the
+		// the new `SingleWorkflow` that we're creating here -- so preserve that state that was discovered in a previous
+		// recursion of parsing:
+		if bothJobs.internalIncompleteState != nil {
+			if bothJobs.internalIncompleteState.IncompleteMatrix && !swf.IncompleteMatrix {
+				swf.IncompleteMatrix = true
+				swf.IncompleteMatrixNeeds = bothJobs.internalIncompleteState.IncompleteMatrixNeeds
+			}
+			if bothJobs.internalIncompleteState.IncompleteRunsOn && !swf.IncompleteRunsOn {
+				swf.IncompleteRunsOn = true
+				swf.IncompleteRunsOnMatrix = bothJobs.internalIncompleteState.IncompleteRunsOnMatrix
+				swf.IncompleteRunsOnNeeds = bothJobs.internalIncompleteState.IncompleteRunsOnNeeds
+			}
+			if bothJobs.internalIncompleteState.IncompleteWith && !swf.IncompleteWith {
+				swf.IncompleteWith = true
+				swf.IncompleteWithMatrix = bothJobs.internalIncompleteState.IncompleteWithMatrix
+				swf.IncompleteWithNeeds = bothJobs.internalIncompleteState.IncompleteWithNeeds
 			}
 		}
 		if err := swf.SetJob(id, job); err != nil {
@@ -419,12 +439,26 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			}
 		}
 
-		retval = append(retval, &bothJobTypes{
+		newEntry := &bothJobTypes{
 			id:               fmt.Sprintf("%s.%s", callerJob.id, id),
 			jobParserJob:     job,
 			workflowJob:      workflow.GetJob(id),
 			overrideOnClause: rebuiltOn,
-		})
+		}
+		if swf.IncompleteMatrix || swf.IncompleteRunsOn || swf.IncompleteWith {
+			newEntry.internalIncompleteState = swf
+			// if we have a reference to a job stored in the incomplete state, then qualify that job name:
+			if swf.IncompleteMatrixNeeds != nil {
+				swf.IncompleteMatrixNeeds.Job = fmt.Sprintf("%s.%s", callerJob.id, swf.IncompleteMatrixNeeds.Job)
+			}
+			if swf.IncompleteRunsOnNeeds != nil {
+				swf.IncompleteRunsOnNeeds.Job = fmt.Sprintf("%s.%s", callerJob.id, swf.IncompleteRunsOnNeeds.Job)
+			}
+			if swf.IncompleteWithNeeds != nil {
+				swf.IncompleteWithNeeds.Job = fmt.Sprintf("%s.%s", callerJob.id, swf.IncompleteWithNeeds.Job)
+			}
+		}
+		retval = append(retval, newEntry)
 	}
 	return retval, nil
 }
@@ -460,10 +494,6 @@ func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, 
 				return nil, nil, fmt.Errorf("unable to yaml encode value for input %q: %w", name, err)
 			}
 			err = callerEvaluator.EvaluateYamlNode(&node)
-			// TODO: Near future: `with: ...` could contain references, direct or indirect, to another job through ${{
-			// needs... }} and that other job hasn't completed.  Need to handle InvalidJobOutputReferencedError &
-			// InvalidMatrixDimensionReferencedError errors and mark this new job as incomplete, requiring evaluation of
-			// an dependency first.
 			if err != nil {
 				return nil, nil, fmt.Errorf("unable to evaluate expression for input %q: %w", name, err)
 			}

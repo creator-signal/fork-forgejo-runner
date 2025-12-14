@@ -1,0 +1,4 @@
+name: test
+jobs:
+  reusable:
+    uses: ./.forgejo/workflows/expand_reusable_incomplete5_reusable.yml

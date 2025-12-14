@@ -1,0 +1,48 @@
+name: test
+jobs:
+  reusable:
+    name: reusable
+    needs:
+      - reusable.inner-define-runs-on
+      - reusable.inner-use-runs-on
+    runs-on: []
+    if: false
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      job-input:
+        default: null
+        type: string
+jobs:
+  reusable.inner-define-runs-on:
+    name: inner-define-runs-on
+    runs-on: docker
+    steps:
+      - id: runner
+        run: |
+          echo 'runner=ubuntu-latest' >> "$GITHUB_OUTPUT"
+    outputs:
+      runner: ${{ steps.runner.outputs.runner }}
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      job-input:
+        default: null
+        type: string
+jobs:
+  reusable.inner-use-runs-on:
+    name: inner-use-runs-on
+    needs:
+      - reusable.inner-define-runs-on
+    runs-on: []
+    uses: ./.forgejo/workflows/expand_reusable_incomplete5_reusable.yml
+    with:
+      job-input: ${{ needs[format('{0}.{1}', 'reusable', 'inner-define-runs-on')].outputs.runner }}
+incomplete_with: true
+incomplete_with_needs:
+  job: reusable.inner-define-runs-on
+  output: runner

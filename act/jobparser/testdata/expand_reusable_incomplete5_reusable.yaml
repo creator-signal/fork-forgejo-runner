@@ -1,0 +1,20 @@
+on:
+  workflow_call:
+    inputs:
+      job-input:
+        type: string
+
+jobs:
+  inner-define-runs-on:
+    runs-on: docker
+    outputs:
+      runner: ${{ steps.runner.outputs.runner }}
+    steps:
+      - id: runner
+        run: |
+          echo 'runner=ubuntu-latest' >> "$GITHUB_OUTPUT"
+  inner-use-runs-on:
+    needs: inner-define-runs-on
+    uses: ./.forgejo/workflows/expand_reusable_incomplete5_reusable.yml
+    with:
+      job-input: ${{ needs.inner-define-runs-on.outputs.runner }}
