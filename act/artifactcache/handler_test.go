@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
@@ -1205,4 +1206,5 @@ func TestHandler_fatal(t *testing.T) {
 	fatal(discard, errors.New("fatal error"))
 
 	waitSig(t, c, syscall.SIGTERM)
+	assert.Equal(t, common.CacheUnrecoverableError, common.PendingExitCode)
 }

@@ -1,9 +1,10 @@
 //go:build !windows
 
-package artifactcache
+package common
 
 import "syscall"
 
-func suicide() error {
+func Suicide(exitCode RunnerExitCode) error {
+	SetPendingExitCode(exitCode)
 	return syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 }

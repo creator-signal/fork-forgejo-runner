@@ -8,12 +8,16 @@ import (
 	"os/signal"
 	"syscall"
 
+	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/cmd"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
 	// run the command
 	cmd.Execute(ctx)
+
+	common.Exit()
 }

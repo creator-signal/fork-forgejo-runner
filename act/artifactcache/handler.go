@@ -24,8 +24,8 @@ const (
 
 var fatal = func(logger logrus.FieldLogger, err error) {
 	logger.Errorf("unrecoverable error in the cache: %v", err)
-	if err := suicide(); err != nil {
-		logger.Errorf("unrecoverable error in the cache: failed to send the TERM signal to shutdown the daemon %v", err)
+	if err := common.Suicide(common.CacheUnrecoverableError); err != nil {
+		logger.Panicf("unrecoverable error in the cache: failed to send the TERM signal to shutdown the daemon %v", err)
 	}
 }
 
