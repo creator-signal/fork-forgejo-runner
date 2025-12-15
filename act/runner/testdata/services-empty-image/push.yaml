@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       conditional-db:
-        image: ''  # ← просто пустая строка без условий
+        image: ''
         env:
           POSTGRES_PASSWORD: optional
         ports:
