@@ -528,9 +528,10 @@ func TestEvaluateConcurrency(t *testing.T) {
 
 func TestEvaluateWorkflowCallOutputs(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   *Job
-		outputs map[string]string
+		name           string
+		input          *Job
+		workflowInputs map[string]any
+		outputs        map[string]string
 	}{
 		{
 			name: "empty",
@@ -587,12 +588,28 @@ func TestEvaluateWorkflowCallOutputs(t *testing.T) {
 				"o1": "123",
 			},
 		},
+		{
+			name:           "inputs context",
+			workflowInputs: map[string]any{"some_input": "some_input_value"},
+			input: &Job{
+				Outputs: map[string]string{
+					"o1": "${{ inputs.some_input }}",
+				},
+			},
+			outputs: map[string]string{
+				"o1": "some_input_value",
+			},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			swf := &SingleWorkflow{WorkflowCallInputs: test.workflowInputs}
+			err := swf.RawJobs.Encode(map[string]*Job{"job": test.input})
+			require.NoError(t, err)
+
 			outputs := EvaluateWorkflowCallOutputs(
-				test.input,
+				swf,
 				// gitCtx
 				&model.GithubContext{
 					Workflow: "test_workflow",

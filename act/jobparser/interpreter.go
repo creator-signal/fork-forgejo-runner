@@ -111,6 +111,7 @@ func newWorkflowCallOutputsInterpreter(
 	vars map[string]string,
 	results map[string]*JobResult,
 	needs []string,
+	inputs map[string]any,
 ) exprparser.Interpreter {
 	using := map[string]exprparser.Needs{}
 	for _, jobID := range needs {
@@ -132,7 +133,7 @@ func newWorkflowCallOutputsInterpreter(
 		Secrets:  nil, // no need
 		Strategy: nil, // no need
 		Matrix:   nil, // no need
-		Inputs:   nil, // TODO: supported later, see comment in EvaluateWorkflowCallOutputs
+		Inputs:   inputs,
 		Needs:    using,
 		Vars:     vars,
 	}

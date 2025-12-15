@@ -417,16 +417,14 @@ func parseMappingNode[T any](node *yaml.Node) ([]string, []T, error) {
 // Outputs from a reusable workflow are translated into outputs on the caller job, which is transformed into a
 // placeholder job that is never really executed.  Because it isn't executed, special handling for evaluating its
 // outputs is required, which `EvaluateWorkflowCallOutputs` provides.
-func EvaluateWorkflowCallOutputs(callerJob *Job, gitCtx *model.GithubContext, vars map[string]string, needs []string, jobResults map[string]string, jobOutputs map[string]map[string]string) map[string]string {
+func EvaluateWorkflowCallOutputs(callerWorkflow *SingleWorkflow, gitCtx *model.GithubContext, vars map[string]string, needs []string, jobResults map[string]string, jobOutputs map[string]map[string]string) map[string]string {
 	// Documented supported contexts: forgejo, inputs, jobs, vars
 	//
 	// `jobs` is rewritten during workflow evaluation to `needs` that reference other jobs, so we can replace `jobs`
 	// context with `needs` context in the above list.
 	//
-	// TODO: `inputs` for a workflow call is really the `with` content of the caller, which was already evaluated when
-	// the workflow was expanded, but we never saved a value of those evaluated `with` -> `inputs` in a way that can be
-	// accessed from the caller's workflow... perhaps we can smuggle it forward from that initial expansion, but for the
-	// moment we won't support inputs.
+	// `inputs` for a workflow call is really the `with` content of the caller, which was already evaluated when the
+	// workflow was expanded and stored in `callerWorkflow.WorkflowCallInputs` for access to the `inputs` context here.
 
 	results := map[string]*JobResult{}
 	for _, id := range needs {
@@ -436,7 +434,9 @@ func EvaluateWorkflowCallOutputs(callerJob *Job, gitCtx *model.GithubContext, va
 		}
 	}
 
-	evaluator := NewExpressionEvaluator(newWorkflowCallOutputsInterpreter(gitCtx, vars, results, needs))
+	evaluator := NewExpressionEvaluator(newWorkflowCallOutputsInterpreter(gitCtx, vars, results, needs, callerWorkflow.WorkflowCallInputs))
+
+	_, callerJob := callerWorkflow.Job()
 
 	outputs := map[string]string{}
 	for key, value := range callerJob.Outputs {
