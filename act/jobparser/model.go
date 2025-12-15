@@ -36,6 +36,11 @@ type SingleWorkflow struct {
 	IncompleteWith       bool              `yaml:"incomplete_with,omitempty"`
 	IncompleteWithNeeds  *IncompleteNeeds  `yaml:"incomplete_with_needs,omitempty"`
 	IncompleteWithMatrix *IncompleteMatrix `yaml:"incomplete_with_matrix,omitempty"`
+
+	// When this workflow is a placeholder job that has been expanded into a reusable workflow, the inputs to the
+	// reusable workflow are stored here so that they can be used as a valid evaluation context in the reusable
+	// workflow's outputs later.
+	WorkflowCallInputs map[string]any `yaml:"workflow_call_inputs,omitempty"`
 }
 
 type IncompleteNeeds struct {

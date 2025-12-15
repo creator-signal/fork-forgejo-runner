@@ -11,6 +11,8 @@ jobs:
       matrix:
         runner:
           - runner-a
+workflow_call_inputs:
+  runner: runner-a
 ---
 name: test
 jobs:
@@ -25,6 +27,8 @@ jobs:
       matrix:
         runner:
           - runner-b
+workflow_call_inputs:
+  runner: runner-b
 ---
 name: test
 "on":

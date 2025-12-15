@@ -12,6 +12,9 @@ jobs:
           - debian
         platform:
           - amd64
+workflow_call_inputs:
+  os: debian
+  platform: amd64
 ---
 name: test
 jobs:
@@ -27,6 +30,9 @@ jobs:
           - debian
         platform:
           - arm64
+workflow_call_inputs:
+  os: debian
+  platform: arm64
 ---
 name: test
 jobs:
@@ -42,6 +48,9 @@ jobs:
           - nixos
         platform:
           - amd64
+workflow_call_inputs:
+  os: nixos
+  platform: amd64
 ---
 name: test
 jobs:
@@ -57,6 +66,9 @@ jobs:
           - nixos
         platform:
           - arm64
+workflow_call_inputs:
+  os: nixos
+  platform: arm64
 ---
 name: test
 "on":

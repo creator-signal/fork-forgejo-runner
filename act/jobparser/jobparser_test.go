@@ -204,8 +204,9 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
-			name:                    "expand_inputs",
-			reparsingSingleWorkflow: true,
+			name:                           "expand_inputs",
+			reparsingSingleWorkflow:        true,
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				WithInputs(map[string]any{
 					"caller-invalid-input": "this shouldn't appear in the reusable workflow",
@@ -269,7 +270,8 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
-			name: "expand_reusable_caller_matrix",
+			name:                           "expand_reusable_caller_matrix",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_caller_matrix_reusable-1.yml" {
@@ -299,8 +301,9 @@ func TestParse(t *testing.T) {
 		// `expand_reusable_incomplete1_complete` covers reparsing the incomplete workflow from
 		// `expand_reusable_incomplete1` after the `needs` is defined, allowing the matrix to be expanded.
 		{
-			name:                    "expand_reusable_incomplete1_complete",
-			reparsingSingleWorkflow: true,
+			name:                           "expand_reusable_incomplete1_complete",
+			reparsingSingleWorkflow:        true,
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				WithWorkflowNeeds([]string{"define-runs-on"}),
 				WithJobOutputs(map[string]map[string]string{
@@ -322,7 +325,8 @@ func TestParse(t *testing.T) {
 		// defining inputs for a reusable workflow that references `${{ needs... }}`, and therefore requires job outputs
 		// before it can be expanded.
 		{
-			name: "expand_reusable_incomplete2",
+			name:                           "expand_reusable_incomplete2",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				WithJobOutputs(map[string]map[string]string{}),
 				SupportIncompleteRunsOn(),
@@ -338,8 +342,9 @@ func TestParse(t *testing.T) {
 		// `expand_reusable_incomplete2_complete` covers reparsing the incomplete workflow from
 		// `expand_reusable_incomplete2` after the `needs` is defined, allowing the `with` to be expanded.
 		{
-			name:                    "expand_reusable_incomplete2_complete",
-			reparsingSingleWorkflow: true,
+			name:                           "expand_reusable_incomplete2_complete",
+			reparsingSingleWorkflow:        true,
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				WithWorkflowNeeds([]string{"define-with"}),
 				WithJobOutputs(map[string]map[string]string{
@@ -415,7 +420,8 @@ func TestParse(t *testing.T) {
 		// workflow.  This is similar to `expand_reusable_incomplete4` but the `with` clause was identified as requiring
 		// special handling in the reusable workflow expansion.
 		{
-			name: "expand_reusable_incomplete5",
+			name:                           "expand_reusable_incomplete5",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				WithJobOutputs(map[string]map[string]string{}),
 				SupportIncompleteRunsOn(),

@@ -31,6 +31,7 @@ type bothJobTypes struct {
 	withInvalidJobReference    *exprparser.InvalidJobOutputReferencedError
 	withInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
 	internalIncompleteState    *SingleWorkflow
+	workflowCallInputs         map[string]any
 }
 
 func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWorkflow, error) {
@@ -156,10 +157,11 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 
 		job.RawRunsOn = encodeRunsOn(runsOn)
 		swf := &SingleWorkflow{
-			Name:     workflow.Name,
-			RawOn:    workflow.RawOn,
-			Env:      workflow.Env,
-			Defaults: workflow.Defaults,
+			Name:               workflow.Name,
+			RawOn:              workflow.RawOn,
+			Env:                workflow.Env,
+			Defaults:           workflow.Defaults,
+			WorkflowCallInputs: bothJobs.workflowCallInputs,
 		}
 		if bothJobs.overrideOnClause != nil {
 			swf.RawOn = *bothJobs.overrideOnClause
@@ -406,6 +408,9 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	// due to parse options being applied in-order, this will replace the calling job's inputs (if provided) with the
 	// inputs of the workflow call:
 	innerParseOptions = append(innerParseOptions, WithInputs(inputs))
+	// After all the jobs in a reusable workflow are done, the outputs need to be evaluated, and `${{ inputs... }}` is a
+	// valid context when evaluating them.  Store a copy of the inputs on the caller job for that evaluation.
+	callerJob.workflowCallInputs = inputs
 
 	err = migrateReusableWorkflowOutputs(workflow, callerJob)
 	if err != nil {

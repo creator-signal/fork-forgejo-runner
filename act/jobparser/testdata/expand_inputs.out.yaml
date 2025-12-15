@@ -7,6 +7,10 @@ jobs:
       - reusable-1.job1
     runs-on: []
     if: false
+workflow_call_inputs:
+  example-boolean-required: true
+  example-number-required: 123
+  example-string-required: reusable-1
 ---
 "on":
   pull_request:
@@ -17,6 +21,10 @@ jobs:
       - reusable-2.job1
     runs-on: []
     if: false
+workflow_call_inputs:
+  example-boolean-required: false
+  example-number-required: 456
+  example-string-required: reusable-2
 ---
 "on":
   workflow_call:
