@@ -648,3 +648,158 @@ func TestEvaluateWorkflowCallOutputs(t *testing.T) {
 		})
 	}
 }
+
+func TestEvaluateWorkflowCallSecrets(t *testing.T) {
+	tests := []struct {
+		name         string
+		nilStrategy  bool
+		secretInput  map[string]string
+		secretOutput map[string]string
+	}{
+		{
+			name:         "empty",
+			secretInput:  nil,
+			secretOutput: map[string]string{},
+		},
+		{
+			name: "static calc",
+			secretInput: map[string]string{
+				"o1": "${{ format('abc {0}', 123) }}",
+				"o2": "${{ format('def {0}', 456) }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "abc 123",
+				"O2": "def 456",
+			},
+		},
+		{
+			name: "forgejo context",
+			secretInput: map[string]string{
+				"o1": "${{ forgejo.ref }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "main",
+			},
+		},
+		{
+			name: "inputs context",
+			secretInput: map[string]string{
+				"o1": "${{ inputs.workflow_dispatch_input }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "workflow_dispatch_value",
+			},
+		},
+		{
+			name: "matrix context",
+			secretInput: map[string]string{
+				"o1": "${{ matrix.some-dimension }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "some-dimensional-value",
+			},
+		},
+		{
+			name: "needs context",
+			secretInput: map[string]string{
+				"o1": "${{ needs.job-1.outputs.output-1 }}",
+				"o2": "${{ needs.job-1.result }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "abc",
+				"O2": "success",
+			},
+		},
+		{
+			name: "secrets context",
+			secretInput: map[string]string{
+				"o1": "${{ secrets.ill-never-tell }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "this secret",
+			},
+		},
+		{
+			name: "strategy context",
+			secretInput: map[string]string{
+				"o1": "${{ strategy.fail-fast }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "true",
+			},
+		},
+		{
+			name:        "nil strategy context no nil dereference",
+			nilStrategy: true,
+			secretInput: map[string]string{
+				"o1": "${{ strategy.fail-fast }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "",
+			},
+		},
+		{
+			name: "vars context",
+			secretInput: map[string]string{
+				"o1": "${{ vars.eval_arbitrary_Var }}",
+			},
+			secretOutput: map[string]string{
+				"O1": "123",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			job := &Job{}
+			err := job.RawSecrets.Encode(test.secretInput)
+			require.NoError(t, err)
+			if !test.nilStrategy {
+				job.Strategy.FailFastString = "true"
+				job.Strategy.RawMatrix = encodeMatrix(map[string]any{"some-dimension": "some-dimensional-value"})
+			}
+			swf := &SingleWorkflow{}
+			err = swf.RawJobs.Encode(map[string]*Job{"job": job})
+			require.NoError(t, err)
+
+			secrets := EvaluateWorkflowCallSecrets(&EvaluateWorkflowCallSecretsArgs{
+				CallerWorkflow: swf,
+				GitCtx: &model.GithubContext{
+					Workflow: "test_workflow",
+					Ref:      "main",
+					Event: map[string]any{
+						"commits": []any{
+							map[string]any{
+								"author": map[string]any{
+									"username": "someone",
+								},
+							},
+							map[string]any{
+								"author": map[string]any{
+									"username": "someone-else",
+								},
+							},
+						},
+					},
+				},
+				JobInputs: map[string]any{
+					"workflow_dispatch_input": "workflow_dispatch_value",
+				},
+				Vars: map[string]string{
+					"eval_arbitrary_var": "123",
+				},
+				Needs:      []string{"job-1"},
+				JobResults: map[string]string{"job-1": "success"},
+				JobOutputs: map[string]map[string]string{
+					"job-1": {
+						"output-1": "abc",
+					},
+				},
+				CallerSecrets: map[string]string{
+					"ill-never-tell": "this secret",
+				},
+			})
+			assert.EqualValues(t, test.secretOutput, secrets)
+		})
+	}
+}

@@ -16,6 +16,7 @@ func newInterpreter(
 	inputs map[string]any,
 	errorMode exprparser.ErrorMode,
 	needs []string,
+	secrets map[string]string,
 ) exprparser.Interpreter {
 	strategy := make(map[string]any)
 	if job.Strategy != nil {
@@ -52,11 +53,11 @@ func newInterpreter(
 
 	ee := &exprparser.EvaluationEnvironment{
 		Github:    gitCtx,
-		Env:       nil, // no need
-		Job:       nil, // no need
-		Steps:     nil, // no need
-		Runner:    nil, // no need
-		Secrets:   nil, // no need
+		Env:       nil,
+		Job:       nil,
+		Steps:     nil,
+		Runner:    nil,
+		Secrets:   secrets,
 		Strategy:  strategy,
 		Matrix:    matrix,
 		Needs:     using,
@@ -83,14 +84,14 @@ func newWorkflowInterpreter(
 ) exprparser.Interpreter {
 	ee := &exprparser.EvaluationEnvironment{
 		Github:   gitCtx,
-		Env:      nil, // no need
-		Job:      nil, // no need
-		Steps:    nil, // no need
-		Runner:   nil, // no need
-		Secrets:  nil, // no need
-		Strategy: nil, // no need
-		Matrix:   nil, // no need
-		Needs:    nil, // no need
+		Env:      nil,
+		Job:      nil,
+		Steps:    nil,
+		Runner:   nil,
+		Secrets:  nil,
+		Strategy: nil,
+		Matrix:   nil,
+		Needs:    nil,
 		Inputs:   inputs,
 		Vars:     vars,
 	}
@@ -126,13 +127,13 @@ func newWorkflowCallOutputsInterpreter(
 
 	ee := &exprparser.EvaluationEnvironment{
 		Github:   gitCtx,
-		Env:      nil, // no need
-		Job:      nil, // no need
-		Steps:    nil, // no need
-		Runner:   nil, // no need
-		Secrets:  nil, // no need
-		Strategy: nil, // no need
-		Matrix:   nil, // no need
+		Env:      nil,
+		Job:      nil,
+		Steps:    nil,
+		Runner:   nil,
+		Secrets:  nil,
+		Strategy: nil,
+		Matrix:   nil,
 		Inputs:   inputs,
 		Needs:    using,
 		Vars:     vars,
