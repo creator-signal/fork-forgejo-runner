@@ -144,7 +144,8 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
-			name: "expand_local_workflow",
+			name:                           "expand_local_workflow",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_local_workflow_reusable-1.yml" {
@@ -169,7 +170,8 @@ func TestParse(t *testing.T) {
 			wantErr: "failed to parse workflow due to exceeding the workflow recursion limit",
 		},
 		{
-			name: "expand_remote_workflow",
+			name:                           "expand_remote_workflow",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
 					if ref.Org != "some-org" {
@@ -230,7 +232,8 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
-			name: "expand_reusable_needs_recursive",
+			name:                           "expand_reusable_needs_recursive",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_needs_recursive-1.yml" {
@@ -245,8 +248,30 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		// A simple implementation of workflowCallID based upon the local job name would fail in this test case with the
+		// "attempted to emit multiple jobs with workflowCallID" error because it creates multiple jobs with the same
+		// job name and matrix values -- workflowCallIDs have to be based upon a complete top-to-bottom job naming and
+		// global matrix knowledge to avoid this test failure.
 		{
-			name: "expand_reusable_outputs",
+			name:                           "expand_reusable_unique_call_ids",
+			expectingInvalidWorkflowOutput: true,
+			options: []ParseOption{
+				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_unique_call_ids_reusable-1.yml" {
+						content := ReadTestdata(t, "expand_reusable_unique_call_ids_reusable-1.yaml", true)
+						return content, nil
+					}
+					if path == "./.forgejo/workflows/expand_reusable_unique_call_ids_reusable-2.yml" {
+						content := ReadTestdata(t, "expand_reusable_unique_call_ids_reusable-2.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
+		{
+			name:                           "expand_reusable_outputs",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_outputs_reusable-1.yml" {
@@ -258,7 +283,8 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
-			name: "expand_reusable_crossreferences",
+			name:                           "expand_reusable_crossreferences",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_crossreferences_reusable-1.yml" {
@@ -386,7 +412,8 @@ func TestParse(t *testing.T) {
 		// }}`, but it is expected that no specialized handling is required between the two cases where this is
 		// supported (matrix, runs-on).
 		{
-			name: "expand_reusable_incomplete4",
+			name:                           "expand_reusable_incomplete4",
+			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
 				WithJobOutputs(map[string]map[string]string{}),
 				SupportIncompleteRunsOn(),

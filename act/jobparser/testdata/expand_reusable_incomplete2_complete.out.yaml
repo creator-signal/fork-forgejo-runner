@@ -9,6 +9,7 @@ jobs:
     if: false
 workflow_call_inputs:
   runner: ubuntu-29.99
+workflow_call_id: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
 ---
 name: test
 "on":
@@ -25,3 +26,4 @@ jobs:
     runs-on: ubuntu-29.99
     steps:
       - run: echo "Woohoo!"
+workflow_call_parent: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b

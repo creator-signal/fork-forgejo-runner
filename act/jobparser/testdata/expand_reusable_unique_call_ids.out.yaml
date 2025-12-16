@@ -1,0 +1,121 @@
+name: test
+jobs:
+  reusable-layer-1-call-1:
+    name: reusable-layer-1-call-1
+    needs:
+      - reusable-layer-1-call-1.reusable-layer-2-matrix
+      - reusable-layer-1-call-1.reusable-layer-2-matrix
+      - reusable-layer-1-call-1.reusable-layer-2-matrix.reusable-layer-3
+      - reusable-layer-1-call-1.reusable-layer-2-matrix.reusable-layer-3
+    runs-on: []
+    if: false
+workflow_call_id: 1f315f298da74360a5b5e7e2de98f01fb9e08238aaf8e101eb19bed6674a038a
+---
+name: test
+jobs:
+  reusable-layer-1-call-2:
+    name: reusable-layer-1-call-2
+    needs:
+      - reusable-layer-1-call-2.reusable-layer-2-matrix
+      - reusable-layer-1-call-2.reusable-layer-2-matrix
+      - reusable-layer-1-call-2.reusable-layer-2-matrix.reusable-layer-3
+      - reusable-layer-1-call-2.reusable-layer-2-matrix.reusable-layer-3
+    runs-on: []
+    if: false
+workflow_call_id: 7a188ce628d214319f8105052d787ed6628f83f99a55965499e25c6d57901bca
+---
+name: test
+jobs:
+  reusable-layer-1-call-1.reusable-layer-2-matrix:
+    name: reusable-layer-2-matrix (linux)
+    needs:
+      - reusable-layer-1-call-1.reusable-layer-2-matrix.reusable-layer-3
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - linux
+workflow_call_id: 0287fcde73390d2012b9f7849b2f32e185f44ac6df4eee10265e96b71e0ba338
+workflow_call_parent: 1f315f298da74360a5b5e7e2de98f01fb9e08238aaf8e101eb19bed6674a038a
+---
+name: test
+jobs:
+  reusable-layer-1-call-1.reusable-layer-2-matrix:
+    name: reusable-layer-2-matrix (not-linux)
+    needs:
+      - reusable-layer-1-call-1.reusable-layer-2-matrix.reusable-layer-3
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - not-linux
+workflow_call_id: 9f0592b2a47f298b7b8b03f905fe4adc78e814ad0a5db1bbb9b89d82fc130f7a
+workflow_call_parent: 1f315f298da74360a5b5e7e2de98f01fb9e08238aaf8e101eb19bed6674a038a
+---
+name: test
+jobs:
+  reusable-layer-1-call-1.reusable-layer-2-matrix.reusable-layer-3:
+    name: reusable-layer-3
+    runs-on: []
+    steps:
+      - run: echo "OK"
+workflow_call_parent: 0287fcde73390d2012b9f7849b2f32e185f44ac6df4eee10265e96b71e0ba338
+---
+name: test
+jobs:
+  reusable-layer-1-call-1.reusable-layer-2-matrix.reusable-layer-3:
+    name: reusable-layer-3
+    runs-on: []
+    steps:
+      - run: echo "OK"
+workflow_call_parent: 9f0592b2a47f298b7b8b03f905fe4adc78e814ad0a5db1bbb9b89d82fc130f7a
+---
+name: test
+jobs:
+  reusable-layer-1-call-2.reusable-layer-2-matrix:
+    name: reusable-layer-2-matrix (linux)
+    needs:
+      - reusable-layer-1-call-2.reusable-layer-2-matrix.reusable-layer-3
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - linux
+workflow_call_id: a666646ff57cf8b3ae8a5a241db9ee116a09b86a2183e3b2b9e80ca456fd14b5
+workflow_call_parent: 7a188ce628d214319f8105052d787ed6628f83f99a55965499e25c6d57901bca
+---
+name: test
+jobs:
+  reusable-layer-1-call-2.reusable-layer-2-matrix:
+    name: reusable-layer-2-matrix (not-linux)
+    needs:
+      - reusable-layer-1-call-2.reusable-layer-2-matrix.reusable-layer-3
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - not-linux
+workflow_call_id: 75b23a56aac0f53020d69bb2ddb0df6a19df18c12f6338dd4f5522fc5e4adaba
+workflow_call_parent: 7a188ce628d214319f8105052d787ed6628f83f99a55965499e25c6d57901bca
+---
+name: test
+jobs:
+  reusable-layer-1-call-2.reusable-layer-2-matrix.reusable-layer-3:
+    name: reusable-layer-3
+    runs-on: []
+    steps:
+      - run: echo "OK"
+workflow_call_parent: a666646ff57cf8b3ae8a5a241db9ee116a09b86a2183e3b2b9e80ca456fd14b5
+---
+name: test
+jobs:
+  reusable-layer-1-call-2.reusable-layer-2-matrix.reusable-layer-3:
+    name: reusable-layer-3
+    runs-on: []
+    steps:
+      - run: echo "OK"
+workflow_call_parent: 75b23a56aac0f53020d69bb2ddb0df6a19df18c12f6338dd4f5522fc5e4adaba

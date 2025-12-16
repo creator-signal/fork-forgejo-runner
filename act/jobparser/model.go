@@ -41,6 +41,14 @@ type SingleWorkflow struct {
 	// reusable workflow are stored here so that they can be used as a valid evaluation context in the reusable
 	// workflow's outputs later.
 	WorkflowCallInputs map[string]any `yaml:"workflow_call_inputs,omitempty"`
+
+	// When expanding reusable workflows, it is sometimes necessary to identify if a job was expanded into other jobs,
+	// and for those jobs to know which job was expanded.  `WorkflowCallID` will be populated for a job that is
+	// expanded, and it is guaranteed to be unique within a workflow (unlike the job ID, which may be repeated for
+	// matrix evaluation).  `WorkflowCallParent` indicates a job has a "parent" which was expanded to create it.  Both
+	// may be populated if a reusable workflow is used within a reusable workflow.
+	WorkflowCallID     string `yaml:"workflow_call_id,omitempty"`
+	WorkflowCallParent string `yaml:"workflow_call_parent,omitempty"`
 }
 
 type IncompleteNeeds struct {

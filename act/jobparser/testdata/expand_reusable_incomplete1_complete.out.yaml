@@ -13,6 +13,7 @@ jobs:
           - runner-a
 workflow_call_inputs:
   runner: runner-a
+workflow_call_id: 6bfb4df14c57048b39c2f1f13599a56c1b759945ce6d7989f5b1c18515065b85
 ---
 name: test
 jobs:
@@ -29,6 +30,7 @@ jobs:
           - runner-b
 workflow_call_inputs:
   runner: runner-b
+workflow_call_id: b565a7a3c40b3c52a9bea031b589477796e45e7318953894f4f82547c1438e7d
 ---
 name: test
 "on":
@@ -45,6 +47,7 @@ jobs:
     runs-on: runner-a
     steps:
       - run: echo "Woohoo!"
+workflow_call_parent: 6bfb4df14c57048b39c2f1f13599a56c1b759945ce6d7989f5b1c18515065b85
 ---
 name: test
 "on":
@@ -61,3 +64,4 @@ jobs:
     runs-on: runner-b
     steps:
       - run: echo "Woohoo!"
+workflow_call_parent: b565a7a3c40b3c52a9bea031b589477796e45e7318953894f4f82547c1438e7d

@@ -9,6 +9,7 @@ jobs:
     if: false
 workflow_call_inputs:
   job-input: null
+workflow_call_id: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
 ---
 name: test
 "on":
@@ -27,6 +28,7 @@ jobs:
           echo 'runner=ubuntu-latest' >> "$GITHUB_OUTPUT"
     outputs:
       runner: ${{ steps.runner.outputs.runner }}
+workflow_call_parent: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
 ---
 name: test
 "on":
@@ -49,3 +51,5 @@ incomplete_with: true
 incomplete_with_needs:
   job: reusable.inner-define-runs-on
   output: runner
+workflow_call_id: f2435cdb9037a0bbd4bea6eb7007dc4bb7ae8f71b057fd7491d1d2777c8facde
+workflow_call_parent: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b

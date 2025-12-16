@@ -7,6 +7,7 @@ jobs:
       - reusable.inner-use-runs-on
     runs-on: []
     if: false
+workflow_call_id: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
 ---
 name: test
 jobs:
@@ -19,6 +20,7 @@ jobs:
           echo 'runner=ubuntu-latest' >> "$GITHUB_OUTPUT"
     outputs:
       runner: ${{ steps.runner.outputs.runner }}
+workflow_call_parent: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
 ---
 name: test
 jobs:
@@ -33,3 +35,4 @@ incomplete_recursion_depth: 1
 incomplete_runs_on: true
 incomplete_runs_on_needs:
   job: reusable.inner-define-runs-on
+workflow_call_parent: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b

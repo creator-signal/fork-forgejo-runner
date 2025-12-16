@@ -1,0 +1,9 @@
+name: test
+jobs:
+  reusable-layer-2-matrix:
+    strategy:
+      matrix:
+        os: [linux, not-linux]
+    uses: ./.forgejo/workflows/expand_reusable_unique_call_ids_reusable-2.yml
+    with:
+      os: ${{ matrix.os }}
