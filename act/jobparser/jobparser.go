@@ -85,7 +85,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			if jobNeeds == nil {
 				jobNeeds = job.Needs()
 			}
-			matrixEvaluator := NewExpressionEvaluator(NewInterpreter(id, job, nil, pc.gitContext, results, pc.vars, pc.inputs, exprparser.InvalidJobOutput, jobNeeds))
+			matrixEvaluator := newExpressionEvaluator(newInterpreter(id, job, nil, pc.gitContext, results, pc.vars, pc.inputs, exprparser.InvalidJobOutput, jobNeeds))
 			if err := matrixEvaluator.EvaluateYamlNode(&job.Strategy.RawMatrix); err != nil {
 				// IncompleteMatrix tagging is only supported when `WithJobOutputs()` is used as an option, in order to
 				// maintain jobparser's backwards compatibility.
@@ -137,13 +137,13 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		matrix := bothJobs.matrix
 		jobNeeds := bothJobs.jobNeeds
 
-		evaluator := NewExpressionEvaluator(NewInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, 0, jobNeeds))
+		evaluator := newExpressionEvaluator(newInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, 0, jobNeeds))
 
 		var runsOnInvalidJobReference *exprparser.InvalidJobOutputReferencedError
 		var runsOnInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
 		var runsOn []string
 		if pc.supportIncompleteRunsOn {
-			evaluatorOutputAware := NewExpressionEvaluator(NewInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds))
+			evaluatorOutputAware := newExpressionEvaluator(newInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds))
 			rawRunsOn := workflowJob.RawRunsOn
 			// Evaluate the entire `runs-on` node at once, which permits behavior like `runs-on: ${{ fromJSON(...) }}`
 			// where it can generate an array
@@ -282,7 +282,7 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 		}
 		for _, matrix := range matricxes {
 			job := jobParserJob.Clone()
-			evaluator := NewExpressionEvaluator(NewInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, 0, jobNeeds))
+			evaluator := newExpressionEvaluator(newInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, 0, jobNeeds))
 
 			if incompleteMatrix[id] != nil {
 				// Preserve the original incomplete `matrix` value so that when the `IncompleteMatrix` state is
@@ -522,12 +522,12 @@ func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, 
 
 	// For evaluating on the caller side's `with` fields, expected contexts to be available: env, forgejo, inputs, job,
 	// matrix, needs, runner, secrets, steps, strategy, vars
-	callerEvaluator := NewExpressionEvaluator(NewInterpreter(callerJob.id, callerJob.workflowJob, matrix, pc.gitContext,
+	callerEvaluator := newExpressionEvaluator(newInterpreter(callerJob.id, callerJob.workflowJob, matrix, pc.gitContext,
 		jobResults, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds))
 
 	// For evaluating on the reusable workflow's side, with `on.workflow_call.inputs.<input_name>.default`, expected
 	// contexts to be available: forgejo, vars
-	reusableEvaluator := NewExpressionEvaluator(NewInterpreter(callerJob.id, callerJob.workflowJob, nil, pc.gitContext,
+	reusableEvaluator := newExpressionEvaluator(newInterpreter(callerJob.id, callerJob.workflowJob, nil, pc.gitContext,
 		nil, pc.vars, nil, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, nil))
 
 	workflowConfig := workflow.WorkflowCallConfig()

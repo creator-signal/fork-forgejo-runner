@@ -15,7 +15,7 @@ type ExpressionEvaluator struct {
 	interpreter exprparser.Interpreter
 }
 
-func NewExpressionEvaluator(interpreter exprparser.Interpreter) *ExpressionEvaluator {
+func newExpressionEvaluator(interpreter exprparser.Interpreter) *ExpressionEvaluator {
 	return &ExpressionEvaluator{interpreter: interpreter}
 }
 

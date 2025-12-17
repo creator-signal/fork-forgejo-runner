@@ -6,7 +6,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func NewInterpreter(
+func newInterpreter(
 	jobID string,
 	job *model.Job,
 	matrix map[string]any,
@@ -76,7 +76,7 @@ func NewInterpreter(
 
 // Returns an interpreter used in the server in the context of workflow-level templates. Needs github, inputs, and vars
 // context only.
-func NewWorkflowInterpreter(
+func newWorkflowInterpreter(
 	gitCtx *model.GithubContext,
 	vars map[string]string,
 	inputs map[string]any,
