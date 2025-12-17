@@ -16,8 +16,6 @@ type SingleWorkflow struct {
 	RawJobs  yaml.Node         `yaml:"jobs,omitempty"`
 	Defaults Defaults          `yaml:"defaults,omitempty"`
 
-	IncompleteRecursionDepth int `yaml:"incomplete_recursion_depth,omitempty"`
-
 	// IncompleteMatrix flag indicates that it wasn't possible to evaluate the `strategy.matrix` section of the job
 	// because it references a job output that is currently undefined.  The workflow that this job came from will need
 	// to be reparsed using the `WithJobOutputs()` option, and it may result in this job being expanded into multiple
@@ -36,6 +34,15 @@ type SingleWorkflow struct {
 	IncompleteWith       bool              `yaml:"incomplete_with,omitempty"`
 	IncompleteWithNeeds  *IncompleteNeeds  `yaml:"incomplete_with_needs,omitempty"`
 	IncompleteWithMatrix *IncompleteMatrix `yaml:"incomplete_with_matrix,omitempty"`
+
+	// Contains optional data that may be persisted alongside a workflow for internal use, but should not be subject to
+	// schema validation as it isn't user-entered.  Unlike the `Incomplete...` fields, these fields will not be
+	// removed/resolved before transmission to a runner.
+	Metadata SingleWorkflowMetadata `yaml:"__metadata,omitempty"`
+}
+
+type SingleWorkflowMetadata struct {
+	IncompleteRecursionDepth int `yaml:"incomplete_recursion_depth,omitempty"`
 
 	// When this workflow is a placeholder job that has been expanded into a reusable workflow, the inputs to the
 	// reusable workflow are stored here so that they can be used as a valid evaluation context in the reusable
@@ -442,7 +449,7 @@ func EvaluateWorkflowCallOutputs(callerWorkflow *SingleWorkflow, gitCtx *model.G
 		}
 	}
 
-	evaluator := NewExpressionEvaluator(newWorkflowCallOutputsInterpreter(gitCtx, vars, results, needs, callerWorkflow.WorkflowCallInputs))
+	evaluator := NewExpressionEvaluator(newWorkflowCallOutputsInterpreter(gitCtx, vars, results, needs, callerWorkflow.Metadata.WorkflowCallInputs))
 
 	_, callerJob := callerWorkflow.Job()
 

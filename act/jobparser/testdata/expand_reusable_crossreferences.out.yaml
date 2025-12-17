@@ -8,7 +8,8 @@ jobs:
       - reusable-1.job3
     runs-on: []
     if: false
-workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -20,7 +21,8 @@ jobs:
         run: echo "my-step-output=$(uname -a)" >> $GITHUB_OUTPUT
     outputs:
       my-job-output: ${{ steps.step1.outputs.my-step-output }}
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -35,7 +37,8 @@ jobs:
       - run: ${{ format('That''s better than {0}, right?', needs[format('{0}.{1}', 'reusable-1', 'job1')].outputs.my-job-output) }}
     outputs:
       my-arch: ${{ steps.output-arch.outputs.my-arch }}
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -49,4 +52,5 @@ jobs:
       - run: uname -a
     container:
       options: ${{ format('--platform {0}', needs[format('{0}.{1}', 'reusable-1', 'job2')].outputs.my-arch) }}
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed

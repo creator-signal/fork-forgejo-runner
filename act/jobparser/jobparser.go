@@ -56,11 +56,11 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 	if pc.recursionDepth > 5 {
 		return nil, fmt.Errorf("failed to parse workflow due to exceeding the workflow recursion limit (5)")
 	}
-	if workflow.IncompleteRecursionDepth != 0 {
-		pc.recursionDepth = workflow.IncompleteRecursionDepth
+	if workflow.Metadata.IncompleteRecursionDepth != 0 {
+		pc.recursionDepth = workflow.Metadata.IncompleteRecursionDepth
 	}
-	if workflow.WorkflowCallID != "" {
-		pc.parentUniqueID = workflow.WorkflowCallID
+	if workflow.Metadata.WorkflowCallID != "" {
+		pc.parentUniqueID = workflow.Metadata.WorkflowCallID
 	}
 
 	results := map[string]*JobResult{}
@@ -174,13 +174,15 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 
 		job.RawRunsOn = encodeRunsOn(runsOn)
 		swf := &SingleWorkflow{
-			Name:               workflow.Name,
-			RawOn:              workflow.RawOn,
-			Env:                workflow.Env,
-			Defaults:           workflow.Defaults,
-			WorkflowCallInputs: bothJobs.workflowCallInputs,
-			WorkflowCallID:     bothJobs.workflowCallID,
-			WorkflowCallParent: bothJobs.workflowCallParent,
+			Name:     workflow.Name,
+			RawOn:    workflow.RawOn,
+			Env:      workflow.Env,
+			Defaults: workflow.Defaults,
+			Metadata: SingleWorkflowMetadata{
+				WorkflowCallInputs: bothJobs.workflowCallInputs,
+				WorkflowCallID:     bothJobs.workflowCallID,
+				WorkflowCallParent: bothJobs.workflowCallParent,
+			},
 		}
 		if bothJobs.overrideOnClause != nil {
 			swf.RawOn = *bothJobs.overrideOnClause
@@ -238,10 +240,14 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			}
 		}
 		if swf.IncompleteMatrix || swf.IncompleteRunsOn || swf.IncompleteWith {
+			var incompleteRecursionDepth *int
 			if bothJobs.internalIncompleteState != nil {
-				swf.IncompleteRecursionDepth = bothJobs.internalIncompleteState.IncompleteRecursionDepth
+				incompleteRecursionDepth = &bothJobs.internalIncompleteState.Metadata.IncompleteRecursionDepth
 			} else {
-				swf.IncompleteRecursionDepth = pc.recursionDepth
+				incompleteRecursionDepth = &pc.recursionDepth
+			}
+			if incompleteRecursionDepth != nil {
+				swf.Metadata.IncompleteRecursionDepth = *incompleteRecursionDepth
 			}
 		}
 		if err := swf.SetJob(id, job); err != nil {
@@ -484,11 +490,11 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			workflowCallParent: callerJob.workflowCallID,
 		}
 		// Maintain existing ID / Parent if populated in a lower-level recursive workflow call
-		if swf.WorkflowCallID != "" {
-			newEntry.workflowCallID = swf.WorkflowCallID
+		if swf.Metadata.WorkflowCallID != "" {
+			newEntry.workflowCallID = swf.Metadata.WorkflowCallID
 		}
-		if swf.WorkflowCallParent != "" {
-			newEntry.workflowCallParent = swf.WorkflowCallParent
+		if swf.Metadata.WorkflowCallParent != "" {
+			newEntry.workflowCallParent = swf.Metadata.WorkflowCallParent
 		}
 		if swf.IncompleteMatrix || swf.IncompleteRunsOn || swf.IncompleteWith {
 			newEntry.internalIncompleteState = swf

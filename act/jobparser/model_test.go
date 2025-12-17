@@ -604,7 +604,7 @@ func TestEvaluateWorkflowCallOutputs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			swf := &SingleWorkflow{WorkflowCallInputs: test.workflowInputs}
+			swf := &SingleWorkflow{Metadata: SingleWorkflowMetadata{WorkflowCallInputs: test.workflowInputs}}
 			err := swf.RawJobs.Encode(map[string]*Job{"job": test.input})
 			require.NoError(t, err)
 

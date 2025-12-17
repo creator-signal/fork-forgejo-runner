@@ -12,10 +12,11 @@ jobs:
           - debian
         platform:
           - amd64
-workflow_call_inputs:
-  os: debian
-  platform: amd64
-workflow_call_id: 2ff7609456cf32dba7ace02d495fec228c2d4009352ec3af0094cea13f6ce7a2
+__metadata:
+  workflow_call_inputs:
+    os: debian
+    platform: amd64
+  workflow_call_id: 2ff7609456cf32dba7ace02d495fec228c2d4009352ec3af0094cea13f6ce7a2
 ---
 name: test
 jobs:
@@ -31,10 +32,11 @@ jobs:
           - debian
         platform:
           - arm64
-workflow_call_inputs:
-  os: debian
-  platform: arm64
-workflow_call_id: f8144d31aebcf8aae6a4476ab967dc506309b897d29caf758463214113aa4ad6
+__metadata:
+  workflow_call_inputs:
+    os: debian
+    platform: arm64
+  workflow_call_id: f8144d31aebcf8aae6a4476ab967dc506309b897d29caf758463214113aa4ad6
 ---
 name: test
 jobs:
@@ -50,10 +52,11 @@ jobs:
           - nixos
         platform:
           - amd64
-workflow_call_inputs:
-  os: nixos
-  platform: amd64
-workflow_call_id: eda890db8075d46fbeb1ff77ca529b3f99dd7ac24b5daba6cf4594a74315a58a
+__metadata:
+  workflow_call_inputs:
+    os: nixos
+    platform: amd64
+  workflow_call_id: eda890db8075d46fbeb1ff77ca529b3f99dd7ac24b5daba6cf4594a74315a58a
 ---
 name: test
 jobs:
@@ -69,10 +72,11 @@ jobs:
           - nixos
         platform:
           - arm64
-workflow_call_inputs:
-  os: nixos
-  platform: arm64
-workflow_call_id: 5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673
+__metadata:
+  workflow_call_inputs:
+    os: nixos
+    platform: arm64
+  workflow_call_id: 5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673
 ---
 name: test
 "on":
@@ -92,7 +96,8 @@ jobs:
       - run: |
           echo os=${{ inputs.os }}
           echo platform=${{ inputs.platform }}
-workflow_call_parent: 2ff7609456cf32dba7ace02d495fec228c2d4009352ec3af0094cea13f6ce7a2
+__metadata:
+  workflow_call_parent: 2ff7609456cf32dba7ace02d495fec228c2d4009352ec3af0094cea13f6ce7a2
 ---
 name: test
 "on":
@@ -112,7 +117,8 @@ jobs:
       - run: |
           echo os=${{ inputs.os }}
           echo platform=${{ inputs.platform }}
-workflow_call_parent: f8144d31aebcf8aae6a4476ab967dc506309b897d29caf758463214113aa4ad6
+__metadata:
+  workflow_call_parent: f8144d31aebcf8aae6a4476ab967dc506309b897d29caf758463214113aa4ad6
 ---
 name: test
 "on":
@@ -132,7 +138,8 @@ jobs:
       - run: |
           echo os=${{ inputs.os }}
           echo platform=${{ inputs.platform }}
-workflow_call_parent: eda890db8075d46fbeb1ff77ca529b3f99dd7ac24b5daba6cf4594a74315a58a
+__metadata:
+  workflow_call_parent: eda890db8075d46fbeb1ff77ca529b3f99dd7ac24b5daba6cf4594a74315a58a
 ---
 name: test
 "on":
@@ -152,4 +159,5 @@ jobs:
       - run: |
           echo os=${{ inputs.os }}
           echo platform=${{ inputs.platform }}
-workflow_call_parent: 5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673
+__metadata:
+  workflow_call_parent: 5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673

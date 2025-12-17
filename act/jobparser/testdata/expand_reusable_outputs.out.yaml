@@ -10,7 +10,8 @@ jobs:
     outputs:
       workflow_output_1: ${{ needs[format('{0}.{1}', 'reusable-1', 'job1')].outputs.job1output }}
       workflow_output_2: ${{ toJSON(needs[format('{0}.{1}', 'reusable-1', 'job2')].outputs) }}
-workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -28,7 +29,8 @@ jobs:
     runs-on: linux
     outputs:
       job1output: Hello, world!
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -37,4 +39,5 @@ jobs:
     runs-on: linux
     outputs:
       job2output: Hello, world!
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed

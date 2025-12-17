@@ -15,7 +15,8 @@ jobs:
       - reusable-1.job3
     runs-on: []
     if: false
-workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -28,7 +29,8 @@ jobs:
       - reusable-2.job3
     runs-on: []
     if: false
-workflow_call_id: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+__metadata:
+  workflow_call_id: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
 ---
 name: test
 jobs:
@@ -46,7 +48,8 @@ jobs:
     runs-on: linux
     steps:
       - run: uname -a
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -58,7 +61,8 @@ jobs:
     runs-on: linux
     steps:
       - run: uname -a
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -71,7 +75,8 @@ jobs:
     runs-on: linux
     steps:
       - run: uname -a
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
 jobs:
@@ -82,7 +87,8 @@ jobs:
     runs-on: linux
     steps:
       - run: uname -a
-workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+__metadata:
+  workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
 ---
 name: test
 jobs:
@@ -94,7 +100,8 @@ jobs:
     runs-on: linux
     steps:
       - run: uname -a
-workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+__metadata:
+  workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
 ---
 name: test
 jobs:
@@ -107,4 +114,5 @@ jobs:
     runs-on: linux
     steps:
       - run: uname -a
-workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+__metadata:
+  workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f

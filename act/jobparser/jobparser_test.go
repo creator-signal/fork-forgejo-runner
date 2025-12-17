@@ -652,7 +652,8 @@ jobs:
 		require.Len(t, swf, 2) // two jobs - the parent placeholder for the caller, and the incomplete job from the reusable workflow
 		assert.False(t, swf[0].IncompleteWith)
 		assert.True(t, swf[1].IncompleteWith)
-		assert.Equal(t, 1, swf[1].IncompleteRecursionDepth) // should have tracked that we had to recurse one level already to get here
+		require.NotNil(t, swf[1].Metadata)
+		assert.Equal(t, 1, swf[1].Metadata.IncompleteRecursionDepth) // should have tracked that we had to recurse one level already to get here
 
 		// Now we'll re-parse the second job and provide the missing inputs.  The goal is to get a recursion error here,
 		// and because we already recursed one level in the first parsing, to get the recursion error in less than 5

@@ -7,11 +7,12 @@ jobs:
       - reusable-1.job1
     runs-on: []
     if: false
-workflow_call_inputs:
-  example-boolean-required: true
-  example-number-required: 123
-  example-string-required: reusable-1
-workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_inputs:
+    example-boolean-required: true
+    example-number-required: 123
+    example-string-required: reusable-1
+  workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 "on":
   pull_request:
@@ -22,11 +23,12 @@ jobs:
       - reusable-2.job1
     runs-on: []
     if: false
-workflow_call_inputs:
-  example-boolean-required: false
-  example-number-required: 456
-  example-string-required: reusable-2
-workflow_call_id: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+__metadata:
+  workflow_call_inputs:
+    example-boolean-required: false
+    example-number-required: 456
+    example-string-required: reusable-2
+  workflow_call_id: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
 ---
 "on":
   workflow_call:
@@ -50,7 +52,8 @@ jobs:
           echo example-string-required=${{ inputs.example-string-required }}
           echo example-boolean-required=${{ inputs.example-boolean-required }}
           echo example-number-required=${{ inputs.example-number-required }}
-workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 "on":
   workflow_call:
@@ -74,4 +77,5 @@ jobs:
           echo example-string-required=${{ inputs.example-string-required }}
           echo example-boolean-required=${{ inputs.example-boolean-required }}
           echo example-number-required=${{ inputs.example-number-required }}
-workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+__metadata:
+  workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
