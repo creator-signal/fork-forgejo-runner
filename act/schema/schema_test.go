@@ -382,3 +382,25 @@ jobs:
 	}
 	require.NoError(t, n.UnmarshalYAML(&node))
 }
+
+func TestSchema_IgnoreMetadata(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on: [push]
+jobs:
+  test1:
+    runs-on: docker
+    steps:
+      - run: echo All good!
+__metadata:
+  workflow_call_parent: 5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673
+`), &node)
+	if !assert.NoError(t, err) {
+		return
+	}
+	err = (&Node{
+		Definition: "workflow-root",
+		Schema:     GetWorkflowSchema(),
+	}).UnmarshalYAML(&node)
+	assert.NoError(t, err)
+}
