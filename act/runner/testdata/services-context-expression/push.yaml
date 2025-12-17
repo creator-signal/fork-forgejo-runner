@@ -1,0 +1,13 @@
+on:
+  push:
+jobs:
+  service-expression:
+    runs-on: ubuntu-latest
+    env:
+      image: 'nginx:latest'
+    services:
+      nginx:
+        image: ${{ env.image }}
+    steps:
+      - name: Test whether webserver is reachable
+        run: curl -sfI http://nginx:80

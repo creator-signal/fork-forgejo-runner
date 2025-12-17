@@ -2042,14 +2042,14 @@
     },
     "services": {
       "description": "Additional containers to host services for a job in a workflow. These are useful for creating databases or cache services like redis. The runner on the virtual machine will automatically create a network and manage the life cycle of the service containers. When you use a service container for a job or your step uses container actions, you don't need to set port information to access the service. Docker automatically exposes all ports between containers on the same network. When both the job and the action run in a container, you can directly reference the container by its hostname. The hostname is automatically mapped to the service name. When a step does not use a container action, you must access the service using localhost and bind the ports.",
-      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs", "strategy", "matrix", "env"],
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "services-container"
       }
     },
     "services-container": {
-      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs", "strategy", "matrix"],
+      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs", "strategy", "matrix", "env"],
       "one-of": ["non-empty-string", "container-mapping"]
     },
     "container-registry-credentials": {

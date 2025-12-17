@@ -358,3 +358,27 @@ jobs:
 	}).UnmarshalYAML(&node)
 	assert.NoError(t, err)
 }
+
+func TestSchemaServicesContextExpressions(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on:
+  push:
+jobs:
+  service-expression:
+    runs-on: ubuntu-latest
+    env:
+      image: 'nginx:latest'
+    services:
+      nginx:
+        image: ${{ env.image }}
+    steps:
+      - run: echo "OK"
+`), &node)
+	require.NoError(t, err)
+	n := &Node{
+		Definition: "workflow-root",
+		Schema:     GetWorkflowSchema(),
+	}
+	require.NoError(t, n.UnmarshalYAML(&node))
+}
