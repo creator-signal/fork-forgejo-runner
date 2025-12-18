@@ -1,0 +1,23 @@
+name: test
+enable-openid-connect: true
+jobs:
+  job1:
+    runs-on: ubuntu-22.04
+    enable-openid-connect: false
+    steps:
+      - run: uname -a && go version
+  job2:
+    runs-on: ubuntu-22.04
+    steps:
+      - run: uname -a && go version
+  job3:
+    runs-on: ubuntu-22.04
+    enable-openid-connect: true
+    steps:
+      - run: uname -a && go version
+  job4:
+    runs-on: ubuntu-22.04
+    enable-openid-connect: false
+    steps:
+      - run: uname -a && go version
+

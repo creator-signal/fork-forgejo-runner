@@ -8,6 +8,7 @@
           "on": "on",
           "name": "workflow-name",
           "enable-email-notifications": "workflow-enable-email-notifications",
+          "enable-openid-connect": "workflow-enable-openid-connect",
           "description": "string",
           "run-name": "run-name",
           "defaults": "workflow-defaults",
@@ -50,6 +51,14 @@
     },
     "workflow-enable-email-notifications": {
       "description": "Send an email notification when a workflow run fails.\n\n[Documentation](https://forgejo.org/docs/next/user/actions/#enable-email-notifications)",
+      "boolean": {}
+    },
+    "workflow-enable-openid-connect": {
+      "description": "Allow all jobs in the workflow to generate OIDC compliant ID tokens.\n\n[Documentation](https://forgejo.org/docs/next/user/actions/#enable-openid-connect)",
+      "boolean": {}
+    },
+    "job-enable-openid-connect": {
+      "description": "Allow this job to generate OIDC compliant ID tokens.\n\n[Documentation](https://forgejo.org/docs/next/user/actions/#jobsjob_idenable-openid-connect)",
       "boolean": {}
     },
     "run-name": {
@@ -1457,7 +1466,8 @@
           "concurrency": "job-concurrency",
           "outputs": "job-outputs",
           "defaults": "job-defaults",
-          "steps": "steps"
+          "steps": "steps",
+          "enable-openid-connect" : "job-enable-openid-connect"
         }
       }
     },
@@ -1483,7 +1493,8 @@
           "if": "job-if",
           "permissions": "permissions",
           "concurrency": "job-concurrency",
-          "strategy": "strategy"
+          "strategy": "strategy",
+          "enable-openid-connect": "job-enable-openid-connect"
         }
       }
     },

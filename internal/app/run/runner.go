@@ -312,6 +312,9 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	}
 	runEnvs["ACTIONS_RUNTIME_TOKEN"] = runtimeToken
 
+	runEnvs["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = taskContext["forgejo_actions_id_token_request_token"].GetStringValue()
+	runEnvs["ACTIONS_ID_TOKEN_REQUEST_URL"] = taskContext["forgejo_actions_id_token_request_url"].GetStringValue()
+
 	// Register the run with the cacheproxy and modify the CACHE_URL
 	if r.cacheProxy != nil {
 		writeIsolationKey, err := getWriteIsolationKey(ctx, eventName, ref, event)

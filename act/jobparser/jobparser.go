@@ -269,12 +269,30 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		if workflow.Metadata.WorkflowCallParent != "" && swf.Metadata.WorkflowCallParent == "" {
 			swf.Metadata.WorkflowCallParent = workflow.Metadata.WorkflowCallParent
 		}
+
+		swf.EnableOpenIDConnect = evaluateEnableOpenIDConnect(bothJobs, origin.EnableOpenIDConnect)
+
 		if err := swf.SetJob(id, job); err != nil {
 			return nil, fmt.Errorf("SetJob: %w", err)
 		}
 		ret = append(ret, swf)
 	}
 	return ret, nil
+}
+
+func evaluateEnableOpenIDConnect(bothJobs *bothJobTypes, workflowLevelSetting *bool) bool {
+	// The job level setting takes precedence over the workflow level setting.
+	if bothJobs.workflowJob.EnableOpenIDConnect != nil {
+		return *bothJobs.workflowJob.EnableOpenIDConnect
+	}
+
+	// Fall back to workflow level setting if the job level setting is unset.
+	if workflowLevelSetting != nil {
+		return *workflowLevelSetting
+	}
+
+	// Default to disallowing token generation.
+	return false
 }
 
 func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprparser.InvalidJobOutputReferencedError, pc *parseContext, results map[string]*JobResult) ([]*bothJobTypes, error) {

@@ -11,11 +11,12 @@ import (
 
 // SingleWorkflow is a workflow with single job and single matrix
 type SingleWorkflow struct {
-	Name     string            `yaml:"name,omitempty"`
-	RawOn    yaml.Node         `yaml:"on,omitempty"`
-	Env      map[string]string `yaml:"env,omitempty"`
-	RawJobs  yaml.Node         `yaml:"jobs,omitempty"`
-	Defaults Defaults          `yaml:"defaults,omitempty"`
+	Name                string            `yaml:"name,omitempty"`
+	RawOn               yaml.Node         `yaml:"on,omitempty"`
+	Env                 map[string]string `yaml:"env,omitempty"`
+	RawJobs             yaml.Node         `yaml:"jobs,omitempty"`
+	Defaults            Defaults          `yaml:"defaults,omitempty"`
+	EnableOpenIDConnect bool              `yaml:"enable-openid-connect,omitempty"`
 
 	// IncompleteMatrix flag indicates that it wasn't possible to evaluate the `strategy.matrix` section of the job
 	// because it references a job output that is currently undefined.  The workflow that this job came from will need

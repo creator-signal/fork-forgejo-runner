@@ -784,23 +784,25 @@ func TestRunnerContextsPopulated(t *testing.T) {
 			WorkflowPayload: []byte(yamlContent),
 			Context: &structpb.Struct{
 				Fields: map[string]*structpb.Value{
-					"actor":                       structpb.NewStringValue("somebody"),
-					"event_name":                  structpb.NewStringValue("push"),
-					"forgejo_default_actions_url": structpb.NewStringValue("https://data.forgejo.org"),
-					"ref":                         structpb.NewStringValue("refs/heads/sample-patch-1"),
-					"ref_name":                    structpb.NewStringValue("sample-patch-1"),
-					"ref_type":                    structpb.NewStringValue("branch"),
-					"head_ref":                    structpb.NewStringValue("sample-patch-1"),
-					"base_ref":                    structpb.NewStringValue("main"),
-					"repository":                  structpb.NewStringValue("forgejo/runner"),
-					"repository_owner":            structpb.NewStringValue("forgejo"),
-					"retention_days":              structpb.NewStringValue("90"),
-					"run_attempt":                 structpb.NewStringValue("3"),
-					"run_id":                      structpb.NewStringValue("150"),
-					"run_number":                  structpb.NewStringValue("129"),
-					"token":                       structpb.NewStringValue("some-token-value"),
-					"sha":                         structpb.NewStringValue("5d64b71392b1e00a3ad893db02d381d58262c2d6"), // SHA1 of `random`
-					"workflow_ref":                structpb.NewStringValue("example/test/.forgejo/workflows/test.yaml@refs/heads/main"),
+					"actor":                                  structpb.NewStringValue("somebody"),
+					"event_name":                             structpb.NewStringValue("push"),
+					"forgejo_default_actions_url":            structpb.NewStringValue("https://data.forgejo.org"),
+					"forgejo_actions_id_token_request_token": structpb.NewStringValue("someTokenVal"),
+					"forgejo_actions_id_token_request_url":   structpb.NewStringValue("https://data.forgejo.org/other"),
+					"ref":                                    structpb.NewStringValue("refs/heads/sample-patch-1"),
+					"ref_name":                               structpb.NewStringValue("sample-patch-1"),
+					"ref_type":                               structpb.NewStringValue("branch"),
+					"head_ref":                               structpb.NewStringValue("sample-patch-1"),
+					"base_ref":                               structpb.NewStringValue("main"),
+					"repository":                             structpb.NewStringValue("forgejo/runner"),
+					"repository_owner":                       structpb.NewStringValue("forgejo"),
+					"retention_days":                         structpb.NewStringValue("90"),
+					"run_attempt":                            structpb.NewStringValue("3"),
+					"run_id":                                 structpb.NewStringValue("150"),
+					"run_number":                             structpb.NewStringValue("129"),
+					"token":                                  structpb.NewStringValue("some-token-value"),
+					"sha":                                    structpb.NewStringValue("5d64b71392b1e00a3ad893db02d381d58262c2d6"), // SHA1 of `random`
+					"workflow_ref":                           structpb.NewStringValue("example/test/.forgejo/workflows/test.yaml@refs/heads/main"),
 				},
 			},
 		}
@@ -960,7 +962,7 @@ jobs:
           echo GITHUB_REPOSITORY_ID="$GITHUB_REPOSITORY_ID"
           [[ -z ${GITHUB_REPOSITORY_ID+x} ]] || exit 1  # Currently unsupported.
           echo GITHUB_REPOSITORY_OWNER="$GITHUB_REPOSITORY_OWNER"
-          [[ "$GITHUB_REPOSITORY_OWNER" == "forgejo" ]] || exit 1 
+          [[ "$GITHUB_REPOSITORY_OWNER" == "forgejo" ]] || exit 1
           echo GITHUB_REPOSITORY_OWNER_ID="$GITHUB_REPOSITORY_OWNER_ID"
           [[ -z ${GITHUB_REPOSITORY_OWNER_ID+x} ]] || exit 1  # Currently unsupported.
           echo GITHUB_RETENTION_DAYS="$GITHUB_RETENTION_DAYS"
@@ -1021,6 +1023,7 @@ on:
   push:
 jobs:
   assert-environment-variables:
+    enable-openid-connect: true
     runs-on: docker
     container:
       image: code.forgejo.org/oci/node:20-bookworm
@@ -1045,6 +1048,10 @@ jobs:
           [[ -n "$JOB_CONTAINER_NAME" ]] || exit 1
           echo RUNNER_PERFLOG="$RUNNER_PERFLOG"
           [[ -e "$RUNNER_PERFLOG" ]] || exit 1
+          echo ACTIONS_ID_TOKEN_REQUEST_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          [[ "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" = "someTokenVal" ]] || exit 1
+          echo ACTIONS_ID_TOKEN_REQUEST_URL="$ACTIONS_ID_TOKEN_REQUEST_URL"
+          [[ "$ACTIONS_ID_TOKEN_REQUEST_URL" = "https://data.forgejo.org/other" ]] || exit 1
 `
 		runWorkflow(ctx, cancel, workflow, "", "", "")
 	})

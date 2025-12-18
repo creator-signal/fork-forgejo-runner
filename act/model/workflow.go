@@ -27,8 +27,9 @@ type Workflow struct {
 	Jobs     map[string]*Job   `yaml:"jobs"`
 	Defaults Defaults          `yaml:"defaults"`
 
-	RawNotifications yaml.Node       `yaml:"enable-email-notifications"`
-	RawConcurrency   *RawConcurrency `yaml:"concurrency"` // For Gitea
+	RawNotifications    yaml.Node       `yaml:"enable-email-notifications"`
+	RawConcurrency      *RawConcurrency `yaml:"concurrency"` // For Gitea
+	EnableOpenIDConnect *bool           `yaml:"enable-openid-connect"`
 }
 
 // On events for the workflow
@@ -202,21 +203,22 @@ func (w *Workflow) WorkflowCallConfig() *WorkflowCall {
 
 // Job is the structure of one job in a workflow
 type Job struct {
-	Name           string                    `yaml:"name"`
-	RawNeeds       yaml.Node                 `yaml:"needs"`
-	RawRunsOn      yaml.Node                 `yaml:"runs-on"`
-	Env            yaml.Node                 `yaml:"env"`
-	RawIf          yaml.Node                 `yaml:"if"`
-	Steps          []*Step                   `yaml:"steps"`
-	TimeoutMinutes string                    `yaml:"timeout-minutes"`
-	Services       map[string]*ContainerSpec `yaml:"services"`
-	Strategy       *Strategy                 `yaml:"strategy"`
-	RawContainer   yaml.Node                 `yaml:"container"`
-	Defaults       Defaults                  `yaml:"defaults"`
-	Outputs        map[string]string         `yaml:"outputs"`
-	Uses           string                    `yaml:"uses"`
-	With           map[string]any            `yaml:"with"`
-	RawSecrets     yaml.Node                 `yaml:"secrets"`
+	Name                string                    `yaml:"name"`
+	RawNeeds            yaml.Node                 `yaml:"needs"`
+	RawRunsOn           yaml.Node                 `yaml:"runs-on"`
+	Env                 yaml.Node                 `yaml:"env"`
+	RawIf               yaml.Node                 `yaml:"if"`
+	Steps               []*Step                   `yaml:"steps"`
+	TimeoutMinutes      string                    `yaml:"timeout-minutes"`
+	Services            map[string]*ContainerSpec `yaml:"services"`
+	Strategy            *Strategy                 `yaml:"strategy"`
+	RawContainer        yaml.Node                 `yaml:"container"`
+	Defaults            Defaults                  `yaml:"defaults"`
+	Outputs             map[string]string         `yaml:"outputs"`
+	Uses                string                    `yaml:"uses"`
+	With                map[string]any            `yaml:"with"`
+	RawSecrets          yaml.Node                 `yaml:"secrets"`
+	EnableOpenIDConnect *bool                     `yaml:"enable-openid-connect"`
 
 	Result      string
 	ResultMutex sync.Mutex

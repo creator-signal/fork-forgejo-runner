@@ -1,0 +1,33 @@
+name: test
+jobs:
+  job1:
+    name: job1
+    runs-on: ubuntu-22.04
+    steps:
+      - run: uname -a && go version
+---
+name: test
+jobs:
+  job2:
+    name: job2
+    runs-on: ubuntu-22.04
+    steps:
+      - run: uname -a && go version
+enable-openid-connect: true
+---
+name: test
+jobs:
+  job3:
+    name: job3
+    runs-on: ubuntu-22.04
+    steps:
+      - run: uname -a && go version
+enable-openid-connect: true
+---
+name: test
+jobs:
+  job4:
+    name: job4
+    runs-on: ubuntu-22.04
+    steps:
+      - run: uname -a && go version

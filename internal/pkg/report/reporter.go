@@ -61,6 +61,9 @@ func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client
 	if v := client.BackwardCompatibleContext(task, "runtime_token"); v != "" {
 		masker.add(v)
 	}
+	if v := task.Context.Fields["forgejo_actions_id_token_request_token"].GetStringValue(); v != "" {
+		masker.add(v)
+	}
 	for _, v := range task.Secrets {
 		masker.add(v)
 	}

@@ -69,6 +69,10 @@ func TestParse(t *testing.T) {
 			options: nil,
 		},
 		{
+			name:    "enable_openid_connect",
+			options: nil,
+		},
+		{
 			name:    "runs_on_forge_variables",
 			options: []ParseOption{WithGitContext(&model.GithubContext{RunID: "18"})},
 		},
@@ -788,5 +792,115 @@ jobs:
 		require.NoError(t, err)
 		require.NotNil(t, swf)
 		assert.True(t, executed)
+	})
+}
+
+func TestEvaluateEnableOpenIDConnect(t *testing.T) {
+	t.Run("unset", func(t *testing.T) {
+		testWorkflow := `
+jobs:
+  job:
+    steps: []
+`
+
+		workflow, err := model.ReadWorkflow(bytes.NewReader([]byte(testWorkflow)), true)
+		require.NoError(t, err)
+		workflowLevel := workflow.EnableOpenIDConnect
+		assert.Nil(t, workflowLevel)
+		assert.False(t, evaluateEnableOpenIDConnect(&bothJobTypes{
+			workflowJob: workflow.Jobs["job"],
+		}, workflowLevel))
+	})
+
+	t.Run("workflow_level_set_false", func(t *testing.T) {
+		testWorkflow := `
+enable-openid-connect: false
+jobs:
+  job:
+    steps: []
+`
+
+		workflow, err := model.ReadWorkflow(bytes.NewReader([]byte(testWorkflow)), true)
+		require.NoError(t, err)
+		workflowLevel := workflow.EnableOpenIDConnect
+		assert.False(t, *workflowLevel)
+		assert.False(t, evaluateEnableOpenIDConnect(&bothJobTypes{
+			workflowJob: workflow.Jobs["job"],
+		}, workflowLevel))
+	})
+
+	t.Run("workflow_level_set_true", func(t *testing.T) {
+		testWorkflow := `
+enable-openid-connect: true
+jobs:
+  job:
+    steps: []
+`
+
+		workflow, err := model.ReadWorkflow(bytes.NewReader([]byte(testWorkflow)), true)
+		require.NoError(t, err)
+		workflowLevel := workflow.EnableOpenIDConnect
+		assert.True(t, *workflowLevel)
+		assert.True(t, evaluateEnableOpenIDConnect(&bothJobTypes{
+			workflowJob: workflow.Jobs["job"],
+		}, workflowLevel))
+	})
+
+	t.Run("job_level_set_true", func(t *testing.T) {
+		testWorkflow := `
+jobs:
+  job:
+    enable-openid-connect: true
+    steps: []
+`
+
+		workflow, err := model.ReadWorkflow(bytes.NewReader([]byte(testWorkflow)), true)
+		require.NoError(t, err)
+		workflowLevel := workflow.EnableOpenIDConnect
+		assert.Nil(t, workflowLevel)
+		assert.True(t, evaluateEnableOpenIDConnect(&bothJobTypes{
+			workflowJob: workflow.Jobs["job"],
+		}, workflowLevel))
+	})
+
+	t.Run("workflow_level_set_true_job_level_set_false", func(t *testing.T) {
+		testWorkflow := `
+enable-openid-connect: true
+jobs:
+  job:
+    enable-openid-connect: false
+    steps: []
+`
+
+		workflow, err := model.ReadWorkflow(bytes.NewReader([]byte(testWorkflow)), true)
+		require.NoError(t, err)
+		workflowLevel := workflow.EnableOpenIDConnect
+		assert.True(t, *workflowLevel)
+		assert.False(t, evaluateEnableOpenIDConnect(&bothJobTypes{
+			workflowJob: workflow.Jobs["job"],
+		}, workflowLevel))
+	})
+
+	t.Run("workflow_level_set_true_job_level_unset", func(t *testing.T) {
+		testWorkflow := `
+enable-openid-connect: true
+jobs:
+  job:
+    enable-openid-connect: false
+    steps: []
+  otherJob:
+    steps: []
+`
+
+		workflow, err := model.ReadWorkflow(bytes.NewReader([]byte(testWorkflow)), true)
+		require.NoError(t, err)
+		workflowLevel := workflow.EnableOpenIDConnect
+		assert.True(t, *workflowLevel)
+		assert.False(t, evaluateEnableOpenIDConnect(&bothJobTypes{
+			workflowJob: workflow.Jobs["job"],
+		}, workflowLevel))
+		assert.True(t, evaluateEnableOpenIDConnect(&bothJobTypes{
+			workflowJob: workflow.Jobs["otherJob"],
+		}, workflowLevel))
 	})
 }

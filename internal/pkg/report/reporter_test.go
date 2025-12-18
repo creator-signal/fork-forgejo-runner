@@ -49,13 +49,21 @@ func stringToRows(s string) []*runnerv1.LogRow {
 func mockReporter(t *testing.T) (*Reporter, *mocks.Client, func()) {
 	t.Helper()
 
-	client := mocks.NewClient(t)
-	ctx, cancel := context.WithCancel(context.Background())
 	taskCtx, err := structpb.NewStruct(map[string]any{})
 	require.NoError(t, err)
-	reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, &runnerv1.Task{
+	task := &runnerv1.Task{
 		Context: taskCtx,
-	}, time.Second, &config.Retry{})
+	}
+
+	return mockReporterWithTask(t, task)
+}
+
+func mockReporterWithTask(t *testing.T, task *runnerv1.Task) (*Reporter, *mocks.Client, func()) {
+	t.Helper()
+
+	client := mocks.NewClient(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, task, time.Second, &config.Retry{})
 	close := func() {
 		assert.NoError(t, reporter.Close(nil))
 	}
@@ -551,6 +559,48 @@ func TestReporterReportLog(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReporterReportLogDefaultMasking(t *testing.T) {
+	contextVals := map[string]any{
+		"token":                                  "val1",
+		"forgejo_runtime_token":                  "val2",
+		"forgejo_actions_id_token_request_token": "val3",
+		"other_val":                              "val4",
+	}
+	taskContext, err := structpb.NewStruct(contextVals)
+	require.NoError(t, err)
+
+	task := &runnerv1.Task{
+		Context: taskContext,
+		Secrets: map[string]string{
+			"testSecret": "val5",
+		},
+	}
+
+	firstLine := "val1 val2 should be masked\n"
+	secondLine := "val3 should be masked too! val4 is fine\n"
+	thirdLine := "val5 should also be masked"
+
+	reporter, client, _ := mockReporterWithTask(t, task)
+	rows := stringToRows(firstLine + secondLine + thirdLine)
+	reporter.logRows = rows
+
+	sent := ""
+	client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
+		t.Logf("UpdateLogRequest: %s", req.Msg.String())
+		rows := req.Msg.Rows
+		sent += rowsToString(rows)
+		resp := &runnerv1.UpdateLogResponse{
+			AckIndex: req.Msg.Index + int64(len(rows)),
+		}
+		t.Logf("UpdateLogResponse: %s", resp.String())
+		return connect_go.NewResponse(resp), nil
+	})
+
+	err = reporter.ReportLog(false)
+	assert.NoError(t, err)
+	assert.Equal(t, "*** *** should be masked\n*** should be masked too! val4 is fine\n*** should also be masked\n", sent)
 }
 
 func TestReporterClose(t *testing.T) {
