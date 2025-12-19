@@ -68,9 +68,9 @@ func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, ar
 			}
 			// if dockerSocketPath passes the check, override DOCKER_HOST with dockerSocketPath
 			os.Setenv("DOCKER_HOST", dockerSocketPath)
-			// empty cfg.Container.DockerHost means act_runner need to find an available docker host automatically
+			// cfg.Container.DockerHost set to "automount" means act_runner need to find an available docker host automatically
 			// and assign the path to cfg.Container.DockerHost
-			if cfg.Container.DockerHost == "" {
+			if cfg.Container.DockerHost == "automount" {
 				cfg.Container.DockerHost = dockerSocketPath
 			}
 			// check the scheme, if the scheme is not npipe or unix
