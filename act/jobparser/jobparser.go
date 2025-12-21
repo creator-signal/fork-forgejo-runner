@@ -250,6 +250,14 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				swf.Metadata.IncompleteRecursionDepth = *incompleteRecursionDepth
 			}
 		}
+		// If the original workflow passed in had a parent defined, then we're currently reparsing an incomplete
+		// workflow that is a second-or-later level of a reusable workflow. (eg. job A -> job B -> ..., we are reparsing
+		// job B because it was incomplete).  In this case we should preserve the original parent on any generated jobs
+		// that don't have a parent -- don't overwrite a theoretical job C's parent, but do preseve the parent on job B
+		// (or any matrix expansion of it).
+		if workflow.Metadata.WorkflowCallParent != "" && swf.Metadata.WorkflowCallParent == "" {
+			swf.Metadata.WorkflowCallParent = workflow.Metadata.WorkflowCallParent
+		}
 		if err := swf.SetJob(id, job); err != nil {
 			return nil, fmt.Errorf("SetJob: %w", err)
 		}
