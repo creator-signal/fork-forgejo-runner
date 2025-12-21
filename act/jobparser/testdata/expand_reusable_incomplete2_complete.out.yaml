@@ -10,7 +10,8 @@ jobs:
 __metadata:
   workflow_call_inputs:
     runner: ubuntu-29.99
-  workflow_call_id: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
+  workflow_call_id: 465dfc6d9b59ff33335dd8b6b29a02b501567fc783c60390aba0de4395cd7407
+  workflow_call_parent: b000000000000000000000000b00000000000000000000000000000000000000
 ---
 name: test
 "on":
@@ -28,4 +29,4 @@ jobs:
     steps:
       - run: echo "Woohoo!"
 __metadata:
-  workflow_call_parent: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
+  workflow_call_parent: 465dfc6d9b59ff33335dd8b6b29a02b501567fc783c60390aba0de4395cd7407

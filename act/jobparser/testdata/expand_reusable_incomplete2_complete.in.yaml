@@ -11,3 +11,6 @@ incomplete_with: true
 incomplete_with_needs:
   job: define-with
   output: runner
+__metadata:
+  workflow_call_id: a000000000000000000000000a00000000000000000000000000000000000000
+  workflow_call_parent: b000000000000000000000000b00000000000000000000000000000000000000
