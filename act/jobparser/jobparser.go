@@ -340,7 +340,7 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, incompleteMatr
 		}
 		var reusableWorkflow []byte
 		if jobType == model.JobTypeReusableWorkflowLocal && pc.localWorkflowFetcher != nil {
-			contents, err := pc.localWorkflowFetcher(workflowJob.Uses)
+			contents, err := pc.localWorkflowFetcher(bothJobs.jobParserJob, workflowJob.Uses)
 			if err != nil {
 				if errors.Is(err, ErrUnsupportedReusableWorkflowFetch) {
 					// Skip workflow expansion.
@@ -355,7 +355,7 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, incompleteMatr
 			if err != nil {
 				return nil, fmt.Errorf("unable to parse `uses: %q` as a valid reusable workflow: %w", workflowJob.Uses, err)
 			}
-			contents, err := pc.remoteWorkflowFetcher(parsed)
+			contents, err := pc.remoteWorkflowFetcher(bothJobs.jobParserJob, parsed)
 			if err != nil {
 				if errors.Is(err, ErrUnsupportedReusableWorkflowFetch) {
 					// Skip workflow expansion.
@@ -712,7 +712,7 @@ func WithWorkflowNeeds(needs []string) ParseOption {
 // the target workflow for job parsing.  The job will go to the "fallback" mode of operation where its internal jobs are
 // not expanded into the parsed workflow, and it can still be executed as a single monolithic job.  All other errors are
 // considered fatal for job parsing.
-func ExpandLocalReusableWorkflows(localWorkflowFetcher func(path string) ([]byte, error)) ParseOption {
+func ExpandLocalReusableWorkflows(localWorkflowFetcher LocalWorkflowFetcher) ParseOption {
 	return func(c *parseContext) {
 		c.localWorkflowFetcher = localWorkflowFetcher
 	}
@@ -729,7 +729,7 @@ func ExpandLocalReusableWorkflows(localWorkflowFetcher func(path string) ([]byte
 // the target workflow for job parsing.  The job will go to the "fallback" mode of operation where its internal jobs are
 // not expanded into the parsed workflow, and it can still be executed as a single monolithic job.  All other errors are
 // considered fatal for job parsing.
-func ExpandRemoteReusableWorkflows(remoteWorkflowFetcher func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error)) ParseOption {
+func ExpandRemoteReusableWorkflows(remoteWorkflowFetcher RemoteWorkflowFetcher) ParseOption {
 	return func(c *parseContext) {
 		c.remoteWorkflowFetcher = remoteWorkflowFetcher
 	}
@@ -747,6 +747,11 @@ func withParentUniqueID(parentWorkflowCallID string) ParseOption {
 	}
 }
 
+type (
+	LocalWorkflowFetcher  func(job *Job, path string) ([]byte, error)
+	RemoteWorkflowFetcher func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error)
+)
+
 type parseContext struct {
 	jobResults              map[string]string
 	jobOutputs              map[string]map[string]string // map job ID -> output key -> output value
@@ -755,8 +760,8 @@ type parseContext struct {
 	vars                    map[string]string
 	workflowNeeds           []string
 	supportIncompleteRunsOn bool
-	localWorkflowFetcher    func(path string) ([]byte, error)
-	remoteWorkflowFetcher   func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error)
+	localWorkflowFetcher    LocalWorkflowFetcher
+	remoteWorkflowFetcher   RemoteWorkflowFetcher
 	recursionDepth          int
 	parentUniqueID          string
 }

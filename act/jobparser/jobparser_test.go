@@ -147,7 +147,7 @@ func TestParse(t *testing.T) {
 			name:                           "expand_local_workflow",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_local_workflow_reusable-1.yml" {
 						content := ReadTestdata(t, "expand_local_workflow_reusable-1.yaml", true)
 						return content, nil
@@ -159,7 +159,7 @@ func TestParse(t *testing.T) {
 		{
 			name: "expand_local_workflow_recursion_limit",
 			options: []ParseOption{
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_local_workflow_recursion_limit-reusable-1.yml" {
 						content := ReadTestdata(t, "expand_local_workflow_recursion_limit-reusable-1.yaml", true)
 						return content, nil
@@ -173,7 +173,7 @@ func TestParse(t *testing.T) {
 			name:                           "expand_remote_workflow",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
-				ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+				ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
 					if ref.Org != "some-org" {
 						return nil, fmt.Errorf("unexpected remote Org: %q", ref.Org)
 					}
@@ -213,7 +213,7 @@ func TestParse(t *testing.T) {
 				WithInputs(map[string]any{
 					"caller-invalid-input": "this shouldn't appear in the reusable workflow",
 				}),
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					content := ReadTestdata(t, "expand_inputs_reusable.yaml", true)
 					return content, nil
 				}),
@@ -222,7 +222,7 @@ func TestParse(t *testing.T) {
 		{
 			name: "expand_reusable_needs",
 			options: []ParseOption{
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_local_workflow_reusable-1.yml" {
 						content := ReadTestdata(t, "expand_local_workflow_reusable-1.yaml", true)
 						return content, nil
@@ -235,7 +235,7 @@ func TestParse(t *testing.T) {
 			name:                           "expand_reusable_needs_recursive",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_needs_recursive-1.yml" {
 						content := ReadTestdata(t, "expand_reusable_needs_recursive-1.yaml", true)
 						return content, nil
@@ -256,7 +256,7 @@ func TestParse(t *testing.T) {
 			name:                           "expand_reusable_unique_call_ids",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_unique_call_ids_reusable-1.yml" {
 						content := ReadTestdata(t, "expand_reusable_unique_call_ids_reusable-1.yaml", true)
 						return content, nil
@@ -273,7 +273,7 @@ func TestParse(t *testing.T) {
 			name:                           "expand_reusable_outputs",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_outputs_reusable-1.yml" {
 						content := ReadTestdata(t, "expand_reusable_outputs_reusable-1.yaml", true)
 						return content, nil
@@ -286,7 +286,7 @@ func TestParse(t *testing.T) {
 			name:                           "expand_reusable_crossreferences",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_crossreferences_reusable-1.yml" {
 						content := ReadTestdata(t, "expand_reusable_crossreferences_reusable-1.yaml", true)
 						return content, nil
@@ -299,7 +299,7 @@ func TestParse(t *testing.T) {
 			name:                           "expand_reusable_caller_matrix",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_caller_matrix_reusable-1.yml" {
 						content := ReadTestdata(t, "expand_reusable_caller_matrix_reusable-1.yaml", true)
 						return content, nil
@@ -315,7 +315,7 @@ func TestParse(t *testing.T) {
 			options: []ParseOption{
 				WithJobOutputs(map[string]map[string]string{}),
 				SupportIncompleteRunsOn(),
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_incomplete1_reusable.yml" {
 						content := ReadTestdata(t, "expand_reusable_incomplete1_reusable.yaml", true)
 						return content, nil
@@ -338,7 +338,7 @@ func TestParse(t *testing.T) {
 					},
 				}),
 				SupportIncompleteRunsOn(),
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_incomplete1_reusable.yml" {
 						content := ReadTestdata(t, "expand_reusable_incomplete1_reusable.yaml", true)
 						return content, nil
@@ -356,7 +356,7 @@ func TestParse(t *testing.T) {
 			options: []ParseOption{
 				WithJobOutputs(map[string]map[string]string{}),
 				SupportIncompleteRunsOn(),
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_incomplete2_reusable.yml" {
 						content := ReadTestdata(t, "expand_reusable_incomplete2_reusable.yaml", true)
 						return content, nil
@@ -379,7 +379,7 @@ func TestParse(t *testing.T) {
 					},
 				}),
 				SupportIncompleteRunsOn(),
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_incomplete2_reusable.yml" {
 						content := ReadTestdata(t, "expand_reusable_incomplete2_reusable.yaml", true)
 						return content, nil
@@ -397,7 +397,7 @@ func TestParse(t *testing.T) {
 			options: []ParseOption{
 				WithJobOutputs(map[string]map[string]string{}),
 				SupportIncompleteRunsOn(),
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_incomplete3_reusable.yml" {
 						content := ReadTestdata(t, "expand_reusable_incomplete3_reusable.yaml", true)
 						return content, nil
@@ -417,7 +417,7 @@ func TestParse(t *testing.T) {
 			options: []ParseOption{
 				WithJobOutputs(map[string]map[string]string{}),
 				SupportIncompleteRunsOn(),
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_incomplete4_reusable.yml" {
 						content := ReadTestdata(t, "expand_reusable_incomplete4_reusable.yaml", true)
 						return content, nil
@@ -452,7 +452,7 @@ func TestParse(t *testing.T) {
 			options: []ParseOption{
 				WithJobOutputs(map[string]map[string]string{}),
 				SupportIncompleteRunsOn(),
-				ExpandLocalReusableWorkflows(func(path string) ([]byte, error) {
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_incomplete5_reusable.yml" {
 						content := ReadTestdata(t, "expand_reusable_incomplete5_reusable.yaml", true)
 						return content, nil
@@ -604,7 +604,7 @@ jobs:
 		swf, err := Parse(
 			[]byte(testWorkflow),
 			false,
-			ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+			ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
 				return []byte(testWorkflow), nil
 			}),
 		)
@@ -643,7 +643,7 @@ jobs:
 			[]byte(outerWorkflow),
 			false,
 			WithJobOutputs(jobOutputs),
-			ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+			ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
 				return []byte(innerWorkflow), nil
 			}),
 		)
@@ -672,12 +672,74 @@ jobs:
 				},
 			}),
 			WithWorkflowNeeds([]string{"some-other-job"}),
-			ExpandRemoteReusableWorkflows(func(ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+			ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
 				callCount++
 				return []byte(outerWorkflow), nil
 			}),
 		)
 		require.ErrorContains(t, err, "exceeding the workflow recursion limit")
 		assert.Equal(t, 5, callCount) // would reach 6 if internal state of the first track wasn't persisted
+	})
+}
+
+func TestReusableWorkflowFetcherArgs(t *testing.T) {
+	t.Run("ExpandRemoteReusableWorkflows", func(t *testing.T) {
+		testWorkflow := `
+on:
+  pull_request:
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    uses: some-org/some-repo/.forgejo/workflows/recursive.yaml@v1
+  other-job:
+    runs-on: ubuntu-oldest
+    steps: []
+`
+
+		executed := false
+		swf, err := Parse(
+			[]byte(testWorkflow),
+			false,
+			ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+				executed = true
+				// validate `job` passed in is correct/expected object
+				assert.Equal(t, []string{"ubuntu-latest"}, job.RunsOn())
+				assert.Equal(t, "some-org", ref.Org)
+				return []byte("jobs: { somejob: {} }"), nil
+			}),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, swf)
+		assert.True(t, executed)
+	})
+
+	t.Run("ExpandLocalReusableWorkflows", func(t *testing.T) {
+		testWorkflow := `
+on:
+  pull_request:
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    uses: ./.forgejo/workflows/recursive.yaml
+  other-job:
+    runs-on: ubuntu-oldest
+    steps: []
+`
+
+		executed := false
+		swf, err := Parse(
+			[]byte(testWorkflow),
+			false,
+			ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+				executed = true
+				// validate `job` passed in is correct/expected object
+				assert.Equal(t, []string{"ubuntu-latest"}, job.RunsOn())
+				assert.Equal(t, "./.forgejo/workflows/recursive.yaml", path)
+				return []byte("jobs: { somejob: {} }"), nil
+			}),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, swf)
+		assert.True(t, executed)
 	})
 }
