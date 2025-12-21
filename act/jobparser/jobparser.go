@@ -250,6 +250,14 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				swf.Metadata.IncompleteRecursionDepth = *incompleteRecursionDepth
 			}
 		}
+		// With a reusable workflow (eg. job A --uses--> job B), it's possible that we're currently reparsing an
+		// incomplete workflow (job B).  This will occur if job B had `strategy.matrix: ${{ needs... }}`, for example.
+		// In this case, we need to preserve the original parent (job A) on any generated jobs (`swf`) that are going to
+		// be expanded from job B.  However, if we generated new child jobs (job A --uses--> job B, and job B was also a
+		// reusable workflow generating --> job C), then we don't want to overwrite job C's parent.
+		if workflow.Metadata.WorkflowCallParent != "" && swf.Metadata.WorkflowCallParent == "" {
+			swf.Metadata.WorkflowCallParent = workflow.Metadata.WorkflowCallParent
+		}
 		if err := swf.SetJob(id, job); err != nil {
 			return nil, fmt.Errorf("SetJob: %w", err)
 		}
