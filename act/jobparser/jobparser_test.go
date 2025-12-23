@@ -173,7 +173,7 @@ func TestParse(t *testing.T) {
 			name:                           "expand_remote_workflow",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
-				ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+				ExpandInstanceReusableWorkflows(func(job *Job, ref *model.NonLocalReusableWorkflowReference) ([]byte, error) {
 					if ref.Org != "some-org" {
 						return nil, fmt.Errorf("unexpected remote Org: %q", ref.Org)
 					}
@@ -183,22 +183,38 @@ func TestParse(t *testing.T) {
 					if ref.GitPlatform != "forgejo" {
 						return nil, fmt.Errorf("unexpected remote GitPlatform: %q", ref.GitPlatform)
 					}
-					if ref.BaseURL == nil {
-						// relative reference in expand_remote_workflow.in.yaml
-						if ref.Filename != "expand_remote_workflow_reusable-2.yml" {
-							return nil, fmt.Errorf("unexpected remote Filename: %q", ref.Filename)
-						}
-					} else {
-						// absolute reference in expand_remote_workflow.in.yaml
-						if *ref.BaseURL != "https://example.com" {
-							return nil, fmt.Errorf("unexpected remote Host: %v", ref.BaseURL)
-						}
-						if ref.Filename != "expand_remote_workflow_reusable-1.yml" {
-							return nil, fmt.Errorf("unexpected remote Filename: %q", ref.Filename)
-						}
+					// remote reference in expand_remote_workflow.in.yaml
+					if ref.Filename != "expand_remote_workflow_reusable-2.yml" {
+						return nil, fmt.Errorf("unexpected remote Filename: %q", ref.Filename)
 					}
 					if ref.Ref != "v1" {
 						return nil, fmt.Errorf("unexpected remote Ref: %q", ref.Ref)
+					}
+					content := ReadTestdata(t, "expand_remote_workflow_reusable-1.yaml", true)
+					return content, nil
+				}),
+				ExpandExternalReusableWorkflows(func(job *Job, ref *model.ExternalReusableWorkflowReference) ([]byte, error) {
+					if ref.Org != "some-org" {
+						return nil, fmt.Errorf("unexpected external Org: %q", ref.Org)
+					}
+					if ref.Repo != "some-repo" {
+						return nil, fmt.Errorf("unexpected external Repo: %q", ref.Repo)
+					}
+					if ref.GitPlatform != "forgejo" {
+						return nil, fmt.Errorf("unexpected external GitPlatform: %q", ref.GitPlatform)
+					}
+					// external reference in expand_remote_workflow.in.yaml
+					if ref.Filename != "expand_remote_workflow_reusable-1.yml" {
+						return nil, fmt.Errorf("unexpected external Filename: %q", ref.Filename)
+					}
+					if ref.BaseURL != "https://example.com" {
+						return nil, fmt.Errorf("unexpected external Host: %v", ref.BaseURL)
+					}
+					if ref.Filename != "expand_remote_workflow_reusable-1.yml" {
+						return nil, fmt.Errorf("unexpected external Filename: %q", ref.Filename)
+					}
+					if ref.Ref != "v1" {
+						return nil, fmt.Errorf("unexpected external Ref: %q", ref.Ref)
 					}
 					content := ReadTestdata(t, "expand_remote_workflow_reusable-1.yaml", true)
 					return content, nil
@@ -604,7 +620,7 @@ jobs:
 		swf, err := Parse(
 			[]byte(testWorkflow),
 			false,
-			ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+			ExpandInstanceReusableWorkflows(func(job *Job, ref *model.NonLocalReusableWorkflowReference) ([]byte, error) {
 				return []byte(testWorkflow), nil
 			}),
 		)
@@ -643,7 +659,7 @@ jobs:
 			[]byte(outerWorkflow),
 			false,
 			WithJobOutputs(jobOutputs),
-			ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+			ExpandInstanceReusableWorkflows(func(job *Job, ref *model.NonLocalReusableWorkflowReference) ([]byte, error) {
 				return []byte(innerWorkflow), nil
 			}),
 		)
@@ -672,7 +688,7 @@ jobs:
 				},
 			}),
 			WithWorkflowNeeds([]string{"some-other-job"}),
-			ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+			ExpandInstanceReusableWorkflows(func(job *Job, ref *model.NonLocalReusableWorkflowReference) ([]byte, error) {
 				callCount++
 				return []byte(outerWorkflow), nil
 			}),
@@ -683,7 +699,7 @@ jobs:
 }
 
 func TestReusableWorkflowFetcherArgs(t *testing.T) {
-	t.Run("ExpandRemoteReusableWorkflows", func(t *testing.T) {
+	t.Run("ExpandInstanceReusableWorkflows", func(t *testing.T) {
 		testWorkflow := `
 on:
   pull_request:
@@ -700,7 +716,7 @@ jobs:
 		swf, err := Parse(
 			[]byte(testWorkflow),
 			false,
-			ExpandRemoteReusableWorkflows(func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error) {
+			ExpandInstanceReusableWorkflows(func(job *Job, ref *model.NonLocalReusableWorkflowReference) ([]byte, error) {
 				executed = true
 				// validate `job` passed in is correct/expected object
 				assert.Equal(t, []string{"ubuntu-latest"}, job.RunsOn())

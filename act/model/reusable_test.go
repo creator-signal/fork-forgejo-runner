@@ -68,17 +68,18 @@ func TestParseRemoteReusableWorkflow(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, result)
+				external, ok := result.(*ExternalReusableWorkflowReference)
 				if tt.expectedBaseURL != "" {
-					require.NotNil(t, result.BaseURL)
-					assert.Equal(t, tt.expectedBaseURL, *result.BaseURL)
+					require.True(t, ok)
+					assert.Equal(t, tt.expectedBaseURL, external.BaseURL)
 				} else {
-					assert.Nil(t, result.BaseURL)
+					assert.False(t, ok)
 				}
-				assert.Equal(t, tt.expectedOrg, result.Org)
-				assert.Equal(t, tt.expectedRepo, result.Repo)
-				assert.Equal(t, tt.expectedPlatform, result.GitPlatform)
-				assert.Equal(t, tt.expectedFilename, result.Filename)
-				assert.Equal(t, tt.expectedRef, result.Ref)
+				assert.Equal(t, tt.expectedOrg, result.Reference().Org)
+				assert.Equal(t, tt.expectedRepo, result.Reference().Repo)
+				assert.Equal(t, tt.expectedPlatform, result.Reference().GitPlatform)
+				assert.Equal(t, tt.expectedFilename, result.Reference().Filename)
+				assert.Equal(t, tt.expectedRef, result.Reference().Ref)
 			}
 		})
 	}
@@ -130,7 +131,7 @@ func TestNewRemoteReusableWorkflowWithPlat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := NewRemoteReusableWorkflowWithPlat(tt.uses)
+			result := parseReusableWorkflowReference(tt.uses)
 
 			if tt.shouldFail {
 				assert.Nil(t, result)
@@ -147,13 +148,12 @@ func TestNewRemoteReusableWorkflowWithPlat(t *testing.T) {
 }
 
 func TestRemoteReusableWorkflow_CloneURL(t *testing.T) {
-	baseURL := "https://code.forgejo.org"
-	rw := &RemoteReusableWorkflowWithBaseURL{
-		RemoteReusableWorkflow: RemoteReusableWorkflow{
+	rw := &ExternalReusableWorkflowReference{
+		NonLocalReusableWorkflowReference: NonLocalReusableWorkflowReference{
 			Org:  "owner",
 			Repo: "repo",
 		},
-		BaseURL: &baseURL,
+		BaseURL: "https://code.forgejo.org",
 	}
 	assert.Equal(t, "https://code.forgejo.org/owner/repo", rw.CloneURL())
 }
@@ -187,7 +187,7 @@ func TestRemoteReusableWorkflow_FilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rw := &RemoteReusableWorkflow{
+			rw := &NonLocalReusableWorkflowReference{
 				GitPlatform: tt.gitPlatform,
 				Filename:    tt.filename,
 			}

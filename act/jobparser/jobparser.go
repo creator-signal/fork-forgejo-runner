@@ -120,7 +120,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 	}
 
 	// Expand reusable workflows `uses:...` into inner jobs:
-	if pc.localWorkflowFetcher != nil || pc.remoteWorkflowFetcher != nil {
+	if pc.localWorkflowFetcher != nil || pc.instanceWorkflowFetcher != nil || pc.externalWorkflowFetcher != nil {
 		newJobs, err := expandReusableWorkflows(postMatrixJobs, validate, incompleteMatrix, options, pc, results)
 		if err != nil {
 			return nil, err
@@ -340,84 +340,111 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, incompleteMatr
 			continue
 		}
 
-		workflowJob := bothJobs.workflowJob
-
-		jobType, err := workflowJob.Type()
+		reusableWorkflow, err := tryFetchReusableWorkflow(bothJobs, pc)
 		if err != nil {
 			return nil, err
+		} else if reusableWorkflow == nil {
+			// Not a reusable workflow to expand.
+			continue
 		}
-		var reusableWorkflow []byte
-		if jobType == model.JobTypeReusableWorkflowLocal && pc.localWorkflowFetcher != nil {
-			contents, err := pc.localWorkflowFetcher(bothJobs.jobParserJob, workflowJob.Uses)
-			if err != nil {
-				if errors.Is(err, ErrUnsupportedReusableWorkflowFetch) {
-					// Skip workflow expansion.
-					continue
-				}
-				return nil, fmt.Errorf("unable to read local workflow %q: %w", workflowJob.Uses, err)
-			}
-			reusableWorkflow = contents
-		}
-		if jobType == model.JobTypeReusableWorkflowRemote && pc.remoteWorkflowFetcher != nil {
-			parsed, err := model.ParseRemoteReusableWorkflow(workflowJob.Uses)
-			if err != nil {
-				return nil, fmt.Errorf("unable to parse `uses: %q` as a valid reusable workflow: %w", workflowJob.Uses, err)
-			}
-			contents, err := pc.remoteWorkflowFetcher(bothJobs.jobParserJob, parsed)
-			if err != nil {
-				if errors.Is(err, ErrUnsupportedReusableWorkflowFetch) {
-					// Skip workflow expansion.
-					continue
-				}
-				return nil, fmt.Errorf("unable to read remote workflow %q: %w", workflowJob.Uses, err)
-			}
-			reusableWorkflow = contents
-		}
-		if reusableWorkflow != nil {
-			// If we encounter an InvalidJobOutputReferencedError error, we'll know that this is caused by a `with:`
-			// clause referencing a job output that isn't present yet.  In this case, don't expand the job, but provide
-			// the error back in `bothJobTypes` so that it can be returned in the `SingleWorkflow`.
-			var withInvalidJobReference *exprparser.InvalidJobOutputReferencedError
-			// Same type of error, but for accessing an invalid matrix during `with:`.
-			var withInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
 
-			workflowParent := generateWorkflowCallID(pc.parentUniqueID, bothJobs.id, bothJobs.matrix)
-			bothJobs.workflowCallID = workflowParent
+		// If we encounter an InvalidJobOutputReferencedError error, we'll know that this is caused by a `with:`
+		// clause referencing a job output that isn't present yet.  In this case, don't expand the job, but provide
+		// the error back in `bothJobTypes` so that it can be returned in the `SingleWorkflow`.
+		var withInvalidJobReference *exprparser.InvalidJobOutputReferencedError
+		// Same type of error, but for accessing an invalid matrix during `with:`.
+		var withInvalidMatrixReference *exprparser.InvalidMatrixDimensionReferencedError
 
-			newJobs, err := expandReusableWorkflow(reusableWorkflow, validate, options, pc, jobResults, bothJobs.matrix, bothJobs)
-			if err != nil {
-				errors.As(err, &withInvalidJobReference)
-				errors.As(err, &withInvalidMatrixReference)
-				if withInvalidJobReference == nil && withInvalidMatrixReference == nil {
-					return nil, fmt.Errorf("error expanding reusable workflow %q: %v", workflowJob.Uses, err)
-				}
-			}
+		workflowParent := generateWorkflowCallID(pc.parentUniqueID, bothJobs.id, bothJobs.matrix)
+		bothJobs.workflowCallID = workflowParent
 
+		newJobs, err := expandReusableWorkflow(reusableWorkflow, validate, options, pc, jobResults, bothJobs.matrix, bothJobs)
+		if err != nil {
+			errors.As(err, &withInvalidJobReference)
+			errors.As(err, &withInvalidMatrixReference)
 			if withInvalidJobReference == nil && withInvalidMatrixReference == nil {
-				// Append the inner jobs' IDs to the `needs` of the parent job.
-				additionalNeeds := make([]string, len(newJobs))
-				for i, b := range newJobs {
-					additionalNeeds[i] = b.id
-				}
-				callerNeeds := bothJobs.jobParserJob.Needs()
-				callerNeeds = append(callerNeeds, additionalNeeds...)
-				_ = bothJobs.jobParserJob.RawNeeds.Encode(callerNeeds)
-
-				// The calling job will still exist in order to act as a `sentinel` for `needs` job ordering & output
-				// access. We'll take away the job's content to ensure nothing is actually executed.
-				_ = bothJobs.jobParserJob.If.Encode(false)
-				bothJobs.jobParserJob.Uses = ""
-				bothJobs.jobParserJob.With = nil
-			} else {
-				// Retain all the original data of the job until it's really expanded, with its inputs, later
-				bothJobs.withInvalidJobReference = withInvalidJobReference
-				bothJobs.withInvalidMatrixReference = withInvalidMatrixReference
+				return nil, fmt.Errorf("error expanding reusable workflow %q: %v", bothJobs.workflowJob.Uses, err)
 			}
-
-			retval = append(retval, newJobs...)
 		}
+
+		if withInvalidJobReference == nil && withInvalidMatrixReference == nil {
+			// Append the inner jobs' IDs to the `needs` of the parent job.
+			additionalNeeds := make([]string, len(newJobs))
+			for i, b := range newJobs {
+				additionalNeeds[i] = b.id
+			}
+			callerNeeds := bothJobs.jobParserJob.Needs()
+			callerNeeds = append(callerNeeds, additionalNeeds...)
+			_ = bothJobs.jobParserJob.RawNeeds.Encode(callerNeeds)
+
+			// The calling job will still exist in order to act as a `sentinel` for `needs` job ordering & output
+			// access. We'll take away the job's content to ensure nothing is actually executed.
+			_ = bothJobs.jobParserJob.If.Encode(false)
+			bothJobs.jobParserJob.Uses = ""
+			bothJobs.jobParserJob.With = nil
+		} else {
+			// Retain all the original data of the job until it's really expanded, with its inputs, later
+			bothJobs.withInvalidJobReference = withInvalidJobReference
+			bothJobs.withInvalidMatrixReference = withInvalidMatrixReference
+		}
+
+		retval = append(retval, newJobs...)
 	}
 	return retval, nil
+}
+
+func tryFetchReusableWorkflow(bothJobs *bothJobTypes, pc *parseContext) ([]byte, error) {
+	workflowJob := bothJobs.workflowJob
+
+	jobType, err := workflowJob.Type()
+	if err != nil {
+		return nil, err
+	}
+
+	if jobType == model.JobTypeReusableWorkflowLocal && pc.localWorkflowFetcher != nil {
+		contents, err := pc.localWorkflowFetcher(bothJobs.jobParserJob, workflowJob.Uses)
+		if err != nil {
+			if errors.Is(err, ErrUnsupportedReusableWorkflowFetch) {
+				// Skip workflow expansion.
+				return nil, nil
+			}
+			return nil, fmt.Errorf("unable to read local workflow %q: %w", workflowJob.Uses, err)
+		}
+		return contents, nil
+	} else if jobType == model.JobTypeReusableWorkflowRemote {
+		parsed, err := model.ParseRemoteReusableWorkflow(workflowJob.Uses)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse `uses: %q` as a valid reusable workflow: %w", workflowJob.Uses, err)
+		}
+		external, isExternal := parsed.(*model.ExternalReusableWorkflowReference)
+		if !isExternal && pc.instanceWorkflowFetcher != nil {
+			contents, err := pc.instanceWorkflowFetcher(bothJobs.jobParserJob, parsed.Reference())
+			if err != nil {
+				if errors.Is(err, ErrUnsupportedReusableWorkflowFetch) {
+					// Skip workflow expansion.
+					return nil, nil
+				}
+				return nil, fmt.Errorf("unable to read instance workflow %q: %w", workflowJob.Uses, err)
+			}
+			return contents, nil
+		} else if isExternal && pc.externalWorkflowFetcher != nil {
+			contents, err := pc.externalWorkflowFetcher(bothJobs.jobParserJob, external)
+			if err != nil {
+				if errors.Is(err, ErrUnsupportedReusableWorkflowFetch) {
+					// Skip workflow expansion.
+					return nil, nil
+				}
+				return nil, fmt.Errorf("unable to read external workflow %q: %w", workflowJob.Uses, err)
+			}
+			return contents, nil
+		}
+
+		// Fallthrough intentional -- `isExternal` and the relevant available fetcher didn't combine to have a relevant
+		// fetcher for the type of this reusable workflow.
+	}
+
+	// Either not a reusable workflow, or not a reusable workflow type that we have a fetcher for.
+	return nil, nil
 }
 
 func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult, matrix map[string]any, callerJob *bothJobTypes) ([]*bothJobTypes, error) {
@@ -724,7 +751,7 @@ func WithWorkflowNeeds(needs []string) ParseOption {
 // ./.forgejo/workflows/reusable.yml`) into one-or-more jobs contained within the local workflow.  The
 // `localWorkflowFetcher` function allows jobparser to read the target workflow file.
 //
-// The `localWorkflowFetcher` can return the error ErrUnsupportedReusableWorkflowFetch if the fetcher doesn't support
+// The `localWorkflowFetcher` can return the error [ErrUnsupportedReusableWorkflowFetch] if the fetcher doesn't support
 // the target workflow for job parsing.  The job will go to the "fallback" mode of operation where its internal jobs are
 // not expanded into the parsed workflow, and it can still be executed as a single monolithic job.  All other errors are
 // considered fatal for job parsing.
@@ -734,20 +761,31 @@ func ExpandLocalReusableWorkflows(localWorkflowFetcher LocalWorkflowFetcher) Par
 	}
 }
 
-// Allows the job parser to convert a workflow job that references a remote (eg. not part of the current workflow's
-// repository) reusable workflow (eg. `uses: some-org/some-repo/.forgejo/workflows/reusable.yml`) into one-or-more jobs
-// contained within the remote workflow.  The `remoteWorkflowFetcher` function allows jobparser to read the target
-// workflow file.
+// Allows the job parser to read a workflow job that references a reusable workflow on the same Forgejo instance, but
+// not in the same repository (eg. `uses: some-org/some-repo/.forgejo/workflows/reusable.yml`). The workflow is
+// converted into one-or-more jobs contained within the workflow.
 //
-// `ref.Host` will be `nil` if the remote reference was not a fully-qualified URL.  No default value is provided.
-//
-// The `remoteWorkflowFetcher` can return the error ErrUnsupportedReusableWorkflowFetch if the fetcher doesn't support
-// the target workflow for job parsing.  The job will go to the "fallback" mode of operation where its internal jobs are
-// not expanded into the parsed workflow, and it can still be executed as a single monolithic job.  All other errors are
-// considered fatal for job parsing.
-func ExpandRemoteReusableWorkflows(remoteWorkflowFetcher RemoteWorkflowFetcher) ParseOption {
+// The `instanceWorkflowFetcher` can return the error [ErrUnsupportedReusableWorkflowFetch] if the fetcher doesn't
+// support the target workflow for job parsing.  The job will go to the "fallback" mode of operation where its internal
+// jobs are not expanded into the parsed workflow, and it can still be executed as a single monolithic job.  All other
+// errors are considered fatal for job parsing.
+func ExpandInstanceReusableWorkflows(instanceWorkflowFetcher InstanceWorkflowFetcher) ParseOption {
 	return func(c *parseContext) {
-		c.remoteWorkflowFetcher = remoteWorkflowFetcher
+		c.instanceWorkflowFetcher = instanceWorkflowFetcher
+	}
+}
+
+// Allows the job parser to read a workflow job that references an external reusable workflow with a fully-qualified URL
+// (eg. `uses: https://example.com/some-org/some-repo/.forgejo/workflows/reusable.yml`). The workflow is converted into
+// one-or-more jobs contained within the external workflow file.
+//
+// The `externalWorkflowFetcher` can return the error [ErrUnsupportedReusableWorkflowFetch] if the fetcher doesn't
+// support the target workflow for job parsing.  The job will go to the "fallback" mode of operation where its internal
+// jobs are not expanded into the parsed workflow, and it can still be executed as a single monolithic job.  All other
+// errors are considered fatal for job parsing.
+func ExpandExternalReusableWorkflows(externalWorkflowFetcher ExternalWorkflowFetcher) ParseOption {
+	return func(c *parseContext) {
+		c.externalWorkflowFetcher = externalWorkflowFetcher
 	}
 }
 
@@ -764,8 +802,9 @@ func withParentUniqueID(parentWorkflowCallID string) ParseOption {
 }
 
 type (
-	LocalWorkflowFetcher  func(job *Job, path string) ([]byte, error)
-	RemoteWorkflowFetcher func(job *Job, ref *model.RemoteReusableWorkflowWithBaseURL) ([]byte, error)
+	LocalWorkflowFetcher    func(job *Job, path string) ([]byte, error)
+	InstanceWorkflowFetcher func(job *Job, ref *model.NonLocalReusableWorkflowReference) ([]byte, error)
+	ExternalWorkflowFetcher func(job *Job, ref *model.ExternalReusableWorkflowReference) ([]byte, error)
 )
 
 type parseContext struct {
@@ -777,7 +816,8 @@ type parseContext struct {
 	workflowNeeds           []string
 	supportIncompleteRunsOn bool
 	localWorkflowFetcher    LocalWorkflowFetcher
-	remoteWorkflowFetcher   RemoteWorkflowFetcher
+	instanceWorkflowFetcher InstanceWorkflowFetcher
+	externalWorkflowFetcher ExternalWorkflowFetcher
 	recursionDepth          int
 	parentUniqueID          string
 }

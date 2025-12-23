@@ -41,18 +41,21 @@ func newLocalReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
-	if reusable.BaseURL == nil {
-		reusable.BaseURL = getBaseURL(rc.Config.GitHubInstance)
+	var externalReference *model.ExternalReusableWorkflowReference
+	baseURL := getBaseURL(rc.Config.GitHubInstance)
+	if baseURL == nil {
+		return common.NewErrorExecutor(fmt.Errorf("unable to determine base URL for reusable workflow reference, configured base is %q", rc.Config.GitHubInstance))
 	}
+	externalReference = reusable.ConvertExternalWithDefaultBaseURL(*baseURL)
 
 	// If the repository is private, we need a token to clone it
 	token := rc.Config.GetToken()
 
 	makeWorkflowExecutorForWorkTree := func(workflowDir string) common.Executor {
-		return newReusableWorkflowExecutor(rc, workflowDir, reusable.FilePath())
+		return newReusableWorkflowExecutor(rc, workflowDir, reusable.Reference().FilePath())
 	}
 
-	return cloneIfRequired(rc, reusable, token, makeWorkflowExecutorForWorkTree)
+	return cloneIfRequired(rc, externalReference, token, makeWorkflowExecutorForWorkTree)
 }
 
 // See "Obsolete" note on newLocalReusableWorkflowExecutor -- applies to this as well.
@@ -63,18 +66,28 @@ func newRemoteReusableWorkflowExecutor(rc *RunContext) common.Executor {
 	if err != nil {
 		return common.NewErrorExecutor(err)
 	}
-	if reusable.BaseURL == nil {
-		reusable.BaseURL = getBaseURL(rc.Config.GitHubInstance)
+	var externalReference *model.ExternalReusableWorkflowReference
+	baseURL := getBaseURL(rc.Config.GitHubInstance)
+	if baseURL == nil {
+		// reusable can be in two states, it can either be a external reference already in which case we don't need
+		// `baseURL`, or it can be a reference where we do need baseURL.
+		f, isExternal := reusable.(*model.ExternalReusableWorkflowReference)
+		if !isExternal {
+			return common.NewErrorExecutor(fmt.Errorf("unable to determine base URL for reusable workflow reference %q, configured base is %q", uses, rc.Config.GitHubInstance))
+		}
+		externalReference = f
+	} else {
+		externalReference = reusable.ConvertExternalWithDefaultBaseURL(*baseURL)
 	}
 
 	// FIXME: if the reusable workflow is from a private repository, we need to provide a token to access the repository.
 	token := ""
 
 	makeWorkflowExecutorForWorkTree := func(workflowDir string) common.Executor {
-		return newReusableWorkflowExecutor(rc, workflowDir, reusable.FilePath())
+		return newReusableWorkflowExecutor(rc, workflowDir, reusable.Reference().FilePath())
 	}
 
-	return cloneIfRequired(rc, reusable, token, makeWorkflowExecutorForWorkTree)
+	return cloneIfRequired(rc, externalReference, token, makeWorkflowExecutorForWorkTree)
 }
 
 // gitHubInstance can be a URL or just a hostname -- return a URL for consistency
@@ -89,7 +102,7 @@ func getBaseURL(gitHubInstance string) *string {
 	return nil
 }
 
-func cloneIfRequired(rc *RunContext, remoteReusableWorkflow *model.RemoteReusableWorkflowWithBaseURL, token string, makeWorkflowExecutorForWorkTree func(workflowDir string) common.Executor) common.Executor {
+func cloneIfRequired(rc *RunContext, remoteReusableWorkflow *model.ExternalReusableWorkflowReference, token string, makeWorkflowExecutorForWorkTree func(workflowDir string) common.Executor) common.Executor {
 	return func(ctx context.Context) error {
 		// Do not change the remoteReusableWorkflow.URL, because:
 		// 	1. Gitea doesn't support specifying GithubContext.ServerURL by the GITHUB_SERVER_URL env
