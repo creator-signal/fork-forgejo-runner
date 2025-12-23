@@ -1,3 +1,8 @@
+on:
+  workflow_call:
+    inputs:
+      input1:
+        type: string
 name: test
 jobs:
   job1:
@@ -7,3 +12,6 @@ jobs:
   reusable-2:
     uses: ./.forgejo/workflows/expand_reusable_needs_recursive-2.yml
     needs: job1
+    with:
+      input1: ${{ inputs.input1 }}
+      input2: this input comes from the first layer inner job

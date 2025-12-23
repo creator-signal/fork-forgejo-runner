@@ -493,17 +493,25 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			id:               fmt.Sprintf("%s.%s", callerJob.id, id),
 			jobParserJob:     job,
 			workflowJob:      workflow.GetJob(id),
-			overrideOnClause: rebuiltOn,
+			overrideOnClause: &swf.RawOn,
 
-			workflowCallParent: callerJob.workflowCallID,
+			// Preserve metadata:
+			workflowCallParent: swf.Metadata.WorkflowCallParent,
+			workflowCallInputs: swf.Metadata.WorkflowCallInputs,
+			workflowCallID:     swf.Metadata.WorkflowCallID,
 		}
-		// Maintain existing ID / Parent if populated in a lower-level recursive workflow call
-		if swf.Metadata.WorkflowCallID != "" {
-			newEntry.workflowCallID = swf.Metadata.WorkflowCallID
+
+		// If the new job doesn't have a parent, that means it's a direct-child of the job that we're currently
+		// expanding `callerJob`:
+		if newEntry.workflowCallParent == "" {
+			// Store it's relationship to its parent.
+			newEntry.workflowCallParent = callerJob.workflowCallID
+
+			// Store the inputs that were calculated for `callerJob` in the `on` clause so that they're used when the
+			// child job is executed:
+			newEntry.overrideOnClause = rebuiltOn
 		}
-		if swf.Metadata.WorkflowCallParent != "" {
-			newEntry.workflowCallParent = swf.Metadata.WorkflowCallParent
-		}
+
 		if swf.IncompleteMatrix || swf.IncompleteRunsOn || swf.IncompleteWith {
 			newEntry.internalIncompleteState = swf
 			// if we have a reference to a job stored in the incomplete state, then qualify that job name:

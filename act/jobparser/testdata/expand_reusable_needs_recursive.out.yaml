@@ -9,9 +9,17 @@ jobs:
     runs-on: []
     if: false
 __metadata:
+  workflow_call_inputs:
+    input1: this input comes from the outer job
   workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
+"on":
+  workflow_call:
+    inputs:
+      input1:
+        default: this input comes from the outer job
+        type: string
 jobs:
   reusable-1.job1:
     name: job1
@@ -22,6 +30,12 @@ __metadata:
   workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
+"on":
+  workflow_call:
+    inputs:
+      input1:
+        default: this input comes from the outer job
+        type: string
 jobs:
   reusable-1.reusable-2:
     name: reusable-2
@@ -31,10 +45,22 @@ jobs:
     runs-on: []
     if: false
 __metadata:
+  workflow_call_inputs:
+    input1: this input comes from the outer job
+    input2: this input comes from the first layer inner job
   workflow_call_id: ea7d9f7b51d5cee1511dbe76b9763615f58ecbcb7832e144a8eec2535b380f1e
   workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
 ---
 name: test
+"on":
+  workflow_call:
+    inputs:
+      input1:
+        default: this input comes from the outer job
+        type: string
+      input2:
+        default: this input comes from the first layer inner job
+        type: string
 jobs:
   reusable-1.reusable-2.job1:
     name: job1
