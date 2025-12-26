@@ -2,7 +2,7 @@ module code.forgejo.org/forgejo/runner/v12
 
 go 1.24.0
 
-toolchain go1.24.10
+toolchain go1.25.5
 
 require (
 	code.forgejo.org/forgejo/actions-proto v0.5.3
@@ -37,6 +37,7 @@ require (
 	github.com/timshannon/bolthold v0.0.0-20240314194003-30aac6950928
 	go.etcd.io/bbolt v1.4.3
 	go.yaml.in/yaml/v3 v3.0.4
+	golang.org/x/sys v0.38.0
 	golang.org/x/term v0.37.0
 	golang.org/x/time v0.14.0
 	google.golang.org/protobuf v1.36.10
@@ -103,7 +104,6 @@ require (
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231120223509-83a465c0220f // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
