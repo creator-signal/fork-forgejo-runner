@@ -2041,18 +2041,6 @@
         }
       }
     },
-    "services": {
-      "description": "Additional containers to host services for a job in a workflow. These are useful for creating databases or cache services like redis. The runner on the virtual machine will automatically create a network and manage the life cycle of the service containers. When you use a service container for a job or your step uses container actions, you don't need to set port information to access the service. Docker automatically exposes all ports between containers on the same network. When both the job and the action run in a container, you can directly reference the container by its hostname. The hostname is automatically mapped to the service name. When a step does not use a container action, you must access the service using localhost and bind the ports.",
-      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs", "strategy", "matrix", "env"],
-      "mapping": {
-        "loose-key-type": "non-empty-string",
-        "loose-value-type": "services-container"
-      }
-    },
-    "services-container": {
-      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs", "strategy", "matrix", "env"],
-      "one-of": ["non-empty-string", "container-mapping"]
-    },
     "container-registry-credentials": {
       "description": "If the image's container registry requires authentication to pull the image, you can use `jobs.<job_id>.container.credentials` to set a map of the username and password. The credentials are the same values that you would provide to the `docker login` command.",
       "context": ["forge", "forgejo", "github", "inputs", "vars", "secrets", "env"],
@@ -2068,6 +2056,63 @@
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "string-runner-context"
+      }
+    },
+    "services": {
+      "description": "Additional containers to host services for a job in a workflow. These are useful for creating databases or cache services like Redis. The runner on the virtual machine will automatically create a network and manage the life cycle of the service containers. When you use a service container for a job or your step uses container actions, you don't need to set port information to access the service. Docker automatically exposes all ports between containers on the same network. When both the job and the action run in a container, you can directly reference the container by its hostname. The hostname is automatically mapped to the service name. When a step does not use a container action, you must access the service using localhost and bind the ports.",
+      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs", "strategy", "matrix", "env"],
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "service"
+      }
+    },
+    "service": {
+      "context": ["forge", "forgejo", "github", "inputs", "vars", "needs", "strategy", "matrix", "env"],
+      "one-of": ["non-empty-string", "service-mapping"]
+    },
+    "service-mapping": {
+      "mapping": {
+        "properties": {
+          "image": {
+            "type": "non-empty-string",
+            "description": "Name of the container image that contains the service to run. The value can be a short name like `fedora` or a fully qualified image name like `registry.fedoraproject.org/fedora`."
+          },
+          "options": {
+            "type": "non-empty-string",
+            "description": "Additional options to pass to the container runtime."
+          },
+          "cmd": {
+            "type": "sequence-of-non-empty-string",
+            "description": "List of commands to run instead of the default command."
+          },
+          "env": "service-env",
+          "ports": {
+            "type": "sequence-of-non-empty-string",
+            "description": "List of service container ports to expose in the format `HOST_PORT:CONTAINER_PORT`"
+          },
+          "volumes": {
+            "type": "sequence-of-non-empty-string",
+            "description": "List of volumes to mount into the service container. You can specify named volumes, anonymous volumes, or bind mounts."
+          },
+          "credentials": "service-container-registry-credentials"
+        }
+      }
+    },
+    "service-env": {
+      "description": "A map of environment variables that should be injected into the service container during startup.",
+      "mapping": {
+        "loose-key-type": "non-empty-string",
+        "loose-value-type": "string-runner-context"
+      }
+    },
+    "service-container-registry-credentials": {
+      "description": "If the image's container registry requires authentication to pull the image, you can specify the username and password to use when pulling the image.",
+      "context": ["forge", "forgejo", "github", "inputs", "vars", "secrets", "env"],
+      "mapping": {
+        "properties": {
+          "username": "non-empty-string",
+          "password": "non-empty-string"
+        }
       }
     },
     "non-empty-string": {

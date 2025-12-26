@@ -359,6 +359,41 @@ jobs:
 	assert.NoError(t, err)
 }
 
+func TestSchemaServices(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on:
+  push:
+jobs:
+  service-schema:
+    runs-on: ubuntu-latest
+    services:
+      pgsql:
+        image: code.forgejo.org/oci/postgres:15
+        credentials:
+          username: 'root'
+          password: 'admin1234'
+        env:
+          POSTGRES_DB: test
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: "--hostname pgsql"
+        cmd:
+          - /some/command
+        volumes:
+          - /srv/example:/srv/example
+    steps:
+      - run: echo "OK"
+`), &node)
+	require.NoError(t, err)
+	n := &Node{
+		Definition: "workflow-root",
+		Schema:     GetWorkflowSchema(),
+	}
+	require.NoError(t, n.UnmarshalYAML(&node))
+}
+
 func TestSchemaServicesContextExpressions(t *testing.T) {
 	var node yaml.Node
 	err := yaml.Unmarshal([]byte(`
