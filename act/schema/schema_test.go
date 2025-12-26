@@ -359,6 +359,35 @@ jobs:
 	assert.NoError(t, err)
 }
 
+func TestSchemaContainer(t *testing.T) {
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(`
+on:
+  push:
+jobs:
+  container-schema:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.20
+      credentials:
+        username: 'root'
+        password: 'admin1234'
+      env:
+        SOME_VARIABLE: contents
+      options: "--hostname alpine"
+      volumes:
+        - /srv/example:/srv/example
+    steps:
+      - run: echo "OK"
+`), &node)
+	require.NoError(t, err)
+	n := &Node{
+		Definition: "workflow-root",
+		Schema:     GetWorkflowSchema(),
+	}
+	require.NoError(t, n.UnmarshalYAML(&node))
+}
+
 func TestSchemaServices(t *testing.T) {
 	var node yaml.Node
 	err := yaml.Unmarshal([]byte(`

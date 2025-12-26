@@ -2024,15 +2024,7 @@
             "type": "non-empty-string",
             "description": "Use `jobs.<job_id>.container.options` to configure additional Docker container resource options."
           },
-          "cmd": {
-            "type": "sequence-of-non-empty-string",
-            "description": "Use `jobs.<job_id>.container.cmd` to specify the command to run instead of the default."
-          },
           "env": "container-env",
-          "ports": {
-            "type": "sequence-of-non-empty-string",
-            "description": "Use `jobs.<job_id>.container.ports` to set an array of ports to expose on the container."
-          },
           "volumes": {
             "type": "sequence-of-non-empty-string",
             "description": "Use `jobs.<job_id>.container.volumes` to set an array of volumes for the container to use. You can use volumes to share data between services or other steps in a job. You can specify named Docker volumes, anonymous Docker volumes, or bind mounts on the host."
