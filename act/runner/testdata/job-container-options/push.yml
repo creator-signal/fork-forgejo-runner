@@ -4,13 +4,15 @@ on: push
 defaults:
   run:
     shell: bash
+env:
+  hostname: "my.host.local"
 
 jobs:
   with-hostname:
     runs-on: ubuntu-latest
     container:
       image: code.forgejo.org/oci/node:22-bookworm
-      options: "--hostname my.host.local"
+      options: "--hostname ${{ env.hostname }}"
     steps:
       - run: |
           echo "HOST: $(uname -n)"

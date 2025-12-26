@@ -1,0 +1,15 @@
+on:
+  push:
+env:
+  name: "Alice"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/node:22-bookworm
+      env:
+        greeting: "Hello ${{ env.name }}"
+    steps:
+      - run: |
+          echo "env.greeting=${{ env.greeting }}"
+          [[ "${{ env.greeting }}" = "Hello Alice" ]] || exit 1
