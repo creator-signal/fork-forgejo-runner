@@ -154,7 +154,12 @@ func (rc *RunContext) GetBindsAndMounts(ctx context.Context) ([]string, map[stri
 
 	if job := rc.Run.Job(); job != nil {
 		if container := job.Container(); container != nil {
-			for _, v := range container.Volumes {
+			interpolatedVolumes := make([]string, 0, len(container.Volumes))
+			for _, volume := range container.Volumes {
+				interpolatedVolumes = append(interpolatedVolumes, rc.ExprEval.Interpolate(ctx, volume))
+			}
+
+			for _, v := range interpolatedVolumes {
 				if !strings.Contains(v, ":") || filepath.IsAbs(v) {
 					// Bind anonymous volume or host file.
 					binds = append(binds, v)

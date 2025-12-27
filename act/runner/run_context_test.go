@@ -268,14 +268,19 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 				rc := &RunContext{
 					Name: "TestRCName",
 					Run: &model.Run{
+						JobID: "test",
 						Workflow: &model.Workflow{
 							Name: "TestWorkflowName",
+							Jobs: map[string]*model.Job{
+								"test": {},
+							},
 						},
 					},
 					Config: &Config{
 						BindWorkdir: false,
 					},
 				}
+				rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
 				rc.Run.JobID = "job1"
 				rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
 

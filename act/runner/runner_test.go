@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -199,6 +200,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		Matrix:                cfg.Matrix,
 		JobLoggerLevel:        cfg.JobLoggerLevel,
 		ContainerDaemonSocket: os.Getenv("DOCKER_HOST"),
+		ValidVolumes:          cfg.ValidVolumes,
 	}
 	if cfg.GitHubInstance != "" {
 		runnerConfig.GitHubInstance = cfg.GitHubInstance
@@ -815,4 +817,27 @@ func TestRunner_ReusableWorkflowGitHubInstance(t *testing.T) {
 			tjfi.runTest(t.Context(), t, &Config{GitHubInstance: gitHubInstance})
 		})
 	}
+}
+
+func TestRunner_JobContainerVolumes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+
+	tempDir := t.TempDir()
+	volumePath := path.Join(tempDir, "file.txt")
+	err := os.WriteFile(volumePath, []byte("hello"), 0o644)
+	require.NoError(t, err)
+
+	jobFile := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "job-container-volumes",
+		eventName:    "push",
+		errorMessage: "",
+		platforms:    platforms,
+	}
+
+	config := &Config{Env: map[string]string{"volume_path": volumePath}, ValidVolumes: []string{volumePath}}
+	jobFile.runTest(t.Context(), t, config)
 }

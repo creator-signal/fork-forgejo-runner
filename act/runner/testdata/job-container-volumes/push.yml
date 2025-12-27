@@ -1,0 +1,13 @@
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/node:22-bookworm
+      volumes:
+        - "${{ env.volume_path }}:/mnt/file.txt"
+    steps:
+      - run: |
+          [[ -f "/mnt/file.txt" ]] || exit 1
+          [[ "$(cat /mnt/file.txt)" = "hello" ]] || exit 1
