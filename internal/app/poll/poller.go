@@ -70,12 +70,39 @@ func (p *poller) init(ctx context.Context, cfg *config.Config, client client.Cli
 
 func (p *poller) Poll() {
 	limiter := rate.NewLimiter(rate.Every(p.cfg.Runner.FetchInterval), 1)
+
+	capacity := int64(p.cfg.Runner.Capacity)
+	inProgressTasks := atomic.Int64{}
 	wg := &sync.WaitGroup{}
-	for i := 0; i < p.cfg.Runner.Capacity; i++ {
-		wg.Add(1)
-		go p.poll(i, wg, limiter)
+
+	log.Infof("[poller] launched")
+	for {
+		if err := limiter.Wait(p.pollingCtx); err != nil {
+			log.Infof("[poller] shutdown begin, %d tasks currently running", inProgressTasks.Load())
+			break
+		}
+
+		availableCapacity := capacity - inProgressTasks.Load()
+		if availableCapacity > 0 {
+			log.Tracef("[poller] fetching at most %d tasks", availableCapacity)
+			tasks, ok := p.fetchTasks(p.pollingCtx, availableCapacity)
+			if !ok {
+				continue
+			}
+
+			log.Tracef("[poller] successfully fetched %d tasks", len(tasks))
+			for _, task := range tasks {
+				inProgressTasks.Add(1)
+				wg.Go(func() {
+					p.runTaskWithRecover(p.jobsCtx, task)
+					inProgressTasks.Add(-1)
+				})
+			}
+		}
 	}
+
 	wg.Wait()
+	log.Trace("[poller] shutdown complete, all tasks complete")
 
 	// signal the poller is finished
 	close(p.done)
@@ -98,22 +125,6 @@ func (p *poller) Shutdown(ctx context.Context) error {
 	}
 }
 
-func (p *poller) poll(id int, wg *sync.WaitGroup, limiter *rate.Limiter) {
-	log.Infof("[poller %d] launched", id)
-	defer wg.Done()
-	for {
-		if err := limiter.Wait(p.pollingCtx); err != nil {
-			log.Infof("[poller %d] shutdown", id)
-			return
-		}
-		task, ok := p.fetchTask(p.pollingCtx)
-		if !ok {
-			continue
-		}
-		p.runTaskWithRecover(p.jobsCtx, task)
-	}
-}
-
 func (p *poller) runTaskWithRecover(ctx context.Context, task *runnerv1.Task) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -127,7 +138,11 @@ func (p *poller) runTaskWithRecover(ctx context.Context, task *runnerv1.Task) {
 	}
 }
 
-func (p *poller) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
+func (p *poller) fetchTasks(ctx context.Context, availableCapacity int64) ([]*runnerv1.Task, bool) {
+	if availableCapacity == 0 {
+		return nil, false
+	}
+
 	reqCtx, cancel := context.WithTimeout(ctx, p.cfg.Runner.FetchTimeout)
 	defer cancel()
 
@@ -135,6 +150,7 @@ func (p *poller) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 	v := p.tasksVersion.Load()
 	resp, err := p.client.FetchTask(reqCtx, connect.NewRequest(&runnerv1.FetchTaskRequest{
 		TasksVersion: v,
+		TaskCapacity: &availableCapacity,
 	}))
 	if errors.Is(err, context.DeadlineExceeded) {
 		log.Trace("deadline exceeded")
@@ -161,8 +177,11 @@ func (p *poller) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 		return nil, false
 	}
 
-	// got a task, set `tasksVersion` to zero to focre query db in next request.
+	// got a task, set `tasksVersion` to zero to force query db in next request.
 	p.tasksVersion.CompareAndSwap(resp.Msg.GetTasksVersion(), 0)
 
-	return resp.Msg.GetTask(), true
+	taskSlice := []*runnerv1.Task{resp.Msg.GetTask()}
+	taskSlice = append(taskSlice, resp.Msg.GetAdditionalTasks()...)
+
+	return taskSlice, true
 }

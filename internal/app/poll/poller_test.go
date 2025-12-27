@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"connectrpc.com/connect"
@@ -14,10 +15,14 @@ import (
 	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
+	mock_runner "code.forgejo.org/forgejo/runner/v12/internal/app/run/mocks"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockPoller struct {
@@ -32,10 +37,11 @@ type mockClient struct {
 	pingv1connect.PingServiceClient
 	runnerv1connect.RunnerServiceClient
 
-	sleep  time.Duration
-	cancel bool
-	err    error
-	noTask bool
+	sleep     time.Duration
+	cancel    bool
+	err       error
+	noTask    bool
+	addtTasks bool
 }
 
 func (o mockClient) Address() string {
@@ -69,9 +75,15 @@ func (o *mockClient) FetchTask(ctx context.Context, req *connect.Request[runnerv
 		o.noTask = false
 	}
 
+	var addt []*runnerv1.Task
+	if o.addtTasks {
+		addt = append(addt, &runnerv1.Task{})
+	}
+
 	return connect.NewResponse(&runnerv1.FetchTaskResponse{
-		Task:         task,
-		TasksVersion: int64(1),
+		Task:            task,
+		TasksVersion:    int64(1),
+		AdditionalTasks: addt,
 	}), nil
 }
 
@@ -206,16 +218,19 @@ func TestPoller_Runner(t *testing.T) {
 func TestPoller_Fetch(t *testing.T) {
 	setTrace(t)
 	for _, testCase := range []struct {
-		name    string
-		noTask  bool
-		sleep   time.Duration
-		err     error
-		cancel  bool
-		success bool
+		name      string
+		noTask    bool
+		sleep     time.Duration
+		err       error
+		cancel    bool
+		success   bool
+		addtTasks bool
+		taskCount int
 	}{
 		{
-			name:    "Success",
-			success: true,
+			name:      "Success",
+			success:   true,
+			taskCount: 1,
 		},
 		{
 			name:  "Timeout",
@@ -228,6 +243,12 @@ func TestPoller_Fetch(t *testing.T) {
 		{
 			name:   "NoTask",
 			noTask: true,
+		},
+		{
+			name:      "AdditionalTasks",
+			success:   true,
+			addtTasks: true,
+			taskCount: 2,
 		},
 		{
 			name: "Error",
@@ -245,21 +266,211 @@ func TestPoller_Fetch(t *testing.T) {
 					Runner: configRunner,
 				},
 				&mockClient{
-					sleep:  testCase.sleep,
-					cancel: testCase.cancel,
-					noTask: testCase.noTask,
-					err:    testCase.err,
+					sleep:     testCase.sleep,
+					cancel:    testCase.cancel,
+					noTask:    testCase.noTask,
+					err:       testCase.err,
+					addtTasks: testCase.addtTasks,
 				},
 				&mockRunner{},
 			)
-			task, ok := p.fetchTask(context.Background())
+			task, ok := p.fetchTasks(context.Background(), 100)
 			if testCase.success {
 				assert.True(t, ok)
 				assert.NotNil(t, task)
+				assert.Len(t, task, testCase.taskCount)
 			} else {
 				assert.False(t, ok)
 				assert.Nil(t, task)
 			}
 		})
 	}
+}
+
+func TestPollerPoll(t *testing.T) {
+	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.Client, *mock_runner.RunnerInterface, Poller) {
+		mockClient := mocks.NewClient(t)
+		mockRunner := mock_runner.NewRunnerInterface(t)
+		poller := New(pollingCtx, &config.Config{
+			Runner: config.Runner{
+				Capacity:      3,
+				FetchInterval: 1 * time.Second,
+			},
+		}, mockClient, mockRunner)
+		return mockClient, mockRunner, poller
+	}
+	teardown := func(t *testing.T, mockClient *mocks.Client, mockRunner *mock_runner.RunnerInterface) {
+		mockClient.AssertExpectations(t)
+		mockRunner.AssertExpectations(t)
+	}
+	emptyResponse := connect.NewResponse(&runnerv1.FetchTaskResponse{
+		Task:            nil,
+		TasksVersion:    int64(1),
+		AdditionalTasks: nil,
+	})
+	task1 := &runnerv1.Task{}
+	task2 := &runnerv1.Task{}
+	task3 := &runnerv1.Task{}
+	twoTaskResponse := connect.NewResponse(&runnerv1.FetchTaskResponse{
+		Task:            task1,
+		TasksVersion:    int64(1),
+		AdditionalTasks: []*runnerv1.Task{task2},
+	})
+	threeTaskResponse := connect.NewResponse(&runnerv1.FetchTaskResponse{
+		Task:            task1,
+		TasksVersion:    int64(1),
+		AdditionalTasks: []*runnerv1.Task{task2, task3},
+	})
+
+	// invocations of `fetchTasks` are rate limited per configuration
+	t.Run("fetchTasks rate limited", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).Return(emptyResponse, nil)
+
+			go poller.Poll()
+
+			time.Sleep(1 * time.Millisecond) // should immediately FetchTask
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 1)
+
+			time.Sleep(998 * time.Millisecond) // not again until all of FetchInterval (1s) passes
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 1)
+
+			time.Sleep(3 * time.Millisecond) // but then it does FetchTask again
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 2)
+
+			require.NoError(t, poller.Shutdown(t.Context()))
+
+			teardown(t, mockClient, mockRunner)
+		})
+	})
+
+	t.Run("available capacity is passed to fetchTask", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					req := args.Get(1).(*connect.Request[runnerv1.FetchTaskRequest])
+					assert.EqualValues(t, 0, req.Msg.GetTasksVersion(), "GetTasksVersion")
+					assert.EqualValues(t, 3, req.Msg.GetTaskCapacity(), "GetTaskCapacity")
+				}).
+				Return(emptyResponse, nil)
+
+			go poller.Poll()
+			time.Sleep(1 * time.Millisecond)
+			require.NoError(t, poller.Shutdown(t.Context()))
+
+			teardown(t, mockClient, mockRunner)
+		})
+	})
+
+	t.Run("available capacity is varied as tasks start and finish", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			// First fetch -- assert 3 capacity requested, return two tasks
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					req := args.Get(1).(*connect.Request[runnerv1.FetchTaskRequest])
+					assert.EqualValues(t, 0, req.Msg.GetTasksVersion(), "GetTasksVersion Call 1")
+					assert.EqualValues(t, 3, req.Msg.GetTaskCapacity(), "GetTaskCapacity Call 1")
+				}).
+				Return(twoTaskResponse, nil)
+			// Second fetch -- assert 1 capacity, return no tasks
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					req := args.Get(1).(*connect.Request[runnerv1.FetchTaskRequest])
+					assert.EqualValues(t, 0, req.Msg.GetTasksVersion(), "GetTasksVersion Call 2")
+					assert.EqualValues(t, 1, req.Msg.GetTaskCapacity(), "GetTaskCapacity Call 2")
+				}).
+				Return(emptyResponse, nil)
+			// Third fetch -- assert 3 capacity, return no tasks
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					req := args.Get(1).(*connect.Request[runnerv1.FetchTaskRequest])
+					assert.EqualValues(t, 1, req.Msg.GetTasksVersion(), "GetTasksVersion Call 3")
+					assert.EqualValues(t, 3, req.Msg.GetTaskCapacity(), "GetTaskCapacity Call 3")
+				}).
+				Return(emptyResponse, nil)
+			mockRunner.On("Run", mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					// Take some time to execute so that the 2nd FetchTask still has these tasks considered in-progress.
+					time.Sleep(1500 * time.Millisecond)
+				}).
+				Return(nil)
+
+			go poller.Poll()
+			time.Sleep(1 * time.Millisecond)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 1)
+			time.Sleep(1 * time.Second)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 2)
+			time.Sleep(1 * time.Second)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 3)
+			require.NoError(t, poller.Shutdown(t.Context()))
+
+			teardown(t, mockClient, mockRunner)
+		})
+	})
+
+	t.Run("no FetchTask when available capacity is zero", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Return(threeTaskResponse, nil)
+			mockRunner.On("Run", mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					time.Sleep(1 * time.Hour)
+				}).
+				Return(nil)
+
+			go poller.Poll()
+			time.Sleep(1 * time.Millisecond)
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 1)
+			time.Sleep(30 * time.Minute) // a long time later, but jobs are using up all the capacity...
+			mockClient.AssertNumberOfCalls(t, "FetchTask", 1)
+			require.NoError(t, poller.Shutdown(t.Context()))
+
+			teardown(t, mockClient, mockRunner)
+		})
+	})
+
+	t.Run("poll shutdown waits for task completion", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Return(twoTaskResponse, nil)
+			mockRunner.On("Run", mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					time.Sleep(1 * time.Hour)
+				}).
+				Return(nil)
+
+			go poller.Poll()
+			time.Sleep(1 * time.Millisecond) // let poll get started, fetch tasks, start them
+			shutdownStart := time.Now()
+			require.NoError(t, poller.Shutdown(t.Context()))
+			shutdownEnd := time.Now()
+			assert.EqualValues(t, 3599999000, shutdownEnd.Sub(shutdownStart).Microseconds())
+
+			teardown(t, mockClient, mockRunner)
+		})
+	})
 }
