@@ -24,6 +24,7 @@ type createRunnerFileArgs struct {
 	Connect      bool
 	InstanceAddr string
 	Secret       string
+	Labels       []string
 	Name         string
 }
 
@@ -40,6 +41,7 @@ func createRunnerFileCmd(ctx context.Context, configFile *string) *cobra.Command
 	_ = cmd.MarkFlagRequired("instance")
 	cmd.Flags().StringVar(&argsVar.Secret, "secret", "", "secret shared with the Forgejo instance via forgejo-cli actions register")
 	_ = cmd.MarkFlagRequired("secret")
+	cmd.Flags().StringArrayVar(&argsVar.Labels, "label", []string{}, "labels to set for the new runner config")
 	cmd.Flags().StringVar(&argsVar.Name, "name", "", "Runner name")
 
 	return cmd
@@ -118,6 +120,10 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 			UUID:    uuid,
 			Token:   args.Secret,
 			Address: args.InstanceAddr,
+		}
+
+		if len(args.Labels) != 0 {
+			reg.Labels = args.Labels
 		}
 
 		//
