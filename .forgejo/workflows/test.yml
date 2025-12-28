@@ -153,12 +153,11 @@ jobs:
           # gcc -- for `go test -race`
           apt-get install -qq -y \
             qemu-user-static binfmt-support \
-            gcc
+            gcc make
 
       - name: integration test
         run: |
-          go test -race ./act/container
-          go test -race -timeout 30m ./act/runner/...
+          make act-integration-test
         env:
           TEST_MUST_SUPPORT_MIXED_ARCH: true
 
@@ -205,7 +204,7 @@ jobs:
 
       - run: apt-get install -y -qq gcc # required for `-race`
 
-      - run: make integration-test
+      - run: make runner-integration-test
 
   validate-mocks:
     name: validate mocks

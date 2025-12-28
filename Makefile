@@ -110,8 +110,17 @@ test: lint-check fmt-check
 	$(GO) test -race -short ./act/container
 	$(GO) test -race ./act/artifactcache/... ./act/workflowpattern/... ./act/filecollector/... ./act/common/... ./act/jobparser ./act/model ./act/exprparser ./act/schema
 
-integration-test:
+.PHONY: integration-test
+integration-test: runner-integration-test act-integration-test
+
+.PHONY: runner-integration-test
+runner-integration-test:
 	@$(GO) test -race -v ./internal/app/run/...
+
+.PHONY: act-integration-test
+act-integration-test:
+	@$(GO) test -race ./act/container
+	@$(GO) test -race -v -timeout 30m ./act/runner/...
 
 .PHONY: vet
 vet:
