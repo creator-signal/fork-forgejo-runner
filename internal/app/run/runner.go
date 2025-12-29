@@ -263,6 +263,10 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	if defaultActionURL == "" {
 		return fmt.Errorf("task %v context does not contain a {forgejo,gitea}_default_actions_url key", task.Id)
 	}
+
+	serverVersion := client.BackwardCompatibleContext(task, "server_version")
+	log.Debugf("Forgejo server version '%s'", serverVersion)
+
 	log.Infof("task %v repo is %v %v %v", task.Id, taskContext["repository"].GetStringValue(),
 		defaultActionURL,
 		r.client.Address())
@@ -373,6 +377,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		ValidVolumes:               r.cfg.Container.ValidVolumes,
 		InsecureSkipTLS:            r.cfg.Runner.Insecure,
 		Inputs:                     inputs,
+		ServerVersion:              serverVersion,
 	}
 
 	if r.cfg.Log.JobLevel != "" {

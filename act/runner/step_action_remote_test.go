@@ -636,3 +636,141 @@ func Test_newRemoteAction(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoteActionCloneToken(t *testing.T) {
+	tests := []struct {
+		name                  string
+		defaultActionInstance string
+		githubInstance        string
+		serverVersion         string
+		remoteURL             string
+		token                 string
+		expectedToken         string
+	}{
+		{
+			name:                  "Token set when instances match and default actions URL is used",
+			defaultActionInstance: "forgejo.my-instance.com",
+			githubInstance:        "forgejo.my-instance.com",
+			serverVersion:         "14.0.0",
+			remoteURL:             "",
+			token:                 "test-token",
+			expectedToken:         "test-token",
+		},
+		{
+			name:                  "Token empty when instances differ and default actions URL is used",
+			defaultActionInstance: "forgejo.my-instance.com",
+			githubInstance:        "forgejo.other-instance.com",
+			serverVersion:         "14.0.0",
+			remoteURL:             "",
+			token:                 "test-token",
+			expectedToken:         "",
+		},
+		{
+			name:                  "Token empty when explicit URL is provided pointing to other instance",
+			defaultActionInstance: "forgejo.my-instance.com",
+			githubInstance:        "forgejo.my-instance.com",
+			serverVersion:         "14.0.0",
+			remoteURL:             "https://forgejo.other-instance.com",
+			token:                 "test-token",
+			expectedToken:         "",
+		},
+		{
+			name:                  "Token set when explicit URL is provided and it matches the instance URL",
+			defaultActionInstance: "forgejo.my-instance.com",
+			githubInstance:        "forgejo.my-instance.com",
+			serverVersion:         "14.0.0",
+			remoteURL:             "https://forgejo.my-instance.com",
+			token:                 "test-token",
+			expectedToken:         "test-token",
+		},
+		{
+			name:                  "Token empty when server version < 13.0.0",
+			defaultActionInstance: "forgejo.my-instance.com",
+			githubInstance:        "forgejo.my-instance.com",
+			serverVersion:         "12.0.0",
+			remoteURL:             "",
+			token:                 "test-token",
+			expectedToken:         "",
+		},
+		{
+			name:                  "Token empty when server version not included in context",
+			defaultActionInstance: "forgejo.my-instance.com",
+			githubInstance:        "forgejo.my-instance.com",
+			serverVersion:         "",
+			remoteURL:             "",
+			token:                 "test-token",
+			expectedToken:         "",
+		},
+		{
+			name:                  "Token set when server version is a full release",
+			defaultActionInstance: "forgejo.my-instance.com",
+			githubInstance:        "forgejo.my-instance.com",
+			serverVersion:         "13.0.3-3-5926dae208+gitea-1.22.0",
+			remoteURL:             "",
+			token:                 "test-token",
+			expectedToken:         "test-token",
+		},
+		{
+			name:                  "Token set when server version is a pre-release",
+			defaultActionInstance: "forgejo.my-instance.com",
+			githubInstance:        "forgejo.my-instance.com",
+			serverVersion:         "15.0.0-dev-73-8f4c20c1af+gitea-1.22.0",
+			remoteURL:             "",
+			token:                 "test-token",
+			expectedToken:         "test-token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+
+			var capturedToken string
+			sarm := &stepActionRemoteMocks{}
+
+			origStepAtionRemoteGitClone := stepActionRemoteGitClone
+			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) (git.Worktree, error) {
+				capturedToken = input.Token
+				return &UselessWorktree{}, nil
+			}
+			defer func() {
+				stepActionRemoteGitClone = origStepAtionRemoteGitClone
+			}()
+
+			uses := "org/repo@v1"
+			if tt.remoteURL != "" {
+				uses = tt.remoteURL + "/" + uses
+			}
+
+			sar := &stepActionRemote{
+				Step: &model.Step{Uses: uses},
+				RunContext: &RunContext{
+					Config: &Config{
+						DefaultActionInstance: tt.defaultActionInstance,
+						GitHubInstance:        tt.githubInstance,
+						ServerVersion:         tt.serverVersion,
+						Token:                 tt.token,
+					},
+					Run: &model.Run{
+						JobID: "1",
+						Workflow: &model.Workflow{
+							Jobs: map[string]*model.Job{
+								"1": {},
+							},
+						},
+					},
+				},
+				readAction: sarm.readAction,
+			}
+
+			sarm.On("readAction", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				Return(&model.Action{}, nil)
+
+			err := sar.prepareActionExecutor()(ctx)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedToken, capturedToken)
+			sarm.AssertExpectations(t)
+		})
+	}
+}

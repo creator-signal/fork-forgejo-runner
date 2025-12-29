@@ -16,6 +16,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/common/git"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"github.com/Masterminds/semver"
 )
 
 type stepActionRemote struct {
@@ -32,6 +33,8 @@ type stepActionRemote struct {
 }
 
 var stepActionRemoteGitClone = git.Clone
+
+var protoRegex = regexp.MustCompile("^https?://")
 
 func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 	return func(ctx context.Context) error {
@@ -65,17 +68,21 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 
 		var ntErr common.Executor
 		if sar.workTree == nil {
+			token := ""
+			tokenSupported, err := tokenAuthSupported(sar.RunContext.Config.ServerVersion)
+			if err != nil {
+				common.Logger(ctx).Warnf("failed to determine token auth support from server version '%s': %w", sar.RunContext.Config.ServerVersion, err)
+			}
+
+			// If we're pulling the action from the instance itself, set the auth token
+			if tokenSupported && (sar.remoteAction.URL == "" && sar.RunContext.Config.DefaultActionInstance == sar.RunContext.Config.GitHubInstance) || (protoRegex.ReplaceAllString(sar.remoteAction.URL, "") == sar.RunContext.Config.GitHubInstance) {
+				token = github.Token
+			}
 			wt, err := stepActionRemoteGitClone(ctx, git.CloneInput{
-				CacheDir: sar.RunContext.ActionCacheDir(),
-				URL:      sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance),
-				Ref:      sar.remoteAction.Ref,
-				Token:    "", /*
-					Shouldn't provide token when cloning actions,
-					the token comes from the instance which triggered the task,
-					however, it might be not the same instance which provides actions.
-					For GitHub, they are the same, always github.com.
-					But for Gitea, tasks triggered by a.com can clone actions from b.com.
-				*/
+				CacheDir:    sar.RunContext.ActionCacheDir(),
+				URL:         sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance),
+				Ref:         sar.remoteAction.Ref,
+				Token:       token,
 				OfflineMode: sar.RunContext.Config.ActionOfflineMode,
 
 				InsecureSkipTLS: sar.cloneSkipTLS(), // For Gitea
@@ -308,4 +315,25 @@ func parseAction(action string) *remoteAction {
 		Ref:  matches[6],
 		URL:  "",
 	}
+}
+
+// Helper function to determine if token auth will work for cloning
+// actions from "public" repos.
+// See: https://codeberg.org/forgejo/forgejo/pulls/8889
+func tokenAuthSupported(serverVersion string) (bool, error) {
+	if serverVersion == "" {
+		return false, nil
+	}
+
+	v, err := semver.NewVersion(serverVersion)
+	if err != nil {
+		return false, err
+	}
+
+	c, err := semver.NewConstraint(">= 13.0.0-0")
+	if err != nil {
+		return false, err
+	}
+
+	return c.Check(v), nil
 }
