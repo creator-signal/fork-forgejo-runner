@@ -286,7 +286,7 @@ func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input 
 }
 
 func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
-	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"}
+	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*"}
 	fetchOptions.Force = true
 	pullOptions.Force = true
 

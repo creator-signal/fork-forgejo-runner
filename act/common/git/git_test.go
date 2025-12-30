@@ -438,6 +438,38 @@ func TestClone(t *testing.T) {
 		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, commit3, clonedSHA)
 	})
+
+	t.Run("Does not create spurious refs", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
+		// Create a local repo that will act as the remote to be cloned.
+		remoteDir := makeTestRepo(t)
+
+		// Create a tag
+		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
+		makeTestTag(t, remoteDir, fullSHA, "tag-1")
+
+		// Clone the repo by tag
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "tag-1",
+		})
+		require.NoError(t, err)
+		defer wt1.Close()
+
+		// Verify that the head in cloneDir is correct.
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
+		assert.Equal(t, fullSHA, clonedSHA)
+
+		// Verify no spurious branches were created during cloning due to an invalid refspec.
+		branches := getTestRepoBranches(t, wt1.WorktreeDir())
+		assert.Equal(t, []string{"* (no branch)", "+ main"}, branches)
+
+		// Verify no spurious tags were created during cloning due to an invalid refspec.
+		tags := getTestRepoTags(t, wt1.WorktreeDir())
+		assert.Equal(t, []string{"tag-1"}, tags)
+	})
 }
 
 func makeTestRepo(t *testing.T) string {
@@ -471,6 +503,36 @@ func getTestRepoHead(t *testing.T, repoPath string) string {
 	require.NoError(t, err)
 	clonedSHA := strings.TrimSpace(string(output))
 	return clonedSHA
+}
+
+func getTestRepoBranches(t *testing.T, repoPath string) []string {
+	t.Helper()
+
+	cmd := exec.Command("git", "-C", repoPath, "branch")
+	output, err := cmd.Output()
+	require.NoError(t, err)
+
+	var branches []string
+	for line := range strings.Lines(string(output)) {
+		branches = append(branches, strings.TrimSpace(line))
+	}
+
+	return branches
+}
+
+func getTestRepoTags(t *testing.T, repoPath string) []string {
+	t.Helper()
+
+	cmd := exec.Command("git", "-C", repoPath, "tag")
+	output, err := cmd.Output()
+	require.NoError(t, err)
+
+	var tags []string
+	for line := range strings.Lines(string(output)) {
+		tags = append(tags, strings.TrimSpace(line))
+	}
+
+	return tags
 }
 
 func gitConfig() {
