@@ -477,6 +477,37 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		// `expand_reusable_incomplete6` tests expanding an incomplete reusable workflow within a parent reusable
+		// workflow, and being able to reference the inputs that were defined from the parent workflow and stored in
+		// `on.workflow_call.inputs` as default values.  In particular, the `inputs` provided to the jobparser shouldn't
+		// be used since those will always be Forgejo's perspective of the outer-most workflow's inputs.
+		{
+			name:                           "expand_reusable_incomplete6",
+			reparsingSingleWorkflow:        true,
+			expectingInvalidWorkflowOutput: true,
+			options: []ParseOption{
+				WithWorkflowNeeds([]string{"define-runs-on"}),
+				WithJobOutputs(map[string]map[string]string{
+					"define-runs-on": {
+						"runners": "nixos-25.11",
+					},
+				}),
+				WithInputs(map[string]any{
+					// These inputs should all be overridden but are provided to ensure they don't appear in the output
+					"example-boolean-required": false,
+					"example-number-required":  456,
+					"example-string-required":  "no thanks",
+				}),
+				SupportIncompleteRunsOn(),
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_incomplete6_reusable.yml" {
+						content := ReadTestdata(t, "expand_reusable_incomplete6_reusable.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

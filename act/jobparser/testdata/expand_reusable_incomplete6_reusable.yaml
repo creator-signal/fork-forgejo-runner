@@ -1,0 +1,17 @@
+on:
+  workflow_call:
+    inputs:
+      input1:
+        type: boolean
+      input2:
+        type: number
+      input3:
+        type: string
+      input4:
+        type: string
+
+jobs:
+  job1:
+    runs-on: ${{ inputs.input4 }}
+    steps:
+      - run: echo "Woohoo!"

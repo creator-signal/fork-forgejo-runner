@@ -63,6 +63,17 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		pc.parentUniqueID = workflow.Metadata.WorkflowCallID
 	}
 
+	// `pc.inputs` are the inputs for the job that should be used whenever `${{ inputs... }}` appears in the job
+	// definition. However, if `content` represents a reusable workflow job, then any reference to `${{ inputs... }}`
+	// should actually come from `on.workflow_call.inputs`. Normally this is handled in `expandReusableWorkflow` by
+	// replacing the inputs in the `ParseOption` array, but, we could also be re-parsing a reusable workflow that was
+	// incomplete in which case `pc.inputs` will be the global inputs and incorrect for evaluation. That case needs to
+	// be detected and overridden:
+	if workflow.Metadata.WorkflowCallParent != "" {
+		// This workflow has parent metadata, so that means it is a child workflow job; replace `pc.inputs`.
+		pc.inputs = getWorkflowCallInputDefaults(origin)
+	}
+
 	results := map[string]*JobResult{}
 	for id, job := range origin.Jobs {
 		results[id] = &JobResult{
@@ -902,4 +913,26 @@ func generateWorkflowCallID(parentJobID, jobID string, matrix map[string]any) st
 	}
 
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func getWorkflowCallInputDefaults(job *model.Workflow) map[string]any {
+	workflowCallConfig := job.WorkflowCallConfig()
+	if workflowCallConfig == nil {
+		return nil
+	}
+
+	overrideInputs := map[string]any{}
+	for k, input := range workflowCallConfig.Inputs {
+		overrideInputs[k] = input.Default
+		var value any
+		if value == nil {
+			_ = input.Default.Decode(&value)
+		}
+		if input.Type == "boolean" {
+			overrideInputs[k] = value == "true" || value == true
+		} else {
+			overrideInputs[k] = value
+		}
+	}
+	return overrideInputs
 }

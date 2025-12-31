@@ -1,0 +1,30 @@
+"on":
+  workflow_call:
+    inputs:
+      example-boolean-required:
+        default: true
+        type: boolean
+      example-number-required:
+        default: 123
+        type: number
+      example-string-required:
+        default: reusable-1
+        type: string
+name: test
+jobs:
+  reusable:
+    name: reusable (incomplete matrix)
+    needs: define-runs-on
+    runs-on: []
+    uses: ./.forgejo/workflows/expand_reusable_incomplete6_reusable.yml
+    with:
+      input1: ${{ inputs.example-boolean-required }}
+      input2: ${{ inputs.example-number-required }}
+      input3: ${{ inputs.example-string-required }}
+      input4: ${{ needs.define-runs-on.outputs.runners }}
+incomplete_with: true
+incomplete_with_needs:
+  job: define-runs-on
+  output: runners
+__metadata:
+  workflow_call_parent: 93e6933d7bffb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b

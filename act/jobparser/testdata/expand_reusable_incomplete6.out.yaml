@@ -1,0 +1,56 @@
+name: test
+"on":
+  workflow_call:
+    inputs:
+      example-boolean-required:
+        default: true
+        type: boolean
+      example-number-required:
+        default: 123
+        type: number
+      example-string-required:
+        default: reusable-1
+        type: string
+jobs:
+  reusable:
+    name: reusable
+    needs:
+      - define-runs-on
+      - reusable.job1
+    runs-on: []
+    if: false
+__metadata:
+  workflow_call_inputs:
+    input1: true
+    input2: 123
+    input3: reusable-1
+    input4: nixos-25.11
+  workflow_call_id: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
+  workflow_call_parent: 93e6933d7bffb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      input1:
+        default: true
+        type: boolean
+      input2:
+        default: 123
+        type: number
+      input3:
+        default: reusable-1
+        type: string
+      input4:
+        default: nixos-25.11
+        type: string
+jobs:
+  reusable.job1:
+    name: job1
+    needs:
+      - define-runs-on
+    runs-on: nixos-25.11
+    steps:
+      - run: echo "Woohoo!"
+__metadata:
+  workflow_call_parent: 93e6933d7beeb610a7aeecf39163ff8c6ec563c2f4b84ea80d9144de72de713b
