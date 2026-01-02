@@ -256,6 +256,32 @@ jobs:
 		Schema:     GetWorkflowSchema(),
 	}
 	require.NoError(t, n.UnmarshalYAML(&node))
+
+	// optional runs-on
+	err = yaml.Unmarshal([]byte(`
+name: Build Silo Frontend DEV
+on:
+  push:
+    branches:
+      - dev
+      - dev-*
+jobs:
+  build_frontend_dev:
+    name: Build Silo Frontend DEV
+    container:
+      image: code.forgejo.org/oci/${{ env.IMAGE }}
+    uses: ./.forgejo/workflows/${{ vars.PATHNAME }}
+    with:
+      STAGE: dev
+    secrets:
+      PACKAGE_WRITER_TOKEN: ${{ secrets.PACKAGE_WRITER_TOKEN }}
+`), &node)
+	require.NoError(t, err)
+	n = &Node{
+		Definition: "workflow-root",
+		Schema:     GetWorkflowSchema(),
+	}
+	require.NoError(t, n.UnmarshalYAML(&node))
 }
 
 func TestActionSchema(t *testing.T) {

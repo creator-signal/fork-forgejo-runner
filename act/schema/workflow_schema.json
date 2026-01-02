@@ -1474,8 +1474,7 @@
             "required": true
           },
           "runs-on": {
-            "type": "runs-on",
-            "required": true
+            "type": "runs-on"
           },
           "container": "container",
           "with": "workflow-job-with",
