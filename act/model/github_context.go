@@ -93,8 +93,8 @@ func withDefaultBranch(ctx context.Context, b string, event map[string]any) map[
 }
 
 var (
-	findGitRef      = git.FindGitRef
-	findGitRevision = git.FindGitRevision
+	findGitRef      = git.DescribeHead
+	findGitRevision = git.ResolveHead
 )
 
 func (ghc *GithubContext) SetRef(ctx context.Context, defaultBranch, repoPath string) {
@@ -170,7 +170,7 @@ func (ghc *GithubContext) SetSha(ctx context.Context, repoPath string) {
 
 func (ghc *GithubContext) SetRepositoryAndOwner(ctx context.Context, githubInstance, remoteName, repoPath string) {
 	if ghc.Repository == "" {
-		repo, err := git.FindGithubRepo(ctx, repoPath, githubInstance, remoteName)
+		repo, err := git.GetRepositoryName(ctx, repoPath, githubInstance, remoteName)
 		if err != nil {
 			common.Logger(ctx).Debugf("unable to get git repo (githubInstance: %v; remoteName: %v, repoPath: %v): %v", githubInstance, remoteName, repoPath, err)
 			return

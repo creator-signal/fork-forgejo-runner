@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -16,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFindGitSlug(t *testing.T) {
+func TestFindSlug(t *testing.T) {
 	assert := assert.New(t)
 
 	slugTests := []struct {
@@ -46,7 +45,7 @@ func TestFindGitSlug(t *testing.T) {
 			instance = "github.com"
 		}
 
-		provider, slug, err := findGitSlug(tt.url, instance)
+		provider, slug, err := findSlug(tt.url, instance)
 
 		assert.NoError(err)
 		assert.Equal(tt.provider, provider)
@@ -75,7 +74,7 @@ func cleanGitHooks(dir string) error {
 	return nil
 }
 
-func TestFindGitRemoteURL(t *testing.T) {
+func TestGetRemoteURL(t *testing.T) {
 	assert := assert.New(t)
 
 	basedir := t.TempDir()
@@ -89,19 +88,19 @@ func TestFindGitRemoteURL(t *testing.T) {
 	err = gitCmd("-C", basedir, "remote", "add", "origin", remoteURL)
 	assert.NoError(err)
 
-	u, err := findGitRemoteURL(t.Context(), basedir, "origin")
+	u, err := getRemoteURL(t.Context(), basedir, "origin")
 	assert.NoError(err)
 	assert.Equal(remoteURL, u)
 
 	remoteURL = "git@github.com/AwesomeOwner/MyAwesomeRepo.git"
 	err = gitCmd("-C", basedir, "remote", "add", "upstream", remoteURL)
 	assert.NoError(err)
-	u, err = findGitRemoteURL(t.Context(), basedir, "upstream")
+	u, err = getRemoteURL(t.Context(), basedir, "upstream")
 	assert.NoError(err)
 	assert.Equal(remoteURL, u)
 }
 
-func TestGitFindRef(t *testing.T) {
+func TestDescribeHead(t *testing.T) {
 	basedir := t.TempDir()
 	gitConfig()
 
@@ -175,7 +174,7 @@ func TestGitFindRef(t *testing.T) {
 			require.NoError(t, gitCmd("-C", dir, "config", "user.email", "user@example.com"))
 			require.NoError(t, cleanGitHooks(dir))
 			tt.Prepare(t, dir)
-			ref, err := FindGitRef(t.Context(), dir)
+			ref, err := DescribeHead(t.Context(), dir)
 			tt.Assert(t, ref, err)
 		})
 	}
@@ -218,7 +217,7 @@ func TestClone(t *testing.T) {
 				assert.Equal(t, tt.Err, err)
 			} else {
 				require.NoError(t, err)
-				wt.Close()
+				wt.Close(t.Context())
 			}
 		})
 	}
@@ -239,7 +238,7 @@ func TestClone(t *testing.T) {
 			Ref:      fullSHA,
 		})
 		require.NoError(t, err)
-		defer wt1.Close()
+		defer wt1.Close(t.Context())
 
 		// Verify that the head in cloneDir is correct.
 		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
@@ -255,7 +254,7 @@ func TestClone(t *testing.T) {
 			Ref:      fullSHA,
 		})
 		require.NoError(t, err)
-		defer wt2.Close()
+		defer wt2.Close(t.Context())
 
 		// The clone should still have the original fullSHA as its HEAD...
 		clonedSHA2 := getTestRepoHead(t, wt2.WorktreeDir())
@@ -286,7 +285,7 @@ func TestClone(t *testing.T) {
 			Ref:      "tag-1",
 		})
 		require.NoError(t, err)
-		defer wt1.Close()
+		defer wt1.Close(t.Context())
 
 		// Verify that the head in cloneDir is correct.
 		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
@@ -303,7 +302,7 @@ func TestClone(t *testing.T) {
 			Ref:      "tag-1",
 		})
 		require.NoError(t, err)
-		defer wt2.Close()
+		defer wt2.Close(t.Context())
 
 		// The clone should be updated to the new tag ref
 		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
@@ -328,7 +327,7 @@ func TestClone(t *testing.T) {
 			Ref:      "tag-2",
 		})
 		require.NoError(t, err)
-		defer wt1.Close()
+		defer wt1.Close(t.Context())
 
 		// Verify that the head in cloneDir is correct.
 		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
@@ -349,7 +348,7 @@ func TestClone(t *testing.T) {
 			Ref:      "tag-2",
 		})
 		require.NoError(t, err)
-		defer wt2.Close()
+		defer wt2.Close(t.Context())
 
 		// The clone should be updated to the new tag ref
 		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
@@ -372,7 +371,7 @@ func TestClone(t *testing.T) {
 			Ref:      "main",
 		})
 		require.NoError(t, err)
-		defer wt1.Close()
+		defer wt1.Close(t.Context())
 
 		// Verify that the head in cloneDir is correct
 		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
@@ -388,7 +387,7 @@ func TestClone(t *testing.T) {
 			Ref:      "main",
 		})
 		require.NoError(t, err)
-		defer wt2.Close()
+		defer wt2.Close(t.Context())
 
 		// The clone should be updated to the new branch ref
 		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
@@ -412,7 +411,7 @@ func TestClone(t *testing.T) {
 			Ref:      "main",
 		})
 		require.NoError(t, err)
-		defer wt1.Close()
+		defer wt1.Close(t.Context())
 
 		// Verify that the head in cloneDir is correct.
 		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
@@ -432,11 +431,51 @@ func TestClone(t *testing.T) {
 			Ref:      "main",
 		})
 		require.NoError(t, err)
-		defer wt2.Close()
+		defer wt2.Close(t.Context())
 
 		// The clone should be updated to the new tag ref
 		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, commit3, clonedSHA)
+	})
+
+	t.Run("Performs update to resolve newly added branch", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
+		// Create a local repo that will act as the remote to be cloned.
+		remoteDir := makeTestRepo(t)
+
+		// Create some commits
+		commit1 := makeTestCommit(t, remoteDir, "commit 1")
+		commit2 := makeTestCommit(t, remoteDir, "commit 2")
+
+		// Clone the repo
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "main",
+		})
+		require.NoError(t, err)
+		defer wt1.Close(t.Context())
+
+		// Verify that the head in cloneDir is correct.
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
+		assert.Equal(t, commit2, clonedSHA)
+
+		// Create a branch that points to commit1
+		makeTestBranch(t, remoteDir, commit1, "test-branch")
+
+		// Clone test-branch
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "test-branch",
+		})
+		require.NoError(t, err)
+		defer wt2.Close(t.Context())
+
+		// The clone should point to commit1 as we should now be on `test-branch`
+		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
+		assert.Equal(t, commit1, clonedSHA)
 	})
 
 	t.Run("Does not create spurious refs", func(t *testing.T) {
@@ -456,7 +495,7 @@ func TestClone(t *testing.T) {
 			Ref:      "tag-1",
 		})
 		require.NoError(t, err)
-		defer wt1.Close()
+		defer wt1.Close(t.Context())
 
 		// Verify that the head in cloneDir is correct.
 		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
@@ -494,6 +533,20 @@ func makeTestCommit(t *testing.T, repoPath, comment string) string {
 func makeTestTag(t *testing.T, repoPath, commitSHA, tag string) {
 	t.Helper()
 	require.NoError(t, gitCmd("-C", repoPath, "tag", "--force", tag, commitSHA))
+}
+
+func makeTestBranch(t *testing.T, repoPath, commitSHA, branchName string) {
+	t.Helper()
+	require.NoError(t, gitCmd("-C", repoPath, "branch", branchName, commitSHA))
+}
+
+func objectExists(t *testing.T, repoPath, object string) bool {
+	t.Helper()
+
+	cmd := exec.Command("git", "-C", repoPath, "cat-file", "-e", object)
+	_, err := cmd.Output()
+
+	return err == nil
 }
 
 func getTestRepoHead(t *testing.T, repoPath string) string {
@@ -567,34 +620,31 @@ func TestCloneIfRequired(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("clone", func(t *testing.T) {
-		repo, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
+		err := cloneIfRequired(t.Context(), CloneInput{
 			URL: "https://github.com/actions/checkout",
 		}, common.Logger(ctx), tempDir)
 		assert.NoError(t, err)
-		assert.NotNil(t, repo)
 	})
 
 	t.Run("clone different remote", func(t *testing.T) {
-		repo, err := cloneIfRequired(ctx, "refs/heads/main", CloneInput{
+		err := cloneIfRequired(t.Context(), CloneInput{
 			URL: "https://github.com/actions/setup-go",
 		}, common.Logger(ctx), tempDir)
 		require.NoError(t, err)
-		require.NotNil(t, repo)
 
-		remote, err := repo.Remote("origin")
+		remoteURL, err := getRemoteURL(t.Context(), tempDir, "origin")
 		require.NoError(t, err)
-		require.Len(t, remote.Config().URLs, 1)
-		assert.Equal(t, "https://github.com/actions/setup-go", remote.Config().URLs[0])
+		assert.Equal(t, "https://github.com/actions/setup-go", remoteURL)
 	})
 }
 
-func TestFindGitRevision(t *testing.T) {
+func TestResolveHead(t *testing.T) {
 	t.Run("on created repo", func(t *testing.T) {
 		remoteDir := makeTestRepo(t)
 
 		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
 
-		short, sha, err := FindGitRevision(t.Context(), remoteDir)
+		short, sha, err := ResolveHead(t.Context(), remoteDir)
 		require.NoError(t, err)
 		assert.Equal(t, fullSHA, sha)
 		assert.Equal(t, fullSHA[:7], short)
@@ -612,17 +662,16 @@ func TestFindGitRevision(t *testing.T) {
 			Ref:      fullSHA,
 		})
 		require.NoError(t, err)
-		defer wt.Close()
+		defer wt.Close(t.Context())
 
-		short, sha, err := FindGitRevision(t.Context(), wt.WorktreeDir())
+		short, sha, err := ResolveHead(t.Context(), wt.WorktreeDir())
 		require.NoError(t, err)
 		assert.Equal(t, fullSHA, sha)
 		assert.Equal(t, fullSHA[:7], short)
-		runtime.GC() // release file locks held by go-git on Windows
 	})
 }
 
-func TestFindGitRefOnClone(t *testing.T) {
+func TestDescribeHeadOnClone(t *testing.T) {
 	cacheDir := t.TempDir()
 	remoteDir := makeTestRepo(t)
 
@@ -635,10 +684,114 @@ func TestFindGitRefOnClone(t *testing.T) {
 		Ref:      fullSHA,
 	})
 	require.NoError(t, err)
-	defer wt.Close()
+	defer wt.Close(t.Context())
 
-	ref, err := FindGitRef(t.Context(), wt.WorktreeDir())
+	ref, err := DescribeHead(t.Context(), wt.WorktreeDir())
 	require.NoError(t, err)
 	assert.Equal(t, "refs/tags/tag-1", ref)
-	runtime.GC() // release file locks held by go-git on Windows
+}
+
+func TestResolveRevision(t *testing.T) {
+	repoPath := makeTestRepo(t)
+
+	t.Run("fails-without-commits", func(t *testing.T) {
+		commitID, err := ResolveRevision(t.Context(), repoPath, "HEAD")
+		assert.Empty(t, commitID)
+		assert.ErrorContains(t, err, "could not determine the commit ID of HEAD: fatal: ambiguous argument 'HEAD':")
+	})
+
+	t.Run("resolves-head", func(t *testing.T) {
+		fullSHA := makeTestCommit(t, repoPath, "initial commit")
+		commitID, err := ResolveRevision(t.Context(), repoPath, "HEAD")
+		require.NoError(t, err)
+		assert.Equal(t, fullSHA, commitID)
+	})
+
+	t.Run("resolves-tag", func(t *testing.T) {
+		fullSHA := makeTestCommit(t, repoPath, "initial commit")
+		makeTestTag(t, repoPath, fullSHA, "tag-1")
+
+		commitID, err := ResolveRevision(t.Context(), repoPath, "tag-1")
+		require.NoError(t, err)
+		assert.Equal(t, fullSHA, commitID)
+	})
+
+	t.Run("resolves-branch", func(t *testing.T) {
+		fullSHA := makeTestCommit(t, repoPath, "initial commit")
+		makeTestBranch(t, repoPath, fullSHA, "branch-1")
+
+		commitID, err := ResolveRevision(t.Context(), repoPath, "branch-1")
+		require.NoError(t, err)
+		assert.Equal(t, fullSHA, commitID)
+	})
+
+	t.Run("resolves-commit-id-to-itself", func(t *testing.T) {
+		fullSHA := makeTestCommit(t, repoPath, "initial commit")
+
+		commitID, err := ResolveRevision(t.Context(), repoPath, fullSHA)
+		require.NoError(t, err)
+		assert.Equal(t, fullSHA, commitID)
+	})
+}
+
+func TestFetch(t *testing.T) {
+	cloneDir := t.TempDir()
+	remoteDir := makeTestRepo(t)
+
+	commitOne := makeTestCommit(t, remoteDir, "Create first commit")
+
+	err := gitCmd("clone", "--bare", remoteDir, cloneDir)
+	require.NoError(t, err)
+
+	t.Run("Remote is mandatory", func(t *testing.T) {
+		input := FetchInput{
+			repoPath: cloneDir,
+			remote:   "",
+			refspec:  "",
+		}
+		err := Fetch(t.Context(), input)
+		assert.ErrorContains(t, err, "mandatory argument remote is empty")
+	})
+
+	t.Run("Refspec is optional", func(t *testing.T) {
+		assert.True(t, objectExists(t, cloneDir, commitOne))
+
+		commitTwo := makeTestCommit(t, remoteDir, "Create second commit")
+
+		assert.False(t, objectExists(t, cloneDir, commitTwo))
+
+		input := FetchInput{
+			repoPath: cloneDir,
+			remote:   "origin",
+			refspec:  "",
+		}
+		err := Fetch(t.Context(), input)
+		require.NoError(t, err)
+
+		assert.True(t, objectExists(t, cloneDir, commitTwo))
+	})
+
+	t.Run("Fetch with refspec", func(t *testing.T) {
+		headAfterClone := getTestRepoHead(t, cloneDir)
+		assert.Equal(t, commitOne, headAfterClone)
+
+		// Add another commit that can be fast-forwarded.
+		commitTwo := makeTestCommit(t, remoteDir, "Create second commit")
+
+		// Without having fetched the latest changes, HEAD should still point to the first commit.
+		headBeforeFetch := getTestRepoHead(t, cloneDir)
+		assert.Equal(t, commitOne, headBeforeFetch)
+
+		input := FetchInput{
+			repoPath: cloneDir,
+			remote:   "origin",
+			refspec:  "+refs/*:refs/*",
+		}
+		err := Fetch(t.Context(), input)
+		require.NoError(t, err)
+
+		// Ensure that HEAD was moved forward.
+		headAfterFetch := getTestRepoHead(t, cloneDir)
+		assert.Equal(t, commitTwo, headAfterFetch)
+	})
 }

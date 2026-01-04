@@ -11,8 +11,6 @@ import (
 	"regexp"
 	"strings"
 
-	gogit "github.com/go-git/go-git/v5"
-
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/common/git"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
@@ -89,13 +87,10 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			})
 			if err != nil {
 				if errors.Is(err, git.ErrShortRef) {
-					return fmt.Errorf("Unable to resolve action `%s`, the provided ref `%s` is the shortened version of a commit SHA, which is not supported. Please use the full commit SHA `%s` instead",
-						sar.Step.Uses, sar.remoteAction.Ref, err.(*git.Error).Commit())
-				} else if errors.Is(err, gogit.ErrForceNeeded) { // TODO: figure out if it will be easy to shadow/alias go-git err's
-					ntErr = common.NewInfoExecutor("Non-terminating error while running 'git clone': %v", err)
-				} else {
-					return err
+					return fmt.Errorf("unable to resolve action `%s`, because short references are not supported; use `%s` instead",
+						sar.Step.Uses, err.(*git.Error).Commit())
 				}
+				return err
 			}
 			sar.workTree = wt
 		}
@@ -154,7 +149,7 @@ func (sar *stepActionRemote) post() common.Executor {
 		If(shouldRunPostStep(sar)).
 		Finally(func(ctx context.Context) error {
 			if sar.workTree != nil {
-				if err := sar.workTree.Close(); err != nil {
+				if err := sar.workTree.Close(ctx); err != nil {
 					common.Logger(ctx).Warnf("non-fatal error cleaning up step work tree: %v", err)
 				}
 			}

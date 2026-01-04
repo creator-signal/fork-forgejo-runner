@@ -4,19 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/storer"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
@@ -31,7 +24,6 @@ var (
 	cloneLock common.MutexMap
 
 	ErrShortRef = errors.New("short SHA references are not supported")
-	ErrNoRepo   = errors.New("unable to find git repo")
 )
 
 type Error struct {
@@ -51,151 +43,97 @@ func (e *Error) Commit() string {
 	return e.commit
 }
 
-// FindGitRevision get the current git revision
-func FindGitRevision(ctx context.Context, file string) (shortSha, sha string, err error) {
-	logger := common.Logger(ctx)
-
-	gitDir, err := git.PlainOpenWithOptions(
-		file,
-		&git.PlainOpenOptions{
-			DetectDotGit:          true,
-			EnableDotGitCommonDir: true,
-		},
-	)
-	if err != nil {
-		logger.WithError(err).Error("path", file, "not located inside a git repository")
-		return "", "", err
-	}
-
-	head, err := gitDir.Reference(plumbing.HEAD, true)
+// ResolveHead determines the commit ID of the current HEAD.
+func ResolveHead(ctx context.Context, repoPath string) (shortSha, sha string, err error) {
+	commitID, err := ResolveRevision(ctx, repoPath, "HEAD")
 	if err != nil {
 		return "", "", err
 	}
-
-	if head.Hash().IsZero() {
-		return "", "", fmt.Errorf("HEAD sha1 could not be resolved")
-	}
-
-	hash := head.Hash().String()
-
-	logger.Debugf("Found revision: %s", hash)
-	return hash[:7], strings.TrimSpace(hash), nil
+	return commitID[:7], commitID, nil
 }
 
-// FindGitRef get the current git ref
-func FindGitRef(ctx context.Context, file string) (string, error) {
+// ResolveRevision determines the commit ID of the given revision (commit ID, tag, branch, HEAD, ...).
+func ResolveRevision(ctx context.Context, repoPath, rev string) (string, error) {
 	logger := common.Logger(ctx)
 
-	logger.Debugf("Loading revision from git directory")
-	_, ref, err := FindGitRevision(ctx, file)
-	if err != nil {
-		return "", err
+	options := gitOptions{
+		workingDirectory: repoPath,
 	}
-
-	logger.Debugf("HEAD points to '%s'", ref)
-
-	// Prefer the git library to iterate over the references and find a matching tag or branch.
-	refTag := ""
-	refBranch := ""
-	repo, err := git.PlainOpenWithOptions(
-		file,
-		&git.PlainOpenOptions{
-			DetectDotGit:          true,
-			EnableDotGitCommonDir: true,
-		},
-	)
+	output, err := git(ctx, &options, "rev-parse", rev)
 	if err != nil {
-		return "", err
-	}
-
-	iter, err := repo.References()
-	if err != nil {
-		return "", err
-	}
-
-	// find the reference that matches the revision's hash
-	err = iter.ForEach(func(r *plumbing.Reference) error {
-		/* tags and branches will have the same hash
-		 * when a user checks out a tag, it is not mentioned explicitly
-		 * in the go-git package, we must identify the revision
-		 * then check if any tag matches that revision,
-		 * if so then we checked out a tag
-		 * else we look for branches and if matches,
-		 * it means we checked out a branch
-		 *
-		 * If a branches matches first we must continue and check all tags (all references)
-		 * in case we match with a tag later in the interation
-		 */
-		if r.Hash().String() == ref {
-			if r.Name().IsTag() {
-				refTag = r.Name().String()
-			}
-			if r.Name().IsBranch() {
-				refBranch = r.Name().String()
-			}
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return "", fmt.Errorf("could not determine the commit ID of %s: %s: %w", rev, stderr, err)
 		}
-
-		// we found what we were looking for
-		if refTag != "" && refBranch != "" {
-			return storer.ErrStop
-		}
-
-		return nil
-	})
-	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not determine the commit ID of %s: %w", rev, err)
 	}
 
-	// order matters here see above comment.
-	if refTag != "" {
-		return refTag, nil
-	}
-	if refBranch != "" {
-		return refBranch, nil
-	}
+	logger.Debugf("Found revision: %s", output)
 
-	return "", fmt.Errorf("failed to identify reference (tag/branch) for the checked-out revision '%s'", ref)
+	return output, nil
 }
 
-// FindGithubRepo get the repo
-func FindGithubRepo(ctx context.Context, file, githubInstance, remoteName string) (string, error) {
+// DescribeHead resolves the symbolic name (tag or branch) of HEAD.
+func DescribeHead(ctx context.Context, repoPath string) (string, error) {
+	logger := common.Logger(ctx)
+
+	options := gitOptions{
+		workingDirectory: repoPath,
+	}
+
+	output, err := git(ctx, &options, "describe", "--all", "HEAD")
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return "", fmt.Errorf("could not determine the symbolic name (tag or branch) of HEAD: %s: %w", stderr, err)
+		}
+		return "", fmt.Errorf("could not determine the symbolic name (tag or branch) of HEAD: %w", err)
+	}
+
+	logger.Debugf("HEAD points to '%s'", output)
+
+	return fmt.Sprintf("refs/%s", output), nil
+}
+
+// GetRepositoryName determines the name of a repository (for example, `actions/checkout`) by extracting it from the
+// URL of the remote with the given remoteName.
+func GetRepositoryName(ctx context.Context, repoPath, githubInstance, remoteName string) (string, error) {
 	if remoteName == "" {
 		remoteName = "origin"
 	}
 
-	url, err := findGitRemoteURL(ctx, file, remoteName)
+	url, err := getRemoteURL(ctx, repoPath, remoteName)
 	if err != nil {
 		return "", err
 	}
-	_, slug, err := findGitSlug(url, githubInstance)
+	_, slug, err := findSlug(url, githubInstance)
 	return slug, err
 }
 
-func findGitRemoteURL(_ context.Context, file, remoteName string) (string, error) {
-	repo, err := git.PlainOpenWithOptions(
-		file,
-		&git.PlainOpenOptions{
-			DetectDotGit:          true,
-			EnableDotGitCommonDir: true,
-		},
-	)
+func getRemoteURL(ctx context.Context, repoPath, remoteName string) (string, error) {
+	options := gitOptions{
+		workingDirectory: repoPath,
+	}
+
+	output, err := git(ctx, &options, "remote", "get-url", remoteName)
 	if err != nil {
-		return "", err
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return "", fmt.Errorf("could not determine the URL of remote '%s': %s: %w", remoteName, stderr, err)
+		}
+		return "", fmt.Errorf("could not determine the URL of remote '%s': %w", remoteName, err)
+	}
+	if output == "" {
+		return "", fmt.Errorf("remote %s has no URL", remoteName)
 	}
 
-	remote, err := repo.Remote(remoteName)
-	if err != nil {
-		return "", err
-	}
-
-	if len(remote.Config().URLs) < 1 {
-		return "", fmt.Errorf("remote '%s' exists but has no URL", remoteName)
-	}
-
-	return remote.Config().URLs[0], nil
+	return output, nil
 }
 
-func findGitSlug(url, githubInstance string) (string, string, error) {
+func findSlug(url, githubInstance string) (string, string, error) {
 	if matches := codeCommitHTTPRegex.FindStringSubmatch(url); matches != nil {
 		return "CodeCommit", matches[2], nil
 	} else if matches := codeCommitSSHRegex.FindStringSubmatch(url); matches != nil {
@@ -231,79 +169,45 @@ type CloneInput struct {
 	InsecureSkipTLS bool   // when true, TLS verification will be skipped on remote operations
 }
 
-func cloneIfRequired(ctx context.Context, refName plumbing.ReferenceName, input CloneInput, logger log.FieldLogger, repoDir string) (*git.Repository, error) {
-	// If the remote URL has changed, remove the directory and clone again.
-	if r, err := git.PlainOpen(repoDir); err == nil {
-		if remote, err := r.Remote("origin"); err == nil {
-			if len(remote.Config().URLs) > 0 && remote.Config().URLs[0] != input.URL {
-				_ = os.RemoveAll(repoDir)
-			}
+func cloneIfRequired(ctx context.Context, input CloneInput, logger log.FieldLogger, repoDir string) error {
+	// Check whether cloning can be skipped or whether we have to remove an existing clone. We're not attempting to
+	// figure out whether cloning can succeed. That's why errors are ignored.
+	if url, err := getRemoteURL(ctx, repoDir, "origin"); err == nil {
+		if url != input.URL {
+			// There is either no remote URL (something went wrong) or the remote URL has changed. The best course of
+			// action is removing the directory before creating a fresh clone.
+			_ = os.RemoveAll(repoDir)
+		} else {
+			// The remote exists and has not changed, therefore we do not have to clone the repository.
+			return nil
 		}
 	}
 
-	r, err := git.PlainOpen(repoDir)
+	logger.Infof("  \u2601\ufe0f  git clone '%s' # ref=%s", input.URL, input.Ref)
+	logger.Debugf("  cloning %s to %s", input.URL, repoDir)
+
+	options := gitOptions{
+		token:                     input.Token,
+		ignoreInvalidCertificates: input.InsecureSkipTLS,
+		workingDirectory:          "",
+	}
+	_, err := git(ctx, &options, "clone", "--bare", input.URL, repoDir)
 	if err != nil {
-		var progressWriter io.Writer
-		if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
-			if entry, ok := logger.(*log.Entry); ok {
-				progressWriter = entry.WriterLevel(log.DebugLevel)
-			} else if lgr, ok := logger.(*log.Logger); ok {
-				progressWriter = lgr.WriterLevel(log.DebugLevel)
-			} else {
-				log.Errorf("Unable to get writer from logger (type=%T)", logger)
-				progressWriter = os.Stdout
-			}
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return fmt.Errorf("unable to clone '%s' to '%s': %s: %w", input.URL, repoDir, stderr, err)
 		}
-
-		cloneOptions := git.CloneOptions{
-			URL:      input.URL,
-			Progress: progressWriter,
-
-			InsecureSkipTLS: input.InsecureSkipTLS, // For Gitea
-		}
-		if input.Token != "" {
-			cloneOptions.Auth = &http.BasicAuth{
-				Username: "token",
-				Password: input.Token,
-			}
-		}
-
-		logger.Infof("  \u2601\ufe0f  git clone '%s' # ref=%s", input.URL, input.Ref)
-		logger.Debugf("  cloning %s to %s", input.URL, repoDir)
-		r, err = git.PlainCloneContext(ctx, repoDir, true /* bare */, &cloneOptions)
-		if err != nil {
-			logger.Errorf("Unable to clone %v %s: %v", input.URL, refName, err)
-			return nil, err
-		}
-
-		if err = os.Chmod(repoDir, 0o755); err != nil {
-			return nil, err
-		}
-		logger.Debugf("Cloned %s to %s", input.URL, repoDir)
+		return fmt.Errorf("unable to clone '%s' to '%s': %w", input.URL, repoDir, err)
 	}
 
-	return r, nil
-}
+	logger.Debugf("Cloned %s to %s", input.URL, repoDir)
 
-func gitOptions(token string) (fetchOptions git.FetchOptions, pullOptions git.PullOptions) {
-	fetchOptions.RefSpecs = []config.RefSpec{"refs/*:refs/*"}
-	fetchOptions.Force = true
-	pullOptions.Force = true
-
-	if token != "" {
-		auth := &http.BasicAuth{
-			Username: "token",
-			Password: token,
-		}
-		fetchOptions.Auth = auth
-		pullOptions.Auth = auth
-	}
-
-	return fetchOptions, pullOptions
+	return nil
 }
 
 type Worktree interface {
-	io.Closer
+	Close(ctx context.Context) error
 	WorktreeDir() string // fully qualified path to the work tree for this repo
 }
 
@@ -313,22 +217,31 @@ type gitWorktree struct {
 	closed      bool
 }
 
-func (t *gitWorktree) Close() error {
+func (t *gitWorktree) Close(ctx context.Context) error {
 	if !t.closed {
-		cmd := exec.Command("git", "-C", t.repoDir, "worktree", "remove", "--force", "--end-of-options", t.worktreeDir)
-		output, err := cmd.CombinedOutput()
-		worktreeOutput := strings.TrimSpace(string(output))
+		options := gitOptions{
+			workingDirectory: t.repoDir,
+		}
+		_, err := git(ctx, &options, "worktree", "remove", "--force", "--end-of-options", t.worktreeDir)
 		if err != nil {
-			return fmt.Errorf("git worktree remove error: %s: %v", worktreeOutput, err)
+			var exitError *exec.ExitError
+			if errors.As(err, &exitError) {
+				stderr := strings.TrimSpace(string(exitError.Stderr))
+				return fmt.Errorf("git worktree remove error: %s: %w", stderr, err)
+			}
+			return fmt.Errorf("git worktree remove error: %w", err)
 		}
 
-		// prune will remove any record of worktrees that are removed from disk, in the event something didn't cleanup
+		// prune will remove any record of worktrees that are removed from disk, in the event something didn't clean up
 		// above, but was removed by some other external force from the filesystem.
-		cmd = exec.Command("git", "-C", t.repoDir, "worktree", "prune")
-		output, err = cmd.CombinedOutput()
-		worktreeOutput = strings.TrimSpace(string(output))
+		_, err = git(ctx, &options, "worktree", "prune")
 		if err != nil {
-			return fmt.Errorf("git worktree prune error: %s: %v", worktreeOutput, err)
+			var exitError *exec.ExitError
+			if errors.As(err, &exitError) {
+				stderr := strings.TrimSpace(string(exitError.Stderr))
+				return fmt.Errorf("git worktree prune error: %s: %w", stderr, err)
+			}
+			return fmt.Errorf("git worktree prune error: %w", err)
 		}
 
 		t.closed = true
@@ -368,8 +281,7 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 
 	defer cloneLock.Lock(repoDir)()
 
-	refName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", input.Ref))
-	r, err := cloneIfRequired(ctx, refName, input, logger, repoDir)
+	err := cloneIfRequired(ctx, input, logger, repoDir)
 	if err != nil {
 		return nil, err
 	}
@@ -377,14 +289,8 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	// Optimization: if `input.Ref` is a full sha and it can be found in the repo already, then we can avoid
 	// performing a fetch operation because it won't change.
 	skipFetch := false
-	var hash *plumbing.Hash
-	rev := plumbing.Revision(input.Ref)
-	hash, err = r.ResolveRevision(rev)
-	if err != nil && !errors.Is(err, plumbing.ErrReferenceNotFound) {
-		// unexpected error
-		logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
-		return nil, err
-	} else if !hash.IsZero() && hash.String() == input.Ref {
+	hash, err := ResolveRevision(ctx, repoDir, input.Ref)
+	if err == nil && hash != "" && hash == input.Ref {
 		skipFetch = true
 		logger.Infof("  \u2601\ufe0f  git fetch '%s' skipped; ref=%s cached", input.URL, input.Ref)
 	}
@@ -392,43 +298,138 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	if !skipFetch {
 		isOfflineMode := input.OfflineMode
 
-		// fetch latest changes
-		fetchOptions, _ := gitOptions(input.Token)
-
-		if input.InsecureSkipTLS { // For Gitea
-			fetchOptions.InsecureSkipTLS = true
-		}
-
 		if !isOfflineMode {
 			logger.Infof("  \u2601\ufe0f  git fetch '%s' # ref=%s", input.URL, input.Ref)
-			err = r.Fetch(&fetchOptions)
-			if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+
+			// Force (indicated by +) update of all branches (even the one that is currently checked out) and tags
+			// during `git fetch`. That does only work because the cloned repository is bare.
+			fetchInput := FetchInput{
+				token:                     input.Token,
+				ignoreInvalidCertificates: input.InsecureSkipTLS,
+				repoPath:                  repoDir,
+				remote:                    "origin",
+				refspec:                   "+refs/*:refs/*",
+			}
+			err = Fetch(ctx, fetchInput)
+			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	rev = plumbing.Revision(input.Ref)
-	if hash, err = r.ResolveRevision(rev); err != nil {
+	if hash, err = ResolveRevision(ctx, repoDir, input.Ref); err != nil {
 		logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
 		return nil, err
 	}
 
-	if hash.String() != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash.String(), input.Ref) {
+	if hash != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash, input.Ref) {
 		return nil, &Error{
 			err:    ErrShortRef,
-			commit: hash.String(),
+			commit: hash,
 		}
 	}
 
-	// go-git doesn't support managing multiple worktrees, so shell out to git.
-	logger.Debugf("  git worktree create for ref=%s (sha=%s) to %s", input.Ref, hash.String(), worktreeDir)
-	cmd := exec.Command("git", "-C", repoDir, "worktree", "add", "-f", "--end-of-options", worktreeDir, hash.String())
-	output, err := cmd.CombinedOutput()
-	worktreeOutput := strings.TrimSpace(string(output))
+	logger.Debugf("  git worktree create for ref=%s (sha=%s) to %s", input.Ref, hash, worktreeDir)
+
+	options := gitOptions{
+		workingDirectory: repoDir,
+	}
+	_, err = git(ctx, &options, "worktree", "add", "-f", "--end-of-options", worktreeDir, hash)
 	if err != nil {
-		return nil, fmt.Errorf("git worktree add error: %s: %v", worktreeOutput, err)
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return nil, fmt.Errorf("git worktree add error: %s: %w", stderr, err)
+		}
+		return nil, fmt.Errorf("git worktree add error: %w", err)
 	}
 
 	return &gitWorktree{repoDir: repoDir, worktreeDir: worktreeDir}, nil
+}
+
+type FetchInput struct {
+	token                     string
+	ignoreInvalidCertificates bool
+	repoPath                  string
+	remote                    string
+	refspec                   string
+}
+
+func Fetch(ctx context.Context, input FetchInput) error {
+	if input.remote == "" {
+		return errors.New("mandatory argument remote is empty")
+	}
+
+	args := []string{"fetch", input.remote}
+	if input.refspec != "" {
+		args = append(args, input.refspec)
+	}
+
+	options := gitOptions{
+		token:                     input.token,
+		ignoreInvalidCertificates: input.ignoreInvalidCertificates,
+		workingDirectory:          input.repoPath,
+	}
+	_, err := git(ctx, &options, args...)
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return fmt.Errorf("could not fetch remote '%s': %s: %w", input.remote, stderr, err)
+		}
+		return fmt.Errorf("could not fetch remote '%s': %w", input.remote, err)
+	}
+	return nil
+}
+
+type gitOptions struct {
+	token                     string
+	ignoreInvalidCertificates bool
+	workingDirectory          string
+}
+
+func git(ctx context.Context, options *gitOptions, args ...string) (string, error) {
+	var gitArguments []string
+
+	if options.token != "" {
+		credentialsFile, err := os.CreateTemp("", "forgejo-runner-git-token-")
+		if err != nil {
+			return "", fmt.Errorf("failed to create temporary file to store Git token: %w", err)
+		}
+
+		credentialsPath := credentialsFile.Name()
+		defer func() {
+			_ = credentialsFile.Close()
+			if err := os.Remove(credentialsPath); err != nil {
+				log.Warnf("Unable to remove temporary file to store Git token %s: %v", credentialsPath, err)
+			}
+		}()
+		_, err = credentialsFile.Write([]byte(options.token))
+		if err != nil {
+			return "", fmt.Errorf("failed to write Git token to temporary file %s: %w", credentialsPath, err)
+		}
+		err = credentialsFile.Close()
+		if err != nil {
+			return "", fmt.Errorf("failed to close temporary file %s that stores Git token: %w", credentialsPath, err)
+		}
+
+		gitArguments = append(gitArguments, "-c", fmt.Sprintf("credential.helper=store --file=%s", credentialsPath))
+	}
+	if options.ignoreInvalidCertificates {
+		gitArguments = append(gitArguments, "-c", "http.sslVerify=false")
+	}
+	if options.workingDirectory != "" {
+		gitArguments = append(gitArguments, "-C", options.workingDirectory)
+	}
+
+	gitArguments = append(gitArguments, args...)
+
+	logger := common.Logger(ctx)
+	logger.Debugf("  git %s", strings.Join(gitArguments, " "))
+
+	cmd := exec.CommandContext(ctx, "git", gitArguments...)
+	output, err := cmd.Output()
+	trimmedOutput := strings.TrimSpace(string(output))
+
+	return trimmedOutput, err
 }

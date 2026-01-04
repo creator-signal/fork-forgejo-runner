@@ -1,0 +1,9 @@
+on:
+  push:
+jobs:
+  test:
+    runs-on: irrelevant
+    steps:
+      - run: |
+          echo "forgejo.ref=${{ forgejo.ref }}"
+          [[ "${{ forgejo.ref }}" =~ ^refs/(heads|tags)/.+$ ]] || exit 1

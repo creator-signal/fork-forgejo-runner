@@ -309,135 +309,133 @@ func runExecList(ctx context.Context, planner model.WorkflowPlanner, execArgs *e
 	return nil
 }
 
-func runExec(ctx context.Context, execArgs *executeArgs) func(cmd *cobra.Command, args []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		planner, err := model.NewWorkflowPlanner(execArgs.WorkflowsPath(), execArgs.noWorkflowRecurse, true)
-		if err != nil {
-			return err
-		}
-
-		if execArgs.runList {
-			return runExecList(ctx, planner, execArgs)
-		}
-
-		// plan with triggered jobs
-		var plan *model.Plan
-
-		// Determine the event name to be triggered
-		var eventName string
-
-		// collect all events from loaded workflows
-		events := planner.GetEvents()
-
-		if len(execArgs.event) > 0 {
-			log.Infof("Using chosen event for filtering: %s", execArgs.event)
-			eventName = execArgs.event
-		} else if len(events) == 1 && len(events[0]) > 0 {
-			log.Infof("Using the only detected workflow event: %s", events[0])
-			eventName = events[0]
-		} else if execArgs.autodetectEvent && len(events) > 0 && len(events[0]) > 0 {
-			// set default event type to first event from many available
-			// this way user dont have to specify the event.
-			log.Infof("Using first detected workflow event: %s", events[0])
-			eventName = events[0]
-		} else {
-			log.Infof("Using default workflow event: push")
-			eventName = "push"
-		}
-
-		// build the plan for this run
-		if execArgs.job != "" {
-			log.Infof("Planning job: %s", execArgs.job)
-			plan, err = planner.PlanJob(execArgs.job)
-			if err != nil {
-				return err
-			}
-		} else {
-			log.Infof("Planning jobs for event: %s", eventName)
-			plan, err = planner.PlanEvent(eventName)
-			if err != nil {
-				return err
-			}
-		}
-
-		maxLifetime := 3 * time.Hour
-		if deadline, ok := ctx.Deadline(); ok {
-			maxLifetime = time.Until(deadline)
-		}
-
-		// init a cache server
-		handler, err := artifactcache.StartHandler("", "", 0, "", log.StandardLogger().WithField("module", "cache_request"))
-		if err != nil {
-			return err
-		}
-		log.Infof("cache handler listens on: %v", handler.ExternalURL())
-		execArgs.cacheHandler = handler
-
-		if execArgs.containerDaemonSocket != "/var/run/docker.sock" {
-			log.Warnf("--container-daemon-socket %s: please use the DOCKER_HOST environment variable as documented at https://forgejo.org/docs/next/admin/actions/runner-installation/#setting-up-the-container-environment instead. See https://code.forgejo.org/forgejo/runner/issues/577 for more information.", execArgs.containerDaemonSocket)
-		}
-
-		// run the plan
-		config := &runner.Config{
-			Workdir:               execArgs.Workdir(),
-			BindWorkdir:           false,
-			ReuseContainers:       false,
-			ForcePull:             execArgs.forcePull,
-			ForceRebuild:          execArgs.forceRebuild,
-			LogOutput:             true,
-			JSONLogger:            execArgs.jsonLogger,
-			Env:                   execArgs.LoadEnvs(),
-			Vars:                  execArgs.LoadVars(),
-			Secrets:               execArgs.LoadSecrets(),
-			InsecureSecrets:       execArgs.insecureSecrets,
-			Privileged:            execArgs.privileged,
-			UsernsMode:            execArgs.usernsMode,
-			ContainerArchitecture: execArgs.containerArchitecture,
-			ContainerDaemonSocket: execArgs.containerDaemonSocket,
-			UseGitIgnore:          execArgs.useGitIgnore,
-			GitHubInstance:        execArgs.githubInstance,
-			ContainerCapAdd:       execArgs.containerCapAdd,
-			ContainerCapDrop:      execArgs.containerCapDrop,
-			ContainerOptions:      execArgs.containerOptions,
-			NoSkipCheckout:        execArgs.noSkipCheckout,
-			// PresetGitHubContext:        preset,
-			// EventJSON:                  string(eventJSON),
-			ContainerNamePrefix:        fmt.Sprintf("FORGEJO-ACTIONS-TASK-%s", eventName),
-			ContainerMaxLifetime:       maxLifetime,
-			ContainerNetworkMode:       container.NetworkMode(execArgs.network),
-			ContainerNetworkEnableIPv6: execArgs.enableIPv6,
-			DefaultActionInstance:      execArgs.defaultActionsURL,
-			PlatformPicker: func(_ []string) string {
-				return execArgs.image
-			},
-			ValidVolumes: []string{"**"}, // All volumes are allowed for `exec` command
-		}
-
-		config.Env["ACT_EXEC"] = "true"
-
-		if t := config.Secrets["FORGEJO_TOKEN"]; t != "" {
-			config.Token = t
-		} else if t := config.Secrets["GITEA_TOKEN"]; t != "" {
-			config.Token = t
-		} else if t := config.Secrets["GITHUB_TOKEN"]; t != "" {
-			config.Token = t
-		}
-
-		if !execArgs.debug {
-			logLevel := log.InfoLevel
-			config.JobLoggerLevel = &logLevel
-		}
-
-		r, err := runner.New(config)
-		if err != nil {
-			return err
-		}
-
-		ctx = common.WithDryrun(ctx, execArgs.dryrun)
-		executor := r.NewPlanExecutor(plan)
-
-		return executor(ctx)
+func runExec(ctx context.Context, execArgs *executeArgs) error {
+	planner, err := model.NewWorkflowPlanner(execArgs.WorkflowsPath(), execArgs.noWorkflowRecurse, true)
+	if err != nil {
+		return err
 	}
+
+	if execArgs.runList {
+		return runExecList(ctx, planner, execArgs)
+	}
+
+	// plan with triggered jobs
+	var plan *model.Plan
+
+	// Determine the event name to be triggered
+	var eventName string
+
+	// collect all events from loaded workflows
+	events := planner.GetEvents()
+
+	if len(execArgs.event) > 0 {
+		log.Infof("Using chosen event for filtering: %s", execArgs.event)
+		eventName = execArgs.event
+	} else if len(events) == 1 && len(events[0]) > 0 {
+		log.Infof("Using the only detected workflow event: %s", events[0])
+		eventName = events[0]
+	} else if execArgs.autodetectEvent && len(events) > 0 && len(events[0]) > 0 {
+		// set default event type to first event from many available
+		// this way user dont have to specify the event.
+		log.Infof("Using first detected workflow event: %s", events[0])
+		eventName = events[0]
+	} else {
+		log.Infof("Using default workflow event: push")
+		eventName = "push"
+	}
+
+	// build the plan for this run
+	if execArgs.job != "" {
+		log.Infof("Planning job: %s", execArgs.job)
+		plan, err = planner.PlanJob(execArgs.job)
+		if err != nil {
+			return err
+		}
+	} else {
+		log.Infof("Planning jobs for event: %s", eventName)
+		plan, err = planner.PlanEvent(eventName)
+		if err != nil {
+			return err
+		}
+	}
+
+	maxLifetime := 3 * time.Hour
+	if deadline, ok := ctx.Deadline(); ok {
+		maxLifetime = time.Until(deadline)
+	}
+
+	// init a cache server
+	handler, err := artifactcache.StartHandler("", "", 0, "", log.StandardLogger().WithField("module", "cache_request"))
+	if err != nil {
+		return err
+	}
+	log.Infof("cache handler listens on: %v", handler.ExternalURL())
+	execArgs.cacheHandler = handler
+
+	if execArgs.containerDaemonSocket != "/var/run/docker.sock" {
+		log.Warnf("--container-daemon-socket %s: please use the DOCKER_HOST environment variable as documented at https://forgejo.org/docs/next/admin/actions/runner-installation/#setting-up-the-container-environment instead. See https://code.forgejo.org/forgejo/runner/issues/577 for more information.", execArgs.containerDaemonSocket)
+	}
+
+	// run the plan
+	config := &runner.Config{
+		Workdir:               execArgs.Workdir(),
+		BindWorkdir:           false,
+		ReuseContainers:       false,
+		ForcePull:             execArgs.forcePull,
+		ForceRebuild:          execArgs.forceRebuild,
+		LogOutput:             true,
+		JSONLogger:            execArgs.jsonLogger,
+		Env:                   execArgs.LoadEnvs(),
+		Vars:                  execArgs.LoadVars(),
+		Secrets:               execArgs.LoadSecrets(),
+		InsecureSecrets:       execArgs.insecureSecrets,
+		Privileged:            execArgs.privileged,
+		UsernsMode:            execArgs.usernsMode,
+		ContainerArchitecture: execArgs.containerArchitecture,
+		ContainerDaemonSocket: execArgs.containerDaemonSocket,
+		UseGitIgnore:          execArgs.useGitIgnore,
+		GitHubInstance:        execArgs.githubInstance,
+		ContainerCapAdd:       execArgs.containerCapAdd,
+		ContainerCapDrop:      execArgs.containerCapDrop,
+		ContainerOptions:      execArgs.containerOptions,
+		NoSkipCheckout:        execArgs.noSkipCheckout,
+		// PresetGitHubContext:        preset,
+		// EventJSON:                  string(eventJSON),
+		ContainerNamePrefix:        fmt.Sprintf("FORGEJO-ACTIONS-TASK-%s", eventName),
+		ContainerMaxLifetime:       maxLifetime,
+		ContainerNetworkMode:       container.NetworkMode(execArgs.network),
+		ContainerNetworkEnableIPv6: execArgs.enableIPv6,
+		DefaultActionInstance:      execArgs.defaultActionsURL,
+		PlatformPicker: func(_ []string) string {
+			return execArgs.image
+		},
+		ValidVolumes: []string{"**"}, // All volumes are allowed for `exec` command
+	}
+
+	config.Env["ACT_EXEC"] = "true"
+
+	if t := config.Secrets["FORGEJO_TOKEN"]; t != "" {
+		config.Token = t
+	} else if t := config.Secrets["GITEA_TOKEN"]; t != "" {
+		config.Token = t
+	} else if t := config.Secrets["GITHUB_TOKEN"]; t != "" {
+		config.Token = t
+	}
+
+	if !execArgs.debug {
+		logLevel := log.InfoLevel
+		config.JobLoggerLevel = &logLevel
+	}
+
+	r, err := runner.New(config)
+	if err != nil {
+		return err
+	}
+
+	ctx = common.WithDryrun(ctx, execArgs.dryrun)
+	executor := r.NewPlanExecutor(plan)
+
+	return executor(ctx)
 }
 
 func loadExecCmd(ctx context.Context) *cobra.Command {
@@ -447,7 +445,9 @@ func loadExecCmd(ctx context.Context) *cobra.Command {
 		Use:   "exec",
 		Short: "Run workflow locally.",
 		Args:  cobra.MaximumNArgs(20),
-		RunE:  runExec(ctx, &execArg),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runExec(ctx, &execArg)
+		},
 	}
 
 	execCmd.Flags().BoolVarP(&execArg.runList, "list", "l", false, "list workflows")

@@ -118,7 +118,7 @@ func cloneIfRequired(rc *RunContext, remoteReusableWorkflow *model.ExternalReusa
 		if err != nil {
 			return err
 		}
-		defer worktree.Close()
+		defer worktree.Close(ctx)
 
 		workflowExecutor := makeWorkflowExecutorForWorkTree(worktree.WorktreeDir())
 		return workflowExecutor(ctx)

@@ -32,7 +32,7 @@ func TestJobExecutor(t *testing.T) {
 		{workdir, "uses-github-path", "push", "", platforms, secrets},
 		{workdir, "uses-docker-url", "push", "", platforms, secrets},
 		{workdir, "uses-github-full-sha", "push", "", platforms, secrets},
-		{workdir, "uses-github-short-sha", "push", "Please use the full commit SHA", platforms, secrets},
+		{workdir, "uses-github-short-sha", "push", "short references are not supported", platforms, secrets},
 		{workdir, "job-nil-step", "push", "invalid Step 0: missing run or uses key", platforms, secrets},
 	}
 	// These tests are sufficient to only check syntax.
@@ -262,9 +262,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			executorOrder := make([]string, 0)
 
 			mockLogger := mocks.NewFieldLogger(t)
-			mockLogger.On("Debugf", mock.Anything, mock.Anything).Return(0).Maybe()
-			mockLogger.On("Warningf", mock.Anything, mock.Anything).Return(0).Maybe()
-			mockLogger.On("WithField", mock.Anything, mock.Anything).Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
+			mockLogger.On("Debugf", mock.Anything, mock.Anything, mock.Anything).Return(0).Maybe()
+			mockLogger.On("Warningf", mock.Anything, mock.Anything, mock.Anything).Return(0).Maybe()
+			mockLogger.On("WithField", mock.Anything, mock.Anything, mock.Anything).Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
 			// When `WithFields()` is called with jobResult & jobOutputs field, add `setJobResults` to executorOrder.
 			mockLogger.On("WithFields",
 				mock.MatchedBy(func(fields logrus.Fields) bool {

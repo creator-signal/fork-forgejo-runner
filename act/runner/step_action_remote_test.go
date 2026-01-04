@@ -35,7 +35,7 @@ type UselessWorktree struct {
 	closed bool
 }
 
-func (t *UselessWorktree) Close() error {
+func (t *UselessWorktree) Close(_ context.Context) error {
 	t.closed = true
 	return nil
 }
