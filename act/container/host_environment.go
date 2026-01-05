@@ -303,8 +303,10 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 		wd = e.Path
 	}
 
-	if _, err := os.Stat(wd); err != nil {
-		common.Logger(ctx).Debugf("Failed to stat working directory %s %v\n", wd, err.Error())
+	if stat, err := os.Stat(wd); err != nil {
+		return fmt.Errorf("failed to stat working directory %s %w", wd, err)
+	} else if !stat.IsDir() {
+		return fmt.Errorf("working directory %s is not a directory", wd)
 	}
 
 	command := make([]string, len(commandparam))
