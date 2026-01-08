@@ -7,37 +7,13 @@ on:
 
 enable-email-notifications: true
 
-env:
-  FORGEJO_HOST_PORT: 'forgejo:3000'
-  FORGEJO_ADMIN_USER: 'root'
-  FORGEJO_ADMIN_PASSWORD: 'admin1234'
-  FORGEJO_RUNNER_SECRET: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-  FORGEJO_SCRIPT: |
-    /usr/bin/s6-svscan /etc/s6 & sleep 10 ; su -c "forgejo admin user create --admin --username $FORGEJO_ADMIN_USER --password $FORGEJO_ADMIN_PASSWORD --email root@example.com" git && su -c "forgejo forgejo-cli actions register --labels docker --name therunner --secret $FORGEJO_RUNNER_SECRET" git && sleep infinity
-
 jobs:
-  build-and-tests:
-    name: build and test
+  build:
+    name: Build Forgejo Runner
     if: vars.ROLE == 'forgejo-coding'
     runs-on: docker
     container:
       image: 'code.forgejo.org/oci/ci:1'
-
-    services:
-      forgejo:
-        image: code.forgejo.org/forgejo/forgejo:11
-        env:
-          FORGEJO__security__INSTALL_LOCK: "true"
-          FORGEJO__log__LEVEL: "debug"
-          FORGEJO__actions__ENABLED: "true"
-          FORGEJO_ADMIN_USER: root
-          FORGEJO_ADMIN_PASSWORD: admin1234
-          FORGEJO_RUNNER_SECRET: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-        cmd:
-          - 'bash'
-          - '-c'
-          - '/usr/bin/s6-svscan /etc/s6 & sleep 10 ; su -c "forgejo admin user create --admin --username $FORGEJO_ADMIN_USER --password $FORGEJO_ADMIN_PASSWORD --email root@example.com" git && su -c "forgejo forgejo-cli actions register --labels docker --name therunner --secret $FORGEJO_RUNNER_SECRET" git && sleep infinity'
-
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v5
 
@@ -64,19 +40,11 @@ jobs:
           name: forgejo-runner
           path: forgejo-runner
 
-      - name: check the forgejo server is responding
-        run: |
-          sleep 10 # matches the sleep 10 in the bootstrap of the Forgejo instance
-          # in case of a slow machine, give it time to bootstrap
-          retry --delay=10 --times=6 bash -c 'test $FORGEJO_ADMIN_USER = $(curl -sS http://$FORGEJO_ADMIN_USER:$FORGEJO_ADMIN_PASSWORD@$FORGEJO_HOST_PORT/api/v1/user | jq --raw-output .login)'
-
-      - run: make FORGEJO_URL=http://$FORGEJO_HOST_PORT test
-
   runner-exec-tests:
     name: runner exec tests
     if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-bookworm
-    needs: [build-and-tests]
+    needs: [build]
     steps:
 
       - uses: https://data.forgejo.org/actions/checkout@v5
@@ -130,6 +98,7 @@ jobs:
     name: integration tests (docker-${{ matrix.docker }})
     if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-bookworm
+    needs: [build]
     strategy:
       matrix:
         docker:
@@ -142,41 +111,21 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: install docker
-        run: ./.forgejo/install-docker.sh ${{ matrix.docker }}
-
-      - name: apt install
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update -qq
-          # qemu & binfmt -- for mixed architecture testing
-          # gcc -- for `go test -race`
-          apt-get install -qq -y \
-            qemu-user-static binfmt-support \
-            gcc make
-
-      - name: integration test
-        run: |
-          make act-integration-test
+      - name: Install required tools
         env:
-          TEST_MUST_SUPPORT_MIXED_ARCH: true
-
-  runner-integration-tests:
-    name: runner integration tests
-    if: vars.ROLE == 'forgejo-coding'
-    runs-on: lxc-bookworm
-    needs: [build-and-tests]
-
-    steps:
-      - uses: https://data.forgejo.org/actions/checkout@v5
-
-      - uses: https://data.forgejo.org/actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-
-      - name: install docker
+          DEBIAN_FRONTEND: noninteractive
+        # gcc is required for `go test -race`.
+        # qemu-user-static and binfmt-support are required for mixed architecture testing.
         run: |
-          mkdir /etc/docker
+          apt-get install -y -qq \
+            make \
+            gcc \
+            qemu-user-static \
+            binfmt-support
+
+      - name: Install Docker
+        run: |
+          mkdir -p /etc/docker
           cat > /etc/docker/daemon.json  <<EOF
           {
             "ipv6": true,
@@ -195,16 +144,17 @@ jobs:
             ]
           }
           EOF
-          apt-get install -y -qq docker.io make
+          ./.forgejo/install-docker.sh ${{ matrix.docker }}
 
-      - name: install LXC
+      - name: Install LXC
         run: |
           act/runner/lxc-helpers.sh lxc_prepare_environment
           act/runner/lxc-helpers.sh lxc_install_lxc_inside 10.39.28 fdb1
 
-      - run: apt-get install -y -qq gcc # required for `-race`
-
-      - run: make runner-integration-test
+      - name: Run all tests
+        env:
+          TEST_MUST_SUPPORT_MIXED_ARCH: true
+        run: make integration-test
 
   validate-mocks:
     name: validate mocks

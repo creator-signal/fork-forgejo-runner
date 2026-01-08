@@ -68,6 +68,10 @@ var (
 )
 
 func TestHandler(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	defer testutils.MockVariable(&fatal, func(_ logrus.FieldLogger, err error) {
 		t.Fatalf("unexpected call to fatal(%v)", err)
 	})()

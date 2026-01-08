@@ -47,6 +47,10 @@ func getForgejoFromEnv(t *testing.T) string {
 }
 
 func Test_ping(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	cfg := &config.Config{}
 	address := getForgejoFromEnv(t)
 	reg := &config.Registration{
@@ -57,6 +61,10 @@ func Test_ping(t *testing.T) {
 }
 
 func Test_runCreateRunnerFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	instance := getForgejoFromEnv(t)
 
 	//

@@ -72,6 +72,10 @@ func TestGetContainerArchive(t *testing.T) {
 }
 
 func TestCancelLongRunningCommand(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	dir := t.TempDir()
 
 	var argv []string

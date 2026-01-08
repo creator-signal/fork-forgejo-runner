@@ -6,4 +6,4 @@ jobs:
     steps:
       - run: |
           echo "forgejo.ref=${{ forgejo.ref }}"
-          [[ "${{ forgejo.ref }}" =~ ^refs/(heads|tags)/.+$ ]] || exit 1
+          [[ "${{ forgejo.ref }}" =~ ^refs/(heads|remotes|rewritten|tags)/.+$ ]] || exit 1

@@ -135,6 +135,10 @@ func TestPoller_New(t *testing.T) {
 }
 
 func TestPoller_Runner(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	setTrace(t)
 	for _, testCase := range []struct {
 		name           string

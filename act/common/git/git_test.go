@@ -211,6 +211,10 @@ func TestClone(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
+			if testing.Short() {
+				t.Skip("skipping integration test")
+			}
+
 			wt, err := Clone(t.Context(), CloneInput{
 				CacheDir: t.TempDir(),
 				URL:      tt.URL,
@@ -659,6 +663,10 @@ func gitCmd(args ...string) error {
 }
 
 func TestCloneIfRequired(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	tempDir := t.TempDir()
 	ctx := t.Context()
 

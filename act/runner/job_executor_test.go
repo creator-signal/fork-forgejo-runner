@@ -23,6 +23,10 @@ import (
 //go:generate mockery --srcpkg=github.com/sirupsen/logrus --name=FieldLogger
 
 func TestJobExecutor(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
 	tables := []TestJobFileInfo{
 		{workdir, "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, secrets},

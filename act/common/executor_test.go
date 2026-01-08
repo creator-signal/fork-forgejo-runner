@@ -76,6 +76,10 @@ func TestNewConditionalExecutor(t *testing.T) {
 }
 
 func TestNewParallelExecutor(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	assert := assert.New(t)
 
 	ctx := t.Context()
