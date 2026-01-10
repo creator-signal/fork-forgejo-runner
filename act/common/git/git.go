@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -190,6 +191,7 @@ func cloneIfRequired(ctx context.Context, input CloneInput, logger log.FieldLogg
 		token:                     input.Token,
 		ignoreInvalidCertificates: input.InsecureSkipTLS,
 		workingDirectory:          "",
+		remoteURL:                 input.URL,
 	}
 	_, err := git(ctx, &options, "clone", "--bare", input.URL, repoDir)
 	if err != nil {
@@ -309,6 +311,7 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 				repoPath:                  repoDir,
 				remote:                    "origin",
 				refspec:                   "+refs/*:refs/*",
+				remoteURL:                 input.URL,
 			}
 			err = Fetch(ctx, fetchInput)
 			if err != nil {
@@ -353,6 +356,7 @@ type FetchInput struct {
 	repoPath                  string
 	remote                    string
 	refspec                   string
+	remoteURL                 string
 }
 
 func Fetch(ctx context.Context, input FetchInput) error {
@@ -369,6 +373,7 @@ func Fetch(ctx context.Context, input FetchInput) error {
 		token:                     input.token,
 		ignoreInvalidCertificates: input.ignoreInvalidCertificates,
 		workingDirectory:          input.repoPath,
+		remoteURL:                 input.remoteURL,
 	}
 	_, err := git(ctx, &options, args...)
 	if err != nil {
@@ -386,12 +391,21 @@ type gitOptions struct {
 	token                     string
 	ignoreInvalidCertificates bool
 	workingDirectory          string
+	remoteURL                 string
 }
 
 func git(ctx context.Context, options *gitOptions, args ...string) (string, error) {
 	var gitArguments []string
 
 	if options.token != "" {
+		if options.remoteURL == "" {
+			return "", errors.New("failed to use git token: missing remote URL")
+		}
+		remoteURL, err := url.Parse(options.remoteURL)
+		if err != nil || remoteURL.Scheme == "" || remoteURL.Host == "" {
+			return "", fmt.Errorf("failed to parse remote URL %q to use git token: %w", options.remoteURL, err)
+		}
+
 		credentialsFile, err := os.CreateTemp("", "forgejo-runner-git-token-")
 		if err != nil {
 			return "", fmt.Errorf("failed to create temporary file to store Git token: %w", err)
@@ -404,7 +418,15 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 				log.Warnf("Unable to remove temporary file to store Git token %s: %v", credentialsPath, err)
 			}
 		}()
-		_, err = credentialsFile.Write([]byte(options.token))
+
+		// Git credential store expects an URL with embedded credentials.
+		// Use a fixed username to keep behaviour consistent across providers.
+		remoteURL.User = url.UserPassword("x-access-token", options.token)
+		if remoteURL.Path == "" {
+			remoteURL.Path = "/"
+		}
+
+		_, err = credentialsFile.Write([]byte(remoteURL.String() + "\n"))
 		if err != nil {
 			return "", fmt.Errorf("failed to write Git token to temporary file %s: %w", credentialsPath, err)
 		}
@@ -414,6 +436,7 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 		}
 
 		gitArguments = append(gitArguments, "-c", fmt.Sprintf("credential.helper=store --file=%s", credentialsPath))
+		gitArguments = append(gitArguments, "-c", "credential.useHttpPath=true")
 	}
 	if options.ignoreInvalidCertificates {
 		gitArguments = append(gitArguments, "-c", "http.sslVerify=false")

@@ -1,11 +1,15 @@
 package git
 
 import (
+	"encoding/base64"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 
@@ -636,6 +640,53 @@ func TestCloneIfRequired(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "https://github.com/actions/setup-go", remoteURL)
 	})
+}
+
+func TestClone_UsesTokenForHTTPAuth_NoInteractivePrompt(t *testing.T) {
+	// Make sure git will not try to interactively prompt (and hang the test).
+	t.Setenv("GIT_TERMINAL_PROMPT", "0")
+
+	token := "test-token-value"
+
+	var sawTokenAuth atomic.Bool
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+
+		// Expect: Authorization: Basic base64("<user>:<token>")
+		if strings.HasPrefix(auth, "Basic ") {
+			raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(auth, "Basic "))
+			if err == nil && strings.HasSuffix(string(raw), ":"+token) {
+				sawTokenAuth.Store(true)
+				// We don't serve a real git backend; just fail after proving auth was sent.
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+		}
+
+		// Challenge for Basic auth.
+		w.Header().Set("WWW-Authenticate", `Basic realm="forgejo-runner-test"`)
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+
+	// Any path is fine; useHttpPath=true makes git include the path in credential lookup.
+	url := srv.URL + "/org/repo"
+
+	_, err := Clone(t.Context(), CloneInput{
+		CacheDir: t.TempDir(),
+		URL:      url,
+		Ref:      "main",
+		Token:    token,
+	})
+	require.Error(t, err)
+
+	// The whole point: token must be used (git should send Authorization), and it must not try to prompt.
+	assert.True(t, sawTokenAuth.Load(), "expected git to send Authorization header when Token is provided")
+
+	// These are the typical symptoms of the bug when credentials are not picked up.
+	assert.NotContains(t, err.Error(), "could not read Username")
+	assert.NotContains(t, err.Error(), "terminal prompts disabled")
 }
 
 func TestResolveHead(t *testing.T) {
