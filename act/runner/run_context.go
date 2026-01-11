@@ -498,7 +498,12 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	// add service containers
 	for serviceID, spec := range rc.Run.Job().Services {
 		// Interpolate image first to check if we should skip this service
-		interpolatedImage := rc.ExprEval.Interpolate(ctx, spec.Image)
+		var interpolatedImage string
+		if rc.Config.ForceDefaultImage {
+			interpolatedImage = rc.runsOnImage(ctx)
+		} else {
+			interpolatedImage = rc.ExprEval.Interpolate(ctx, spec.Image)
+		}
 
 		// Skip service if image is empty (allows conditional services via expressions)
 		if interpolatedImage == "" {
@@ -972,6 +977,9 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 }
 
 func (rc *RunContext) containerImage(ctx context.Context) string {
+	if rc.Config.ForceDefaultImage {
+		return ""
+	}
 	job := rc.Run.Job()
 
 	c := job.Container()

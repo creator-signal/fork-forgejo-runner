@@ -359,6 +359,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		ReuseContainers:            false,
 		ForcePull:                  r.cfg.Container.ForcePull,
 		ForceRebuild:               r.cfg.Container.ForceRebuild,
+		ForceDefaultImage:          r.cfg.Container.ForceDefaultImage,
 		LogOutput:                  true,
 		JSONLogger:                 false,
 		Env:                        runEnvs,
