@@ -27,6 +27,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	"github.com/gobwas/glob"
 	"github.com/opencontainers/selinux/go-selinux"
 )
 
@@ -460,9 +461,33 @@ func sanitizeNetworkAlias(ctx context.Context, original string) string {
 	return sanitized
 }
 
+// validateImage validates that the image is allowed within the validImages globs
+func validateImage(image string, validImages []string) error {
+	if len(validImages) == 0 {
+		return nil
+	}
+
+	for _, valid := range validImages {
+		validGlob, err := glob.Compile(valid)
+		if err != nil {
+			return err
+		}
+		matched := validGlob.Match(image)
+		if matched {
+			return nil
+		}
+	}
+	return errors.New("image not allowed")
+}
+
 func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	logger := common.Logger(ctx)
 	image := rc.platformImage(ctx)
+	err := validateImage(image, rc.Config.ValidImages)
+	if err != nil {
+		return err
+	}
+
 	rawLogger := logger.WithField("raw_output", true)
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
@@ -504,6 +529,11 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		if interpolatedImage == "" {
 			logger.Infof("Skipping service '%s' because image is empty", serviceID)
 			continue
+		}
+
+		err := validateImage(interpolatedImage, rc.Config.ValidServices)
+		if err != nil {
+			return err
 		}
 
 		// interpolate env
@@ -1076,6 +1106,10 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
 		}
 		return false, nil
+	}
+	err := validateImage(img, rc.Config.ValidImages)
+	if err != nil {
+		return false, err
 	}
 	return true, nil
 }

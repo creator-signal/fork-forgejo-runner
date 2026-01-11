@@ -381,6 +381,8 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		InsecureSkipTLS:            r.cfg.Runner.Insecure,
 		Inputs:                     inputs,
 		ServerVersion:              serverVersion,
+		ValidImages:                r.cfg.Container.ValidImages,
+		ValidServices:              r.cfg.Container.ValidServices,
 	}
 
 	if r.cfg.Log.JobLevel != "" {

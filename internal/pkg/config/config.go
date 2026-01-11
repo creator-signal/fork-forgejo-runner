@@ -68,6 +68,8 @@ type Container struct {
 	DockerHost    string   `yaml:"docker_host"`    // DockerHost specifies the Docker host. It overrides the value specified in environment variable DOCKER_HOST.
 	ForcePull     bool     `yaml:"force_pull"`     // Pull docker image(s) even if already present
 	ForceRebuild  bool     `yaml:"force_rebuild"`  // Rebuild local docker image(s) even if already present
+	ValidImages   []string `yaml:"valid_images"`   // A glob to which images can be used for job container
+	ValidServices []string `yaml:"valid_services"` // A glob to which images can be used for service container
 }
 
 // Host represents the configuration for the host.

@@ -72,8 +72,10 @@ type Config struct {
 	ValidVolumes          []string                     // only volumes (and bind mounts) in this slice can be mounted on the job container or service containers
 	InsecureSkipTLS       bool                         // whether to skip verifying TLS certificate of the Gitea instance
 
-	ContainerNetworkEnableIPv6 bool   // create the network with IPv6 support enabled
-	ServerVersion              string // Git forge server version
+	ContainerNetworkEnableIPv6 bool     // create the network with IPv6 support enabled
+	ServerVersion              string   // Git forge server version
+	ValidImages                []string // a glob of allowed images for a job
+	ValidServices              []string // a glob of allowed images for a service
 }
 
 // GetToken: Adapt to Gitea
