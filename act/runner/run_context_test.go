@@ -889,6 +889,34 @@ jobs:
 	}
 }
 
+func Test_ValidateImage(t *testing.T) {
+	allowedImages := []string{
+		"docker.io/library/*",
+		"codeberg.org/*/*:latest",
+		"*@sha256:76947e7ef22f8a698fc638f706685909be425dbe09bd7a2cd7aca849f79b5f64",
+	}
+	tables := []struct {
+		image   string
+		allowed bool
+	}{
+		{"docker.io/library/ubuntu", true},
+		{"docker.io/library/ubuntu:18.04", true},
+		{"docker.io/cibuilds/hugo:0.53", false},
+		{"codeberg.org/forgejo/forgejo:12.0.4", false},
+		{"codeberg.org/forgejo/forgejo:latest", true},
+		{"quay.io/prometheus/prometheus@sha256:76947e7ef22f8a698fc638f706685909be425dbe09bd7a2cd7aca849f79b5f64", true},
+		{"quay.io/prometheus/prometheus:v3.6.0", false},
+	}
+	for _, table := range tables {
+		err := validateImage(table.image, allowedImages)
+		if table.allowed {
+			assert.NoError(t, err)
+		} else {
+			assert.Error(t, err)
+		}
+	}
+}
+
 type waitForServiceContainerMock struct {
 	mock.Mock
 	container.Container
