@@ -195,6 +195,8 @@ container:
   force_pull: false
   # Rebuild local docker image(s) even if already present
   force_rebuild: false
+  # Force to use the image from the label for job container and service
+  force_default_image: false
 
 host:
   # The parent directory of a job's working directory.
