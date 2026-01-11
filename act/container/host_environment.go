@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-git/go-billy/v5/helper/polyfill"
@@ -189,28 +188,6 @@ func (e *HostEnvironment) Start(_ bool) common.Executor {
 	}
 }
 
-type ptyWriter struct {
-	Out       io.Writer
-	AutoStop  atomic.Bool
-	dirtyLine bool
-}
-
-func (w *ptyWriter) Write(buf []byte) (int, error) {
-	if w.AutoStop.Load() && len(buf) > 0 && buf[len(buf)-1] == 4 {
-		n, err := w.Out.Write(buf[:len(buf)-1])
-		if err != nil {
-			return n, err
-		}
-		if w.dirtyLine || len(buf) > 1 && buf[len(buf)-2] != '\n' {
-			_, _ = w.Out.Write([]byte("\n"))
-			return n, io.EOF
-		}
-		return n, io.EOF
-	}
-	w.dirtyLine = strings.LastIndex(string(buf), "\n") < len(buf)-1
-	return w.Out.Write(buf)
-}
-
 type localEnv struct {
 	env map[string]string
 }
@@ -240,40 +217,28 @@ func lookupPathHost(cmd string, env map[string]string, writer io.Writer) (string
 }
 
 func setupPty(cmd *exec.Cmd) (*os.File, *os.File, error) {
-	ppty, tty, err := openPty()
+	master, slave, err := openPty()
 	if err != nil {
 		return nil, nil, err
 	}
-	if term.IsTerminal(int(tty.Fd())) {
-		_, err := term.MakeRaw(int(tty.Fd()))
+	if term.IsTerminal(int(slave.Fd())) {
+		_, err := term.MakeRaw(int(slave.Fd()))
 		if err != nil {
-			ppty.Close()
-			tty.Close()
+			master.Close()
+			slave.Close()
 			return nil, nil, err
 		}
 	}
-	cmd.Stdin = tty
-	cmd.Stdout = tty
-	cmd.Stderr = tty
-	return ppty, tty, nil
+	cmd.Stdin = slave
+	cmd.Stdout = slave
+	cmd.Stderr = slave
+	return master, slave, nil
 }
 
-func writeKeepAlive(ppty io.Writer) {
-	c := 1
-	var err error
-	for c == 1 && err == nil {
-		c, err = ppty.Write([]byte{4})
-		<-time.After(time.Second)
-	}
-}
-
-func copyPtyOutput(writer io.Writer, ppty io.Reader, finishLog context.CancelFunc) {
-	defer func() {
-		finishLog()
-	}()
-	if _, err := io.Copy(writer, ppty); err != nil {
-		return
-	}
+func copyPtyOutput(writer io.Writer, master io.Reader, finishLog context.CancelFunc) {
+	// Error is expected -- "read /dev/ptmx: input/output error" is the typical exit for io.Copy here.
+	_, _ = io.Copy(writer, master)
+	finishLog()
 }
 
 func (e *HostEnvironment) UpdateFromImageEnv(_ *map[string]string) common.Executor {
@@ -333,49 +298,42 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 	cmd.Env = envList
 	cmd.Stderr = e.StdOut
 	cmd.Dir = wd
-	var ppty *os.File
-	var tty *os.File
+
+	var master *os.File
+	var slave *os.File
 	defer func() {
-		if ppty != nil {
-			ppty.Close()
+		if master != nil {
+			master.Close()
 		}
-		if tty != nil {
-			tty.Close()
+		if slave != nil {
+			slave.Close()
 		}
 	}()
 	if true /* allocate Terminal */ {
 		var err error
-		ppty, tty, err = setupPty(cmd)
+		master, slave, err = setupPty(cmd)
 		if err != nil {
 			common.Logger(ctx).Debugf("Failed to setup Pty %v\n", err.Error())
 		}
 	}
-	writer := &ptyWriter{Out: e.StdOut}
+
 	logctx, finishLog := context.WithCancel(context.Background())
-	if ppty != nil {
-		go copyPtyOutput(writer, ppty, finishLog)
+	if master != nil {
+		go copyPtyOutput(e.StdOut, master, finishLog)
 	} else {
 		finishLog()
 	}
-	if ppty != nil {
-		go writeKeepAlive(ppty)
-	}
-	err = runCmdInGroup(cmd, cmdline, tty != nil)
-	if err != nil {
+
+	if err := runCmdInGroup(cmd, cmdline, master != nil); err != nil {
 		return fmt.Errorf("RUN %w", err)
 	}
-	if tty != nil {
-		writer.AutoStop.Store(true)
-		if _, err := tty.Write([]byte("\x04")); err != nil {
-			common.Logger(ctx).Debug("Failed to write EOT")
-		}
+
+	if slave != nil {
+		_ = slave.Close()
 	}
+
 	<-logctx.Done()
 
-	if ppty != nil {
-		ppty.Close()
-		ppty = nil
-	}
 	return err
 }
 
