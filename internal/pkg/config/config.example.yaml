@@ -195,6 +195,10 @@ container:
   force_pull: false
   # Rebuild local docker image(s) even if already present
   force_rebuild: false
+  # A list of globs to which images can be used for job container
+  valid_images: []
+  # A list of globs to which images can be used for service container
+  valid_services: []
 
 host:
   # The parent directory of a job's working directory.
