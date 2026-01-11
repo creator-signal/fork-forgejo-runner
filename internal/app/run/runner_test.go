@@ -7,6 +7,9 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -536,8 +539,24 @@ func TestRunnerLXC(t *testing.T) {
 
 	forgejoClient := &forgejoClientMock{}
 
+	aaaaLogs := make([]int64, 0, 2400)
+
 	forgejoClient.On("Address").Return("https://127.0.0.1:8080") // not expected to be used in this test
-	forgejoClient.On("UpdateLog", mock.Anything, mock.Anything).Return(nil, nil)
+	forgejoClient.On("UpdateLog", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			updateRequest := args.Get(1).(*connect.Request[runnerv1.UpdateLogRequest])
+			for _, row := range updateRequest.Msg.Rows {
+				if strings.Contains(row.Content, "$(seq 2400)") {
+					continue
+				} else if strings.Contains(row.Content, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA") {
+					split := strings.Split(row.Content, " - ")
+					index, err := strconv.ParseInt(split[0], 10, 64)
+					require.NoError(t, err)
+					aaaaLogs = append(aaaaLogs, index)
+				}
+			}
+		}).
+		Return(nil, nil)
 	forgejoClient.On("UpdateTask", mock.Anything, mock.Anything).
 		Return(connect.NewResponse(&runnerv1.UpdateTaskResponse{}), nil)
 
@@ -602,6 +621,31 @@ jobs:
       - run: mkdir -p some/directory/owned/by/root
 `
 		runWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
+	})
+
+	t.Run("Large Fast Logs", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+on:
+  push:
+jobs:
+  test:
+    runs-on: lxc
+    steps:
+      - run: |
+          for i in $(seq 2400) ; do
+             echo $i - AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          done
+`
+		runWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
+
+		slices.Sort(aaaaLogs)
+		require.Len(t, aaaaLogs, 2400)
+		for i := range 2400 {
+			assert.EqualValues(t, i+1, aaaaLogs[i], "aaaaLogs[%d]", i)
+		}
 	})
 }
 
