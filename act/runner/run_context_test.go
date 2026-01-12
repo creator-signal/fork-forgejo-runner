@@ -900,8 +900,11 @@ func Test_ValidateImage(t *testing.T) {
 		allowed bool
 	}{
 		{"docker.io/library/ubuntu", true},
+		{"library/ubuntu", true},
 		{"docker.io/library/ubuntu:18.04", true},
+		{"library/ubuntu:18.04", true},
 		{"docker.io/cibuilds/hugo:0.53", false},
+		{"cibuilds/hugo:0.53", false},
 		{"codeberg.org/forgejo/forgejo:12.0.4", false},
 		{"codeberg.org/forgejo/forgejo:latest", true},
 		{"quay.io/prometheus/prometheus@sha256:76947e7ef22f8a698fc638f706685909be425dbe09bd7a2cd7aca849f79b5f64", true},

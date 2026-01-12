@@ -25,6 +25,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/container"
 	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"github.com/distribution/reference"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/gobwas/glob"
@@ -467,6 +468,11 @@ func validateImage(image string, validImages []string) error {
 		return nil
 	}
 
+	ref, err := reference.ParseAnyReference(image)
+	if err != nil {
+		return err
+	}
+	image = ref.String()
 	for _, valid := range validImages {
 		validGlob, err := glob.Compile(valid)
 		if err != nil {
