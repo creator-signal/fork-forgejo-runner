@@ -513,6 +513,45 @@ func TestClone(t *testing.T) {
 		tags := getTestRepoTags(t, wt1.WorktreeDir())
 		assert.Equal(t, []string{"tag-1"}, tags)
 	})
+
+	t.Run("Removes non-empty clone target directory", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
+		// Create a local repo that will act as the remote to be cloned.
+		remoteDir := makeTestRepo(t)
+
+		// `git clone` is happy to clone into empty directories. Add a file to the directory that the repository will be
+		// cloned to prevent it from succeeding.
+		remoteDirHash := common.Sha256(remoteDir)
+		repoDir := filepath.Join(cacheDir, remoteDirHash[:2], remoteDirHash[2:])
+		err := os.MkdirAll(repoDir, 0o755)
+		require.NoError(t, err)
+
+		obstacleFilePath := filepath.Join(repoDir, ".test.txt")
+		err = os.WriteFile(obstacleFilePath, []byte("Lorem ipsum"), 0o644)
+		require.NoError(t, err)
+
+		// Create some commits
+		_ = makeTestCommit(t, remoteDir, "commit 1")
+		commit2 := makeTestCommit(t, remoteDir, "commit 2")
+
+		// Clone the repo
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "main",
+		})
+		require.NoError(t, err)
+		defer wt1.Close(t.Context())
+
+		// Verify that the repository was cloned successfully.
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
+		assert.Equal(t, commit2, clonedSHA)
+
+		// Ensure that the obstacle file was removed.
+		_, err = os.Stat(obstacleFilePath)
+		assert.Error(t, err)
+	})
 }
 
 func makeTestRepo(t *testing.T) string {

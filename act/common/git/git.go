@@ -184,6 +184,14 @@ func cloneIfRequired(ctx context.Context, input CloneInput, logger log.FieldLogg
 		}
 	}
 
+	// The clone directory might not be empty, for example, due to a failed cloning attempt. Because the target
+	// directory's name is derived from `input.URL`, that is an unrecoverable situation and would require human
+	// intervention. Try to delete it. If it does not work, `git clone` will fail with an appropriate error. Then, it is
+	// up to a human to fix the problem.
+	if _, err := os.Stat(repoDir); err == nil {
+		_ = os.RemoveAll(repoDir)
+	}
+
 	logger.Infof("  \u2601\ufe0f  git clone '%s' # ref=%s", input.URL, input.Ref)
 	logger.Debugf("  cloning %s to %s", input.URL, repoDir)
 
