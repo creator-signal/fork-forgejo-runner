@@ -38,6 +38,7 @@ type HostEnvironment struct {
 	Root      string
 	StdOut    io.Writer
 	LXC       bool
+	LXCPID    string
 }
 
 func (e *HostEnvironment) Create(_, _ []string) common.Executor {
@@ -312,8 +313,24 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 		if user == "root" {
 			command = append([]string{"/usr/bin/sudo"}, command...)
 		} else {
-			common.Logger(ctx).Debugf("lxc-attach --name %v %v", e.Name, command)
-			command = append([]string{"/usr/bin/sudo", "--preserve-env", "--preserve-env=PATH", "/usr/bin/lxc-attach", "--keep-env", "--name", e.Name, "--"}, command...)
+			common.Logger(ctx).Debugf("execute in LXC container %v: %v", e.Name, command)
+
+			command = append([]string{
+				"/usr/bin/sudo", "--preserve-env",
+				"/usr/bin/nsenter",
+				"--target", e.LXCPID,
+				"--all",                      // enter all the same namespaces as the target process
+				fmt.Sprintf("--wdns=%s", wd), // set the working directory inside the namespace
+				"--",
+				// We used to use lxc-attach, which would cause processes to be in the .lxc cgroup; to mirror that with
+				// nsenter we start a shell and add our own PID ($$) to the .lxc cgroup.  `--join-cgroup` is an option
+				// of nsenter but it joins the same group as the init process, which is /init.scope, and not the lxc
+				// cgroup.
+				"/bin/sh",
+				"-c",
+				`echo $$ > /sys/fs/cgroup/.lxc/cgroup.procs 2>/dev/null || true; exec $@`,
+				"/bin/sh",
+			}, command...)
 		}
 	}
 
