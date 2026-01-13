@@ -13,14 +13,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/djherbis/buffer"
-	"github.com/djherbis/nio/v3"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
@@ -239,37 +237,11 @@ func setupPty(cmd *exec.Cmd) (*os.File, *os.File, error) {
 	return master, slave, nil
 }
 
-func copyPtyOutput(writer io.Writer, master io.Reader, finishLog context.CancelFunc) {
-	// Writing to `writer` can be relatively slow; when forgejo-runner is in daemon mode then `writer` is `lineWriter`
-	// which will split the contents up line-by-line and call a lineHandler, which will send the output to a logger,
-	// which will end up in `Reporter` which acquires a mutex for each line received in order to append the line to its
-	// internal buffers.  Experimentally, when using an LXC command and PTY configuration, if a command outputs a large
-	// log chunk (~500kB), a straight `io.Copy()` between `master` and `reader` will end up with data being lost in
-	// chunks in random places in the log -- sometimes the middle, sometimes the end.  The cause of this is that the PTY
-	// has a fixed kernel data buffer, lxc-attach performs non-blocking I/O against the pty, and does not attempt to
-	// recover missing data from a "short write" if the buffer is full
-	// (https://github.com/lxc/lxc/blob/cba4ce7ef2ec09176de0aaca80f94636bcffabf2/src/lxc/terminal.c#L351-L352).
-	//
-	// Introducing a memory buffer in forgejo-runner helps to address this problem.  We read as fast as possible in a
-	// dedicated goroutine into the buffer, attempting to keep the PTY buffer clear and ready for writes from the
-	// subcommand.  Concurrently, we drain that buffer into `writer`.
-	//
-	// There's no limit to the buffer size that could be required to get this right and always guarantee all data.  A 2
-	// MB buffer was sufficient to meet the needs of reproduction test cases, but this has been bumped up to 100 MB for
-	// anticipated real-world use cases.  `buffer.New(x)` is allocated on-demand, so 100 MB is a maximum buffer size.
-
-	pipeReader, pipeWriter := nio.Pipe(buffer.New(100 * 1024 * 1024))
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		// Error is expected -- "read /dev/ptmx: input/output error" is the typical exit for io.Copy here.
-		_, _ = io.Copy(pipeWriter, master)
-		pipeWriter.Close()
-	})
-	wg.Go(func() {
-		_, _ = io.Copy(writer, pipeReader)
-	})
-	wg.Wait()
-
+func copyPtyOutput(writer io.Writer, master io.Reader, finishLog context.CancelFunc, logger log.FieldLogger) {
+	_, err := io.Copy(writer, master)
+	if err != nil {
+		logger.Errorf("unexpected error handling command output: %w", err)
+	}
 	finishLog()
 }
 
@@ -367,7 +339,7 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 
 	logctx, finishLog := context.WithCancel(context.Background())
 	if master != nil {
-		go copyPtyOutput(e.StdOut, master, finishLog)
+		go copyPtyOutput(e.StdOut, master, finishLog, common.Logger(ctx))
 	} else {
 		finishLog()
 	}
