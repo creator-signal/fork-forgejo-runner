@@ -623,6 +623,122 @@ jobs:
 		runWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
 	})
 
+	t.Run("LXC Environment", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
+		workflow := `
+on:
+  push:
+jobs:
+  validate:
+    runs-on: lxc
+    steps:
+      - run: |
+          set -x
+
+          # First clause (/home...) is expected for this workflow if pulled into a live Forgejo Actions system, and /tmp for the test environment
+          if [[ "$PWD" =~ ^/home/[^/]+/\.cache/act/[^/]+/hostexecutor ]] || [[ "$PWD" =~ /tmp/TestRunnerLXC[0-9]+/[^/]+/[^/]+/hostexecutor ]]; then
+            echo "Working directory matches expected pattern"
+          else
+            echo "Working directory does not match expected pattern"
+            exit 1
+          fi
+
+          CGROUP_PATH=$(cat /proc/self/cgroup | grep '^0::' | cut -d: -f3)
+          echo "Current cgroup: $CGROUP_PATH"
+          # allow nested LXC (/../.lxc) or not (/.lxc) by matching just the tailing end
+          if [[ "$CGROUP_PATH" =~ /.lxc$ ]]; then
+            echo "Process is in LXC cgroup"
+          else
+            echo "Process cgroup does not match expected pattern"
+            exit 1
+          fi
+
+          u=$(whoami)
+          echo "Current user: $u"
+          if [[ "$u" = "root" ]]; then
+            echo "Process is running as root"
+          else
+            echo "Process user is unexpected"
+            exit 1
+          fi
+
+          if [ -t 1 ]; then
+            echo "stdout is a TTY"
+          else
+            echo "stdout is NOT a TTY"
+            exit 1
+          fi
+
+          current_proc=$(readlink /proc/$$/exe)
+          if [[ "$current_proc" = "/usr/bin/bash" ]]; then
+            echo "current process is bash"
+          else
+            echo "current process is unexpected"
+            exit 1
+          fi
+
+          if [[ "$FORGEJO_ACTIONS_RUNNER_VERSION" =~ ^(v[0-9].*|dev)$ ]]; then
+            echo "FORGEJO_ACTIONS_RUNNER_VERSION is set indicating that env variables are available"
+          else
+            echo "FORGEJO_ACTIONS_RUNNER_VERSION is unexpected"
+            exit 1
+          fi
+
+          hostname1=$(hostname)
+          hostname2=$(hostname -f)
+          hostname3=$(cat /etc/hostname)
+          if [[ "$hostname1" =~ ^[a-f0-9]{16}$ ]]; then
+            echo "hostname matches expected pattern"
+          else
+            echo "unexpected hostname pattern"
+            exit 1
+          fi
+          if [[ "$hostname1" = "$hostname2" ]] && [[ "$hostname1" = "$hostname3" ]]; then
+            echo "all access to hostname is the same"
+          else
+            echo "unexpected mismatched hostname values"
+            exit 1
+          fi
+
+          if [ -f /.dockerenv ]; then
+            echo "I'm in docker?"
+            exit 1
+          elif [ -f /run/.containerenv ]; then
+            echo "I'm in podman?"
+            exit 1
+          fi
+
+          detect_virt=$(systemd-detect-virt)
+          if [[ "$detect_virt" = "lxc" ]]; then
+            echo "systemd-detect-virt thinks we're in LXC"
+          else
+            echo "unexpected systemd-detect-virt"
+            exit 1
+          fi
+
+          init_env=$(cat /proc/1/environ)
+          if [[ "$init_env" =~ container=lxc ]]; then
+            echo "pid 1 is running in LXC"
+          else
+            echo "pid 1 is outside LXC; maybe I am too?"
+            exit 1
+          fi
+
+          # make sure we're in the same namespaces as pid 1
+          for namespace in cgroup ipc mnt net pid pid_for_children time time_for_children user uts; do
+            INIT_NS=$(readlink /proc/1/ns/$namespace 2>/dev/null || echo "unknown")
+            SELF_NS=$(readlink /proc/self/ns/$namespace 2>/dev/null || echo "unknown")
+            if [[ "$INIT_NS" != "$SELF_NS" ]]; then
+              echo "namespace $namespace different from init process"
+              exit 1
+            fi
+          done
+`
+		runWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
+	})
+
 	t.Run("Large Fast Logs", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
