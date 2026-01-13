@@ -889,6 +889,106 @@ jobs:
 	}
 }
 
+func TestRunContext_PrepareJobContainerWithLimitedContainerAndService(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
+	yaml := `
+on:
+  push:
+
+jobs:
+  job:
+    runs-on: docker
+    container:
+      image: some:image
+      credentials:
+        username: containerusername
+        password: containerpassword
+    services:
+      service1:
+        image: service1:image
+        credentials:
+          username: service1username
+          password: service1password
+      service2:
+        image: service2:image
+        credentials:
+          username: service2username
+          password: service2password
+    steps:
+      - run: echo ok
+`
+	workflow, err := model.ReadWorkflow(strings.NewReader(yaml), true)
+	require.NoError(t, err)
+
+	step := &stepActionRemote{
+		Step: &model.Step{
+			Uses: "org/repo/path@ref",
+		},
+		RunContext: &RunContext{
+			Config: &Config{
+				Workdir: "/my/workdir",
+			},
+			Run: &model.Run{
+				JobID:    "job",
+				Workflow: workflow,
+			},
+		},
+		env: map[string]string{},
+	}
+
+	jobInputs := []container.NewContainerInput{}
+	serviceInputs := []container.NewContainerInput{}
+	newContainer := container.NewContainer
+	defer testutils.MockVariable(&container.NewContainer, func(input *container.NewContainerInput) container.ExecutionsEnvironment {
+		c := *input
+		c.Stdout = nil
+		c.Stderr = nil
+		c.Env = []string{}
+		if strings.HasPrefix(c.Username, "service") {
+			serviceInputs = append(serviceInputs, c)
+		} else {
+			jobInputs = append(jobInputs, c)
+		}
+		return newContainer(input)
+	})()
+	sortInputs := func() {
+		slices.SortFunc(jobInputs, func(a, b container.NewContainerInput) int { return cmp.Compare(a.Username, b.Username) })
+		slices.SortFunc(serviceInputs, func(a, b container.NewContainerInput) int { return cmp.Compare(a.Username, b.Username) })
+	}
+	resetInputs := func() {
+		jobInputs = []container.NewContainerInput{}
+		serviceInputs = []container.NewContainerInput{}
+	}
+
+	ctx := t.Context()
+	rc := step.getRunContext()
+	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+
+	t.Run("default config", func(t *testing.T) {
+		require.NoError(t, rc.prepareJobContainer(ctx))
+		sortInputs()
+		assert.Len(t, jobInputs, 1)
+		assert.Equal(t, jobInputs[0].Image, "some:image")
+		assert.Len(t, serviceInputs, 2)
+		assert.Equal(t, serviceInputs[0].Image, "service1:image")
+		assert.Equal(t, serviceInputs[1].Image, "service2:image")
+		resetInputs()
+	})
+
+	t.Run("force default image", func(t *testing.T) {
+		defer testutils.MockVariable(&rc.Config.Platforms, map[string]string{"docker": "docker:own"})()
+		defer testutils.MockVariable(&rc.Config.ForceDefaultImage, true)()
+		require.NoError(t, rc.prepareJobContainer(ctx))
+		sortInputs()
+		assert.Len(t, jobInputs, 1)
+		assert.Equal(t, jobInputs[0].Image, "docker:own")
+		assert.Len(t, serviceInputs, 2)
+		assert.Equal(t, serviceInputs[0].Image, "docker:own")
+		assert.Equal(t, serviceInputs[1].Image, "docker:own")
+		resetInputs()
+	})
+}
+
 type waitForServiceContainerMock struct {
 	mock.Mock
 	container.Container
