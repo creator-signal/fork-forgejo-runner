@@ -8,4 +8,4 @@ jobs:
     steps:
       - run: |
           apt update -qq ; apt --quiet install -qq --yes iputils-ping
-          ping -c 1 -6 $(cat /etc/hostname)
+          ping -c 1 -6 "$(cat /etc/hostname)"
