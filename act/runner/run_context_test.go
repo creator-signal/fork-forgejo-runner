@@ -889,6 +889,91 @@ jobs:
 	}
 }
 
+func TestRunContext_PrepareJobContainerWithLimitedContainerService(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
+	yaml := `
+on:
+  push:
+
+jobs:
+  job:
+    runs-on: docker
+    container:
+      image: some:image
+      credentials:
+        username: containerusername
+        password: containerpassword
+    services:
+      service1:
+        image: service1:image
+        credentials:
+          username: service1username
+          password: service1password
+      service2:
+        image: service2:image
+        credentials:
+          username: service2username
+          password: service2password
+    steps:
+      - run: echo ok
+`
+	workflow, err := model.ReadWorkflow(strings.NewReader(yaml), true)
+	require.NoError(t, err)
+
+	step := &stepActionRemote{
+		Step: &model.Step{
+			Uses: "org/repo/path@ref",
+		},
+		RunContext: &RunContext{
+			Config: &Config{
+				Workdir: "/my/workdir",
+			},
+			Run: &model.Run{
+				JobID:    "job",
+				Workflow: workflow,
+			},
+		},
+		env: map[string]string{},
+	}
+
+	t.Run("limit image", func(t *testing.T) {
+		ctx := t.Context()
+		rc := step.getRunContext()
+		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+
+		// no limit on default
+		require.NoError(t, rc.prepareJobContainer(ctx))
+
+		// limit it to only code.forgejo.com
+		defer testutils.MockVariable(&rc.Config.ValidImages, []string{"code.forgejo.com/*"})()
+		assert.Equal(t, rc.prepareJobContainer(ctx).Error(), "image not allowed [image: docker.io/library/some:image]")
+	})
+
+	t.Run("limit service", func(t *testing.T) {
+		ctx := t.Context()
+		rc := step.getRunContext()
+		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+
+		// no limit on default
+		require.NoError(t, rc.prepareJobContainer(ctx))
+
+		// limit it to only codeberg.com
+		reset := testutils.MockVariable(&rc.Config.ValidServices, []string{"codeberg.com/*"})
+		assert.Equal(t, rc.prepareJobContainer(ctx).Error(), "image not allowed [image: docker.io/library/service1:image]")
+		reset()
+
+		// limit it to only service2:image
+		reset = testutils.MockVariable(&rc.Config.ValidServices, []string{"*/service1:image"})
+		assert.Equal(t, rc.prepareJobContainer(ctx).Error(), "image not allowed [image: docker.io/library/service2:image]")
+		reset()
+
+		// limit it to only docker.io/library/
+		reset = testutils.MockVariable(&rc.Config.ValidServices, []string{"docker.io/library/*"})
+		assert.NoError(t, rc.prepareJobContainer(ctx))
+		reset()
+	})
+}
+
 func Test_ValidateImage(t *testing.T) {
 	allowedImages := []string{
 		"docker.io/library/*",

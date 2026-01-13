@@ -483,7 +483,7 @@ func validateImage(image string, validImages []string) error {
 			return nil
 		}
 	}
-	return errors.New("image not allowed")
+	return fmt.Errorf("image not allowed [image: %s]", image)
 }
 
 func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
