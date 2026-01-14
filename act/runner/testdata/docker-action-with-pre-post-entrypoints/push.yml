@@ -1,0 +1,17 @@
+name: docker-with-pre-post
+on: push
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  local:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: ./actions/docker-local-with-post-entrypoint
+
+  remote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: https://code.forgejo.org/forgejo/act-test-actions/runner-pre-post-entrypoint@main

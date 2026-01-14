@@ -849,3 +849,47 @@ func TestRunner_JobContainerVolumes(t *testing.T) {
 	config := &Config{Env: map[string]string{"volume_path": volumePath}, ValidVolumes: []string{volumePath}}
 	jobFile.runTest(t.Context(), t, config)
 }
+
+func TestRunner_DockerActionWithPreAndPost(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+
+	expectedLogMessages := []string{
+		// local
+		`msg="some super duper awesome work has happened\n" dryrun=false job="docker-with-pre-post/local " jobID=local matrix="map[]" raw_output=true stage=Main`,
+		`msg="  ✅  Success - Main ./actions/docker-local-with-post-entrypoint" dryrun=false job="docker-with-pre-post/local " jobID=local matrix="map[]" stage=Main`,
+		`msg="some super duper awesome cleanup has happened\n" dryrun=false job="docker-with-pre-post/local " jobID=local matrix="map[]" raw_output=true stage=Post`,
+		`msg="  ✅  Success - Post ./actions/docker-local-with-post-entrypoint" dryrun=false job="docker-with-pre-post/local " jobID=local matrix="map[]" stage=Post`,
+		// remote
+		`msg="docker image has prepared to do work\n" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" raw_output=true stage=Pre`,
+		`msg="  ✅  Success - Pre https://code.forgejo.org/forgejo/act-test-actions/runner-pre-post-entrypoint@main" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" stage=Pre`,
+		`msg="docker image has done the work\n" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" raw_output=true stage=Main`,
+		`msg="  ✅  Success - Main https://code.forgejo.org/forgejo/act-test-actions/runner-pre-post-entrypoint@main" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" stage=Main`,
+		`msg="docker image has cleaned up after work\n" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" raw_output=true stage=Post`,
+		`msg="  ✅  Success - Post https://code.forgejo.org/forgejo/act-test-actions/runner-pre-post-entrypoint@main" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" stage=Post`,
+	}
+
+	ctx := t.Context()
+
+	config := &Config{}
+
+	wf := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "docker-action-with-pre-post-entrypoints",
+		eventName:    "push",
+		platforms:    platforms,
+		secrets:      secrets,
+	}
+
+	logger := &maskJobLoggerFactory{}
+
+	wf.runTest(WithJobLoggerFactory(common.WithLogger(ctx, logger.WithJobLogger()), logger), t, config)
+
+	output := logger.Output.String()
+
+	for _, msg := range expectedLogMessages {
+		assert.Contains(t, output, msg, "did not find expected log message: "+msg)
+	}
+}

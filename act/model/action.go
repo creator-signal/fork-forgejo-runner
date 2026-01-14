@@ -59,19 +59,19 @@ const (
 
 // ActionRuns are a field in Action
 type ActionRuns struct {
-	Using      ActionRunsUsing   `yaml:"using"`
-	Env        map[string]string `yaml:"env"`
-	Main       string            `yaml:"main"`
-	Pre        string            `yaml:"pre"`
-	PreIf      string            `yaml:"pre-if"`
-	Post       string            `yaml:"post"`
-	PostIf     string            `yaml:"post-if"`
-	Image      string            `yaml:"image"`
-  PreEntrypoint  string        `yaml:"pre-entrypoint"`
-	Entrypoint string            `yaml:"entrypoint"`
-  PostEntrypoint string        `yaml:"post-entrypoint"`
-	Args       []string          `yaml:"args"`
-	Steps      []Step            `yaml:"steps"`
+	Using          ActionRunsUsing   `yaml:"using"`
+	Env            map[string]string `yaml:"env"`
+	Main           string            `yaml:"main"`
+	Pre            string            `yaml:"pre"`
+	PreIf          string            `yaml:"pre-if"`
+	Post           string            `yaml:"post"`
+	PostIf         string            `yaml:"post-if"`
+	Image          string            `yaml:"image"`
+	PreEntrypoint  string            `yaml:"pre-entrypoint"`
+	Entrypoint     string            `yaml:"entrypoint"`
+	PostEntrypoint string            `yaml:"post-entrypoint"`
+	Args           []string          `yaml:"args"`
+	Steps          []Step            `yaml:"steps"`
 }
 
 func (actionRuns *ActionRuns) UnmarshalYAML(value *yaml.Node) error {

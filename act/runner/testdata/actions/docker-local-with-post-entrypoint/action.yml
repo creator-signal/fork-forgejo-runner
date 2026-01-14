@@ -1,0 +1,6 @@
+name: 'Post Docker'
+description: 'Runs another entrypoint in container when job is complete'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  post-entrypoint: /post-entrypoint.sh
