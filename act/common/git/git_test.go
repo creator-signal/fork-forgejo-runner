@@ -230,6 +230,45 @@ func TestClone(t *testing.T) {
 		})
 	}
 
+	t.Run("Fetches New Commit", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
+		// Create a local repo that will act as the remote to be cloned.
+		remoteDir := makeTestRepo(t)
+
+		// Create a commit and get its full SHA
+		firstCommit := makeTestCommit(t, remoteDir, "initial commit")
+
+		// Clone the repo, referencing firstCommit
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      firstCommit,
+		})
+		require.NoError(t, err)
+		defer wt1.Close(t.Context())
+
+		// Verify firstCommit is the HEAD of the clone.
+		firstHead := getTestRepoHead(t, wt1.WorktreeDir())
+		assert.Equal(t, firstCommit, firstHead)
+
+		// Create a new commit in the "remote".
+		secondCommit := makeTestCommit(t, remoteDir, "second commit")
+
+		// Run the clone again, this time referencing the new commit.
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      secondCommit,
+		})
+		require.NoError(t, err)
+		defer wt2.Close(t.Context())
+
+		// The clone should have the new commit as its HEAD
+		secondHead := getTestRepoHead(t, wt2.WorktreeDir())
+		assert.Equal(t, secondCommit, secondHead)
+	})
+
 	t.Run("Skips Fetch on Present Full SHA", func(t *testing.T) {
 		cacheDir := t.TempDir()
 
@@ -587,15 +626,6 @@ func makeTestBranch(t *testing.T, repoPath, commitSHA, branchName string) {
 	require.NoError(t, gitCmd("-C", repoPath, "branch", branchName, commitSHA))
 }
 
-func objectExists(t *testing.T, repoPath, object string) bool {
-	t.Helper()
-
-	cmd := exec.Command("git", "-C", repoPath, "cat-file", "-e", object)
-	_, err := cmd.Output()
-
-	return err == nil
-}
-
 func getTestRepoHead(t *testing.T, repoPath string) string {
 	t.Helper()
 	cmd := exec.Command("git", "-C", repoPath, "rev-parse", "HEAD")
@@ -852,21 +882,27 @@ func TestFetch(t *testing.T) {
 	})
 
 	t.Run("Refspec is optional", func(t *testing.T) {
-		assert.True(t, objectExists(t, cloneDir, commitOne))
+		exists, err := objectExists(t.Context(), cloneDir, commitOne)
+		require.NoError(t, err)
+		assert.True(t, exists)
 
 		commitTwo := makeTestCommit(t, remoteDir, "Create second commit")
 
-		assert.False(t, objectExists(t, cloneDir, commitTwo))
+		exists, err = objectExists(t.Context(), cloneDir, commitTwo)
+		require.NoError(t, err)
+		assert.False(t, exists)
 
 		input := FetchInput{
 			repoPath: cloneDir,
 			remote:   "origin",
 			refspec:  "",
 		}
-		err := Fetch(t.Context(), input)
+		err = Fetch(t.Context(), input)
 		require.NoError(t, err)
 
-		assert.True(t, objectExists(t, cloneDir, commitTwo))
+		exists, err = objectExists(t.Context(), cloneDir, commitTwo)
+		require.NoError(t, err)
+		assert.True(t, exists)
 	})
 
 	t.Run("Fetch with refspec", func(t *testing.T) {
@@ -892,4 +928,54 @@ func TestFetch(t *testing.T) {
 		headAfterFetch := getTestRepoHead(t, cloneDir)
 		assert.Equal(t, commitTwo, headAfterFetch)
 	})
+}
+
+func TestObjectExists(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	// Create a local repo that will act as the remote to be cloned.
+	remoteDir := makeTestRepo(t)
+
+	// Create a commit and get its full SHA
+	firstCommit := makeTestCommit(t, remoteDir, "initial commit")
+
+	// Clone the repo.
+	err := gitCmd("clone", remoteDir, cacheDir)
+	require.NoError(t, err)
+
+	// Verify that firstCommit is actually present.
+	exists, err := objectExists(t.Context(), cacheDir, firstCommit)
+	require.NoError(t, err)
+	assert.True(t, exists)
+
+	// Verify that short references work.
+	exists, err = objectExists(t.Context(), cacheDir, firstCommit[:7])
+	require.NoError(t, err)
+	assert.True(t, exists)
+
+	// Imaginary commits should not exist.
+	exists, err = objectExists(t.Context(), cacheDir, "4e035bc55a3eb3bd670fcfef0dbd3c19c50e11de")
+	require.NoError(t, err)
+	assert.False(t, exists)
+
+	// Create a second commit.
+	secondCommit := makeTestCommit(t, remoteDir, "second commit")
+
+	// The second commit should not exist without `git fetch`.
+	exists, err = objectExists(t.Context(), cacheDir, secondCommit)
+	require.NoError(t, err)
+	assert.False(t, exists)
+
+	// Fetch the remote to make the second known.
+	err = gitCmd("-C", cacheDir, "fetch")
+	require.NoError(t, err)
+
+	// The second commit should exist now.
+	exists, err = objectExists(t.Context(), cacheDir, secondCommit)
+	require.NoError(t, err)
+	assert.True(t, exists)
+
+	// Malformed object names should result in an error.
+	_, err = objectExists(t.Context(), cacheDir, "malformed-name")
+	assert.ErrorContains(t, err, "could not determine whether malformed-name exists")
 }

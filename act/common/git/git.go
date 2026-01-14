@@ -54,6 +54,8 @@ func ResolveHead(ctx context.Context, repoPath string) (shortSha, sha string, er
 }
 
 // ResolveRevision determines the commit ID of the given revision (commit ID, tag, branch, HEAD, ...).
+//
+// *Warning*: ResolveRevision is not suitable to test whether a commit is actually present.
 func ResolveRevision(ctx context.Context, repoPath, rev string) (string, error) {
 	logger := common.Logger(ctx)
 
@@ -73,6 +75,31 @@ func ResolveRevision(ctx context.Context, repoPath, rev string) (string, error) 
 	logger.Debugf("Found revision: %s", output)
 
 	return output, nil
+}
+
+// objectExists tests whether the given object exists in the repository. Returns true if it does, false otherwise.
+func objectExists(ctx context.Context, repoPath, object string) (bool, error) {
+	logger := common.Logger(ctx)
+
+	options := gitOptions{
+		workingDirectory: repoPath,
+	}
+	_, err := git(ctx, &options, "cat-file", "-e", object)
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			if exitError.ExitCode() == 1 {
+				return false, nil
+			}
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return false, fmt.Errorf("could not determine whether %s exists: %s: %w", object, stderr, err)
+		}
+		return false, fmt.Errorf("could not determine whether %s exists %s", object, err)
+	}
+
+	logger.Debugf("Object exists: %s", object)
+
+	return true, nil
 }
 
 // DescribeHead resolves the symbolic name (tag or branch) of HEAD.
@@ -301,7 +328,8 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	skipFetch := false
 	hash, err := ResolveRevision(ctx, repoDir, input.Ref)
 	if err == nil && hash != "" && hash == input.Ref {
-		skipFetch = true
+		exists, err := objectExists(ctx, repoDir, hash)
+		skipFetch = err == nil && exists
 		logger.Infof("  \u2601\ufe0f  git fetch '%s' skipped; ref=%s cached", input.URL, input.Ref)
 	}
 
