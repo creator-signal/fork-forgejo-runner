@@ -31,6 +31,10 @@ func NewDockerBuildExecutor(input NewDockerBuildExecutorInput) common.Executor {
 	}
 }
 
+func CurrentSystemPlatform(ctx context.Context) (string, error) {
+	return "", errors.New("Unsupported Operation")
+}
+
 // NewDockerPullExecutor function to create a run executor for the container
 func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
