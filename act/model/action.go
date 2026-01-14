@@ -67,7 +67,9 @@ type ActionRuns struct {
 	Post       string            `yaml:"post"`
 	PostIf     string            `yaml:"post-if"`
 	Image      string            `yaml:"image"`
+  PreEntrypoint  string        `yaml:"pre-entrypoint"`
 	Entrypoint string            `yaml:"entrypoint"`
+  PostEntrypoint string        `yaml:"post-entrypoint"`
 	Args       []string          `yaml:"args"`
 	Steps      []Step            `yaml:"steps"`
 }

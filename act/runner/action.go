@@ -347,10 +347,21 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 		cmd = action.Runs.Args
 		evalDockerArgs(ctx, step, action, &cmd)
 	}
-	entrypoint := strings.Fields(eval.Interpolate(ctx, step.getStepModel().With["entrypoint"]))
+	entrypoint := strings.Fields(eval.Interpolate(ctx, step.getStepModel().With[entrypointType]))
 	if len(entrypoint) == 0 {
-		if action.Runs.Entrypoint != "" {
-			entrypoint, err = shellquote.Split(action.Runs.Entrypoint)
+		var entrypointValue string
+
+		switch entrypointType {
+		case "pre-entrypoint":
+			entrypointValue = action.Runs.PreEntrypoint
+		case "entrypoint":
+			entrypointValue = action.Runs.Entrypoint
+		case "post-entrypoint":
+			entrypointValue = action.Runs.PostEntrypoint
+		}
+
+		if entrypointValue != "" {
+			entrypoint, err = shellquote.Split(entrypointValue)
 			if err != nil {
 				return err
 			}
@@ -519,14 +530,15 @@ func shouldRunPreStep(step actionStep) common.Conditional {
 func hasPreStep(step actionStep) common.Conditional {
 	return func(ctx context.Context) bool {
 		action := step.getActionModel()
-		return action.Runs.Using == model.ActionRunsUsingComposite ||
+		return (action.Runs.Using == model.ActionRunsUsingComposite) ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
 				action.Runs.Using == model.ActionRunsUsingNode16 ||
 				action.Runs.Using == model.ActionRunsUsingNode20 ||
 				action.Runs.Using == model.ActionRunsUsingNode24 ||
 				action.Runs.Using == model.ActionRunsUsingGo ||
 				action.Runs.Using == model.ActionRunsUsingSh) &&
-				action.Runs.Pre != "")
+				action.Runs.Pre != "") ||
+			(action.Runs.Using == model.ActionRunsUsingDocker && action.Runs.PreEntrypoint != "")
 	}
 }
 
@@ -628,6 +640,14 @@ func runPreStep(step actionStep) common.Executor {
 				rc.execJobContainer(buildArgs, *step.getEnv(), "", containerActionDir),
 				rc.execJobContainer(execArgs, *step.getEnv(), "", ""),
 			)(ctx)
+
+		case model.ActionRunsUsingDocker:
+			if remoteAction == nil {
+				actionDir = ""
+				actionPath = containerActionDir
+			}
+			return execAsDocker(ctx, step, actionName, actionDir, actionPath, remoteAction == nil, "pre-entrypoint")
+
 		default:
 			return nil
 		}
@@ -662,14 +682,15 @@ func shouldRunPostStep(step actionStep) common.Conditional {
 func hasPostStep(step actionStep) common.Conditional {
 	return func(ctx context.Context) bool {
 		action := step.getActionModel()
-		return action.Runs.Using == model.ActionRunsUsingComposite ||
+		return (action.Runs.Using == model.ActionRunsUsingComposite) ||
 			((action.Runs.Using == model.ActionRunsUsingNode12 ||
 				action.Runs.Using == model.ActionRunsUsingNode16 ||
 				action.Runs.Using == model.ActionRunsUsingNode20 ||
 				action.Runs.Using == model.ActionRunsUsingNode24 ||
 				action.Runs.Using == model.ActionRunsUsingGo ||
 				action.Runs.Using == model.ActionRunsUsingSh) &&
-				action.Runs.Post != "")
+				action.Runs.Post != "") ||
+			(action.Runs.Using == model.ActionRunsUsingDocker && action.Runs.PostEntrypoint != "")
 	}
 }
 
@@ -751,6 +772,13 @@ func runPostStep(step actionStep) common.Executor {
 				rc.execJobContainer(buildArgs, *step.getEnv(), "", containerActionDir),
 				rc.execJobContainer(execArgs, *step.getEnv(), "", ""),
 			)(ctx)
+
+		case model.ActionRunsUsingDocker:
+			if remoteAction == nil {
+				actionDir = ""
+				actionPath = containerActionDir
+			}
+			return execAsDocker(ctx, step, actionName, actionDir, actionPath, remoteAction == nil, "post-entrypoint")
 
 		default:
 			return nil
