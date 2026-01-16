@@ -16,7 +16,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/runner"
 	"connectrpc.com/connect"
 	retry "github.com/avast/retry-go/v4"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -51,6 +51,8 @@ type Reporter struct {
 	stopCommandEndToken string
 	issuedLocalCancel   bool
 	retry               *config.Retry
+
+	log *logrus.Entry
 }
 
 func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client, task *runnerv1.Task, reportInterval time.Duration, retry *config.Retry) *Reporter {
@@ -81,6 +83,9 @@ func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client
 		state: &runnerv1.TaskState{
 			Id: task.Id,
 		},
+		log: logrus.WithFields(logrus.Fields{
+			"task_id": task.Id,
+		}),
 	}
 
 	if task.Secrets["ACTIONS_STEP_DEBUG"] == "true" {
@@ -100,8 +105,8 @@ func (r *Reporter) ResetSteps(l int) {
 	}
 }
 
-func (r *Reporter) Levels() []log.Level {
-	return log.AllLevels
+func (r *Reporter) Levels() []logrus.Level {
+	return logrus.AllLevels
 }
 
 func appendIfNotNil[T any](s []*T, v *T) []*T {
@@ -111,11 +116,11 @@ func appendIfNotNil[T any](s []*T, v *T) []*T {
 	return s
 }
 
-func (r *Reporter) Fire(entry *log.Entry) error {
+func (r *Reporter) Fire(entry *logrus.Entry) error {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 
-	log.WithFields(entry.Data).Trace(entry.Message)
+	r.log.WithFields(entry.Data).Trace(entry.Message)
 
 	timestamp := entry.Time
 	if r.state.StartedAt == nil {
@@ -142,7 +147,7 @@ func (r *Reporter) Fire(entry *log.Entry) error {
 				if v, ok := entry.Data["jobOutputs"]; ok {
 					_ = r.setOutputs(v.(map[string]string))
 				} else {
-					log.Panicf("received log entry with successful jobResult, but without jobOutputs -- outputs will be corrupted for this job")
+					r.log.Panicf("received log entry with successful jobResult, but without jobOutputs -- outputs will be corrupted for this job")
 				}
 			}
 		}
@@ -200,17 +205,17 @@ func (r *Reporter) RunDaemon() {
 	}
 	if r.ctx.Err() != nil {
 		// This shouldn't happen because DaemonContext is used for `r.ctx` which should outlive any running job.
-		log.Warnf("Terminating RunDaemon on an active job due to error: %v", r.ctx.Err())
+		r.log.Warnf("Terminating RunDaemon on an active job due to error: %v", r.ctx.Err())
 		return
 	}
 
 	err := r.ReportLog(false)
 	if err != nil {
-		log.Warnf("ReportLog error: %v", err)
+		r.log.Warnf("ReportLog error: %v", err)
 	}
 	err = r.ReportState()
 	if err != nil {
-		log.Warnf("ReportState error: %v", err)
+		r.log.Warnf("ReportState error: %v", err)
 	}
 
 	time.AfterFunc(r.reportInterval, r.RunDaemon)
@@ -314,11 +319,11 @@ func (r *Reporter) Close(runErr error) error {
 
 	return retry.Do(func() error {
 		if err := r.ReportLog(true); err != nil {
-			log.Warnf("uploading final logs failed, but will be retried: %v", err)
+			r.log.Warnf("uploading final logs failed, but will be retried: %v", err)
 			return err
 		}
 		if err := r.ReportState(); err != nil {
-			log.Warnf("uploading final status failed, but will be retried: %v", err)
+			r.log.Warnf("uploading final status failed, but will be retried: %v", err)
 			return err
 		}
 		return nil
@@ -426,7 +431,7 @@ func (r *Reporter) ReportState() error {
 		// issuedLocalCancel is just used to deduplicate this log message if our local state doesn't catch up with our
 		// remote state as quickly as the report-interval, which would cause this message to repeat in the logs.
 		if !r.issuedLocalCancel && remoteResultState != localResultState {
-			log.Infof("UpdateTask returned task result %v for a task that was in local state %v - beginning local task termination",
+			r.log.Infof("UpdateTask returned task result %v for a task that was in local state %v - beginning local task termination",
 				remoteResultState, localResultState)
 			r.issuedLocalCancel = true
 		}
@@ -521,7 +526,7 @@ func (r *Reporter) handleCommand(originalContent, command, parameters, value str
 	return &originalContent
 }
 
-func (r *Reporter) parseLogRow(entry *log.Entry) *runnerv1.LogRow {
+func (r *Reporter) parseLogRow(entry *logrus.Entry) *runnerv1.LogRow {
 	content := strings.TrimRightFunc(entry.Message, func(r rune) bool { return r == '\r' || r == '\n' })
 
 	matches := cmdRegex.FindStringSubmatch(content)
