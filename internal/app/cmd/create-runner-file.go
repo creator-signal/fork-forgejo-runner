@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"time"
 
 	pingv1 "code.forgejo.org/forgejo/actions-proto/ping/v1"
 	"connectrpc.com/connect"
@@ -75,7 +74,7 @@ func ping(cfg *config.Config, reg *config.Registration) error {
 		"",
 		"",
 		ver.Version(),
-		time.Second,
+		cfg.Runner.FetchTimeout,
 	)
 
 	_, err := cli.Ping(context.Background(), connect.NewRequest(&pingv1.PingRequest{

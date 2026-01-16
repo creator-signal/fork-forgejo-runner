@@ -29,10 +29,9 @@ type Poller interface {
 }
 
 type poller struct {
-	client       client.Client
-	runner       run.RunnerInterface
-	cfg          *config.Config
-	tasksVersion atomic.Int64 // tasksVersion used to store the version of the last task fetched from the Gitea.
+	clients []client.Client
+	runner  run.RunnerInterface
+	cfg     *config.Config
 
 	pollingCtx      context.Context
 	shutdownPolling context.CancelFunc
@@ -43,18 +42,18 @@ type poller struct {
 	done chan any
 }
 
-func New(ctx context.Context, cfg *config.Config, client client.Client, runner run.RunnerInterface) Poller {
-	return (&poller{}).init(ctx, cfg, client, runner)
+func New(ctx context.Context, cfg *config.Config, clients []client.Client, runner run.RunnerInterface) Poller {
+	return (&poller{}).init(ctx, cfg, clients, runner)
 }
 
-func (p *poller) init(ctx context.Context, cfg *config.Config, client client.Client, runner run.RunnerInterface) Poller {
+func (p *poller) init(ctx context.Context, cfg *config.Config, clients []client.Client, runner run.RunnerInterface) Poller {
 	pollingCtx, shutdownPolling := context.WithCancel(ctx)
 
 	jobsCtx, shutdownJobs := context.WithCancel(ctx)
 
 	done := make(chan any)
 
-	p.client = client
+	p.clients = clients
 	p.runner = runner
 	p.cfg = cfg
 
@@ -69,36 +68,27 @@ func (p *poller) init(ctx context.Context, cfg *config.Config, client client.Cli
 }
 
 func (p *poller) Poll() {
-	limiter := rate.NewLimiter(rate.Every(p.cfg.Runner.FetchInterval), 1)
+	limiters := make([]*rate.Limiter, len(p.clients))
+	for i := range p.clients {
+		limiters[i] = rate.NewLimiter(rate.Every(p.clients[i].FetchInterval()), 1)
+	}
+	taskVersions := make([]atomic.Int64, len(p.clients))
 
 	capacity := int64(p.cfg.Runner.Capacity)
 	inProgressTasks := atomic.Int64{}
 	wg := &sync.WaitGroup{}
 
+	// When we start a FetchTask, we'll be requesting (capacity - inProgressTasks) tasks from a remote and may receive
+	// up to that number.  We can't perform multiple fetches simulanteously or else we could be overprovisioned for
+	// capacity.  fetchMutex is held during each fetch.  It's not a sync.Mutex because those aren't supported by
+	// synctest; a buffered channel of size 1 is used as a replacement.
+	fetchMutex := make(chan any, 1)
+
 	log.Infof("[poller] launched")
-	for {
-		if err := limiter.Wait(p.pollingCtx); err != nil {
-			log.Infof("[poller] shutdown begin, %d tasks currently running", inProgressTasks.Load())
-			break
-		}
-
-		availableCapacity := capacity - inProgressTasks.Load()
-		if availableCapacity > 0 {
-			log.Tracef("[poller] fetching at most %d tasks", availableCapacity)
-			tasks, ok := p.fetchTasks(p.pollingCtx, availableCapacity)
-			if !ok {
-				continue
-			}
-
-			log.Tracef("[poller] successfully fetched %d tasks", len(tasks))
-			for _, task := range tasks {
-				inProgressTasks.Add(1)
-				wg.Go(func() {
-					p.runTaskWithRecover(p.jobsCtx, task)
-					inProgressTasks.Add(-1)
-				})
-			}
-		}
+	for i := range p.clients {
+		wg.Go(func() {
+			p.pollForClient(limiters[i], p.clients[i], capacity, fetchMutex, &taskVersions[i], &inProgressTasks, wg)
+		})
 	}
 
 	wg.Wait()
@@ -106,6 +96,37 @@ func (p *poller) Poll() {
 
 	// signal the poller is finished
 	close(p.done)
+}
+
+func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, capacity int64, fetchMutex chan any, taskVersions, inProgressTasks *atomic.Int64, wg *sync.WaitGroup) {
+	for {
+		if err := limiter.Wait(p.pollingCtx); err != nil {
+			log.Infof("[poller] shutdown begin, %d tasks currently running", inProgressTasks.Load())
+			return
+		}
+
+		fetchMutex <- struct{}{} // lock mutex
+		availableCapacity := capacity - inProgressTasks.Load()
+		if availableCapacity > 0 {
+			log.Tracef("[poller] fetching at most %d tasks from client %s", availableCapacity, client.Address())
+			tasks, ok := p.fetchTasks(p.pollingCtx, client, taskVersions, availableCapacity)
+			inProgressTasks.Add(int64(len(tasks)))
+			<-fetchMutex // unlock mutex by draining channel
+			if !ok {
+				continue
+			}
+
+			log.Tracef("[poller] successfully fetched %d tasks from client %s", len(tasks), client.Address())
+			for _, task := range tasks {
+				wg.Go(func() {
+					p.runTaskWithRecover(p.jobsCtx, task)
+					inProgressTasks.Add(-1)
+				})
+			}
+		} else {
+			<-fetchMutex // unlock mutex by draining channel
+		}
+	}
 }
 
 func (p *poller) Shutdown(ctx context.Context) error {
@@ -138,7 +159,7 @@ func (p *poller) runTaskWithRecover(ctx context.Context, task *runnerv1.Task) {
 	}
 }
 
-func (p *poller) fetchTasks(ctx context.Context, availableCapacity int64) ([]*runnerv1.Task, bool) {
+func (p *poller) fetchTasks(ctx context.Context, client client.Client, tasksVersion *atomic.Int64, availableCapacity int64) ([]*runnerv1.Task, bool) {
 	if availableCapacity == 0 {
 		return nil, false
 	}
@@ -146,10 +167,9 @@ func (p *poller) fetchTasks(ctx context.Context, availableCapacity int64) ([]*ru
 	reqCtx, cancel := context.WithTimeout(ctx, p.cfg.Runner.FetchTimeout)
 	defer cancel()
 
-	// Load the version value that was in the cache when the request was sent.
-	v := p.tasksVersion.Load()
-	resp, err := p.client.FetchTask(reqCtx, connect.NewRequest(&runnerv1.FetchTaskRequest{
-		TasksVersion: v,
+	v := tasksVersion.Load()
+	resp, err := client.FetchTask(reqCtx, connect.NewRequest(&runnerv1.FetchTaskRequest{
+		TasksVersion: tasksVersion.Load(),
 		TaskCapacity: &availableCapacity,
 	}))
 	if errors.Is(err, context.DeadlineExceeded) {
@@ -170,7 +190,7 @@ func (p *poller) fetchTasks(ctx context.Context, availableCapacity int64) ([]*ru
 	}
 
 	if resp.Msg.GetTasksVersion() > v {
-		p.tasksVersion.CompareAndSwap(v, resp.Msg.GetTasksVersion())
+		tasksVersion.CompareAndSwap(v, resp.Msg.GetTasksVersion())
 	}
 
 	taskSlice := []*runnerv1.Task{}
@@ -188,6 +208,6 @@ func (p *poller) fetchTasks(ctx context.Context, availableCapacity int64) ([]*ru
 	}
 
 	// got a task, set `tasksVersion` to zero to force query db in next request.
-	p.tasksVersion.CompareAndSwap(resp.Msg.GetTasksVersion(), 0)
+	tasksVersion.CompareAndSwap(resp.Msg.GetTasksVersion(), 0)
 	return taskSlice, true
 }
