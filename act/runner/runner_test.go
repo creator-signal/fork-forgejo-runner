@@ -862,13 +862,13 @@ func TestRunner_DockerActionWithPreAndPostLocal(t *testing.T) {
 		// TODO Create a warning if a user is triggering a local action with a pre-entrypoint
 
 		// stage=Main
-		// message from ./testdata/actions/docker-local-with-post-entrypoint/entrypoint.sh
+		// Message from ./testdata/actions/docker-local-with-post-entrypoint/entrypoint.sh
 		`msg="hello entrypoint\n" dryrun=false job=docker-with-pre-post/local jobID=local matrix="map[]" raw_output=true stage=Main`,
 		// Message from the runner
 		`msg="  ✅  Success - Main ./actions/docker-local-with-post-entrypoint" dryrun=false job=docker-with-pre-post/local jobID=local matrix="map[]" stage=Main`,
 
 		// stage=Post
-		// message from ./testdata/actions/docker-local-with-post-entrypoint/post-entrypoint.sh
+		// Message from ./testdata/actions/docker-local-with-post-entrypoint/post-entrypoint.sh
 		`msg="hello post entrypoint\n" dryrun=false job=docker-with-pre-post/local jobID=local matrix="map[]" raw_output=true stage=Post`,
 		// Message from the runner
 		`msg="  ✅  Success - Post ./actions/docker-local-with-post-entrypoint" dryrun=false job=docker-with-pre-post/local jobID=local matrix="map[]" stage=Post`,
