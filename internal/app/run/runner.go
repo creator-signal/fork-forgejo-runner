@@ -151,11 +151,14 @@ func SetupCache(cfg *config.Config) *cacheproxy.Handler {
 }
 
 func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) {
-	if _, ok := r.runningTasks.Load(task.Id); ok {
+	if _, loaded := r.runningTasks.LoadOrStore(task.Id, struct{}{}); loaded {
+		// Normally the responsibility of Run() is to ensure that, no matter what occurs within running the job, a
+		// reporter is created that will report the job status to the server. But in this case, for some reason another
+		// goroutine is currently running this exact same task on this same runner -- we can't report status in this
+		// case because it would corrupt the status of the other running job.
 		log.Errorf("task %d is already running", task.Id)
 		return
 	}
-	r.runningTasks.Store(task.Id, struct{}{})
 	defer r.runningTasks.Delete(task.Id)
 
 	ctx, cancel := context.WithTimeout(ctx, r.cfg.Runner.Timeout)
