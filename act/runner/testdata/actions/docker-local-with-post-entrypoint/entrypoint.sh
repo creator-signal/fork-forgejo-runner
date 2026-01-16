@@ -1,3 +1,3 @@
-#!/bin/sh -l
+#!/bin/bash
 
-echo 'some super duper awesome work has happened'
+echo hello entrypoint
