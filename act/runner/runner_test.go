@@ -857,10 +857,20 @@ func TestRunner_DockerActionWithPreAndPostLocal(t *testing.T) {
 	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	expectedLogMessages := []string{
-		// local
+		// stage=Pre
+		// NOTE The pre step is not possible to run for a local actions, since the declartion is first available in the main stage after checkout
+		// TODO Create a warning if a user is triggering a local action with a pre-entrypoint
+
+		// stage=Main
+		// message from ./testdata/actions/docker-local-with-post-entrypoint/entrypoint.sh
 		`msg="hello entrypoint\n" dryrun=false job=docker-with-pre-post/local jobID=local matrix="map[]" raw_output=true stage=Main`,
+		// Message from the runner
 		`msg="  ✅  Success - Main ./actions/docker-local-with-post-entrypoint" dryrun=false job=docker-with-pre-post/local jobID=local matrix="map[]" stage=Main`,
+
+		// stage=Post
+		// message from ./testdata/actions/docker-local-with-post-entrypoint/post-entrypoint.sh
 		`msg="hello post entrypoint\n" dryrun=false job=docker-with-pre-post/local jobID=local matrix="map[]" raw_output=true stage=Post`,
+		// Message from the runner
 		`msg="  ✅  Success - Post ./actions/docker-local-with-post-entrypoint" dryrun=false job=docker-with-pre-post/local jobID=local matrix="map[]" stage=Post`,
 	}
 
@@ -896,12 +906,22 @@ func TestRunner_DockerActionWithPreAndPostRemote(t *testing.T) {
 	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
 
 	expectedLogMessages := []string{
-		// remote
+		// stage=Pre
+		// The message from https://code.forgejo.org/forgejo/act-test-actions/src/commit/eca0f21772626c85cca7661bd25d93b45b847b94/runner-pre-post-entrypoint/pre-entrypoint#L3		i
 		`msg="docker image has prepared to do work\n" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" raw_output=true stage=Pre`,
+		// Message from the runner
 		`msg="  ✅  Success - Pre https://code.forgejo.org/forgejo/act-test-actions/runner-pre-post-entrypoint@main" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" stage=Pre`,
+
+		// stage=Main
+		// The message from https://code.forgejo.org/forgejo/act-test-actions/src/commit/eca0f21772626c85cca7661bd25d93b45b847b94/runner-pre-post-entrypoint/entrypoint#L3		i
 		`msg="docker image has done the work\n" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" raw_output=true stage=Main`,
+		// Message from the runner
 		`msg="  ✅  Success - Main https://code.forgejo.org/forgejo/act-test-actions/runner-pre-post-entrypoint@main" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" stage=Main`,
+
+		// stage=Post
+		// The message from https://code.forgejo.org/forgejo/act-test-actions/src/commit/eca0f21772626c85cca7661bd25d93b45b847b94/runner-pre-post-entrypoint/post-entrypoint#L3		i
 		`msg="docker image has cleaned up after work\n" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" raw_output=true stage=Post`,
+		// Message from the runner
 		`msg="  ✅  Success - Post https://code.forgejo.org/forgejo/act-test-actions/runner-pre-post-entrypoint@main" dryrun=false job=docker-with-pre-post/remote jobID=remote matrix="map[]" stage=Post`,
 	}
 
