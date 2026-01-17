@@ -173,15 +173,21 @@ func (p *poller) fetchTasks(ctx context.Context, availableCapacity int64) ([]*ru
 		p.tasksVersion.CompareAndSwap(v, resp.Msg.GetTasksVersion())
 	}
 
-	if resp.Msg.Task == nil {
+	taskSlice := []*runnerv1.Task{}
+	// Normally we'd expect to get a Task, and maybe AdditionalTasks.  But we're resilient here to a bug in Forgejo
+	// 14.0.0 & 14.0.1 where we might, rarely, get AdditionalTasks without a Task.
+	if resp.Msg.Task != nil {
+		taskSlice = append(taskSlice, resp.Msg.Task)
+	}
+	taskSlice = append(taskSlice, resp.Msg.GetAdditionalTasks()...)
+
+	if len(taskSlice) == 0 {
 		return nil, false
+	} else if resp.Msg.Task == nil {
+		log.Warn("FetchTask received tasks in AdditionalTasks field but not Task field; this is unexpected but runner will run them")
 	}
 
 	// got a task, set `tasksVersion` to zero to force query db in next request.
 	p.tasksVersion.CompareAndSwap(resp.Msg.GetTasksVersion(), 0)
-
-	taskSlice := []*runnerv1.Task{resp.Msg.GetTask()}
-	taskSlice = append(taskSlice, resp.Msg.GetAdditionalTasks()...)
-
 	return taskSlice, true
 }

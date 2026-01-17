@@ -255,6 +255,13 @@ func TestPoller_Fetch(t *testing.T) {
 			taskCount: 2,
 		},
 		{
+			name:      "AdditionalTasks Only",
+			noTask:    true,
+			success:   true,
+			addtTasks: true,
+			taskCount: 1,
+		},
+		{
 			name: "Error",
 			err:  fmt.Errorf("random error"),
 		},
