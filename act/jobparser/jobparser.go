@@ -155,16 +155,24 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		var runsOn []string
 		if pc.supportIncompleteRunsOn {
 			evaluatorOutputAware := newExpressionEvaluator(newInterpreter(id, workflowJob, matrix, pc.gitContext, results, pc.vars, pc.inputs, exprparser.InvalidJobOutput|exprparser.InvalidMatrixDimension, jobNeeds, nil))
-			rawRunsOn := workflowJob.RawRunsOn
+
+			// Clone `RawRunsOn` so that when `EvaluateYamlNode` mutates it into the evaluation output, it doesn't
+			// change the job itself -- which would prevent ${{ matrix... }} from being evaluated differently for each
+			// node.
+			rawRunsOn, err := cloneNode(&workflowJob.RawRunsOn)
+			if err != nil {
+				return nil, fmt.Errorf("error cloning workflow runs-on node: %w", err)
+			}
+
 			// Evaluate the entire `runs-on` node at once, which permits behavior like `runs-on: ${{ fromJSON(...) }}`
 			// where it can generate an array
-			err = evaluatorOutputAware.EvaluateYamlNode(&rawRunsOn)
+			err = evaluatorOutputAware.EvaluateYamlNode(rawRunsOn)
 			if err != nil {
 				// Store error and we'll use it to tag `IncompleteRunsOn`
 				errors.As(err, &runsOnInvalidJobReference)
 				errors.As(err, &runsOnInvalidMatrixReference)
 			}
-			runsOn = model.FlattenRunsOnNode(rawRunsOn)
+			runsOn = model.FlattenRunsOnNode(*rawRunsOn)
 		} else {
 			// Legacy behaviour; run interpolator on each individual entry in the `runsOn` array without support for
 			// `IncompleteRunsOn` detection:
@@ -278,6 +286,27 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		ret = append(ret, swf)
 	}
 	return ret, nil
+}
+
+func cloneNode(node *yaml.Node) (*yaml.Node, error) {
+	if node.Kind == 0 {
+		// no need to clone null
+		return node, nil
+	}
+	bytes, err := yaml.Marshal(node)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal node: %w", err)
+	}
+	var doc yaml.Node
+	err = yaml.Unmarshal(bytes, &doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cloned bytes: %w", err)
+	} else if doc.Kind != yaml.DocumentNode {
+		return nil, fmt.Errorf("expected DocumentNode from Unmashal, but received %v", doc.Kind)
+	} else if len(doc.Content) != 1 {
+		return nil, fmt.Errorf("expected DocumentNode with content length 1, but received unexpected length %d", len(doc.Content))
+	}
+	return doc.Content[0], nil
 }
 
 func evaluateEnableOpenIDConnect(bothJobs *bothJobTypes, workflowLevelSetting *bool) bool {

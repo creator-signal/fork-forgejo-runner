@@ -1,0 +1,19 @@
+on:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        host:
+          - aarch64-macos
+          - x86_64-freebsd
+          - x86_64-linux
+          - x86_64-windows
+
+    runs-on:
+      - self-hosted
+      - ${{ matrix.host }}
+
+    steps:
+      - run: echo "Hello, world!"

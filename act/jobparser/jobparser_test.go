@@ -89,6 +89,10 @@ func TestParse(t *testing.T) {
 			options: []ParseOption{WithVars(map[string]string{"RUNNER": "Windows"})},
 		},
 		{
+			name:    "runs_on_matrix_array",
+			options: []ParseOption{SupportIncompleteRunsOn()},
+		},
+		{
 			name:    "evaluated_matrix_needs",
 			options: []ParseOption{WithJobOutputs(map[string]map[string]string{})},
 		},
