@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/api/types/build"
 
 	"github.com/moby/go-archive"
+	"github.com/moby/go-archive/compression"
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
 
@@ -103,7 +104,7 @@ func createBuildContext(ctx context.Context, contextDir, relDockerfile string) (
 		includes = append(includes, ".dockerignore", relDockerfile)
 	}
 
-	compression := archive.Uncompressed
+	compression := compression.None
 	buildCtx, err := archive.TarWithOptions(contextDir, &archive.TarOptions{
 		Compression:     compression,
 		ExcludePatterns: excludes,
