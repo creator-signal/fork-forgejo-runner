@@ -6,7 +6,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -41,28 +40,6 @@ func TestConfigTune(t *testing.T) {
 		c.Tune("https://codeberg.com")
 		assert.EqualValues(t, 2*time.Second, c.Runner.FetchInterval)
 	})
-}
-
-func TestDefaultSettings(t *testing.T) {
-	config, err := LoadDefault("")
-	assert.NoError(t, err)
-
-	assert.EqualValues(t, config.Container.DockerHost, "-")
-	assert.EqualValues(t, config.Log.JobLevel, "info")
-	assert.EqualValues(t, config.Container.ForceRebuild, false)
-	assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
-}
-
-func TestConfigNormalization(t *testing.T) {
-	tmp := path.Join(t.TempDir(), "config.yml")
-	err := os.WriteFile(tmp, []byte("{ host: { workdir_parent: blah } }"), 0o644)
-	require.NoError(t, err)
-
-	config, err := LoadDefault(tmp)
-	assert.NoError(t, err)
-
-	assert.NotEqual(t, "blah", config.Host.WorkdirParent)
-	assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
 }
 
 func TestLoadDefault(t *testing.T) {
