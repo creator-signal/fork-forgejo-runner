@@ -101,10 +101,10 @@ func LoadDefault(file string) (*Config, error) {
 	if file != "" {
 		content, err := os.ReadFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("open config file %q: %w", file, err)
+			return nil, fmt.Errorf("cannot open config file %q: %w", file, err)
 		}
 		if err := yaml.Unmarshal(content, cfg); err != nil {
-			return nil, fmt.Errorf("parse config file %q: %w", file, err)
+			return nil, fmt.Errorf("cannot parse config file %q: %w", file, err)
 		}
 	}
 	compatibleWithOldEnvs(file != "", cfg)
@@ -113,7 +113,7 @@ func LoadDefault(file string) (*Config, error) {
 		if stat, err := os.Stat(cfg.Runner.EnvFile); err == nil && !stat.IsDir() {
 			envs, err := godotenv.Read(cfg.Runner.EnvFile)
 			if err != nil {
-				return nil, fmt.Errorf("read env file %q: %w", cfg.Runner.EnvFile, err)
+				return nil, fmt.Errorf("could not read env file %q: %w", cfg.Runner.EnvFile, err)
 			}
 			if cfg.Runner.Envs == nil {
 				cfg.Runner.Envs = map[string]string{}
