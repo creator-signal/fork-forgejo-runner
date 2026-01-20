@@ -35,6 +35,10 @@ func (o mockClient) Insecure() bool {
 	return true
 }
 
+func (o mockClient) FetchInterval() time.Duration {
+	return time.Second
+}
+
 func (o *mockClient) FetchTask(ctx context.Context, _ *connect.Request[runnerv1.FetchTaskRequest]) (*connect.Response[runnerv1.FetchTaskResponse], error) {
 	if o.sleep > 0 {
 		select {

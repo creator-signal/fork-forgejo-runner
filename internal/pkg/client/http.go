@@ -52,7 +52,7 @@ func getHTTPClient(endpoint string, insecure bool) *http.Client {
 }
 
 // New returns a new runner client.
-func New(endpoint string, insecure bool, uuid, token, version string, opts ...connect.ClientOption) *HTTPClient {
+func New(endpoint string, insecure bool, uuid, token, version string, fetchInterval time.Duration, opts ...connect.ClientOption) *HTTPClient {
 	baseURL := strings.TrimRight(endpoint, "/") + "/api/actions"
 
 	opts = append(opts, connect.WithInterceptors(connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
@@ -78,8 +78,9 @@ func New(endpoint string, insecure bool, uuid, token, version string, opts ...co
 			baseURL,
 			opts...,
 		),
-		endpoint: endpoint,
-		insecure: insecure,
+		endpoint:      endpoint,
+		insecure:      insecure,
+		fetchInterval: fetchInterval,
 	}
 }
 
@@ -91,12 +92,17 @@ func (c *HTTPClient) Insecure() bool {
 	return c.insecure
 }
 
+func (c *HTTPClient) FetchInterval() time.Duration {
+	return c.fetchInterval
+}
+
 var _ Client = (*HTTPClient)(nil)
 
 // An HTTPClient manages communication with the runner API.
 type HTTPClient struct {
 	pingv1connect.PingServiceClient
 	runnerv1connect.RunnerServiceClient
-	endpoint string
-	insecure bool
+	endpoint      string
+	insecure      bool
+	fetchInterval time.Duration
 }

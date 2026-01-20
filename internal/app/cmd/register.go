@@ -293,6 +293,7 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 		"",
 		"",
 		ver.Version(),
+		cfg.Runner.FetchInterval,
 	)
 
 	for {

@@ -89,6 +89,7 @@ func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, ar
 			reg.UUID,
 			reg.Token,
 			ver.Version(),
+			cfg.Runner.FetchInterval,
 		)
 
 		runner := run.NewRunner(cfg, reg, cli)

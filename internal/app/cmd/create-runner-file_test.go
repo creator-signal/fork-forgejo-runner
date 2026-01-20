@@ -110,6 +110,7 @@ func Test_runCreateRunnerFile(t *testing.T) {
 		reg.UUID,
 		reg.Token,
 		ver.Version(),
+		cfg.Runner.FetchInterval,
 	)
 	resp, err := cli.FetchTask(ctx, connect.NewRequest(&runnerv1.FetchTaskRequest{}))
 	assert.NoError(t, err)

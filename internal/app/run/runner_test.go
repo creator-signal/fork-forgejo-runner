@@ -89,6 +89,11 @@ func (m *forgejoClientMock) Insecure() bool {
 	return args.Bool(0)
 }
 
+func (m *forgejoClientMock) FetchInterval() time.Duration {
+	args := m.Called()
+	return time.Duration(args.Int(0))
+}
+
 func (m *forgejoClientMock) Ping(ctx context.Context, request *connect.Request[pingv1.PingRequest]) (*connect.Response[pingv1.PingResponse], error) {
 	args := m.Called(ctx, request)
 	if args.Get(0) == nil {

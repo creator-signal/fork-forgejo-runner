@@ -197,6 +197,7 @@ var createClient = func(cfg *config.Config, reg *config.Registration) client.Cli
 		reg.UUID,
 		reg.Token,
 		ver.Version(),
+		cfg.Runner.FetchInterval,
 	)
 }
 
