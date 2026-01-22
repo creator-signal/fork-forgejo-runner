@@ -100,3 +100,10 @@ jobs:
 
           docker inspect ${{ steps.forgejo.outputs.host-port}}/root/runner:$version > labels.json
           python3 .forgejo/labelscompare.py
+
+      - name: full logs
+        if: always()
+        run: |
+          sed -e 's/^/[RUNNER LOGS] /' ${{ steps.forgejo.outputs.runner-logs }}
+          docker logs forgejo | sed -e 's/^/[FORGEJO LOGS]/'
+          sleep 5 # hack to avoid mixing outputs in Forgejo
