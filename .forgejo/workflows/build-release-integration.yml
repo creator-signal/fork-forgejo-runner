@@ -29,14 +29,14 @@ jobs:
       - uses: https://data.forgejo.org/actions/checkout@v4
 
       - id: forgejo
-        uses: https://code.forgejo.org/actions/setup-forgejo@9f38e889a403864542cca311811c94ef4118650a
+        uses: https://code.forgejo.org/actions/setup-forgejo@76bd1fabe8cbf906577077f9bf1848ba83b25a92
         with:
           user: root
           password: admin1234
           image-version: ${{ env.FORGEJO_VERSION }}
           lxc-ip-prefix: 10.0.9
-          # on trixie /tmp is a tmpfs which will override our mounted cache
-          work-dir: $(mktemp -d -p /root/)
+          # on trixie /tmp is a tmpfs which will override mounted act cache
+          runner-home: $(mktemp -d -p /opt/)
 
       - name: publish
         run: |
