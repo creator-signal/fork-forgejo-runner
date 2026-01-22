@@ -26,13 +26,6 @@ jobs:
     runs-on: lxc-trixie
     if: vars.ROLE == 'forgejo-coding'
     steps:
-      - name: debug
-        run: |
-          set -ex
-          pwd
-          wdir="$(mktemp -d -p /root/)"
-          echo "work-dir=$wdir" >> "$FORGEJO_ENV"
-
       - uses: https://data.forgejo.org/actions/checkout@v4
 
       - id: forgejo
@@ -42,14 +35,8 @@ jobs:
           password: admin1234
           image-version: ${{ env.FORGEJO_VERSION }}
           lxc-ip-prefix: 10.0.9
-          work-dir: ${{ env.work-dir }}
-
-      - name: debug
-        run: |
-          set -ex
-          ps axf | cat
-          ls -la /tmp/
-          ls -la ${{ env.work-dir }}
+          # on trixie /tmp is a tmpfs which will override our mounted cache
+          work-dir: $(mktemp -d -p /root/)
 
       - name: publish
         run: |
