@@ -34,7 +34,7 @@ jobs:
       - uses: https://data.forgejo.org/actions/checkout@v4
 
       - id: forgejo
-        uses: https://data.forgejo.org/actions/setup-forgejo@v3.1.1
+        uses: https://data.forgejo.org/actions/setup-forgejo@feat/runner-dir
         with:
           user: root
           password: admin1234
@@ -43,7 +43,7 @@ jobs:
 
       - name: debug
         run: |
-          ps axf
+          ps axf | cat
           ls -la /tmp/
 
       - name: publish
