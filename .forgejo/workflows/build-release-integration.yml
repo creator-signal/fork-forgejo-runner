@@ -41,7 +41,13 @@ jobs:
           image-version: ${{ env.FORGEJO_VERSION }}
           lxc-ip-prefix: 10.0.9
 
+      - name: debug
+        run: |
+          ps axf
+          ls -la /tmp/
+
       - name: publish
+        if: false
         run: |
           set -x
 
