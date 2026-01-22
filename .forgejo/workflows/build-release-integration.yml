@@ -29,9 +29,7 @@ jobs:
       - name: debug
         run: |
           set -ex
-          mount
-          systemctl mask tmp.mount
-          umount /tmp
+          pwd
 
       - uses: https://data.forgejo.org/actions/checkout@v4
 
