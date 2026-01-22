@@ -23,7 +23,7 @@ env:
 
 jobs:
   release-simulation:
-    runs-on: lxc-bookworm
+    runs-on: lxc-trixie
     if: vars.ROLE == 'forgejo-coding'
     steps:
       - name: debug
