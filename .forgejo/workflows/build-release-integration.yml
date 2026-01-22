@@ -30,6 +30,8 @@ jobs:
         run: |
           set -ex
           mount
+          systemctl mask tmp.mount
+          umount /tmp
 
       - uses: https://data.forgejo.org/actions/checkout@v4
 
