@@ -457,7 +457,7 @@ func (rc *RunContext) ensureNetworkName(ctx context.Context) {
 	if rc.networkName == "" {
 		rc.ensureRandomName(ctx)
 		rc.networkName = string(rc.Config.ContainerNetworkMode)
-		if len(rc.Run.Job().Services) > 0 || rc.networkName == "" {
+		if rc.networkName == "" {
 			rc.networkName = fmt.Sprintf("WORKFLOW-%s", rc.randomName)
 			rc.networkCreated = true
 		}

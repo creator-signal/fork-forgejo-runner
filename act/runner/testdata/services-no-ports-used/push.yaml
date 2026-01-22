@@ -1,0 +1,11 @@
+on: push
+jobs:
+  services-no-ports-used:
+    runs-on: ubuntu-latest
+    services:
+      no-ports:
+        # any container which won't bind to network ports, since we'll run this with network mode host and don't want
+        # the test to fail on port conflicts
+        image: code.forgejo.org/oci/node:22
+    steps:
+      - run: echo "doing nothing"

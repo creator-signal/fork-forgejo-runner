@@ -669,8 +669,8 @@ jobs:
 		}
 
 		rc.ensureNetworkName(t.Context())
-		assert.True(t, rc.getNetworkCreated(t.Context()))
-		assert.True(t, strings.HasPrefix(rc.getNetworkName(t.Context()), "WORKFLOW-"), rc.getNetworkName(t.Context()))
+		assert.False(t, rc.getNetworkCreated(t.Context()))
+		assert.Equal(t, "host", rc.getNetworkName(t.Context()))
 	})
 
 	yaml := `

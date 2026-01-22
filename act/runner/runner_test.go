@@ -201,6 +201,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 		JobLoggerLevel:        cfg.JobLoggerLevel,
 		ContainerDaemonSocket: os.Getenv("DOCKER_HOST"),
 		ValidVolumes:          cfg.ValidVolumes,
+		ContainerNetworkMode:  cfg.ContainerNetworkMode,
 	}
 	if cfg.GitHubInstance != "" {
 		runnerConfig.GitHubInstance = cfg.GitHubInstance
@@ -946,4 +947,23 @@ func TestRunner_DockerActionWithPreAndPostRemote(t *testing.T) {
 	for _, msg := range expectedLogMessages {
 		assert.Contains(t, output, msg, "did not find expected log message: "+msg)
 	}
+}
+
+func TestRunner_HostNetworkServices(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+
+	jobFile := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "services-no-ports-used",
+		eventName:    "push",
+		errorMessage: "",
+		platforms:    platforms,
+	}
+	config := &Config{
+		ContainerNetworkMode: "host",
+	}
+	jobFile.runTest(t.Context(), t, config)
 }
