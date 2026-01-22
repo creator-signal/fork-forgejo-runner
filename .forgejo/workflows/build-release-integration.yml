@@ -30,6 +30,8 @@ jobs:
         run: |
           set -ex
           pwd
+          wdir="$(mktemp -d -p /root/)"
+          echo "work-dir=$wdir" >> "$FORGEJO_ENV"
 
       - uses: https://data.forgejo.org/actions/checkout@v4
 
@@ -40,11 +42,14 @@ jobs:
           password: admin1234
           image-version: ${{ env.FORGEJO_VERSION }}
           lxc-ip-prefix: 10.0.9
+          work-dir: ${{ env.work-dir }}
 
       - name: debug
         run: |
+          set -ex
           ps axf | cat
           ls -la /tmp/
+          ls -la ${{ env.work-dir }}
 
       - name: publish
         if: false
