@@ -52,7 +52,6 @@ jobs:
           ls -la ${{ env.work-dir }}
 
       - name: publish
-        if: false
         run: |
           set -x
 
