@@ -36,7 +36,7 @@ jobs:
       - uses: https://data.forgejo.org/actions/checkout@v4
 
       - id: forgejo
-        uses: https://data.forgejo.org/actions/setup-forgejo@feat/runner-dir
+        uses: https://code.forgejo.org/actions/setup-forgejo@feat/runner-dir
         with:
           user: root
           password: admin1234
