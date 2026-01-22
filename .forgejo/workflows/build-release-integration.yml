@@ -26,7 +26,12 @@ jobs:
     runs-on: lxc-bookworm
     if: vars.ROLE == 'forgejo-coding'
     steps:
-      - uses:  https://data.forgejo.org/actions/checkout@v4
+      - name: debug
+        run: |
+          set -ex
+          mount
+
+      - uses: https://data.forgejo.org/actions/checkout@v4
 
       - id: forgejo
         uses: https://data.forgejo.org/actions/setup-forgejo@v3.1.1

@@ -13,7 +13,7 @@ name: Build release
 on:
   push:
     tags:
-    - 'v*'
+      - 'v*'
 
 enable-email-notifications: true
 
@@ -23,6 +23,12 @@ jobs:
     # root is used for testing, allow it
     if: vars.ROLE == 'forgejo-integration' || forge.repository_owner == 'root'
     steps:
+      - name: debug
+        run: |
+          set -ex
+          mount
+          find /tmp/tmp.* -type f
+
       - uses: https://data.forgejo.org/actions/checkout@v5
 
       - name: Increase the verbosity when there are no secrets
@@ -64,12 +70,12 @@ jobs:
         if: ${{ secrets.TOKEN == '' }}
         uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.5.1
         with:
-          forgejo: "${{ env.FORGEJO_SERVER_URL }}"
-          owner: "${{ env.FORGEJO_REPOSITORY_OWNER }}"
-          repository: "${{ steps.repository.outputs.value }}"
+          forgejo: '${{ env.FORGEJO_SERVER_URL }}'
+          owner: '${{ env.FORGEJO_REPOSITORY_OWNER }}'
+          repository: '${{ steps.repository.outputs.value }}'
           doer: root
-          sha: "${{ forge.sha }}"
-          release-version: "${{ steps.tag-version.outputs.value }}"
+          sha: '${{ forge.sha }}'
+          release-version: '${{ steps.tag-version.outputs.value }}'
           token: ${{ steps.token.outputs.value }}
           platforms: linux/amd64,linux/arm64
           binary-name: forgejo-runner
@@ -80,13 +86,13 @@ jobs:
         if: ${{ secrets.TOKEN != '' }}
         uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.5.1
         with:
-          forgejo: "${{ env.FORGEJO_SERVER_URL }}"
-          owner: "${{ env.FORGEJO_REPOSITORY_OWNER }}"
-          repository: "${{ steps.repository.outputs.value }}"
-          doer: "${{ secrets.DOER }}"
-          sha: "${{ forge.sha }}"
-          release-version: "${{ steps.tag-version.outputs.value }}"
-          token: "${{ secrets.TOKEN }}"
+          forgejo: '${{ env.FORGEJO_SERVER_URL }}'
+          owner: '${{ env.FORGEJO_REPOSITORY_OWNER }}'
+          repository: '${{ steps.repository.outputs.value }}'
+          doer: '${{ secrets.DOER }}'
+          sha: '${{ forge.sha }}'
+          release-version: '${{ steps.tag-version.outputs.value }}'
+          token: '${{ secrets.TOKEN }}'
           platforms: linux/amd64,linux/arm64
           binary-name: forgejo-runner
           binary-path: /bin/forgejo-runner
