@@ -1,1 +1,1 @@
-FROM code.forgejo.org/oci/alpine:latest
+FROM data.forgejo.org/oci/alpine:latest
