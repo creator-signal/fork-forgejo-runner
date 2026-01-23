@@ -735,6 +735,14 @@ jobs:
               exit 1
             fi
           done
+      - name: mutate action PATH
+        run: |
+          mkdir tmpdir
+          echo "echo path mutation test successful" > tmpdir/test-mutated-path.sh
+          chmod +x tmpdir/test-mutated-path.sh
+          echo "$(pwd)/tmpdir" >> $FORGEJO_PATH
+      - name: verify mutated action PATH
+        run: test-mutated-path.sh
 `
 		runWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
 	})
