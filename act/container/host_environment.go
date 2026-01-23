@@ -240,7 +240,12 @@ func setupPty(cmd *exec.Cmd) (*os.File, *os.File, error) {
 func copyPtyOutput(writer io.Writer, master io.Reader, finishLog context.CancelFunc, logger log.FieldLogger) {
 	_, err := io.Copy(writer, master)
 	if err != nil {
-		logger.Errorf("unexpected error handling command output: %w", err)
+		var pathErr *fs.PathError
+		// Typically io.Copy ends with an error reading /dev/ptmx, as a pty doesn't EOF like a normal file.
+		// This error specifically can be suppressed.
+		if !errors.As(err, &pathErr) || pathErr.Op != "read" || pathErr.Path != "/dev/ptmx" {
+			logger.Errorf("unexpected error handling command output: %w", err)
+		}
 	}
 	finishLog()
 }
