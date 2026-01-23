@@ -13,7 +13,7 @@ jobs:
     if: vars.ROLE == 'forgejo-coding'
     runs-on: docker
     container:
-      image: 'code.forgejo.org/oci/ci:1'
+      image: 'data.forgejo.org/oci/ci:1'
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v5
 
@@ -46,7 +46,7 @@ jobs:
     needs: [build]
     runs-on: docker
     container:
-      image: 'code.forgejo.org/oci/ci:1'
+      image: 'data.forgejo.org/oci/ci:1'
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v5
 
@@ -220,7 +220,7 @@ jobs:
     if: vars.ROLE == 'forgejo-coding'
     runs-on: docker
     container:
-      image: 'code.forgejo.org/oci/ci:1'
+      image: 'data.forgejo.org/oci/ci:1'
 
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v5
@@ -249,7 +249,7 @@ jobs:
     if: vars.ROLE == 'forgejo-coding'
     runs-on: docker
     container:
-      image: 'code.forgejo.org/oci/ci:1'
+      image: 'data.forgejo.org/oci/ci:1'
 
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v5
