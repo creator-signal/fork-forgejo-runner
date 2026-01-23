@@ -293,7 +293,7 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 			common.Logger(ctx).Debugf("execute in LXC container %v: %v", e.Name, command)
 
 			command = append([]string{
-				"/usr/bin/sudo", "--preserve-env",
+				"/usr/bin/sudo", "--preserve-env", "--preserve-env=PATH",
 				"/usr/bin/nsenter",
 				"--target", e.LXCPID,
 				"--all",                      // enter all the same namespaces as the target process
