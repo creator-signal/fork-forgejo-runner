@@ -20,7 +20,7 @@ volumes:
 services:
 
   docker-in-docker:
-    image: code.forgejo.org/oci/docker:dind
+    image: data.forgejo.org/oci/docker:dind
     hostname: docker  # Must set hostname as TLS certificates are only valid for docker or localhost
     privileged: true
     environment:
