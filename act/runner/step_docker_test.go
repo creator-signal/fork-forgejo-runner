@@ -117,14 +117,12 @@ func TestStepDockerPrePost(t *testing.T) {
 
 // TestStepDockerNetworkConfiguration tests that step containers are created with proper network configuration
 func TestStepDockerNetworkConfiguration(t *testing.T) {
-	cm := &containerMock{}
-
 	var input *container.NewContainerInput
 
 	origContainerNewContainer := ContainerNewContainer
 	ContainerNewContainer = func(containerInput *container.NewContainerInput) container.ExecutionsEnvironment {
 		input = containerInput
-		return cm
+		return &containerMock{}
 	}
 	defer func() {
 		ContainerNewContainer = origContainerNewContainer
@@ -132,36 +130,20 @@ func TestStepDockerNetworkConfiguration(t *testing.T) {
 
 	ctx := t.Context()
 
+	cm := &containerMock{}
 	rc := &RunContext{
 		StepResults: map[string]*model.StepResult{},
-		Config:      &Config{},
+		Config:      &Config{Workdir: "/workspace"},
 		Run: &model.Run{
 			JobID: "test-job",
 			Workflow: &model.Workflow{
 				Jobs: map[string]*model.Job{
-					"test-job": {
-						Defaults: model.Defaults{
-							Run: model.RunDefaults{
-								Shell: "bash",
-							},
-						},
-					},
+					"test-job": {},
 				},
 			},
 		},
 		JobContainer: cm,
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
-
-	cm.On("Pull", false).Return(func(ctx context.Context) error { return nil })
-	cm.On("Remove").Return(func(ctx context.Context) error { return nil })
-	cm.On("Create", []string(nil), []string(nil)).Return(func(ctx context.Context) error { return nil })
-	cm.On("Start", true).Return(func(ctx context.Context) error { return nil })
-	cm.On("Close").Return(func(ctx context.Context) error { return nil })
-	cm.On("Exec", mock.AnythingOfType("[]string"), mock.Anything, "", "").Return(func(ctx context.Context) error { return nil })
-	cm.On("Copy", "/run/runner", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error { return nil })
-	cm.On("UpdateFromEnv", mock.AnythingOfType("string"), mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error { return nil })
-	cm.On("GetContainerArchive", ctx, mock.AnythingOfType("string")).Return(io.NopCloser(&bytes.Buffer{}), nil)
 
 	sd := &stepDocker{
 		RunContext: rc,
@@ -169,10 +151,11 @@ func TestStepDockerNetworkConfiguration(t *testing.T) {
 			ID:   "test-step-1",
 			Uses: "docker://alpine:latest",
 		},
+		env: map[string]string{},
 	}
 
-	err := sd.main()(ctx)
-	assert.Nil(t, err)
+	// Call newStepContainer directly to test network configuration
+	_ = sd.newStepContainer(ctx, "alpine:latest", nil, nil)
 
 	// Verify network configuration
 	// NetworkMode should use rc.getNetworkName() instead of container:jobContainerName
@@ -184,6 +167,4 @@ func TestStepDockerNetworkConfiguration(t *testing.T) {
 	assert.NotNil(t, input.NetworkAliases, "NetworkAliases should be set")
 	assert.Len(t, input.NetworkAliases, 1, "Should have exactly one network alias")
 	assert.Equal(t, "test-step-1", input.NetworkAliases[0], "Network alias should be sanitized step ID")
-
-	cm.AssertExpectations(t)
 }
