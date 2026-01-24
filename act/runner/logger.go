@@ -107,11 +107,9 @@ func WithJobLogger(ctx context.Context, jobID, jobName string, config *Config, m
 		if hook := common.LoggerHook(ctx); hook != nil {
 			logger.AddHook(hook)
 		}
-		if config.JobLoggerLevel != nil {
-			logger.SetLevel(*config.JobLoggerLevel)
-		} else {
-			logger.SetLevel(logrus.TraceLevel)
-		}
+		// Always set logger to TraceLevel to ensure all entries reach hooks
+		// Filtering based on JobLoggerLevel is done in the reporter's Fire() method
+		logger.SetLevel(logrus.TraceLevel)
 	}
 
 	logger.SetFormatter(&maskedFormatter{

@@ -166,7 +166,18 @@ func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
 
 	ctx, cancel := context.WithTimeout(ctx, r.cfg.Runner.Timeout)
 	defer cancel()
-	reporter := report.NewReporter(ctx, cancel, r.client, task, r.cfg.Runner.ReportInterval, &r.cfg.Runner.ReportRetry)
+
+	// Parse job logger level for the reporter
+	var jobLoggerLevel *log.Level
+	if r.cfg.Log.JobLevel != "" {
+		level, err := log.ParseLevel(r.cfg.Log.JobLevel)
+		if err != nil {
+			return err
+		}
+		jobLoggerLevel = &level
+	}
+
+	reporter := report.NewReporter(ctx, cancel, r.client, task, r.cfg.Runner.ReportInterval, &r.cfg.Runner.ReportRetry, jobLoggerLevel)
 	var runErr error
 	defer func() {
 		closeErr := reporter.Close(runErr)

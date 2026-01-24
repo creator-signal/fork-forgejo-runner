@@ -63,7 +63,25 @@ func mockReporterWithTask(t *testing.T, task *runnerv1.Task) (*Reporter, *mocks.
 
 	client := mocks.NewClient(t)
 	ctx, cancel := context.WithCancel(context.Background())
-	reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, task, time.Second, &config.Retry{})
+	reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, task, time.Second, &config.Retry{}, nil)
+	close := func() {
+		assert.NoError(t, reporter.Close(nil))
+	}
+	return reporter, client, close
+}
+
+func mockReporterWithJobLevel(t *testing.T, jobLevel *log.Level) (*Reporter, *mocks.Client, func()) {
+	t.Helper()
+
+	taskCtx, err := structpb.NewStruct(map[string]any{})
+	require.NoError(t, err)
+	task := &runnerv1.Task{
+		Context: taskCtx,
+	}
+
+	client := mocks.NewClient(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, task, time.Second, &config.Retry{}, jobLevel)
 	close := func() {
 		assert.NoError(t, reporter.Close(nil))
 	}
@@ -326,6 +344,61 @@ func TestReporter_Fire(t *testing.T) {
 	})
 }
 
+func TestReporter_FireJobLevelFiltering(t *testing.T) {
+	jobLevel := log.WarnLevel
+	reporter, _, _ := mockReporterWithJobLevel(t, &jobLevel)
+	reporter.ResetSteps(1)
+
+	infoEntry := &log.Entry{
+		Level:   log.InfoLevel,
+		Message: "info line",
+		Data: map[string]any{
+			"stage":      "Main",
+			"stepNumber": 0,
+			"raw_output": true,
+			"stepID":     []string{"step-1"},
+		},
+		Time: time.Now(),
+	}
+
+	assert.NoError(t, reporter.Fire(infoEntry))
+	assert.Empty(t, reporter.logRows)
+	assert.EqualValues(t, 0, reporter.state.Steps[0].LogLength)
+
+	stepResultEntry := &log.Entry{
+		Level:   log.InfoLevel,
+		Message: "step done",
+		Data: map[string]any{
+			"stage":      "Main",
+			"stepNumber": 0,
+			"raw_output": true,
+			"stepID":     []string{"step-1"},
+			"stepResult": "success",
+		},
+		Time: time.Now(),
+	}
+
+	assert.NoError(t, reporter.Fire(stepResultEntry))
+	assert.EqualValues(t, runnerv1.Result_RESULT_SUCCESS, reporter.state.Steps[0].Result)
+
+	jobResultEntry := &log.Entry{
+		Level:   log.InfoLevel,
+		Message: "job done",
+		Data: map[string]any{
+			"stage":      "Post",
+			"jobResult":  "success",
+			"jobOutputs": map[string]string{"output": "value"},
+		},
+		Time: time.Now(),
+	}
+
+	assert.NoError(t, reporter.Fire(jobResultEntry))
+	assert.EqualValues(t, runnerv1.Result_RESULT_SUCCESS, reporter.state.Result)
+	value, ok := reporter.outputs.Load("output")
+	assert.True(t, ok)
+	assert.Equal(t, "value", value)
+}
+
 func TestReporterReportState(t *testing.T) {
 	for _, testCase := range []struct {
 		name    string
@@ -423,7 +496,7 @@ func TestReporterReportState(t *testing.T) {
 			require.NoError(t, err)
 			reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, &runnerv1.Task{
 				Context: taskCtx,
-			}, time.Second, &config.Retry{})
+			}, time.Second, &config.Retry{}, nil)
 
 			testCase.fixture(t, reporter, client)
 			err = reporter.ReportState()

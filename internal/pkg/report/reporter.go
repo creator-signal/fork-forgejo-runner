@@ -52,10 +52,11 @@ type Reporter struct {
 	issuedLocalCancel   bool
 	retry               *config.Retry
 
-	log *logrus.Entry
+	log            *logrus.Entry
+	jobLoggerLevel *logrus.Level // the configured job logger level for filtering
 }
 
-func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client, task *runnerv1.Task, reportInterval time.Duration, retry *config.Retry) *Reporter {
+func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client, task *runnerv1.Task, reportInterval time.Duration, retry *config.Retry, jobLoggerLevel *logrus.Level) *Reporter {
 	masker := newMasker()
 	if v := task.Context.Fields["token"].GetStringValue(); v != "" {
 		masker.add(v)
@@ -86,6 +87,7 @@ func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client
 		log: logrus.WithFields(logrus.Fields{
 			"task_id": task.Id,
 		}),
+		jobLoggerLevel: jobLoggerLevel,
 	}
 
 	if task.Secrets["ACTIONS_STEP_DEBUG"] == "true" {
@@ -121,6 +123,17 @@ func (r *Reporter) Fire(entry *logrus.Entry) error {
 	defer r.stateMu.Unlock()
 
 	r.log.WithFields(entry.Data).Trace(entry.Message)
+
+	// Filter log entries based on job logger level, but always allow critical entries with jobResult
+	// This ensures job completion is always reported regardless of log level
+	if r.jobLoggerLevel != nil {
+		_, hasJobResult := entry.Data["jobResult"]
+		_, hasStepResult := entry.Data["stepResult"]
+		if !hasJobResult && !hasStepResult && entry.Level > *r.jobLoggerLevel {
+			// Entry is below configured level and not a critical result entry, skip it
+			return nil
+		}
+	}
 
 	timestamp := entry.Time
 	if r.state.StartedAt == nil {

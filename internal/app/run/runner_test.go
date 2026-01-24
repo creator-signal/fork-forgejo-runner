@@ -290,7 +290,7 @@ func TestRunnerCacheConfiguration(t *testing.T) {
 			},
 		}
 
-		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
+		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{}, nil)
 		err := runner.run(ctx, task, reporter)
 		reporter.Close(nil)
 		require.NoError(t, err, description)
@@ -511,7 +511,7 @@ func TestRunnerCacheStartupFailure(t *testing.T) {
 					},
 				}
 
-				reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
+				reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{}, nil)
 				err := runner.run(ctx, task, reporter)
 				reporter.Close(nil)
 				require.NoError(t, err)
@@ -595,7 +595,7 @@ func TestRunnerLXC(t *testing.T) {
 			},
 		}
 
-		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
+		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{}, nil)
 		err := runner.run(ctx, task, reporter)
 		reporter.Close(nil)
 		require.NoError(t, err, description)
@@ -825,7 +825,7 @@ func TestRunnerResources(t *testing.T) {
 			forgejoClient)
 		require.NotNil(t, runner)
 
-		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
+		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{}, nil)
 		err := runner.run(ctx, task, reporter)
 		reporter.Close(nil)
 		if len(errorMessage) > 0 {
@@ -999,7 +999,7 @@ func TestRunnerContextsPopulated(t *testing.T) {
 			forgejoClient)
 		require.NotNil(t, runner)
 
-		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
+		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{}, nil)
 		err := runner.run(ctx, task, reporter)
 		reporter.Close(nil)
 		if len(errorMessage) > 0 {
