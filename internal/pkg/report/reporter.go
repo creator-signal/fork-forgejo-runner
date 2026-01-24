@@ -130,7 +130,7 @@ func (r *Reporter) Fire(entry *logrus.Entry) error {
 		_, hasJobResult := entry.Data["jobResult"]
 		_, hasStepResult := entry.Data["stepResult"]
 		if !hasJobResult && !hasStepResult && entry.Level > *r.jobLoggerLevel {
-			// Entry is below configured level and not a critical result entry, skip it
+			// Entry is more verbose than configured level and not a critical result entry, skip it
 			return nil
 		}
 	}
