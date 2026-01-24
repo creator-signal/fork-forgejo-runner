@@ -116,7 +116,6 @@ func TestStepDockerPrePost(t *testing.T) {
 }
 
 // TestStepDockerNetworkConfiguration tests that step containers are created with proper network configuration
-// Regression test for issue #87 - hostname bug where step container had wrong hostname
 func TestStepDockerNetworkConfiguration(t *testing.T) {
 	cm := &containerMock{}
 
@@ -179,7 +178,7 @@ func TestStepDockerNetworkConfiguration(t *testing.T) {
 	// NetworkMode should use rc.getNetworkName() instead of container:jobContainerName
 	// This ensures the step container doesn't inherit the wrong hostname from job container
 	assert.NotEmpty(t, input.NetworkMode, "NetworkMode should be set")
-	assert.NotContains(t, input.NetworkMode, "container:", "NetworkMode should not use container: mode (issue #87)")
+	assert.NotContains(t, input.NetworkMode, "container:", "NetworkMode should not use container: mode")
 
 	// Verify NetworkAliases is set with sanitized step ID
 	assert.NotNil(t, input.NetworkAliases, "NetworkAliases should be set")
