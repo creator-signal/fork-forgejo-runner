@@ -207,6 +207,7 @@ type Job struct {
 	RawNeeds            yaml.Node                 `yaml:"needs"`
 	RawRunsOn           yaml.Node                 `yaml:"runs-on"`
 	Env                 yaml.Node                 `yaml:"env"`
+	RawEnvironment      yaml.Node                 `yaml:"environment"`
 	RawIf               yaml.Node                 `yaml:"if"`
 	Steps               []*Step                   `yaml:"steps"`
 	TimeoutMinutes      string                    `yaml:"timeout-minutes"`
@@ -408,6 +409,29 @@ func environment(yml yaml.Node) map[string]string {
 // Environment returns string-based key=value map for a job
 func (j *Job) Environment() map[string]string {
 	return environment(j.Env)
+}
+
+// DeploymentEnvironment returns the deployment environment name from the environment field.
+// This is different from Environment() which returns env vars. This returns the deployment target.
+// Handles both string format ("production") and object format ({name: "production", url: "..."}).
+func (j *Job) DeploymentEnvironment() string {
+	if j.RawEnvironment.Kind == yaml.ScalarNode {
+		var env string
+		if !decodeNode(j.RawEnvironment, &env) {
+			return ""
+		}
+		return env
+	}
+	if j.RawEnvironment.Kind == yaml.MappingNode {
+		var envObj struct {
+			Name string `yaml:"name"`
+		}
+		if !decodeNode(j.RawEnvironment, &envObj) {
+			return ""
+		}
+		return envObj.Name
+	}
+	return ""
 }
 
 // Matrix decodes RawMatrix YAML node

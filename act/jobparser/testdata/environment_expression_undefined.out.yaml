@@ -1,0 +1,7 @@
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    environment: null
+    steps:
+      - run: echo "deploying"

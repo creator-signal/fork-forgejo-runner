@@ -1,0 +1,6 @@
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.undefined_input }}
+    steps:
+      - run: echo "deploying"

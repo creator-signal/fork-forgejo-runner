@@ -1,0 +1,12 @@
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        required: false
+        type: string
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target_env }}
+    steps:
+      - run: echo "deploying"

@@ -124,6 +124,7 @@ type Job struct {
 	RawNeeds       yaml.Node                 `yaml:"needs,omitempty"`
 	RawRunsOn      yaml.Node                 `yaml:"runs-on,omitempty"`
 	Env            yaml.Node                 `yaml:"env,omitempty"`
+	RawEnvironment yaml.Node                 `yaml:"environment,omitempty"`
 	If             yaml.Node                 `yaml:"if,omitempty"`
 	Steps          []*Step                   `yaml:"steps,omitempty"`
 	TimeoutMinutes string                    `yaml:"timeout-minutes,omitempty"`
@@ -147,6 +148,7 @@ func (j *Job) Clone() *Job {
 		RawNeeds:       j.RawNeeds,
 		RawRunsOn:      j.RawRunsOn,
 		Env:            j.Env,
+		RawEnvironment: j.RawEnvironment,
 		If:             j.If,
 		Steps:          j.Steps,
 		TimeoutMinutes: j.TimeoutMinutes,
@@ -173,6 +175,10 @@ func (j *Job) EraseNeeds() *Job {
 
 func (j *Job) RunsOn() []string {
 	return (&model.Job{RawRunsOn: j.RawRunsOn}).RunsOn()
+}
+
+func (j *Job) DeploymentEnvironment() string {
+	return (&model.Job{RawEnvironment: j.RawEnvironment}).DeploymentEnvironment()
 }
 
 func (j *Job) InheritSecrets() bool {

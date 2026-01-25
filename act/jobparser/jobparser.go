@@ -182,6 +182,18 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			}
 		}
 
+		// Evaluate environment expressions
+		if workflowJob.RawEnvironment.Kind != 0 {
+			rawEnv, err := cloneNode(&workflowJob.RawEnvironment)
+			if err != nil {
+				return nil, fmt.Errorf("error cloning workflow environment node: %w", err)
+			}
+			if err := evaluator.EvaluateYamlNode(rawEnv); err != nil {
+				return nil, fmt.Errorf("error evaluating environment expression: %w", err)
+			}
+			job.RawEnvironment = *rawEnv
+		}
+
 		// Safety check -- verify that we never emit two jobs with the same WorkflowCallID
 		if bothJobs.workflowCallID != "" {
 			_, exists := emittingWorkflowCallID[bothJobs.workflowCallID]

@@ -261,6 +261,80 @@ jobs:
 	assert.Equal(t, workflow.Jobs["test"].RunsOn(), []string{"ubuntu-latest", "linux"})
 }
 
+func TestReadWorkflow_DeploymentEnvironment(t *testing.T) {
+	// Test string format
+	yaml := `
+name: test
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - run: echo hello`
+
+	workflow, err := ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Equal(t, "production", workflow.Jobs["deploy"].DeploymentEnvironment())
+
+	// Test object format
+	yaml = `
+name: test
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.example.com
+    steps:
+    - run: echo hello`
+
+	workflow, err = ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Equal(t, "staging", workflow.Jobs["deploy"].DeploymentEnvironment())
+
+	// Test no environment
+	yaml = `
+name: test
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo hello`
+
+	workflow, err = ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Equal(t, "", workflow.Jobs["build"].DeploymentEnvironment())
+
+	// Test object format without name (edge case)
+	yaml = `
+name: test
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      url: https://example.com
+    steps:
+    - run: echo hello`
+
+	workflow, err = ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Equal(t, "", workflow.Jobs["deploy"].DeploymentEnvironment())
+
+	// Test empty string environment
+	yaml = `
+name: test
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ""
+    steps:
+    - run: echo hello`
+
+	workflow, err = ReadWorkflow(strings.NewReader(yaml), false)
+	assert.NoError(t, err, "read workflow should succeed")
+	assert.Equal(t, "", workflow.Jobs["deploy"].DeploymentEnvironment())
+}
+
 func TestReadWorkflow_StringContainer(t *testing.T) {
 	yaml := `
 name: local-action-docker-url

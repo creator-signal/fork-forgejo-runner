@@ -89,6 +89,34 @@ func TestParse(t *testing.T) {
 			options: []ParseOption{WithVars(map[string]string{"RUNNER": "Windows"})},
 		},
 		{
+			name:    "environment_string",
+			options: nil,
+		},
+		{
+			name:    "environment_expression",
+			options: []ParseOption{WithInputs(map[string]any{"target_env": "staging"})},
+		},
+		{
+			name:    "environment_object",
+			options: nil,
+		},
+		{
+			name:    "environment_object_expression",
+			options: []ParseOption{WithInputs(map[string]any{"target_env": "production"})},
+		},
+		{
+			name:    "environment_missing",
+			options: nil,
+		},
+		{
+			name:    "environment_expression_empty",
+			options: []ParseOption{WithInputs(map[string]any{"target_env": ""})},
+		},
+		{
+			name:    "environment_expression_undefined",
+			options: nil, // no inputs provided, so expression evaluates to empty
+		},
+		{
 			name:    "runs_on_matrix_array",
 			options: []ParseOption{SupportIncompleteRunsOn()},
 		},
