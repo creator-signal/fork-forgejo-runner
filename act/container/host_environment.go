@@ -303,10 +303,10 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 				// nsenter we start a shell and add our own PID ($$) to the .lxc cgroup.  `--join-cgroup` is an option
 				// of nsenter but it joins the same group as the init process, which is /init.scope, and not the lxc
 				// cgroup.
-				"/bin/sh",
+				"/usr/bin/bash",
 				"-c",
 				`echo $$ > /sys/fs/cgroup/.lxc/cgroup.procs 2>/dev/null || true; exec $@`,
-				"/bin/sh",
+				"--",
 			}, command...)
 		}
 	}

@@ -639,7 +639,10 @@ jobs:
   validate:
     runs-on: lxc
     steps:
-      - run: |
+      - env:
+          # pass an environment variable with a "-" into the step; regression test for when /bin/sh was stripping these variables
+          abc-123: def-456
+        run: |
           set -x
 
           # First clause (/home...) is expected for this workflow if pulled into a live Forgejo Actions system, and /tmp for the test environment
@@ -689,6 +692,14 @@ jobs:
           else
             echo "FORGEJO_ACTIONS_RUNNER_VERSION is unexpected"
             exit 1
+          fi
+
+          env | grep abc-123=def-456
+          ret=$?
+          if [[ "$ret" -eq "0" ]]; then
+            echo "able to find environment abc-123"
+          else
+            echo "failure to find expected environment variable abc-123"
           fi
 
           hostname1=$(hostname)
