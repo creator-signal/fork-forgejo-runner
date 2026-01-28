@@ -91,7 +91,7 @@ const (
 )
 
 var defaultLabels = []string{
-	"docker:docker://data.forgejo.org/oci/node:20-bullseye",
+	"docker:docker://data.forgejo.org/oci/node:lts",
 }
 
 type registerInputs struct {
