@@ -13,12 +13,14 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/djherbis/buffer"
+	"github.com/djherbis/nio/v3"
 	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
@@ -36,7 +38,6 @@ type HostEnvironment struct {
 	Root      string
 	StdOut    io.Writer
 	LXC       bool
-	LXCPID    string
 }
 
 func (e *HostEnvironment) Create(_, _ []string) common.Executor {
@@ -237,16 +238,38 @@ func setupPty(cmd *exec.Cmd) (*os.File, *os.File, error) {
 	return master, slave, nil
 }
 
-func copyPtyOutput(writer io.Writer, master io.Reader, finishLog context.CancelFunc, logger log.FieldLogger) {
-	_, err := io.Copy(writer, master)
-	if err != nil {
-		var pathErr *fs.PathError
-		// Typically io.Copy ends with an error reading /dev/ptmx, as a pty doesn't EOF like a normal file.
-		// This error specifically can be suppressed.
-		if !errors.As(err, &pathErr) || pathErr.Op != "read" || pathErr.Path != "/dev/ptmx" {
-			logger.Errorf("unexpected error handling command output: %w", err)
-		}
-	}
+func copyPtyOutput(writer io.Writer, master io.Reader, finishLog context.CancelFunc) {
+	// LXC had a behaviour which permitted short writes to the PTY to cause discarded data, which is fixed upstream in
+	// https://github.com/lxc/lxc/pull/4633.  As of writing, this isn't released for our Debian LXC images.  Until it
+	// is, we have a partial workaround to reduce the risk of data loss.
+	//
+	// Writing to `writer` can be relatively slow; when forgejo-runner is in daemon mode then `writer` is `lineWriter`
+	// which will split the contents up line-by-line and call a lineHandler, which will send the output to a logger,
+	// which will end up in `Reporter` which acquires a mutex for each line received in order to append the line to its
+	// internal buffers.  Experimentally, when using an LXC command and PTY configuration, if a command outputs a large
+	// log chunk (~500kB), a straight `io.Copy()` between `master` and `reader` will end up with data being lost in
+	// chunks in random places in the log -- sometimes the middle, sometimes the end.
+	//
+	// Introducing a memory buffer in forgejo-runner helps to address this problem.  We read as fast as possible in a
+	// dedicated goroutine into the buffer, attempting to keep the PTY buffer clear and ready for writes from the
+	// subcommand.  Concurrently, we drain that buffer into `writer`.
+	//
+	// There's no limit to the buffer size that could be required to get this right and always guarantee all data.  A 2
+	// MB buffer was sufficient to meet the needs of reproduction test cases, but this has been bumped up to 100 MB for
+	// anticipated real-world use cases.  `buffer.New(x)` is allocated on-demand, so 100 MB is a maximum buffer size.
+
+	pipeReader, pipeWriter := nio.Pipe(buffer.New(100 * 1024 * 1024))
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		// Error is expected -- "read /dev/ptmx: input/output error" is the typical exit for io.Copy here.
+		_, _ = io.Copy(pipeWriter, master)
+		pipeWriter.Close()
+	})
+	wg.Go(func() {
+		_, _ = io.Copy(writer, pipeReader)
+	})
+	wg.Wait()
+
 	finishLog()
 }
 
@@ -290,24 +313,8 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 		if user == "root" {
 			command = append([]string{"/usr/bin/sudo"}, command...)
 		} else {
-			common.Logger(ctx).Debugf("execute in LXC container %v: %v", e.Name, command)
-
-			command = append([]string{
-				"/usr/bin/sudo", "--preserve-env", "--preserve-env=PATH",
-				"/usr/bin/nsenter",
-				"--target", e.LXCPID,
-				"--all",                      // enter all the same namespaces as the target process
-				fmt.Sprintf("--wdns=%s", wd), // set the working directory inside the namespace
-				"--",
-				// We used to use lxc-attach, which would cause processes to be in the .lxc cgroup; to mirror that with
-				// nsenter we start a shell and add our own PID ($$) to the .lxc cgroup.  `--join-cgroup` is an option
-				// of nsenter but it joins the same group as the init process, which is /init.scope, and not the lxc
-				// cgroup.
-				"/usr/bin/bash",
-				"-c",
-				`echo $$ > /sys/fs/cgroup/.lxc/cgroup.procs 2>/dev/null || true; exec $@`,
-				"--",
-			}, command...)
+			common.Logger(ctx).Debugf("lxc-attach --name %v %v", e.Name, command)
+			command = append([]string{"/usr/bin/sudo", "--preserve-env", "--preserve-env=PATH", "/usr/bin/lxc-attach", "--keep-env", "--name", e.Name, "--"}, command...)
 		}
 	}
 
@@ -344,7 +351,7 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 
 	logctx, finishLog := context.WithCancel(context.Background())
 	if master != nil {
-		go copyPtyOutput(e.StdOut, master, finishLog, common.Logger(ctx))
+		go copyPtyOutput(e.StdOut, master, finishLog)
 	} else {
 		finishLog()
 	}

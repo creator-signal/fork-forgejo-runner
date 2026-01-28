@@ -245,10 +245,8 @@ function build_template_act() {
 lxc_prepare_environment
 LXC_CONTAINER_CONFIG="" build_template_act
 lxc_build_template $(template_act) "{{.Name}}"
-lxc_container_mount "{{.Name}}" "{{.Root}}"
+lxc_container_mount "{{.Name}}" "{{ .Root }}"
 lxc_container_start "{{.Name}}"
-
-lxc-info -n "{{.Name}}" -p | awk '{print $2}' > "{{.Root}}/container.pid"
 `))
 
 var stopTemplate = template.Must(template.New("stop").Parse(`#!/bin/bash
@@ -394,19 +392,6 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 					Body: startScript.String(),
 				}),
 				rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, map[string]string{}, "root", "/tmp"),
-				func(ctx context.Context) error {
-					// After container creation, the PID of the container root process is stored in container.pid -- we
-					// need this for later cmd execution in the container.  Read & store into `LXCPID`.
-					pidFile := filepath.Join(rc.JobContainer.GetRoot(), "container.pid")
-					pidBytes, err := os.ReadFile(pidFile)
-					if err != nil {
-						return fmt.Errorf("failed to read container PID: %w", err)
-					}
-					pid := strings.TrimSpace(string(pidBytes))
-					he := rc.JobContainer.(*container.HostEnvironment)
-					he.LXCPID = pid
-					return nil
-				},
 			)
 		}
 
