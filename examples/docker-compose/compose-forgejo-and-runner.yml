@@ -51,7 +51,7 @@ services:
       - 8080:3000
 
   runner-register:
-    image: data.forgejo.org/forgejo/runner:12.6.2
+    image: data.forgejo.org/forgejo/runner:12.6.3
     links:
       - docker-in-docker
       - forgejo
@@ -77,7 +77,7 @@ services:
       '
 
   runner-daemon:
-    image: data.forgejo.org/forgejo/runner:12.6.2
+    image: data.forgejo.org/forgejo/runner:12.6.3
     links:
       - docker-in-docker
       - forgejo
