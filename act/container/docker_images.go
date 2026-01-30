@@ -5,6 +5,7 @@ package container
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
@@ -13,6 +14,8 @@ import (
 	"github.com/docker/docker/client"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+const LabelUseImageEntrypoint = "org.forgejo.runner.use-image-entrypoint"
 
 func parsePlatform(platform string) (*v1.Platform, error) {
 	desiredPlatform := strings.SplitN(platform, `/`, 2)
@@ -66,6 +69,42 @@ func ImageExistsLocally(ctx context.Context, imageName, platform string) (bool, 
 	}
 
 	logger.Infof("Docker daemon does not support image platform inspection (API 1.49+ required) -- runner found an image but platform does not match expected: %s (image) != %s (platform)", imagePlatform, platform)
+
+	return false, nil
+}
+
+// UseImageEntrypoint returns true if the label named LabelUseImageEntrypoint is attached to the container image to
+// start and its value evaluates to boolean true. It returns false in all other conditions.
+//
+// If UseImageEntrypoint returns true, then a container that is started with the given image should use the image's
+// default entrypoint and not override it.
+func UseImageEntrypoint(ctx context.Context, imageName, platform string) (bool, error) {
+	cli, err := GetDockerClient(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer cli.Close()
+
+	var inspectOptions []client.ImageInspectOption
+	if supportsImageInspectPlatform(ctx, cli) {
+		dockerPlatform, err := parsePlatform(platform)
+		if err != nil {
+			return false, err
+		}
+		inspectOptions = append(inspectOptions, client.ImageInspectWithPlatform(dockerPlatform))
+	}
+
+	inspectResponse, err := cli.ImageInspect(ctx, imageName, inspectOptions...)
+	if err != nil {
+		return false, fmt.Errorf("failed to inspect image %q for platform %q: %w", imageName, platform, err)
+	}
+	if value, ok := inspectResponse.Config.Labels[LabelUseImageEntrypoint]; ok {
+		result, err := strconv.ParseBool(value)
+		if err != nil {
+			return false, fmt.Errorf("cannot parse label %q of image %q: %w", LabelUseImageEntrypoint, imageName, err)
+		}
+		return result, nil
+	}
 
 	return false, nil
 }

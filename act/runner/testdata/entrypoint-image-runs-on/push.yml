@@ -1,0 +1,11 @@
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  image-entrypoint:
+    runs-on: '${{ env.IMAGE }}'
+    steps:
+      - run: |
+          entrypoint_cmd="$(cat /proc/1/comm)" 
+          echo "entrypoint_cmd=$entrypoint_cmd"
+          [[ "$entrypoint_cmd" == "nginx" ]] || exit 1

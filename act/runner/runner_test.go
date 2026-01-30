@@ -3,6 +3,7 @@ package runner
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"os"
@@ -14,11 +15,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/joho/godotenv"
+	"github.com/moby/go-archive"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
 	assert "github.com/stretchr/testify/assert"
@@ -966,4 +969,94 @@ func TestRunner_HostNetworkServices(t *testing.T) {
 		ContainerNetworkMode: "host",
 	}
 	jobFile.runTest(t.Context(), t, config)
+}
+
+func TestRunner_EntrypointCustomization(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	skip.If(t, runtime.GOOS != "linux")
+
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	assert.Nil(t, err)
+	cli.NegotiateAPIVersion(t.Context())
+
+	// Include a random string in the image name to prevent the test from accidentally removing an identically named
+	// image on the developer's machine.
+	imageTag := fmt.Sprintf("forgejo-runner-test-%s:latest", strings.ToLower(rand.Text()))
+
+	// Build a new image with org.forgejo.runner.use-image-entrypoint attached in order to test entrypoint
+	// customization.
+	tempDir := t.TempDir()
+	err = os.WriteFile(filepath.Join(tempDir, "Dockerfile"), []byte("FROM nginx:latest"), 0o644)
+	require.NoError(t, err)
+
+	contextReader, err := archive.TarWithOptions(tempDir, &archive.TarOptions{})
+	require.NoError(t, err)
+	defer contextReader.Close()
+
+	defer func() {
+		_, err := cli.ImageRemove(t.Context(), imageTag, image.RemoveOptions{})
+		require.NoError(t, err)
+	}()
+
+	options := build.ImageBuildOptions{
+		Context: contextReader,
+		Tags:    []string{imageTag},
+		Labels:  map[string]string{"org.forgejo.runner.use-image-entrypoint": "true"},
+		Remove:  true,
+	}
+	response, err := cli.ImageBuild(t.Context(), contextReader, options)
+	require.NoError(t, err)
+
+	_, err = io.ReadAll(response.Body)
+	require.NoError(t, err)
+
+	t.Run("Default entrypoint", func(t *testing.T) {
+		jobFile := TestJobFileInfo{
+			workdir:      workdir,
+			workflowPath: "entrypoint-default",
+			eventName:    "push",
+			errorMessage: "",
+			platforms:    platforms,
+		}
+
+		jobFile.runTest(t.Context(), t, &Config{})
+	})
+
+	t.Run("Default entrypoint with runs-on", func(t *testing.T) {
+		jobFile := TestJobFileInfo{
+			workdir:      workdir,
+			workflowPath: "entrypoint-default",
+			eventName:    "push",
+			errorMessage: "",
+			platforms:    platforms,
+		}
+
+		jobFile.runTest(t.Context(), t, &Config{})
+	})
+
+	t.Run("Entrypoint of image", func(t *testing.T) {
+		jobFile := TestJobFileInfo{
+			workdir:      workdir,
+			workflowPath: "entrypoint-image",
+			eventName:    "push",
+			errorMessage: "",
+			platforms:    platforms,
+		}
+
+		jobFile.runTest(t.Context(), t, &Config{Env: map[string]string{"IMAGE": imageTag}})
+	})
+
+	t.Run("Entrypoint of image in runs-on", func(t *testing.T) {
+		jobFile := TestJobFileInfo{
+			workdir:      workdir,
+			workflowPath: "entrypoint-image-runs-on",
+			eventName:    "push",
+			errorMessage: "",
+			platforms:    platforms,
+		}
+
+		jobFile.runTest(t.Context(), t, &Config{Env: map[string]string{"IMAGE": imageTag}})
+	})
 }

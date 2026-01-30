@@ -137,23 +137,13 @@ func supportsImageInspectPlatform(ctx context.Context, cli client.APIClient) boo
 }
 
 func (cr *containerReference) Create(capAdd, capDrop []string) common.Executor {
-	var infoExecutor common.Executor = func(ctx context.Context) error {
-		platform, err := cr.platform(ctx)
-		if err != nil {
-			return err
-		}
-		logger := common.Logger(ctx)
-		logger.Infof("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q", logPrefix, cr.input.Image, platform, cr.input.Entrypoint, cr.input.Cmd, cr.input.NetworkMode)
-		return nil
-	}
-	return infoExecutor.
-		Then(
-			common.NewPipelineExecutor(
-				cr.connect(),
-				cr.find(),
-				cr.create(capAdd, capDrop),
-			).IfNot(common.Dryrun),
-		)
+	// In a dry run, only emit a log message that indicates what Forgejo Runner would do during a normal run.
+	dryRunExecutor := common.NewInfoExecutor("%sdocker create image=%s platform=indeterminate entrypoint=indeterminate cmd=%+q network=%+q",
+		logPrefix, cr.input.Image, cr.input.Cmd, cr.input.NetworkMode)
+
+	createExecutor := common.NewPipelineExecutor(cr.connect(), cr.find(), cr.create(capAdd, capDrop))
+
+	return common.NewConditionalExecutor(common.Dryrun, dryRunExecutor, createExecutor)
 }
 
 func (cr *containerReference) Start(attach bool) common.Executor {
@@ -163,7 +153,7 @@ func (cr *containerReference) Start(attach bool) common.Executor {
 			return err
 		}
 		logger := common.Logger(ctx)
-		logger.Infof("%sdocker run image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q", logPrefix, cr.input.Image, platform, cr.input.Entrypoint, cr.input.Cmd, cr.input.NetworkMode)
+		logger.Infof("%sdocker run image=%s platform=%s cmd=%+q network=%+q", logPrefix, cr.input.Image, platform, cr.input.Cmd, cr.input.NetworkMode)
 		return nil
 	}
 	return infoExecutor.
@@ -645,9 +635,13 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			config.Cmd = input.Cmd
 		}
 
-		if len(input.Entrypoint) != 0 {
-			config.Entrypoint = input.Entrypoint
+		// By attaching a specific label to an image, users can instruct Forgejo Runner to use the image's entrypoint
+		// instead of Forgejo Runner's default entrypoint.
+		entrypoint, err := cr.determineEntrypoint(ctx)
+		if err != nil {
+			return err
 		}
+		config.Entrypoint = entrypoint
 
 		mounts := make([]mount.Mount, 0)
 		for mountSource, mountTarget := range input.Mounts {
@@ -659,7 +653,6 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 		}
 
 		var platform string
-		var err error
 		var platSpecs *specs.Platform
 		if supportsContainerImagePlatform(ctx, cr.cli) {
 			platform, err = cr.platform(ctx)
@@ -708,6 +701,9 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 				},
 			}
 		}
+
+		logger.Infof("%sdocker create image=%s platform=%s entrypoint=%+q cmd=%+q network=%+q",
+			logPrefix, cr.input.Image, platform, entrypoint, cr.input.Cmd, cr.input.NetworkMode)
 
 		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platSpecs, input.Name)
 		if err != nil {
@@ -760,6 +756,26 @@ func (cr *containerReference) extractFromImageEnv(env *map[string]string) common
 		env = &envMap
 		return nil
 	}
+}
+
+// determineEntrypoint returns the entrypoint to use when creating the container. It can either be the container image's
+// normal entrypoint (if UseImageEntrypoint returns true) or the one specified by NewContainerInput, which can be empty.
+func (cr *containerReference) determineEntrypoint(ctx context.Context) ([]string, error) {
+	platform, err := cr.platform(ctx)
+	if err != nil {
+		return []string{}, err
+	}
+
+	useImageEntrypoint, err := UseImageEntrypoint(ctx, cr.input.Image, platform)
+	if err != nil {
+		return []string{}, err
+	}
+
+	if useImageEntrypoint {
+		return []string{}, nil
+	}
+
+	return cr.input.Entrypoint, nil
 }
 
 func (cr *containerReference) exec(cmd []string, env map[string]string, user, workdir string) common.Executor {
