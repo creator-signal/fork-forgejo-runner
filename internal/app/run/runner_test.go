@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"runtime"
 	"slices"
 	"strconv"
@@ -258,12 +259,17 @@ func TestRunnerCacheConfiguration(t *testing.T) {
 			// reach the cache proxy, and that the cache proxy can access localhost to reach the cache, both of
 			// which are embedded servers that the Runner will start.  If any specific firewall config is needed
 			// it's easier to do that with statically configured ports, so...
+			Host:      "cache.internal",
 			Port:      40713,
 			ProxyPort: 40714,
 			Dir:       t.TempDir(),
 		},
 		Host: config.Host{
 			WorkdirParent: t.TempDir(),
+		},
+		Container: config.Container{
+			DockerHost: os.Getenv("DOCKER_HOST"),
+			Options:    "--add-host cache.internal:host-gateway",
 		},
 	}
 	cacheProxy := SetupCache(cfg)
@@ -495,6 +501,9 @@ func TestRunnerCacheStartupFailure(t *testing.T) {
 				Host: config.Host{
 					WorkdirParent: t.TempDir(),
 				},
+				Container: config.Container{
+					DockerHost: os.Getenv("DOCKER_HOST"),
+				},
 			}
 			cacheProxy := SetupCache(cfg)
 			defer func() {
@@ -558,7 +567,8 @@ func TestRunnerLXC(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+	_, err := exec.LookPath("lxc-create")
+	skip.If(t, err != nil, "lxc-create is not on PATH")
 
 	forgejoClient := &forgejoClientMock{}
 
@@ -884,7 +894,8 @@ func TestRunnerResources(t *testing.T) {
 					WorkdirParent: workdirParent,
 				},
 				Container: config.Container{
-					Options: options,
+					DockerHost: os.Getenv("DOCKER_HOST"),
+					Options:    options,
 				},
 			},
 			&config.Registration{

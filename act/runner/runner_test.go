@@ -604,10 +604,11 @@ func TestRunner_RunWithService(t *testing.T) {
 	assert.NoError(t, err, workflowPath)
 
 	runnerConfig := &Config{
-		Workdir:         workdir,
-		EventName:       eventName,
-		Platforms:       platforms,
-		ReuseContainers: false,
+		Workdir:               workdir,
+		EventName:             eventName,
+		Platforms:             platforms,
+		ReuseContainers:       false,
+		ContainerDaemonSocket: os.Getenv("DOCKER_HOST"),
 	}
 	runner, err := New(runnerConfig)
 	assert.NoError(t, err, workflowPath)

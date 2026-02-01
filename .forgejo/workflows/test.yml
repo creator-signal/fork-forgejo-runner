@@ -153,8 +153,8 @@ jobs:
           ./forgejo-runner exec --var MY_VAR=testvariable --workflows .forgejo/testdata/var.yml |& tee /tmp/var.out
           grep --quiet 'Success - Main echo "VAR -> testvariable"' /tmp/var.out
 
-  integration-tests:
-    name: integration tests (docker-${{ matrix.docker }})
+  integration-tests-with-docker:
+    name: Run integration tests with Docker (docker-${{ matrix.docker }})
     if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-bookworm
     needs: [build]
@@ -214,6 +214,81 @@ jobs:
         env:
           TEST_MUST_SUPPORT_MIXED_ARCH: true
         run: make integration-test
+
+  integration-tests-with-podman:
+    name: Run integration tests with Podman
+    if: vars.ROLE == 'forgejo-coding'
+    runs-on: lxc-trixie
+    needs: [build]
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v5
+
+      - uses: https://data.forgejo.org/actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # The Debian container produced by lxc-helpers.sh does not match the images provided by the LXC project
+      # (https://images.linuxcontainers.org/) and has some problems. systemd is degraded (see `systemctl --failed`) and
+      # only systemd-journald.service is active. For running Podman with an unprivileged user, we need at least
+      # systemd-logind.service. Without it, it is not possible to log in as an unprivileged user and the user's
+      # environment is broken.
+      - name: Get systemd-logind working
+        run: |
+          apt-get install -y \
+              dbus \
+              libpam-systemd
+          systemctl restart systemd-logind.service
+          logind_status="$(systemctl is-active systemd-logind.service)"
+          if [[ "$logind_status" != "active" ]] ; then
+              echo "The status of systemd-logind is '$logind_status' instead of 'active'" >&2
+              exit 1
+          fi
+
+      - name: Install required tools
+        # gcc is required for `go test -race`.
+        run: |
+          apt-get install -y \
+            make \
+            gcc
+
+      - name: Install Podman
+        run: |
+          apt-get install -y \
+              podman
+
+      - name: Create unprivileged user 'forgejo' for use with Podman
+        run: |
+          useradd --create-home --shell /bin/bash forgejo
+
+      - name: Set Podman up
+        run: |
+          systemctl --user --machine forgejo@ enable --now podman.socket
+
+          podman_status="$(systemctl --user --machine forgejo@ is-active podman.socket)"
+          if [[ "$podman_status" != "active" ]] ; then
+              echo "The status of podman is '$podman_status' instead of 'active'" >&2
+              exit 1
+          fi
+
+      - name: Configure `PATH` and `DOCKER_HOST` of unprivileged user
+        run: |
+          go_home="$(dirname "$(which go)")"
+          echo "PATH=\"\$PATH:$go_home\"" >> /home/forgejo/.profile
+          echo 'export DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"' >> /home/forgejo/.profile
+
+      # Running commands as user forgejo in /root leads to weird permission problems.
+      - name: Copy project to home of unprivileged user
+        run: |
+          mkdir -p /home/forgejo/runner
+          cp --recursive .* * /home/forgejo/runner
+          chown --recursive forgejo:forgejo /home/forgejo/runner
+
+      - name: Run all tests
+        run: |
+          run0 -u forgejo --chdir=/home/forgejo/runner \
+              bash --login -c 'make integration-test'
 
   validate-mocks:
     name: validate mocks

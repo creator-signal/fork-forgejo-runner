@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -38,7 +39,7 @@ func TestRunExec(t *testing.T) {
 	for _, testCase := range testCases {
 		args := &executeArgs{
 			event:                 testCase.event,
-			containerDaemonSocket: "/var/run/docker.sock",
+			containerDaemonSocket: os.Getenv("DOCKER_HOST"),
 			image:                 testCase.image,
 			workflowsPath:         filepath.Join("testdata", "exec", testCase.name, fmt.Sprintf("%s.yml", testCase.event)),
 		}

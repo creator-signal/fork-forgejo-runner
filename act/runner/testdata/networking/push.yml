@@ -3,11 +3,12 @@ on: push
 jobs:
   test:
     runs-on: ubuntu-latest
+    # This test uses Alpine Linux because `ping` is included in the image. It's also `ping` from Busybox and not from
+    # iputils which is used by most Linux distributions. The former works slightly different and does not require
+    # cap_net_raw. Instead, it is happy with a matching net.ipv4.ping_group_range. That allows the test to pass when run
+    # with a rootless Podman.
+    container: data.forgejo.org/oci/alpine:3.23
     steps:
-      - name: Install tools
-        run: |
-          apt update
-          apt install -y iputils-ping
       - name: Run hostname test
         run: |
           hostname -f
