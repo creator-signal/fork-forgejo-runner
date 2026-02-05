@@ -5,6 +5,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 
@@ -26,48 +27,125 @@ type Registration struct {
 }
 
 func LoadRegistration(file string) (*Registration, error) {
-	f, err := os.Open(file)
+	regs, err := LoadRegistrations(file)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	if len(regs) == 0 {
+		return nil, os.ErrInvalid
+	}
+	return regs[0], nil
+}
 
-	var reg Registration
-	if err := json.NewDecoder(f).Decode(&reg); err != nil {
+func LoadRegistrations(file string) ([]*Registration, error) {
+	data, err := os.ReadFile(file)
+	if err != nil {
 		return nil, err
 	}
 
-	return &reg, nil
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 {
+		return nil, os.ErrInvalid
+	}
+
+	if data[0] == '[' {
+		var regs []*Registration
+		if err := json.Unmarshal(data, &regs); err != nil {
+			return nil, err
+		}
+		return regs, nil
+	}
+
+	var reg Registration
+	if err := json.Unmarshal(data, &reg); err != nil {
+		return nil, err
+	}
+	return []*Registration{&reg}, nil
 }
 
 func isEqualRegistration(file string, reg *Registration) (bool, error) {
-	existing, err := LoadRegistration(file)
+	regs, err := LoadRegistrations(file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
 		return false, err
 	}
-	return cmp.Equal(*reg, *existing), nil
+	for _, r := range regs {
+		// Prefer UUID matching when both have UUIDs
+		if r.UUID != "" && reg.UUID != "" {
+			if r.UUID == reg.UUID {
+				return cmp.Equal(*reg, *r), nil
+			}
+			continue
+		}
+		// Only fall back to address matching if at least one lacks UUID
+		if r.Address == reg.Address {
+			return cmp.Equal(*reg, *r), nil
+		}
+	}
+	return false, nil
 }
 
 func SaveRegistration(file string, reg *Registration) error {
-	equal, err := isEqualRegistration(file, reg)
+	regs, err := LoadRegistrations(file)
 	if err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
+		regs = []*Registration{}
 	}
-	if equal {
-		return nil
+
+	found := false
+	for i, r := range regs {
+		matched := false
+		// Prefer UUID matching when both have UUIDs
+		if r.UUID != "" && reg.UUID != "" {
+			if r.UUID == reg.UUID {
+				matched = true
+			}
+		} else if r.Address == reg.Address {
+			// Only fall back to address matching if at least one lacks UUID
+			matched = true
+		}
+
+		if matched {
+			if cmp.Equal(*r, *reg) {
+				return nil
+			}
+			regs[i] = reg
+			found = true
+			break
+		}
 	}
+
+	if !found {
+		regs = append(regs, reg)
+	}
+
+	return SaveRegistrations(file, regs)
+}
+
+func SaveRegistrations(file string, regs []*Registration) error {
+	for _, reg := range regs {
+		reg.Warning = RegistrationWarning
+	}
+
 	f, err := os.Create(file)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	reg.Warning = RegistrationWarning
-
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	return enc.Encode(reg)
+
+	// If there is only one registration, we save it as a single object
+	// for backward compatibility with older versions of the runner.
+	// Note: This means that if a user manually changes the file to an array
+	// containing a single registration, it will be rewritten as a single object.
+	if len(regs) == 1 {
+		return enc.Encode(regs[0])
+	}
+	return enc.Encode(regs)
 }

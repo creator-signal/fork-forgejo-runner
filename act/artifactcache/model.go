@@ -1,5 +1,14 @@
 package artifactcache
 
+type RunData struct {
+	Instance           string
+	RepositoryFullName string
+	RunNumber          string
+	Timestamp          string
+	RepositoryMAC      string
+	WriteIsolationKey  string
+}
+
 type Request struct {
 	Key     string `json:"key" `
 	Version string `json:"version"`
@@ -25,6 +34,7 @@ func (c *Request) ToCache() *Cache {
 
 type Cache struct {
 	ID                uint64 `json:"id" boltholdKey:"ID"`
+	Instance          string `json:"instance" boltholdIndex:"Instance"`
 	Repo              string `json:"repo" boltholdIndex:"Repo"`
 	Key               string `json:"key"`
 	Version           string `json:"version"`

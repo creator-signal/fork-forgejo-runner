@@ -86,6 +86,21 @@ func newCaches(dir, secret string, logger logrus.FieldLogger) (caches, error) {
 	}
 	c.db = db
 
+	// Migration: Delete all cache entries with an empty Instance field.
+	// This handles the transition from single-instance to multi-instance runners,
+	// as old cache entries would have an empty Instance and thus be invisible or cause collisions.
+	var legacyCaches []*Cache
+	if err := db.Find(&legacyCaches, bolthold.Where("Instance").Eq("")); err == nil {
+		for _, cache := range legacyCaches {
+			c.storage.Remove(cache.ID)
+			if err := db.Delete(cache.ID, cache); err != nil {
+				c.logger.Warnf("failed to delete legacy cache entry %d: %v", cache.ID, err)
+			} else {
+				c.logger.Infof("deleted legacy cache entry %d due to missing Instance identifier", cache.ID)
+			}
+		}
+	}
+
 	c.gcCache()
 
 	return c, nil
@@ -102,14 +117,14 @@ func (c *cachesImpl) getDB() *bolthold.Store {
 	return c.db
 }
 
-var findCacheWithIsolationKeyFallback = func(db *bolthold.Store, repo string, keys []string, version, writeIsolationKey string) (*Cache, error) {
-	cache, err := findCache(db, repo, keys, version, writeIsolationKey)
+var findCacheWithIsolationKeyFallback = func(db *bolthold.Store, instance, repo string, keys []string, version, writeIsolationKey string) (*Cache, error) {
+	cache, err := findCache(db, instance, repo, keys, version, writeIsolationKey)
 	if err != nil {
 		return nil, err
 	}
 	// If read was scoped to WriteIsolationKey and didn't find anything, we can fallback to the non-isolated cache read
 	if cache == nil && writeIsolationKey != "" {
-		cache, err = findCache(db, repo, keys, version, "")
+		cache, err = findCache(db, instance, repo, keys, version, "")
 		if err != nil {
 			return nil, err
 		}
@@ -118,12 +133,13 @@ var findCacheWithIsolationKeyFallback = func(db *bolthold.Store, repo string, ke
 }
 
 // if not found, return (nil, nil) instead of an error.
-func findCache(db *bolthold.Store, repo string, keys []string, version, writeIsolationKey string) (*Cache, error) {
+func findCache(db *bolthold.Store, instance, repo string, keys []string, version, writeIsolationKey string) (*Cache, error) {
 	cache := &Cache{}
 	for _, prefix := range keys {
 		// if a key in the list matches exactly, don't return partial matches
 		if err := db.FindOne(cache,
-			bolthold.Where("Repo").Eq(repo).Index("Repo").
+			bolthold.Where("Instance").Eq(instance).Index("Instance").
+				And("Repo").Eq(repo).Index("Repo").
 				And("Key").Eq(prefix).
 				And("Version").Eq(version).
 				And("WriteIsolationKey").Eq(writeIsolationKey).
@@ -140,7 +156,8 @@ func findCache(db *bolthold.Store, repo string, keys []string, version, writeIso
 			continue
 		}
 		if err := db.FindOne(cache,
-			bolthold.Where("Repo").Eq(repo).Index("Repo").
+			bolthold.Where("Instance").Eq(instance).Index("Instance").
+				And("Repo").Eq(repo).Index("Repo").
 				And("Key").RegExp(re).
 				And("Version").Eq(version).
 				And("WriteIsolationKey").Eq(writeIsolationKey).
@@ -295,7 +312,7 @@ func (c *cachesImpl) gcCache() {
 	if results, err := db.FindAggregate(
 		&Cache{},
 		bolthold.Where("Complete").Eq(true),
-		"Key", "Version",
+		"Instance", "Repo", "Key", "Version",
 	); err != nil {
 		fatal(c.logger, fmt.Errorf("gc aggregate caches: %v", err))
 	} else {

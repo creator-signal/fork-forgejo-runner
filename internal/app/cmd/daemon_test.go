@@ -44,8 +44,8 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 		}, nil
 	})()
 	defer testutils.MockVariable(&initLogging, func(cfg *config.Config) {})()
-	defer testutils.MockVariable(&loadRegistration, func(cfg *config.Config) (*config.Registration, error) {
-		return &config.Registration{}, nil
+	defer testutils.MockVariable(&loadRegistrations, func(cfg *config.Config) ([]*config.Registration, error) {
+		return []*config.Registration{{}}, nil
 	})()
 	defer testutils.MockVariable(&extractLabels, func(cfg *config.Config, reg *config.Registration) labels.Labels {
 		return labels.Labels{}
@@ -53,7 +53,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 	defer testutils.MockVariable(&configCheck, func(ctx context.Context, cfg *config.Config, ls labels.Labels) error {
 		return nil
 	})()
-	defer testutils.MockVariable(&createClient, func(cfg *config.Config, reg *config.Registration) client.Client {
+	defer testutils.MockVariable(&createClient, func(cfg *config.Config, reg *config.Registration, fetchInterval time.Duration) client.Client {
 		return mockClient
 	})()
 	var runnerContext context.Context
@@ -62,7 +62,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 		return mockRunner, "runner", nil
 	})()
 	var pollerContext context.Context
-	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runner run.RunnerInterface) poll.Poller {
+	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) poll.Poller {
 		pollerContext = ctx
 		return mockPoller
 	})()
@@ -114,4 +114,75 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 
 	// Wait for the daemon goroutine to stop
 	<-runDaemonComplete
+}
+
+func TestRunDaemonMultipleRegistrations(t *testing.T) {
+	mockClient1 := mock_client.NewClient(t)
+	mockClient2 := mock_client.NewClient(t)
+	mockRunner1 := mock_runner.NewRunnerInterface(t)
+	mockRunner2 := mock_runner.NewRunnerInterface(t)
+	mockPoller := mock_poller.NewPoller(t)
+
+	defer testutils.MockVariable(&initializeConfig, func(configFile *string) (*config.Config, error) {
+		return &config.Config{}, nil
+	})()
+	defer testutils.MockVariable(&initLogging, func(cfg *config.Config) {})()
+	defer testutils.MockVariable(&loadRegistrations, func(cfg *config.Config) ([]*config.Registration, error) {
+		return []*config.Registration{
+			{Address: "https://instance1"},
+			{Address: "https://instance2"},
+		}, nil
+	})()
+	defer testutils.MockVariable(&extractLabels, func(cfg *config.Config, reg *config.Registration) labels.Labels {
+		return labels.Labels{}
+	})()
+	defer testutils.MockVariable(&configCheck, func(ctx context.Context, cfg *config.Config, ls labels.Labels) error {
+		return nil
+	})()
+
+	clientIdx := 0
+	defer testutils.MockVariable(&createClient, func(cfg *config.Config, reg *config.Registration, fetchInterval time.Duration) client.Client {
+		if clientIdx == 0 {
+			clientIdx++
+			return mockClient1
+		}
+		return mockClient2
+	})()
+
+	runnerIdx := 0
+	defer testutils.MockVariable(&createRunner, func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels) (run.RunnerInterface, string, error) {
+		if runnerIdx == 0 {
+			runnerIdx++
+			return mockRunner1, "runner1", nil
+		}
+		return mockRunner2, "runner2", nil
+	})()
+
+	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) poll.Poller {
+		assert.Len(t, clients, 2)
+		assert.Len(t, runners, 2)
+		assert.Equal(t, mockClient1, clients[0])
+		assert.Equal(t, mockClient2, clients[1])
+		assert.Equal(t, mockRunner1, runners[0])
+		assert.Equal(t, mockRunner2, runners[1])
+		return mockPoller
+	})()
+
+	pollBegun := make(chan struct{})
+	mockPoller.On("Poll").Run(func(args mock.Arguments) {
+		close(pollBegun)
+	}).Return()
+	mockPoller.On("Shutdown", mock.Anything).Return(nil)
+
+	mockSignalContext, cancelSignal := context.WithCancel(t.Context())
+	go func() {
+		<-pollBegun
+		cancelSignal()
+	}()
+
+	configFile := "config.yaml"
+	err := runDaemon(mockSignalContext, &configFile)
+	require.NoError(t, err)
+
+	mockPoller.AssertExpectations(t)
 }

@@ -22,11 +22,13 @@ func TestCacheReadWrite(t *testing.T) {
 	})
 
 	repo := "repository"
+	instance := "http://localhost:3000"
 	cache := &Cache{
-		Repo:    repo,
-		Key:     "key",
-		Version: "version",
-		Size:    444,
+		Instance: instance,
+		Repo:     repo,
+		Key:      "key",
+		Version:  "version",
+		Size:     444,
 	}
 	now := time.Now().Unix()
 	cache.CreatedAt = now

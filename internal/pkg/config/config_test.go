@@ -23,22 +23,18 @@ func TestConfigTune(t *testing.T) {
 
 	t.Run("Public instance tuning", func(t *testing.T) {
 		c.Runner.FetchInterval = 60 * time.Second
-		c.Tune("https://codeberg.org")
-		assert.EqualValues(t, 60*time.Second, c.Runner.FetchInterval)
+		assert.EqualValues(t, 60*time.Second, c.Tune("https://codeberg.org"))
 
 		c.Runner.FetchInterval = 2 * time.Second
-		c.Tune("https://codeberg.org")
-		assert.EqualValues(t, 30*time.Second, c.Runner.FetchInterval)
+		assert.EqualValues(t, 30*time.Second, c.Tune("https://codeberg.org"))
 	})
 
 	t.Run("Non-public instance tuning", func(t *testing.T) {
 		c.Runner.FetchInterval = 60 * time.Second
-		c.Tune("https://example.com")
-		assert.EqualValues(t, 60*time.Second, c.Runner.FetchInterval)
+		assert.EqualValues(t, 60*time.Second, c.Tune("https://example.com"))
 
 		c.Runner.FetchInterval = 2 * time.Second
-		c.Tune("https://codeberg.com")
-		assert.EqualValues(t, 2*time.Second, c.Runner.FetchInterval)
+		assert.EqualValues(t, 2*time.Second, c.Tune("https://codeberg.com"))
 	})
 }
 

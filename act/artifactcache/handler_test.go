@@ -31,11 +31,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
+var (
+	cacheInstance  = ""
 	cacheRepo      = "testuser/repo"
 	cacheRunnum    = "1"
 	cacheTimestamp = "0"
-	cacheMac       = "bc2e9167f9e310baebcead390937264e4c0b21d2fdd49f5b9470d54406099360"
+	cacheMac       = ""
 )
 
 var handlerExternalURL string
@@ -47,18 +48,21 @@ type AuthHeaderTransport struct {
 }
 
 func (t *AuthHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Set("Forgejo-Cache-Instance", cacheInstance)
 	req.Header.Set("Forgejo-Cache-Repo", cacheRepo)
 	req.Header.Set("Forgejo-Cache-RunNumber", cacheRunnum)
 	req.Header.Set("Forgejo-Cache-Timestamp", cacheTimestamp)
-	if t.OverrideDefaultMac != "" {
-		req.Header.Set("Forgejo-Cache-MAC", t.OverrideDefaultMac)
-	} else {
-		req.Header.Set("Forgejo-Cache-MAC", cacheMac)
-	}
-	req.Header.Set("Forgejo-Cache-Host", handlerExternalURL)
 	if t.WriteIsolationKey != "" {
 		req.Header.Set("Forgejo-Cache-WriteIsolationKey", t.WriteIsolationKey)
 	}
+
+	if t.OverrideDefaultMac != "" {
+		req.Header.Set("Forgejo-Cache-MAC", t.OverrideDefaultMac)
+	} else {
+		mac := ComputeMac("secret", cacheInstance, cacheRepo, cacheRunnum, cacheTimestamp, t.WriteIsolationKey)
+		req.Header.Set("Forgejo-Cache-MAC", mac)
+	}
+	req.Header.Set("Forgejo-Cache-Host", handlerExternalURL)
 	return t.T.RoundTrip(req)
 }
 
@@ -77,8 +81,10 @@ func TestHandler(t *testing.T) {
 	})()
 
 	dir := filepath.Join(t.TempDir(), "artifactcache")
-	handler, err := StartHandler(dir, "", 0, "secret", nil)
+	handler, err := StartHandler(dir, "", 0, "secret", logrus.StandardLogger())
 	require.NoError(t, err)
+
+	cacheMac = ComputeMac("secret", cacheInstance, cacheRepo, cacheRunnum, cacheTimestamp, "")
 
 	handlerExternalURL = handler.ExternalURL()
 	base := fmt.Sprintf("%s%s", handler.ExternalURL(), urlBase)
@@ -840,7 +846,7 @@ func overrideWriteIsolationKey(writeIsolationKey string) func() {
 	originalMac := httpClientTransport.OverrideDefaultMac
 
 	httpClientTransport.WriteIsolationKey = writeIsolationKey
-	httpClientTransport.OverrideDefaultMac = ComputeMac("secret", cacheRepo, cacheRunnum, cacheTimestamp, httpClientTransport.WriteIsolationKey)
+	httpClientTransport.OverrideDefaultMac = ComputeMac("secret", "", cacheRepo, cacheRunnum, cacheTimestamp, httpClientTransport.WriteIsolationKey)
 
 	return func() {
 		httpClientTransport.WriteIsolationKey = originalWriteIsolationKey
@@ -921,7 +927,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 		{
 			name: "find",
 			prepare: func(message string) func() {
-				return testutils.MockVariable(&findCacheWithIsolationKeyFallback, func(db *bolthold.Store, repo string, keys []string, version, writeIsolationKey string) (*Cache, error) {
+				return testutils.MockVariable(&findCacheWithIsolationKeyFallback, func(db *bolthold.Store, instance, repo string, keys []string, version, writeIsolationKey string) (*Cache, error) {
 					return nil, errors.New(message)
 				})
 			},
@@ -934,10 +940,12 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 				keyOne := "ONE"
 				req, err := http.NewRequest("GET", fmt.Sprintf("http://example.com/cache?keys=%s", keyOne), nil)
 				require.NoError(t, err)
+				req.Header.Set("Forgejo-Cache-Instance", cacheInstance)
 				req.Header.Set("Forgejo-Cache-Repo", cacheRepo)
 				req.Header.Set("Forgejo-Cache-RunNumber", cacheRunnum)
 				req.Header.Set("Forgejo-Cache-Timestamp", cacheTimestamp)
-				req.Header.Set("Forgejo-Cache-MAC", cacheMac)
+				mac := ComputeMac("secret", cacheInstance, cacheRepo, cacheRunnum, cacheTimestamp, "")
+				req.Header.Set("Forgejo-Cache-MAC", mac)
 				req.Header.Set("Forgejo-Cache-Host", "http://example.com")
 				handler.find(w, req, nil)
 			},
@@ -947,7 +955,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 			caches: func(t *testing.T, message string) caches {
 				caches := newMockCaches(t)
 				caches.On("close").Return()
-				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
+				caches.On("validateMac", RunData{Instance: "__default__"}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))
 				return caches
 			},
@@ -965,7 +973,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 			caches: func(t *testing.T, message string) caches {
 				caches := newMockCaches(t)
 				caches.On("close").Return()
-				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
+				caches.On("validateMac", RunData{Instance: "__default__"}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))
 				return caches
 			},
@@ -983,7 +991,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 			caches: func(t *testing.T, message string) caches {
 				caches := newMockCaches(t)
 				caches.On("close").Return()
-				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
+				caches.On("validateMac", RunData{Instance: "__default__"}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))
 				return caches
 			},
@@ -1018,8 +1026,10 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 			}
 
 			dir := filepath.Join(t.TempDir(), "artifactcache")
-			handler, err := StartHandler(dir, "", 0, "secret", nil)
+			handler, err := StartHandler(dir, "", 0, "secret", logrus.StandardLogger())
 			require.NoError(t, err)
+
+			cacheMac = ComputeMac("secret", cacheInstance, cacheRepo, cacheRunnum, cacheTimestamp, "")
 			defer handler.Close()
 
 			fatalMessage = "<unset>"

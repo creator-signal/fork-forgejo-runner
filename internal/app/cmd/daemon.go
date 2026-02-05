@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/mattn/go-isatty"
@@ -50,40 +51,54 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 	initLogging(cfg)
 	log.Infoln("Starting runner daemon")
 
-	reg, err := loadRegistration(cfg)
+	regs, err := loadRegistrations(cfg)
 	if err != nil {
 		return err
 	}
 
-	cfg.Tune(reg.Address)
-	ls := extractLabels(cfg, reg)
+	var clients []client.Client
+	var runners []run.RunnerInterface
+	var runnerNames []string
 
-	err = configCheck(ctx, cfg, ls)
-	if err != nil {
-		return err
+	for _, reg := range regs {
+		fetchInterval := cfg.Tune(reg.Address)
+		ls := extractLabels(cfg, reg)
+
+		err = configCheck(ctx, cfg, ls)
+		if err != nil {
+			return err
+		}
+
+		cli := createClient(cfg, reg, fetchInterval)
+		clients = append(clients, cli)
+
+		runner, runnerName, err := createRunner(ctx, cfg, reg, cli, ls)
+		if err != nil {
+			return err
+		}
+		runners = append(runners, runner)
+		runnerNames = append(runnerNames, runnerName)
 	}
 
-	cli := createClient(cfg, reg)
-
-	runner, runnerName, err := createRunner(ctx, cfg, reg, cli, ls)
-	if err != nil {
-		return err
-	}
-
-	poller := createPoller(ctx, cfg, []client.Client{cli}, runner)
+	poller := createPoller(ctx, cfg, clients, runners)
 
 	go poller.Poll()
 
 	<-signalContext.Done()
-	log.Infof("runner: %s shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", runnerName, cfg.Runner.ShutdownTimeout)
+	log.Infof("runner: %s shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", strings.Join(runnerNames, ", "), cfg.Runner.ShutdownTimeout)
 
 	shutdownCtx, cancel := context.WithTimeout(daemonContext, cfg.Runner.ShutdownTimeout)
 	defer cancel()
 
 	err = poller.Shutdown(shutdownCtx)
 	if err != nil {
-		log.Warnf("runner: %s cancelled in progress jobs during shutdown", runnerName)
+		log.Warnf("runner: %s cancelled in progress jobs during shutdown", strings.Join(runnerNames, ", "))
 	}
+
+	if err := run.CloseCache(); err != nil {
+		log.WithError(err).Error("failed to close cache")
+	}
+
 	return nil
 }
 
@@ -133,15 +148,23 @@ var initLogging = func(cfg *config.Config) {
 	}
 }
 
-var loadRegistration = func(cfg *config.Config) (*config.Registration, error) {
-	reg, err := config.LoadRegistration(cfg.Runner.File)
+var loadRegistrations = func(cfg *config.Config) ([]*config.Registration, error) {
+	regs, err := config.LoadRegistrations(cfg.Runner.File)
 	if os.IsNotExist(err) {
 		log.Error("registration file not found, please register the runner first")
 		return nil, err
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to load registration file: %w", err)
 	}
-	return reg, nil
+	return regs, nil
+}
+
+var loadRegistration = func(cfg *config.Config) (*config.Registration, error) {
+	regs, err := loadRegistrations(cfg)
+	if err != nil || len(regs) == 0 {
+		return nil, err
+	}
+	return regs[0], nil
 }
 
 var extractLabels = func(cfg *config.Config, reg *config.Registration) labels.Labels {
@@ -190,14 +213,14 @@ var configCheck = func(ctx context.Context, cfg *config.Config, ls labels.Labels
 	return nil
 }
 
-var createClient = func(cfg *config.Config, reg *config.Registration) client.Client {
+var createClient = func(cfg *config.Config, reg *config.Registration, fetchInterval time.Duration) client.Client {
 	return client.New(
 		reg.Address,
 		cfg.Runner.Insecure,
 		reg.UUID,
 		reg.Token,
 		ver.Version(),
-		cfg.Runner.FetchInterval,
+		fetchInterval,
 	)
 }
 

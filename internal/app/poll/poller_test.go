@@ -16,6 +16,7 @@ import (
 	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
+	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	mock_runner "code.forgejo.org/forgejo/runner/v12/internal/app/run/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client/mocks"
@@ -136,7 +137,7 @@ func setTrace(t *testing.T) {
 }
 
 func TestPoller_New(t *testing.T) {
-	p := New(t.Context(), &config.Config{}, []client.Client{&mockClient{}}, &mockRunner{})
+	p := New(t.Context(), &config.Config{}, []client.Client{&mockClient{}}, []run.RunnerInterface{&mockRunner{}})
 	assert.NotNil(t, p)
 }
 
@@ -201,12 +202,12 @@ func TestPoller_Runner(t *testing.T) {
 				[]client.Client{&mockClient{
 					noTask: testCase.noTask,
 				}},
-				&mockRunner{
+				[]run.RunnerInterface{&mockRunner{
 					cfg:    &configRunner,
 					log:    runnerLog,
 					panics: testCase.panics,
 					err:    testCase.err,
-				})
+				}})
 			go p.Poll()
 			assert.Equal(t, "runner starts", <-runnerLog)
 			var ctx context.Context
@@ -289,7 +290,7 @@ func TestPoller_Fetch(t *testing.T) {
 					err:       testCase.err,
 					addtTasks: testCase.addtTasks,
 				}},
-				&mockRunner{},
+				[]run.RunnerInterface{&mockRunner{}},
 			)
 			task, ok := p.fetchTasks(context.Background(), p.clients[0], &atomic.Int64{}, 100)
 			if testCase.success {
@@ -314,7 +315,7 @@ func TestPollerPoll(t *testing.T) {
 			Runner: config.Runner{
 				Capacity: 3,
 			},
-		}, []client.Client{mockClient}, mockRunner)
+		}, []client.Client{mockClient}, []run.RunnerInterface{mockRunner})
 		return mockClient, mockRunner, poller
 	}
 	teardown := func(t *testing.T, mockClient *mocks.Client, mockRunner *mock_runner.RunnerInterface) {
@@ -506,7 +507,7 @@ func TestPollerPollMultipleClients(t *testing.T) {
 			Runner: config.Runner{
 				Capacity: 3,
 			},
-		}, []client.Client{mockClient1, mockClient2}, mockRunner)
+		}, []client.Client{mockClient1, mockClient2}, []run.RunnerInterface{mockRunner, mockRunner})
 		return mockClient1, mockClient2, mockRunner, poller
 	}
 	teardown := func(t *testing.T, mockClient1, mockClient2 *mocks.Client, mockRunner *mock_runner.RunnerInterface) {

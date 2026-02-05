@@ -85,13 +85,15 @@ type Config struct {
 }
 
 // Tune the config settings accordingly to the Forgejo instance that will be used.
-func (c *Config) Tune(instanceURL string) {
+func (c *Config) Tune(instanceURL string) time.Duration {
+	fetchInterval := c.Runner.FetchInterval
 	if instanceURL == "https://codeberg.org" {
-		if c.Runner.FetchInterval < 30*time.Second {
+		if fetchInterval < 30*time.Second {
 			log.Info("The runner is configured to be used by a public instance, fetch interval is set to 30 seconds.")
-			c.Runner.FetchInterval = 30 * time.Second
+			fetchInterval = 30 * time.Second
 		}
 	}
+	return fetchInterval
 }
 
 // LoadDefault returns the default configuration.

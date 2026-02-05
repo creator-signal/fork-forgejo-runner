@@ -45,9 +45,13 @@ type Handler struct {
 	runs sync.Map
 }
 
-func (h *Handler) CreateRunData(fullName, runNumber, timestamp, writeIsolationKey string) artifactcache.RunData {
-	mac := artifactcache.ComputeMac(h.cacheSecret, fullName, runNumber, timestamp, writeIsolationKey)
+func (h *Handler) CreateRunData(instance, fullName, runNumber, timestamp, writeIsolationKey string) artifactcache.RunData {
+	if instance == "" {
+		instance = "__default__"
+	}
+	mac := artifactcache.ComputeMac(h.cacheSecret, instance, fullName, runNumber, timestamp, writeIsolationKey)
 	return artifactcache.RunData{
+		Instance:           instance,
 		RepositoryFullName: fullName,
 		RunNumber:          runNumber,
 		Timestamp:          timestamp,
@@ -141,6 +145,7 @@ func (h *Handler) newReverseProxy(targetHost string) (*httputil.ReverseProxy, er
 			r.Out.URL.Path = uri
 			h.logger.Debugf("proxy req %s %q to %q", r.In.Method, r.In.URL, r.Out.URL)
 
+			r.Out.Header.Set("Forgejo-Cache-Instance", runData.Instance)
 			r.Out.Header.Set("Forgejo-Cache-Repo", runData.RepositoryFullName)
 			r.Out.Header.Set("Forgejo-Cache-RunNumber", runData.RunNumber)
 			r.Out.Header.Set("Forgejo-Cache-RunId", id)

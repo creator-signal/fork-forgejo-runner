@@ -178,7 +178,7 @@ func (h *handler) find(w http.ResponseWriter, r *http.Request, params httprouter
 
 	db := h.caches.getDB()
 
-	cache, err := findCacheWithIsolationKeyFallback(db, repo, keys, version, rundata.WriteIsolationKey)
+	cache, err := findCacheWithIsolationKeyFallback(db, rundata.Instance, repo, keys, version, rundata.WriteIsolationKey)
 	if err != nil {
 		h.responseFatalJSON(w, r, err)
 		return
@@ -227,6 +227,7 @@ func (h *handler) reserve(w http.ResponseWriter, r *http.Request, params httprou
 	now := time.Now().Unix()
 	cache.CreatedAt = now
 	cache.UsedAt = now
+	cache.Instance = rundata.Instance
 	cache.Repo = repo
 	cache.WriteIsolationKey = rundata.WriteIsolationKey
 	if err := insertCache(db, cache); err != nil {
@@ -440,16 +441,13 @@ func parseContentRange(s string) (uint64, uint64, error) {
 	return start, stop, nil
 }
 
-type RunData struct {
-	RepositoryFullName string
-	RunNumber          string
-	Timestamp          string
-	RepositoryMAC      string
-	WriteIsolationKey  string
-}
-
 func runDataFromHeaders(r *http.Request) RunData {
+	instance := r.Header.Get("Forgejo-Cache-Instance")
+	if instance == "" {
+		instance = "__default__"
+	}
 	return RunData{
+		Instance:           instance,
 		RepositoryFullName: r.Header.Get("Forgejo-Cache-Repo"),
 		RunNumber:          r.Header.Get("Forgejo-Cache-RunNumber"),
 		Timestamp:          r.Header.Get("Forgejo-Cache-Timestamp"),

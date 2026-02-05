@@ -20,7 +20,7 @@ func (c *cachesImpl) validateMac(rundata RunData) (string, error) {
 		return "", ErrValidation
 	}
 
-	expectedMAC := ComputeMac(c.secret, rundata.RepositoryFullName, rundata.RunNumber, rundata.Timestamp, rundata.WriteIsolationKey)
+	expectedMAC := ComputeMac(c.secret, rundata.Instance, rundata.RepositoryFullName, rundata.RunNumber, rundata.Timestamp, rundata.WriteIsolationKey)
 	if hmac.Equal([]byte(expectedMAC), []byte(rundata.RepositoryMAC)) {
 		return rundata.RepositoryFullName, nil
 	}
@@ -38,8 +38,13 @@ func validateAge(ts string) bool {
 	return true
 }
 
-func ComputeMac(secret, repo, run, ts, writeIsolationKey string) string {
+func ComputeMac(secret, instance, repo, run, ts, writeIsolationKey string) string {
+	if instance == "" {
+		instance = "__default__"
+	}
 	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(instance))
+	mac.Write([]byte(">"))
 	mac.Write([]byte(repo))
 	mac.Write([]byte(">"))
 	mac.Write([]byte(run))

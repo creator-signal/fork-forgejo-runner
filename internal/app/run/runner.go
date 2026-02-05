@@ -5,8 +5,6 @@ package run
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -17,7 +15,6 @@ import (
 	"time"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/v12/act/artifactcache"
 	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
@@ -72,7 +69,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 
 	var cacheProxy *cacheproxy.Handler
 	if cfg.Cache.Enabled == nil || *cfg.Cache.Enabled {
-		cacheProxy = setupCache(cfg, envs)
+		cacheProxy = SetupCache(cfg, envs)
 	} else {
 		cacheProxy = nil
 	}
@@ -95,66 +92,6 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client) 
 		envs:       envs,
 		cacheProxy: cacheProxy,
 	}
-}
-
-func setupCache(cfg *config.Config, envs map[string]string) *cacheproxy.Handler {
-	var cacheURL string
-	var cacheSecret string
-
-	if cfg.Cache.ExternalServer == "" {
-		// No external cache server was specified, start internal cache server
-		cacheSecret = cfg.Cache.Secret
-
-		if cacheSecret == "" {
-			// no cache secret was specified, generate one
-			secretBytes := make([]byte, 64)
-			_, err := rand.Read(secretBytes)
-			if err != nil {
-				log.Errorf("Failed to generate random bytes, this should not happen")
-			}
-			cacheSecret = hex.EncodeToString(secretBytes)
-		}
-
-		cacheServer, err := artifactcache.StartHandler(
-			cfg.Cache.Dir,
-			"", // automatically detect
-			cfg.Cache.Port,
-			cacheSecret,
-			log.StandardLogger().WithField("module", "cache_request"),
-		)
-		if err != nil {
-			log.Errorf("Could not start the cache server, cache will be disabled: %v", err)
-			return nil
-		}
-
-		cacheURL = cacheServer.ExternalURL()
-	} else {
-		// An external cache server was specified, use its url
-		cacheSecret = cfg.Cache.Secret
-
-		if cacheSecret == "" {
-			log.Error("A cache secret must be specified to use an external cache server, cache will be disabled")
-			return nil
-		}
-
-		cacheURL = strings.TrimSuffix(cfg.Cache.ExternalServer, "/")
-	}
-
-	cacheProxy, err := cacheproxy.StartHandler(
-		cacheURL,
-		cfg.Cache.Host,
-		cfg.Cache.ProxyPort,
-		cfg.Cache.ActionsCacheURLOverride,
-		cacheSecret,
-		log.StandardLogger().WithField("module", "cache_proxy"),
-	)
-	if err != nil {
-		log.Errorf("cannot init cache proxy, cache will be disabled: %v", err)
-	} else {
-		envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
-	}
-
-	return cacheProxy
 }
 
 func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
@@ -323,7 +260,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		}
 
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-		cacheRunData := r.cacheProxy.CreateRunData(preset.Repository, preset.RunID, timestamp, writeIsolationKey)
+		cacheRunData := r.cacheProxy.CreateRunData(r.client.Address(), preset.Repository, preset.RunID, timestamp, writeIsolationKey)
 		cacheRunID, err := r.cacheProxy.AddRun(cacheRunData)
 		if err == nil {
 			defer func() { _ = r.cacheProxy.RemoveRun(cacheRunID) }()

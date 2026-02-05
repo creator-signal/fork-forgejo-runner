@@ -231,7 +231,7 @@ func registerInteractive(ctx context.Context, configFile string) error {
 func printStageHelp(stage registerStage) {
 	switch stage {
 	case StageOverwriteLocalConfig:
-		log.Infoln("Runner is already registered, overwrite local config? [y/N]")
+		log.Infoln("Runner is already registered, add a new instance or update an existing one? [y/N]")
 	case StageInputInstance:
 		log.Infoln("Enter the Forgejo instance URL (for example, https://next.forgejo.org/):")
 	case StageInputToken:
