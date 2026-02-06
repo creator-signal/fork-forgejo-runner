@@ -9,6 +9,7 @@ jobs:
         run: |
           echo 'runners=["a", "b", "c"]' >> "$GITHUB_OUTPUT"
   reusable:
+    name: Reusable with ${{ matrix.runner }}
     needs: define-runs-on
     strategy:
       matrix:

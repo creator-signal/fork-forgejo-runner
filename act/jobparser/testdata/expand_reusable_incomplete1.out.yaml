@@ -13,7 +13,7 @@ jobs:
 name: test
 jobs:
   reusable:
-    name: reusable (incomplete matrix)
+    name: Reusable with ${{ matrix.runner }} (incomplete matrix)
     needs: define-runs-on
     runs-on: []
     strategy:

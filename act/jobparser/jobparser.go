@@ -364,7 +364,8 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 				if job.Name == "" {
 					job.Name = nameWithMatrix(id, matrix)
 				} else if strings.HasSuffix(job.Name, " (incomplete matrix)") {
-					job.Name = nameWithMatrix(strings.TrimSuffix(job.Name, " (incomplete matrix)"), matrix)
+					originalName := strings.TrimSuffix(job.Name, " (incomplete matrix)")
+					job.Name = nameWithMatrix(evaluator.Interpolate(originalName), matrix)
 				} else {
 					job.Name = evaluator.Interpolate(job.Name)
 				}
@@ -372,7 +373,7 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 				if job.Name == "" {
 					job.Name = nameWithMatrix(id, matrix) + " (incomplete matrix)"
 				} else {
-					job.Name = evaluator.Interpolate(job.Name) + " (incomplete matrix)"
+					job.Name += " (incomplete matrix)"
 				}
 			}
 

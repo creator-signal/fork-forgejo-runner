@@ -1,7 +1,7 @@
 name: test
 jobs:
   reusable:
-    name: reusable (runner-a)
+    name: Reusable with runner-a (runner-a)
     needs:
       - define-runs-on
       - reusable.job1
@@ -19,7 +19,7 @@ __metadata:
 name: test
 jobs:
   reusable:
-    name: reusable (runner-b)
+    name: Reusable with runner-b (runner-b)
     needs:
       - define-runs-on
       - reusable.job1
