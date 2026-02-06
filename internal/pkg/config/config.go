@@ -98,7 +98,9 @@ func (c *Config) Tune(instanceURL string) {
 // If file is not empty, it will be used to load the configuration.
 func LoadDefault(file string) (*Config, error) {
 	cfg := &Config{}
-	if file != "" {
+	if file == "" {
+		log.Info("No configuration file specified; using default settings.")
+	} else {
 		content, err := os.ReadFile(file)
 		if err != nil {
 			return nil, fmt.Errorf("cannot open config file %q: %w", file, err)
