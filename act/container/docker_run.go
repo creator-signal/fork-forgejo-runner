@@ -645,7 +645,13 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			config.Cmd = input.Cmd
 		}
 
-		if len(input.Entrypoint) != 0 {
+		var useInit *bool
+		if len(input.Entrypoint) == 3 && input.Entrypoint[0] == "tail" {
+			// FIXME: temporary hack; don't use tail as the entrypoint, but do run `--init`
+			trueBool := true
+			useInit = &trueBool
+			config.Tty = true // override to yes so that entrypoint processes like `node` just hang reading from terminal, rather than exit immediately
+		} else if len(input.Entrypoint) != 0 {
 			config.Entrypoint = input.Entrypoint
 		}
 
@@ -681,6 +687,7 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			Privileged:   input.Privileged,
 			UsernsMode:   container.UsernsMode(input.UsernsMode),
 			PortBindings: input.PortBindings,
+			Init:         useInit,
 		}
 		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
 
@@ -792,6 +799,9 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			wd = cr.input.WorkingDir
 		}
 		logger.Debugf("Working directory '%s'", wd)
+
+		// inspect, err := cr.cli.ContainerInspect(ctx, cr.id)
+		// logger.Warnf("exec, container status %v -- %#v", inspect.State.Status, inspect.State)
 
 		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, container.ExecOptions{
 			User:         user,
