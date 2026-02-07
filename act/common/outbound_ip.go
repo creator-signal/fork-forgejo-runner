@@ -12,10 +12,17 @@ import (
 // It returns nil if no IP address is found.
 func GetOutboundIP() net.IP {
 	// See https://stackoverflow.com/a/37382208
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err == nil {
-		defer conn.Close()
-		return conn.LocalAddr().(*net.UDPAddr).IP
+	for _, addr := range []string{
+		"8.8.8.8:80",
+		"[2001:4860:4860::8888]:80",
+		"1.1.1.1:80",
+		"[2606:4700:4700::1111]:80",
+	} {
+		conn, err := net.Dial("udp", addr)
+		if err == nil {
+			defer conn.Close()
+			return conn.LocalAddr().(*net.UDPAddr).IP
+		}
 	}
 
 	// So the machine cannot access the internet. Pick an IP address from network interfaces.
