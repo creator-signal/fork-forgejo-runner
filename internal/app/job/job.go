@@ -64,9 +64,12 @@ func (j *Job) fetchTask(ctx context.Context) (*runnerv1.Task, error) {
 
 	// Load the version value that was in the cache when the request was sent.
 	v := j.tasksVersion.Load()
+	log.Debugf("fetching task with version %d", v)
+
 	resp, err := j.client.FetchTask(reqCtx, connect.NewRequest(&runnerv1.FetchTaskRequest{
 		TasksVersion: v,
 	}))
+
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil, fmt.Errorf("fetch task canceled: %w", err)
