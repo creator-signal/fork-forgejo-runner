@@ -36,9 +36,9 @@ func NewJob(cfg *config.Config, client client.Client, runner run.RunnerInterface
 }
 
 func (j *Job) Run(ctx context.Context) error {
-	task, ok := j.fetchTask(ctx)
-	if !ok {
-		return fmt.Errorf("could not fetch task")
+	task, err := j.fetchTask(ctx)
+	if err != nil {
+		return fmt.Errorf("could not fetch task: %w", err)
 	}
 	return j.runTaskWithRecover(ctx, task)
 }
@@ -58,7 +58,7 @@ func (j *Job) runTaskWithRecover(ctx context.Context, task *runnerv1.Task) error
 	return nil
 }
 
-func (j *Job) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
+func (j *Job) fetchTask(ctx context.Context) (*runnerv1.Task, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, j.cfg.Runner.FetchTimeout)
 	defer cancel()
 
@@ -69,15 +69,14 @@ func (j *Job) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 	}))
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.WithError(err).Debugf("shutdown, fetch task canceled")
+			return nil, fmt.Errorf("fetch task canceled: %w", err)
 		} else {
-			log.WithError(err).Error("failed to fetch task")
+			return nil, fmt.Errorf("failed to fetch task: %w", err)
 		}
-		return nil, false
 	}
 
 	if resp == nil || resp.Msg == nil {
-		return nil, false
+		return nil, fmt.Errorf("task fetch response or message nil")
 	}
 
 	if resp.Msg.GetTasksVersion() > v {
@@ -85,10 +84,10 @@ func (j *Job) fetchTask(ctx context.Context) (*runnerv1.Task, bool) {
 	}
 
 	if resp.Msg.Task == nil {
-		return nil, false
+		return nil, fmt.Errorf("fetched task nil")
 	}
 
 	j.tasksVersion.CompareAndSwap(resp.Msg.GetTasksVersion(), 0)
 
-	return resp.Msg.GetTask(), true
+	return resp.Msg.GetTask(), nil
 }
