@@ -46,6 +46,8 @@ type FileEntry struct {
 }
 
 // Container for managing docker run containers
+//
+//go:generate mockery --inpackage --name Container
 type Container interface {
 	Create(capAdd, capDrop []string) common.Executor
 	ConnectToNetwork(name string) common.Executor
