@@ -70,12 +70,12 @@ func (j *Job) fetchTask(ctx context.Context) (*runnerv1.Task, error) {
 		TasksVersion: v,
 	}))
 
+
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil, fmt.Errorf("fetch task canceled: %w", err)
-		} else {
-			return nil, fmt.Errorf("failed to fetch task: %w", err)
 		}
+		return nil, fmt.Errorf("failed to fetch task: %w", err)
 	}
 
 	if resp == nil || resp.Msg == nil {
