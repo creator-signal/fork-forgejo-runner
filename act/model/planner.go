@@ -321,7 +321,7 @@ func (p *Plan) MaxRunNameLen() int {
 
 // GetJobIDs will get all the job names in the stage
 func (s *Stage) GetJobIDs() []string {
-	names := make([]string, 0)
+	names := make([]string, 0, len(s.Runs))
 	for _, r := range s.Runs {
 		names = append(names, r.JobID)
 	}

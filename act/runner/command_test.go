@@ -83,7 +83,7 @@ func TestCommandStopCommands(t *testing.T) {
 	handler("::set-env name=x::abcd\n")
 	a.Equal("abcd", rc.Env["x"])
 
-	messages := make([]string, 0)
+	messages := make([]string, 0, len(hook.AllEntries()))
 	for _, entry := range hook.AllEntries() {
 		messages = append(messages, entry.Message)
 	}

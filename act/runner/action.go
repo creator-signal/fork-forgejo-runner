@@ -422,7 +422,7 @@ func newStepContainer(ctx context.Context, step step, image string, cmd, entrypo
 		}
 		return true
 	})
-	envList := make([]string, 0)
+	envList := make([]string, 0, len(*step.getEnv()))
 	for k, v := range *step.getEnv() {
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}

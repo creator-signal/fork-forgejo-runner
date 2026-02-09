@@ -484,7 +484,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	// We need to set the container name to the environment variable.
 	rc.Env["JOB_CONTAINER_NAME"] = name
 
-	envList := make([]string, 0)
+	envList := make([]string, 0, 5)
 
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", rc.getToolCache(ctx)))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
@@ -765,7 +765,7 @@ func (rc *RunContext) stopJobContainer() common.Executor {
 
 func (rc *RunContext) pullServicesImages(forcePull bool) common.Executor {
 	return func(ctx context.Context) error {
-		execs := []common.Executor{}
+		execs := make([]common.Executor, 0, len(rc.ServiceContainers))
 		for _, c := range rc.ServiceContainers {
 			execs = append(execs, c.Pull(forcePull))
 		}
@@ -775,7 +775,7 @@ func (rc *RunContext) pullServicesImages(forcePull bool) common.Executor {
 
 func (rc *RunContext) startServiceContainers(_ string) common.Executor {
 	return func(ctx context.Context) error {
-		execs := []common.Executor{}
+		execs := make([]common.Executor, 0, len(rc.ServiceContainers))
 		for _, c := range rc.ServiceContainers {
 			execs = append(execs, common.NewPipelineExecutor(
 				c.Pull(false),
@@ -806,7 +806,7 @@ func waitForServiceContainer(ctx context.Context, c container.ExecutionsEnvironm
 
 func (rc *RunContext) waitForServiceContainers() common.Executor {
 	return func(ctx context.Context) error {
-		execs := []common.Executor{}
+		execs := make([]common.Executor, 0, len(rc.ServiceContainers))
 		for _, c := range rc.ServiceContainers {
 			execs = append(execs, func(ctx context.Context) error {
 				return waitForServiceContainer(ctx, c)
@@ -818,7 +818,7 @@ func (rc *RunContext) waitForServiceContainers() common.Executor {
 
 func (rc *RunContext) stopServiceContainers() common.Executor {
 	return func(ctx context.Context) error {
-		execs := []common.Executor{}
+		execs := make([]common.Executor, 0, len(rc.ServiceContainers))
 		for _, c := range rc.ServiceContainers {
 			execs = append(execs, c.Remove().Finally(c.Close()))
 		}

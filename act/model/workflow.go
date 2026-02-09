@@ -771,7 +771,7 @@ func (w *Workflow) GetJob(jobID string) *Job {
 
 // GetJobIDs will get all the job names in the workflow
 func (w *Workflow) GetJobIDs() []string {
-	ids := make([]string, 0)
+	ids := make([]string, 0, len(w.Jobs))
 	for id := range w.Jobs {
 		ids = append(ids, id)
 	}

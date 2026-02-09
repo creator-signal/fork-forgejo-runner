@@ -139,16 +139,15 @@ func (runner *runnerImpl) configure() (Runner, error) {
 func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 	maxJobNameLen := 0
 
-	stagePipeline := make([]common.Executor, 0)
+	stagePipeline := make([]common.Executor, 0, len(plan.Stages))
 	log.Debugf("Plan Stages: %v", plan.Stages)
 
 	for i := range plan.Stages {
 		stage := plan.Stages[i]
 		stagePipeline = append(stagePipeline, func(ctx context.Context) error {
-			pipeline := make([]common.Executor, 0)
+			pipeline := make([]common.Executor, 0, len(stage.Runs))
 			for _, run := range stage.Runs {
 				log.Debugf("Stages Runs: %v", stage.Runs)
-				stageExecutor := make([]common.Executor, 0)
 				job := run.Job()
 				log.Debugf("Job.Name: %v", job.Name)
 				log.Debugf("Job.RawNeeds: %v", job.RawNeeds)
@@ -204,6 +203,7 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					maxParallel = len(matrixes)
 				}
 
+				stageExecutor := make([]common.Executor, 0, len(matrixes))
 				for i, matrix := range matrixes {
 					rc := runner.newRunContext(ctx, run, matrix)
 					rc.JobName = rc.Name
