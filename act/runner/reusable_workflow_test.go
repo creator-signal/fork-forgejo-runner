@@ -111,3 +111,19 @@ func TestFinalizeReusableWorkflow_PrintsBannerFailure(t *testing.T) {
 	assert.EqualError(t, err, "workflow failed")
 	assert.True(t, bannerCalled, "banner should be printed even on failure")
 }
+
+func TestFinalizeReusableWorkflow_SkipsBannerForNestedReusable(t *testing.T) {
+	mockLogger := mocks.NewFieldLogger(t)
+
+	ctx := common.WithLogger(t.Context(), mockLogger)
+	planErr := errors.New("nested workflow failed")
+	rc := &RunContext{
+		caller: &caller{
+			runContext: &RunContext{},
+		},
+	}
+
+	err := finalizeReusableWorkflow(ctx, rc, planErr)
+	assert.EqualError(t, err, "nested workflow failed")
+	mockLogger.AssertNotCalled(t, "WithFields", mock.Anything)
+}

@@ -168,6 +168,11 @@ func NewReusableWorkflowRunner(rc *RunContext) (Runner, error) {
 // tokens. Printing this banner from the child reusable workflow would cause
 // premature token revocation, breaking subsequent steps in the parent workflow.
 func finalizeReusableWorkflow(ctx context.Context, rc *RunContext, planErr error) error {
+	if rc != nil && rc.caller != nil {
+		// Nested reusable workflow: avoid printing the job banner, which would
+		// prematurely complete the single parent job known to the server.
+		return planErr
+	}
 	jobResult := "success"
 	jobResultMessage := "succeeded"
 	if planErr != nil {
