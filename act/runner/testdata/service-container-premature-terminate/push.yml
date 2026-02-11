@@ -1,0 +1,13 @@
+name: service-container
+on: push
+jobs:
+  service-container-test:
+    runs-on: ubuntu-latest
+    services:
+      nginx:
+        image: nginx:latest
+        options: --health-cmd="false" --health-interval=1s --health-timeout=1s --health-retries=2
+    steps:
+    - run: |
+        echo "Job should have been aborted due to the failing health check"
+        exit 1
