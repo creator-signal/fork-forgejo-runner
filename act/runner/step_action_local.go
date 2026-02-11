@@ -26,6 +26,12 @@ type stepActionLocal struct {
 	action              *model.Action
 }
 
+func (sal *stepActionLocal) prepare() common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
 func (sal *stepActionLocal) pre() common.Executor {
 	sal.env = map[string]string{}
 

@@ -24,6 +24,7 @@ type jobInfo interface {
 const cleanupTimeout = 30 * time.Minute
 
 func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executor {
+	prepareSteps := make([]common.Executor, 0)
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
 	var postExecutor common.Executor
@@ -82,6 +83,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		if err != nil {
 			return common.NewErrorExecutor(err)
 		}
+
+		prepareSteps = append(prepareSteps, step.prepare())
 
 		preExec := step.pre()
 		preSteps = append(preSteps, useStepLogger(rc, stepModel, stepStagePre, func(ctx context.Context) error {
@@ -160,6 +163,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	pipeline = append(pipeline, steps...)
 
 	return common.NewPipelineExecutor(
+		common.NewPipelineExecutor(prepareSteps...),
 		setupWorkflowLevelEnv, // allows workflow-level env to be used in the job container's definition
 		info.startContainer(),
 		common.NewPipelineExecutor(pipeline...).

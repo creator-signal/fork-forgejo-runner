@@ -21,6 +21,8 @@ import (
 )
 
 type step interface {
+	// FIXME: prepare is invoked before a job container is even created, and allows the step to populate its "worktree"...
+	prepare() common.Executor
 	pre() common.Executor
 	main() common.Executor
 	post() common.Executor

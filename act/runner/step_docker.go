@@ -17,6 +17,12 @@ type stepDocker struct {
 	env        map[string]string
 }
 
+func (sal *stepDocker) prepare() common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
 func (sd *stepDocker) pre() common.Executor {
 	return func(ctx context.Context) error {
 		return nil

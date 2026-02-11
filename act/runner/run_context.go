@@ -56,6 +56,7 @@ type RunContext struct {
 	randomName          string
 	networkName         string
 	networkCreated      bool
+	supplementalContent []string
 }
 
 func (rc *RunContext) AddMask(mask string) {
@@ -495,6 +496,9 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	ext := container.LinuxContainerEnvironmentExtensions{}
 	binds, mounts, validVolumes := rc.GetBindsAndMounts(ctx)
 
+	for _, sc := range rc.supplementalContent {
+		binds = append(binds, fmt.Sprintf("%s:%s:ro", sc, sc))
+	}
 	// add service containers
 	for serviceID, spec := range rc.Run.Job().Services {
 		// Interpolate image first to check if we should skip this service
@@ -660,6 +664,10 @@ func (rc *RunContext) startJobContainer() common.Executor {
 			rc.waitForServiceContainers(),
 		)(ctx)
 	}
+}
+
+func (rc *RunContext) addSupplementalContentDirectory(dir string) {
+	rc.supplementalContent = append(rc.supplementalContent, dir)
 }
 
 func (rc *RunContext) sh(ctx context.Context, script string) (stdout, stderr string, err error) {

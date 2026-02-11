@@ -245,7 +245,8 @@ func cloneIfRequired(ctx context.Context, input CloneInput, logger log.FieldLogg
 
 type Worktree interface {
 	Close(ctx context.Context) error
-	WorktreeDir() string // fully qualified path to the work tree for this repo
+	WorktreeDir() string         // fully qualified path to the work tree for this repo
+	SourceRepositoryDir() string // fully qualified path to the bare repo that this worktree is initialized from
 }
 
 type gitWorktree struct {
@@ -288,6 +289,10 @@ func (t *gitWorktree) Close(ctx context.Context) error {
 
 func (t *gitWorktree) WorktreeDir() string {
 	return t.worktreeDir
+}
+
+func (t *gitWorktree) SourceRepositoryDir() string {
+	return t.repoDir
 }
 
 // Clones a git repo.  The repo contents are stored opaquely in the provided `CacheDir`, and may be reused by future

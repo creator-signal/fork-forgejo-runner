@@ -24,6 +24,12 @@ type stepRun struct {
 	WorkingDirectory string
 }
 
+func (sr *stepRun) prepare() common.Executor {
+	return func(ctx context.Context) error {
+		return nil
+	}
+}
+
 func (sr *stepRun) pre() common.Executor {
 	return func(ctx context.Context) error {
 		return nil

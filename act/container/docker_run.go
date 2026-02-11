@@ -690,7 +690,7 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 		}
 
 		// For Gitea
-		config, hostConfig = cr.sanitizeConfig(ctx, config, hostConfig)
+		// config, hostConfig = cr.sanitizeConfig(ctx, config, hostConfig)
 
 		// For Gitea
 		// network-scoped alias is supported only for containers in user defined networks

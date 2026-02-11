@@ -113,6 +113,19 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 	}
 }
 
+func (sar *stepActionRemote) prepare() common.Executor {
+	return func(ctx context.Context) error {
+		err := sar.prepareActionExecutor()(ctx)
+		if err != nil {
+			return err
+		}
+
+		sar.RunContext.addSupplementalContentDirectory(sar.workTree.SourceRepositoryDir())
+
+		return nil
+	}
+}
+
 func (sar *stepActionRemote) pre() common.Executor {
 	sar.env = map[string]string{}
 
