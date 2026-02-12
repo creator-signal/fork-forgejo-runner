@@ -449,25 +449,29 @@ func (cr *containerReference) remove() common.Executor {
 		logger := common.Logger(ctx)
 		return retry.Do(
 			func() error {
-				err := cr.cli.ContainerRemove(ctx, cr.id, container.RemoveOptions{
-					RemoveVolumes: true,
-					Force:         true,
-				})
-				if err != nil {
+				// Kill the container explicitly. It not only makes the desired behaviour obvious, it also aligns
+				// Podman's behaviour with Docker's. Podman is much more cautious and sends a SIGTERM first when
+				// `ContainerRemove` is invoked whereas Docker outright sends SIGKILL. The problem is that Podman waits
+				// usually 10 sec (configurable) for SIGTERM to succeed.
+				if err := cr.cli.ContainerKill(ctx, cr.id, ""); err != nil {
+					// Only log the error. `ContainerRemove` might be able to fix the problem.
+					logger.Debugf("Container %s could not be killed: %v", cr.id, err)
+				}
+				if err := cr.cli.ContainerRemove(ctx, cr.id, container.RemoveOptions{RemoveVolumes: true, Force: true}); err != nil {
 					if cerrdefs.IsNotFound(err) {
-						logger.Debugf("container %s not found, considering this as a success", cr.id)
+						logger.Debugf("Container %s not found, considering this as a success", cr.id)
 						return nil
 					}
 					return err
 				}
 
-				logger.Debugf("Removed container: %v", cr.id)
+				logger.Debugf("Container removed: %v", cr.id)
 				cr.id = ""
 				return nil
 			},
 			retry.Context(ctx),
 			retry.OnRetry(func(n uint, err error) {
-				logger.Warnf("failed to remove docker container %s (retry #%d): %s\n", cr.id, n, err)
+				logger.Warnf("Failed to remove docker container %s (retry #%d): %s\n", cr.id, n, err)
 			}),
 		)
 	}
