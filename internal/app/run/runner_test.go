@@ -600,7 +600,7 @@ func TestRunnerLXC(t *testing.T) {
 		nil)
 	require.NotNil(t, runner)
 
-	runWorkflow := func(ctx context.Context, cancel context.CancelFunc, yamlContent, eventName, ref, description string) {
+	runMaybeWorkflow := func(ctx context.Context, cancel context.CancelFunc, yamlContent, eventName, ref, description string, success bool) {
 		task := &runnerv1.Task{
 			WorkflowPayload: []byte(yamlContent),
 			Context: &structpb.Struct{
@@ -617,7 +617,11 @@ func TestRunnerLXC(t *testing.T) {
 		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
 		err := runner.run(ctx, task, reporter)
 		reporter.Close(nil)
-		require.NoError(t, err, description)
+		if success {
+			require.NoError(t, err, description)
+		} else {
+			require.Error(t, err, description)
+		}
 		// verify there are no leftovers
 		assertDirectoryEmpty := func(t *testing.T, dir string) {
 			f, err := os.Open(dir)
@@ -629,6 +633,12 @@ func TestRunnerLXC(t *testing.T) {
 			assert.Empty(t, names)
 		}
 		assertDirectoryEmpty(t, workdirParent)
+	}
+	runWorkflow := func(ctx context.Context, cancel context.CancelFunc, yamlContent, eventName, ref, description string) {
+		runMaybeWorkflow(ctx, cancel, yamlContent, eventName, ref, description, true)
+	}
+	runFailedWorkflow := func(ctx context.Context, cancel context.CancelFunc, yamlContent, eventName, ref, description string) {
+		runMaybeWorkflow(ctx, cancel, yamlContent, eventName, ref, description, false)
 	}
 
 	t.Run("OK", func(t *testing.T) {
@@ -785,6 +795,7 @@ jobs:
 	t.Run("Large Fast Logs", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
+		aaaaLogs = make([]int64, 0, 2400) // reset to empty
 
 		workflow := `
 on:
@@ -799,6 +810,33 @@ jobs:
           done
 `
 		runWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
+
+		slices.Sort(aaaaLogs)
+		require.Len(t, aaaaLogs, 2400)
+		for i := range 2400 {
+			assert.EqualValues(t, i+1, aaaaLogs[i], "aaaaLogs[%d]", i)
+		}
+	})
+
+	t.Run("Large Fast Logs (error)", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		aaaaLogs = make([]int64, 0, 2400) // reset to empty
+
+		workflow := `
+on:
+  push:
+jobs:
+  test:
+    runs-on: lxc
+    steps:
+      - run: |
+          for i in $(seq 2400) ; do
+             echo $i - AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          done
+          exit 1
+`
+		runFailedWorkflow(ctx, cancel, workflow, "push", "refs/heads/main", "OK")
 
 		slices.Sort(aaaaLogs)
 		require.Len(t, aaaaLogs, 2400)
