@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
+	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/job"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
@@ -92,7 +93,20 @@ func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, ar
 			cfg.Runner.FetchInterval,
 		)
 
-		runner := run.NewRunner(cfg, reg, cli)
+		var cacheProxy *cacheproxy.Handler
+		if cfg.Cache.Enabled == nil || *cfg.Cache.Enabled {
+			cacheProxy = run.SetupCache(cfg)
+			defer func() {
+				if cacheProxy != nil {
+					err := cacheProxy.Close()
+					if err != nil {
+						log.WithError(err).Error("failed to close cache")
+					}
+				}
+			}()
+		}
+
+		runner := run.NewRunner(cfg, reg, cli, cacheProxy)
 		// declare the labels of the runner before fetching tasks
 		resp, err := runner.Declare(ctx, ls.Names())
 		if err != nil && connect.CodeOf(err) == connect.CodeUnimplemented {

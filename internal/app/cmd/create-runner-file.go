@@ -148,7 +148,7 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 				cfg.Runner.FetchInterval,
 			)
 
-			runner := run.NewRunner(cfg, reg, cli)
+			runner := run.NewRunner(cfg, reg, cli, nil)
 			resp, err := runner.Declare(ctx, cfg.Runner.Labels)
 
 			if err != nil && connect.CodeOf(err) == connect.CodeUnimplemented {

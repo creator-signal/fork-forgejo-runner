@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
 	mock_poller "code.forgejo.org/forgejo/runner/v12/internal/app/poll/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
@@ -57,7 +58,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 		return mockClient
 	})()
 	var runnerContext context.Context
-	defer testutils.MockVariable(&createRunner, func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels) (run.RunnerInterface, string, error) {
+	defer testutils.MockVariable(&createRunner, func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, error) {
 		runnerContext = ctx
 		return mockRunner, "runner", nil
 	})()

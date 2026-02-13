@@ -252,25 +252,34 @@ func TestRunnerCacheConfiguration(t *testing.T) {
 	forgejoClient.On("UpdateTask", mock.Anything, mock.Anything).
 		Return(connect.NewResponse(&runnerv1.UpdateTaskResponse{}), nil)
 
-	runner := NewRunner(
-		&config.Config{
-			Cache: config.Cache{
-				// Note that this test requires that containers on the local dev environment can access localhost to
-				// reach the cache proxy, and that the cache proxy can access localhost to reach the cache, both of
-				// which are embedded servers that the Runner will start.  If any specific firewall config is needed
-				// it's easier to do that with statically configured ports, so...
-				Port:      40713,
-				ProxyPort: 40714,
-				Dir:       t.TempDir(),
-			},
-			Host: config.Host{
-				WorkdirParent: t.TempDir(),
-			},
+	cfg := &config.Config{
+		Cache: config.Cache{
+			// Note that this test requires that containers on the local dev environment can access localhost to
+			// reach the cache proxy, and that the cache proxy can access localhost to reach the cache, both of
+			// which are embedded servers that the Runner will start.  If any specific firewall config is needed
+			// it's easier to do that with statically configured ports, so...
+			Port:      40713,
+			ProxyPort: 40714,
+			Dir:       t.TempDir(),
 		},
+		Host: config.Host{
+			WorkdirParent: t.TempDir(),
+		},
+	}
+	cacheProxy := SetupCache(cfg)
+	defer func() {
+		if cacheProxy != nil {
+			cacheProxy.Close()
+		}
+	}()
+
+	runner := NewRunner(
+		cfg,
 		&config.Registration{
 			Labels: []string{"ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm"},
 		},
-		forgejoClient)
+		forgejoClient,
+		cacheProxy)
 	require.NotNil(t, runner)
 
 	// Must set up cache for our test
@@ -477,21 +486,30 @@ func TestRunnerCacheStartupFailure(t *testing.T) {
 			require.NoError(t, err)
 			defer l.Close()
 
-			runner := NewRunner(
-				&config.Config{
-					Cache: config.Cache{
-						Port:      40715,
-						ProxyPort: 40716,
-						Dir:       t.TempDir(),
-					},
-					Host: config.Host{
-						WorkdirParent: t.TempDir(),
-					},
+			cfg := &config.Config{
+				Cache: config.Cache{
+					Port:      40715,
+					ProxyPort: 40716,
+					Dir:       t.TempDir(),
 				},
+				Host: config.Host{
+					WorkdirParent: t.TempDir(),
+				},
+			}
+			cacheProxy := SetupCache(cfg)
+			defer func() {
+				if cacheProxy != nil {
+					cacheProxy.Close()
+				}
+			}()
+
+			runner := NewRunner(
+				cfg,
 				&config.Registration{
 					Labels: []string{"ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm"},
 				},
-				forgejoClient)
+				forgejoClient,
+				cacheProxy)
 			require.NotNil(t, runner)
 
 			// Ensure that cacheProxy failed to start
@@ -578,7 +596,8 @@ func TestRunnerLXC(t *testing.T) {
 		&config.Registration{
 			Labels: []string{"lxc:lxc://debian:bookworm"},
 		},
-		forgejoClient)
+		forgejoClient,
+		nil)
 	require.NotNil(t, runner)
 
 	runWorkflow := func(ctx context.Context, cancel context.CancelFunc, yamlContent, eventName, ref, description string) {
@@ -833,7 +852,8 @@ func TestRunnerResources(t *testing.T) {
 			&config.Registration{
 				Labels: []string{"docker:docker://code.forgejo.org/oci/node:20-bookworm"},
 			},
-			forgejoClient)
+			forgejoClient,
+			nil)
 		require.NotNil(t, runner)
 
 		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
@@ -1007,7 +1027,8 @@ func TestRunnerContextsPopulated(t *testing.T) {
 			&config.Registration{
 				Labels: []string{"docker:docker://code.forgejo.org/oci/node:20-bookworm"},
 			},
-			forgejoClient)
+			forgejoClient,
+			nil)
 		require.NotNil(t, runner)
 
 		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
