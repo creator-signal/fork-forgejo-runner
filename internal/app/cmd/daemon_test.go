@@ -62,7 +62,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 		return mockRunner, "runner", nil
 	})()
 	var pollerContext context.Context
-	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runner run.RunnerInterface) poll.Poller {
+	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) poll.Poller {
 		pollerContext = ctx
 		return mockPoller
 	})()

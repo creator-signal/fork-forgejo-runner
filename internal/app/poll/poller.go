@@ -30,7 +30,7 @@ type Poller interface {
 
 type poller struct {
 	clients []client.Client
-	runner  run.RunnerInterface
+	runners []run.RunnerInterface
 	cfg     *config.Config
 
 	pollingCtx      context.Context
@@ -42,11 +42,14 @@ type poller struct {
 	done chan any
 }
 
-func New(ctx context.Context, cfg *config.Config, clients []client.Client, runner run.RunnerInterface) Poller {
-	return (&poller{}).init(ctx, cfg, clients, runner)
+func New(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) Poller {
+	if len(clients) != len(runners) {
+		panic("len(clients) must equal len(runners)")
+	}
+	return (&poller{}).init(ctx, cfg, clients, runners)
 }
 
-func (p *poller) init(ctx context.Context, cfg *config.Config, clients []client.Client, runner run.RunnerInterface) Poller {
+func (p *poller) init(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) Poller {
 	pollingCtx, shutdownPolling := context.WithCancel(ctx)
 
 	jobsCtx, shutdownJobs := context.WithCancel(ctx)
@@ -54,7 +57,7 @@ func (p *poller) init(ctx context.Context, cfg *config.Config, clients []client.
 	done := make(chan any)
 
 	p.clients = clients
-	p.runner = runner
+	p.runners = runners
 	p.cfg = cfg
 
 	p.pollingCtx = pollingCtx
@@ -87,7 +90,7 @@ func (p *poller) Poll() {
 	log.Infof("[poller] launched")
 	for i := range p.clients {
 		wg.Go(func() {
-			p.pollForClient(limiters[i], p.clients[i], capacity, fetchMutex, &taskVersions[i], &inProgressTasks, wg)
+			p.pollForClient(limiters[i], p.clients[i], p.runners[i], capacity, fetchMutex, &taskVersions[i], &inProgressTasks, wg)
 		})
 	}
 
@@ -98,7 +101,7 @@ func (p *poller) Poll() {
 	close(p.done)
 }
 
-func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, capacity int64, fetchMutex chan any, taskVersions, inProgressTasks *atomic.Int64, wg *sync.WaitGroup) {
+func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runner run.RunnerInterface, capacity int64, fetchMutex chan any, taskVersions, inProgressTasks *atomic.Int64, wg *sync.WaitGroup) {
 	for {
 		if err := limiter.Wait(p.pollingCtx); err != nil {
 			log.Infof("[poller] shutdown begin, %d tasks currently running", inProgressTasks.Load())
@@ -119,7 +122,7 @@ func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, capa
 			log.Tracef("[poller] successfully fetched %d tasks from client %s", len(tasks), client.Address())
 			for _, task := range tasks {
 				wg.Go(func() {
-					p.runTaskWithRecover(p.jobsCtx, task)
+					p.runTaskWithRecover(p.jobsCtx, runner, task)
 					inProgressTasks.Add(-1)
 				})
 			}
@@ -146,7 +149,7 @@ func (p *poller) Shutdown(ctx context.Context) error {
 	}
 }
 
-func (p *poller) runTaskWithRecover(ctx context.Context, task *runnerv1.Task) {
+func (p *poller) runTaskWithRecover(ctx context.Context, runner run.RunnerInterface, task *runnerv1.Task) {
 	defer func() {
 		if r := recover(); r != nil {
 			err := fmt.Errorf("panic: %v", r)
@@ -154,7 +157,7 @@ func (p *poller) runTaskWithRecover(ctx context.Context, task *runnerv1.Task) {
 		}
 	}()
 
-	if err := p.runner.Run(ctx, task); err != nil {
+	if err := runner.Run(ctx, task); err != nil {
 		log.WithError(err).Error("failed to run task")
 	}
 }

@@ -70,7 +70,7 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 		return err
 	}
 
-	poller := createPoller(ctx, cfg, []client.Client{cli}, runner)
+	poller := createPoller(ctx, cfg, []client.Client{cli}, []run.RunnerInterface{runner})
 
 	go poller.Poll()
 
