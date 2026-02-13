@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 	"path/filepath"
 	"strconv"
@@ -97,6 +98,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client, 
 func SetupCache(cfg *config.Config) *cacheproxy.Handler {
 	var cacheURL string
 	var cacheSecret string
+	var internalCacheServer io.Closer
 
 	if cfg.Cache.ExternalServer == "" {
 		// No external cache server was specified, start internal cache server
@@ -125,6 +127,7 @@ func SetupCache(cfg *config.Config) *cacheproxy.Handler {
 		}
 
 		cacheURL = cacheServer.ExternalURL()
+		internalCacheServer = cacheServer
 	} else {
 		// An external cache server was specified, use its url
 		cacheSecret = cfg.Cache.Secret
@@ -144,6 +147,7 @@ func SetupCache(cfg *config.Config) *cacheproxy.Handler {
 		cfg.Cache.ActionsCacheURLOverride,
 		cacheSecret,
 		log.StandardLogger().WithField("module", "cache_proxy"),
+		internalCacheServer,
 	)
 	if err != nil {
 		log.Errorf("cannot init cache proxy, cache will be disabled: %v", err)

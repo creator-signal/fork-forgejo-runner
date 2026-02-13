@@ -43,6 +43,8 @@ type Handler struct {
 	cacheSecret string
 
 	runs sync.Map
+
+	internalCacheServer io.Closer
 }
 
 func (h *Handler) CreateRunData(fullName, runNumber, timestamp, writeIsolationKey string) artifactcache.RunData {
@@ -56,7 +58,7 @@ func (h *Handler) CreateRunData(fullName, runNumber, timestamp, writeIsolationKe
 	}
 }
 
-func StartHandler(targetHost, outboundIP string, port uint16, cacheProxyHostOverride, cacheSecret string, logger logrus.FieldLogger) (*Handler, error) {
+func StartHandler(targetHost, outboundIP string, port uint16, cacheProxyHostOverride, cacheSecret string, logger logrus.FieldLogger, internalCacheServer io.Closer) (*Handler, error) {
 	h := &Handler{}
 
 	if logger == nil {
@@ -110,6 +112,7 @@ func StartHandler(targetHost, outboundIP string, port uint16, cacheProxyHostOver
 	}()
 	h.listener = listener
 	h.server = server
+	h.internalCacheServer = internalCacheServer
 
 	return h, nil
 }
@@ -207,6 +210,9 @@ func (h *Handler) Close() error {
 			retErr = err
 		}
 		h.listener = nil
+	}
+	if h.internalCacheServer != nil {
+		h.internalCacheServer.Close()
 	}
 	return retErr
 }

@@ -369,6 +369,7 @@ func runExec(ctx context.Context, execArgs *executeArgs) error {
 	if err != nil {
 		return err
 	}
+	defer handler.Close()
 	log.Infof("cache handler listens on: %v", handler.ExternalURL())
 	execArgs.cacheHandler = handler
 
