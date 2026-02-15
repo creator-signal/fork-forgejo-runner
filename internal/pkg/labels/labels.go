@@ -61,6 +61,15 @@ func Parse(str string) (*Label, error) {
 	return label, nil
 }
 
+// MustParse is like Parse but panics if the string cannot be parsed.
+func MustParse(str string) *Label {
+	label, err := Parse(str)
+	if err != nil {
+		panic(`label: Parse(` + str + `): ` + err.Error())
+	}
+	return label
+}
+
 type Labels []*Label
 
 func (l Labels) RequireDocker() bool {

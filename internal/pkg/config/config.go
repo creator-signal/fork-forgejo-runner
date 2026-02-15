@@ -4,12 +4,16 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"maps"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
 
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
+	gouuid "github.com/google/uuid"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
@@ -74,6 +78,19 @@ type Host struct {
 	WorkdirParent string // WorkdirParent specifies the parent directory for the host's working directory.
 }
 
+// Server configures connections to Forgejo and their behaviour.
+type Server struct {
+	Connections map[string]Connection // Connections defines which Forgejo instance(s) Forgejo Runner should connect to. The map's key serves as connection name.
+}
+
+// Connection defines a connection to a Forgejo instance.
+type Connection struct {
+	URL    *url.URL      // URL of the Forgejo instance to connect to. Mandatory value.
+	UUID   gouuid.UUID   // UUID of the runner. Mandatory value.
+	Token  string        // Token of the runner. Mandatory value.
+	Labels labels.Labels // Labels of the runner. Mandatory value.
+}
+
 // Config represents the overall configuration.
 type Config struct {
 	Log       Log       // Log represents the configuration for logging.
@@ -81,6 +98,7 @@ type Config struct {
 	Cache     Cache     // Cache represents the configuration for caching.
 	Container Container // Container represents the configuration for the container.
 	Host      Host      // Host represents the configuration for the host.
+	Server    Server    // Server configures connections to Forgejo and their behaviour.
 }
 
 // serializedConfiguration is the top-level structure of the on-disk format of the Forgejo Runner configuration.
@@ -90,6 +108,7 @@ type serializedConfiguration struct {
 	Cache     serializedCacheSettings     `yaml:"cache"`     // Cache represents the configuration for caching.
 	Container serializedContainerSettings `yaml:"container"` // Container represents the configuration for the container.
 	Host      serializedHostSettings      `yaml:"host"`      // Host represents the configuration for the host.
+	Server    serializedServerSettings    `yaml:"server"`    // Server configures connections to Forgejo and their behaviour.
 }
 
 func (s *serializedConfiguration) applyTo(config *Config) error {
@@ -107,6 +126,9 @@ func (s *serializedConfiguration) applyTo(config *Config) error {
 	}
 	if err := s.Host.applyTo(config); err != nil {
 		return fmt.Errorf("invalid `host` settings: %w", err)
+	}
+	if err := s.Server.applyTo(config); err != nil {
+		return fmt.Errorf("invalid `server` settings: %w", err)
 	}
 	return nil
 }
@@ -334,6 +356,76 @@ type serializedHostSettings struct {
 func (s *serializedHostSettings) applyTo(config *Config) error {
 	if s.WorkdirParent != "" {
 		config.Host.WorkdirParent = s.WorkdirParent
+	}
+
+	return nil
+}
+
+// serializedServerSettings declares connections to Forgejo instances.
+type serializedServerSettings struct {
+	Connections map[string]serializedConnectionSettings `yaml:"connections"` // Connections defines which Forgejo instance(s) Forgejo Runner should connect to. The map's key serves as connection name.
+}
+
+func (s *serializedServerSettings) applyTo(config *Config) error {
+	for name, conn := range s.Connections {
+		if err := conn.applyTo(config, name); err != nil {
+			return fmt.Errorf("connection %q is invalid: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+// serializedConnectionSettings defines a connection to a Forgejo instance.
+type serializedConnectionSettings struct {
+	URL    string   `yaml:"url"`    // URL of the Forgejo instance to connect to. Mandatory value.
+	UUID   string   `yaml:"uuid"`   // UUID of the runner. Mandatory value.
+	Token  string   `yaml:"token"`  // Token of the runner. Mandatory value.
+	Labels []string `yaml:"labels"` // Labels of the runner. Mandatory value.
+}
+
+func (s *serializedConnectionSettings) applyTo(config *Config, connectionName string) error {
+	if s.URL == "" {
+		return errors.New("`url` is empty")
+	}
+	if s.UUID == "" {
+		return errors.New("`uuid` is empty")
+	}
+	if s.Token == "" {
+		return errors.New("`token` is empty")
+	}
+	if len(s.Labels) == 0 {
+		return errors.New("at least one `label` is required")
+	}
+
+	parsedURL, err := url.ParseRequestURI(s.URL)
+	if err != nil {
+		return fmt.Errorf("malformed `url` %q: %w", s.URL, err)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("invalid scheme in `url` %q: only http and https supported", s.URL)
+	}
+	parsedUUID, err := gouuid.Parse(s.UUID)
+	if err != nil {
+		return fmt.Errorf("malformed `uuid` %q: %w", s.UUID, err)
+	}
+	var parsedLabels labels.Labels
+	for _, label := range s.Labels {
+		parsedLabel, err := labels.Parse(label)
+		if err != nil {
+			return fmt.Errorf("malformed `label` %q: %w", label, err)
+		}
+		parsedLabels = append(parsedLabels, parsedLabel)
+	}
+
+	if config.Server.Connections == nil {
+		config.Server.Connections = map[string]Connection{}
+	}
+	config.Server.Connections[connectionName] = Connection{
+		URL:    parsedURL,
+		UUID:   parsedUUID,
+		Token:  s.Token,
+		Labels: parsedLabels,
 	}
 
 	return nil

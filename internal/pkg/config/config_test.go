@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
+	gouuid "github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -71,12 +74,13 @@ func TestNew(t *testing.T) {
 		home, err := os.UserHomeDir()
 		require.NoError(t, err)
 
-		assert.Equal(t, 5, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
+		assert.Equal(t, 1, reflect.TypeOf(Server{}).NumField())
 
 		assert.Equal(t, "info", config.Log.Level)
 		assert.Equal(t, "info", config.Log.JobLevel)
@@ -117,6 +121,8 @@ func TestNew(t *testing.T) {
 
 		assert.Equal(t, filepath.Join(home, ".cache", "act"), config.Host.WorkdirParent)
 		assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
+
+		assert.Empty(t, config.Server.Connections)
 	})
 
 	t.Run("Defaults retained if configuration file is empty", func(t *testing.T) {
@@ -133,12 +139,13 @@ func TestNew(t *testing.T) {
 		home, err := os.UserHomeDir()
 		require.NoError(t, err)
 
-		assert.Equal(t, 5, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
+		assert.Equal(t, 1, reflect.TypeOf(Server{}).NumField())
 
 		assert.Equal(t, "info", config.Log.Level)
 		assert.Equal(t, "info", config.Log.JobLevel)
@@ -179,6 +186,8 @@ func TestNew(t *testing.T) {
 
 		assert.Equal(t, filepath.Join(home, ".cache", "act"), config.Host.WorkdirParent)
 		assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
+
+		assert.Empty(t, config.Server.Connections)
 	})
 
 	t.Run("Configuration file takes precedence over defaults", func(t *testing.T) {
@@ -227,6 +236,14 @@ container:
   force_rebuild: true
 host:
   workdir_parent: some/path
+server:
+  connections:
+    example:
+      url: https://example.com/
+      uuid: 7f7695df-a064-4c70-a597-56714e851e2c
+      token: LxV7RrjXd
+      labels:
+        - debian:docker://node:24-trixie
 `
 
 		tempDir := t.TempDir()
@@ -241,12 +258,13 @@ host:
 		config, err := New(FromFile(configPath))
 		require.NoError(t, err)
 
-		assert.Equal(t, 5, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
+		assert.Equal(t, 1, reflect.TypeOf(Server{}).NumField())
 
 		// Verify that each value loaded from the configuration file does not match the default configuration.
 		// Otherwise, the test would be meaningless.
@@ -323,6 +341,14 @@ host:
 		assert.NotEqual(t, defaultConfig.Host.WorkdirParent, config.Host.WorkdirParent)
 		assert.True(t, strings.HasSuffix(config.Host.WorkdirParent, "some/path"))
 		assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
+
+		assert.NotEqual(t, len(defaultConfig.Server.Connections), len(config.Server.Connections))
+		assert.Len(t, config.Server.Connections, 1)
+		assert.Equal(t, "https://example.com/", config.Server.Connections["example"].URL.String())
+		assert.Equal(t, "7f7695df-a064-4c70-a597-56714e851e2c", config.Server.Connections["example"].UUID.String())
+		assert.Equal(t, "LxV7RrjXd", config.Server.Connections["example"].Token)
+		assert.Len(t, config.Server.Connections["example"].Labels, 1)
+		assert.Equal(t, labels.MustParse("debian:docker://node:24-trixie"), config.Server.Connections["example"].Labels[0])
 	})
 
 	t.Run("Imports optional env file", func(t *testing.T) {
@@ -927,6 +953,180 @@ func TestSerializedContainerSettings(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, expected, config.Container)
+	})
+}
+
+func TestSerializedServerSettings_applyTo(t *testing.T) {
+	t.Run("accepts valid settings", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		expected := Server{
+			Connections: map[string]Connection{
+				"example": {
+					URL:    serverURL,
+					UUID:   gouuid.MustParse("4f79bf07-38f6-44c8-bbc6-d6531134f16a"),
+					Token:  "doERMgMiVz",
+					Labels: labels.Labels{labels.MustParse("label-1"), labels.MustParse("label-2")},
+				},
+			},
+		}
+
+		serialized := serializedServerSettings{
+			Connections: map[string]serializedConnectionSettings{
+				"example": {
+					URL:    serverURL.String(),
+					UUID:   "4f79bf07-38f6-44c8-bbc6-d6531134f16a",
+					Token:  "doERMgMiVz",
+					Labels: []string{"label-1", "label-2"},
+				},
+			},
+		}
+
+		config := Config{}
+		err = serialized.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Server)
+	})
+}
+
+func TestSerializedConnectionSettings_applyTo(t *testing.T) {
+	t.Run("accepts valid settings", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		expected := Connection{
+			URL:    serverURL,
+			UUID:   gouuid.MustParse("4f79bf07-38f6-44c8-bbc6-d6531134f16a"),
+			Token:  "doERMgMiVz",
+			Labels: labels.Labels{labels.MustParse("label-1"), labels.MustParse("label-2")},
+		}
+
+		serialized := serializedConnectionSettings{
+			URL:    serverURL.String(),
+			UUID:   "4f79bf07-38f6-44c8-bbc6-d6531134f16a",
+			Token:  "doERMgMiVz",
+			Labels: []string{"label-1", "label-2"},
+		}
+
+		config := Config{}
+		err = serialized.applyTo(&config, "example")
+		require.NoError(t, err)
+
+		assert.Len(t, config.Server.Connections, 1)
+		assert.Equal(t, expected, config.Server.Connections["example"])
+	})
+
+	t.Run("rejects missing url", func(t *testing.T) {
+		serialized := serializedConnectionSettings{
+			URL:    "",
+			UUID:   "26a6db40-e86c-4751-ba2e-adcab9615ba7",
+			Token:  "a7h4uCzbB6B",
+			Labels: []string{"label-1"},
+		}
+
+		err := serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "`url` is empty")
+	})
+
+	t.Run("rejects url without scheme", func(t *testing.T) {
+		serialized := serializedConnectionSettings{
+			URL:    "www.example.com",
+			UUID:   "26a6db40-e86c-4751-ba2e-adcab9615ba7",
+			Token:  "a7h4uCzbB6B",
+			Labels: []string{"label-1"},
+		}
+
+		err := serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "malformed `url` \"www.example.com\"")
+	})
+
+	t.Run("only accepts schemes http and https", func(t *testing.T) {
+		serialized := serializedConnectionSettings{
+			URL:    "file:///some/path",
+			UUID:   "26a6db40-e86c-4751-ba2e-adcab9615ba7",
+			Token:  "a7h4uCzbB6B",
+			Labels: []string{"label-1"},
+		}
+
+		err := serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "invalid scheme in `url` \"file:///some/path\": only http and https supported")
+	})
+
+	t.Run("rejects empty uuid", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:    serverURL.String(),
+			UUID:   "",
+			Token:  "a7h4uCzbB6B",
+			Labels: []string{"label-1"},
+		}
+
+		err = serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "`uuid` is empty")
+	})
+
+	t.Run("rejects malformed uuid", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:    serverURL.String(),
+			UUID:   "very invalid",
+			Token:  "a7h4uCzbB6B",
+			Labels: []string{"label-1"},
+		}
+
+		err = serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "malformed `uuid` \"very invalid\"")
+	})
+
+	t.Run("rejects empty token", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:    serverURL.String(),
+			UUID:   "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			Token:  "",
+			Labels: []string{"label-1"},
+		}
+
+		err = serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "`token` is empty")
+	})
+
+	t.Run("rejects missing labels", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:    serverURL.String(),
+			UUID:   "54d7e9a6-0b44-4d81-8948-50c1dd351d19",
+			Token:  "Shoi0zUBg6P",
+			Labels: nil,
+		}
+
+		err = serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "at least one `label` is required")
+	})
+
+	t.Run("rejects malformed label", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:    serverURL.String(),
+			UUID:   "54d7e9a6-0b44-4d81-8948-50c1dd351d19",
+			Token:  "Shoi0zUBg6P",
+			Labels: []string{"label1", " very invalid "},
+		}
+
+		err = serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "malformed `label` \" very invalid \"")
 	})
 }
 

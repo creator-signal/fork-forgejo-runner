@@ -105,3 +105,23 @@ func TestParse(t *testing.T) {
 		})
 	}
 }
+
+func TestMustParse(t *testing.T) {
+	t.Run("panics if label is invalid", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("MustParse() did not panic")
+			}
+		}()
+
+		MustParse(" very invalid ")
+	})
+
+	t.Run("accepts valid label", func(t *testing.T) {
+		label := MustParse("label1:docker://node:18")
+
+		assert.Equal(t, label.Name, "label1")
+		assert.Equal(t, label.Schema, SchemeDocker)
+		assert.Equal(t, label.Arg, "//node:18")
+	})
+}
