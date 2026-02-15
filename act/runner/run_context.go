@@ -496,8 +496,12 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	ext := container.LinuxContainerEnvironmentExtensions{}
 	binds, mounts, validVolumes := rc.GetBindsAndMounts(ctx)
 
+	idmapOpts := os.Getenv("FORGEJO_SUPPL_BIND_OPTS")
+	if idmapOpts != "" {
+		idmapOpts = "," + idmapOpts
+	}
 	for _, sc := range rc.supplementalContent {
-		binds = append(binds, fmt.Sprintf("%s:%s:ro", sc, sc))
+		binds = append(binds, fmt.Sprintf("%s:%s:ro%s", sc, sc, idmapOpts))
 	}
 	// add service containers
 	for serviceID, spec := range rc.Run.Job().Services {
