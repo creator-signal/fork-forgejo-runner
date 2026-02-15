@@ -49,7 +49,7 @@ func createConnectTokenCmd(configFile *string) *cobra.Command {
 }
 
 func connectToken(configFile *string, arguments *connectTokenArgs) error {
-	cfg, err := config.LoadDefault(*configFile)
+	cfg, err := config.New(config.FromFile(*configFile))
 	if err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}

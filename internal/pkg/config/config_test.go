@@ -42,9 +42,9 @@ func TestConfigTune(t *testing.T) {
 	})
 }
 
-func TestLoadDefault(t *testing.T) {
+func TestNew(t *testing.T) {
 	t.Run("Missing configuration file results in error", func(t *testing.T) {
-		config, err := LoadDefault("does-not-exist")
+		config, err := New(FromFile("does-not-exist"))
 
 		assert.Nil(t, config)
 		assert.ErrorContains(t, err, "open does-not-exist: no such file or directory")
@@ -58,14 +58,14 @@ func TestLoadDefault(t *testing.T) {
 		err := os.WriteFile(configPath, []byte("malformed"), 0o644)
 		require.NoError(t, err)
 
-		config, err := LoadDefault(configPath)
+		config, err := New(FromFile(configPath))
 
 		assert.Nil(t, config)
 		assert.ErrorContains(t, err, fmt.Sprintf(`cannot parse config file "%s"`, configPath))
 	})
 
 	t.Run("Without configuration file", func(t *testing.T) {
-		config, err := LoadDefault("")
+		config, err := New()
 		require.NoError(t, err)
 
 		home, err := os.UserHomeDir()
@@ -75,7 +75,7 @@ func TestLoadDefault(t *testing.T) {
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
-		assert.Equal(t, 10, reflect.TypeOf(Container{}).NumField())
+		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
 
 		assert.Equal(t, "info", config.Log.Level)
@@ -96,7 +96,7 @@ func TestLoadDefault(t *testing.T) {
 		assert.Equal(t, 100*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
 		assert.Zero(t, config.Runner.ReportRetry.MaxDelay)
 
-		assert.True(t, *config.Cache.Enabled)
+		assert.True(t, config.Cache.Enabled)
 		assert.Equal(t, filepath.Join(home, ".cache", "actcache"), config.Cache.Dir)
 		assert.Empty(t, config.Cache.Host)
 		assert.Zero(t, config.Cache.Port)
@@ -106,7 +106,68 @@ func TestLoadDefault(t *testing.T) {
 		assert.Empty(t, config.Cache.Secret)
 
 		assert.Empty(t, config.Container.Network)
-		assert.Empty(t, config.Container.NetworkMode)
+		assert.False(t, config.Container.EnableIPv6)
+		assert.False(t, config.Container.Privileged)
+		assert.Empty(t, config.Container.Options)
+		assert.Equal(t, "workspace", config.Container.WorkdirParent)
+		assert.Empty(t, config.Container.ValidVolumes)
+		assert.Equal(t, "-", config.Container.DockerHost)
+		assert.False(t, config.Container.ForcePull)
+		assert.False(t, config.Container.ForceRebuild)
+
+		assert.Equal(t, filepath.Join(home, ".cache", "act"), config.Host.WorkdirParent)
+		assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
+	})
+
+	t.Run("Defaults retained if configuration file is empty", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		configPath := filepath.Join(tempDir, "config.yaml")
+
+		err := os.WriteFile(configPath, []byte(""), 0o644)
+		require.NoError(t, err)
+
+		config, err := New(FromFile(configPath))
+		require.NoError(t, err)
+
+		home, err := os.UserHomeDir()
+		require.NoError(t, err)
+
+		assert.Equal(t, 5, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
+		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
+		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
+		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
+		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
+
+		assert.Equal(t, "info", config.Log.Level)
+		assert.Equal(t, "info", config.Log.JobLevel)
+
+		assert.Equal(t, ".runner", config.Runner.File)
+		assert.Equal(t, 1, config.Runner.Capacity)
+		assert.Empty(t, config.Runner.Envs)
+		assert.Empty(t, config.Runner.EnvFile)
+		assert.Equal(t, 3*time.Hour, config.Runner.Timeout)
+		assert.Zero(t, config.Runner.ShutdownTimeout)
+		assert.False(t, config.Runner.Insecure)
+		assert.Equal(t, 5*time.Second, config.Runner.FetchTimeout)
+		assert.Equal(t, 2*time.Second, config.Runner.FetchInterval)
+		assert.Equal(t, 1*time.Second, config.Runner.ReportInterval)
+		assert.Empty(t, config.Runner.Labels)
+		assert.Equal(t, uint(10), config.Runner.ReportRetry.MaxRetries)
+		assert.Equal(t, 100*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
+		assert.Zero(t, config.Runner.ReportRetry.MaxDelay)
+
+		assert.True(t, config.Cache.Enabled)
+		assert.Equal(t, filepath.Join(home, ".cache", "actcache"), config.Cache.Dir)
+		assert.Empty(t, config.Cache.Host)
+		assert.Zero(t, config.Cache.Port)
+		assert.Zero(t, config.Cache.ProxyPort)
+		assert.Empty(t, config.Cache.ExternalServer)
+		assert.Empty(t, config.Cache.ActionsCacheURLOverride)
+		assert.Empty(t, config.Cache.Secret)
+
+		assert.Empty(t, config.Container.Network)
 		assert.False(t, config.Container.EnableIPv6)
 		assert.False(t, config.Container.Privileged)
 		assert.Empty(t, config.Container.Options)
@@ -174,17 +235,17 @@ host:
 		err := os.WriteFile(configPath, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
-		defaultConfig, err := LoadDefault("")
+		defaultConfig, err := New()
 		require.NoError(t, err)
 
-		config, err := LoadDefault(configPath)
+		config, err := New(FromFile(configPath))
 		require.NoError(t, err)
 
 		assert.Equal(t, 5, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
-		assert.Equal(t, 10, reflect.TypeOf(Container{}).NumField())
+		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
 
 		// Verify that each value loaded from the configuration file does not match the default configuration.
@@ -224,7 +285,7 @@ host:
 		assert.Equal(t, 975*time.Second, config.Runner.ReportRetry.MaxDelay)
 
 		assert.NotEqual(t, defaultConfig.Cache.Enabled, config.Cache.Enabled)
-		assert.False(t, *config.Cache.Enabled)
+		assert.False(t, config.Cache.Enabled)
 		assert.NotEqual(t, defaultConfig.Cache.Dir, config.Cache.Dir)
 		assert.Equal(t, "some/directory", config.Cache.Dir)
 		assert.NotEqual(t, defaultConfig.Cache.Host, config.Cache.Host)
@@ -242,8 +303,6 @@ host:
 
 		assert.NotEqual(t, defaultConfig.Container.Network, config.Container.Network)
 		assert.Equal(t, "host", config.Container.Network)
-		assert.NotEqual(t, defaultConfig.Container.NetworkMode, config.Container.NetworkMode)
-		assert.Equal(t, "bridge", config.Container.NetworkMode)
 		assert.NotEqual(t, defaultConfig.Container.EnableIPv6, config.Container.EnableIPv6)
 		assert.True(t, config.Container.EnableIPv6)
 		assert.NotEqual(t, defaultConfig.Container.Privileged, config.Container.Privileged)
@@ -278,7 +337,7 @@ host:
 		err = os.WriteFile(envFile, []byte("SOME_ENV_VAR=some-value"), 0o644)
 		require.NoError(t, err)
 
-		config, err := LoadDefault(configFile)
+		config, err := New(FromFile(configFile))
 		require.NoError(t, err)
 
 		assert.Equal(t, envFile, config.Runner.EnvFile)
@@ -302,7 +361,7 @@ runner:
 		err = os.WriteFile(envFile, []byte("SOME_ENV_VAR=some-value"), 0o644)
 		require.NoError(t, err)
 
-		config, err := LoadDefault(configFile)
+		config, err := New(FromFile(configFile))
 		require.NoError(t, err)
 
 		assert.Equal(t, envFile, config.Runner.EnvFile)
@@ -318,7 +377,7 @@ runner:
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
-		config, err := LoadDefault(configFile)
+		config, err := New(FromFile(configFile))
 		require.NoError(t, err)
 
 		assert.Equal(t, envFile, config.Runner.EnvFile)
@@ -337,9 +396,607 @@ runner:
 		err = os.WriteFile(envFile, []byte("very/malformed"), 0o644)
 		require.NoError(t, err)
 
-		config, err := LoadDefault(configFile)
+		config, err := New(FromFile(configFile))
 
 		assert.Nil(t, config)
 		assert.ErrorContains(t, err, "could not read env file")
+	})
+}
+
+func TestSerializedLogSettings_applyTo(t *testing.T) {
+	t.Run("accepts valid settings", func(t *testing.T) {
+		expected := Log{
+			Level:    "warn",
+			JobLevel: "error",
+		}
+
+		settings := serializedLogSettings{
+			Level:    "warn",
+			JobLevel: "error",
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Log)
+	})
+	t.Run("rejects invalid level", func(t *testing.T) {
+		settings := serializedLogSettings{
+			Level:    "invalid",
+			JobLevel: "error",
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+
+		assert.ErrorContains(t, err, "invalid `level` \"invalid\"")
+	})
+	t.Run("rejects invalid job_level", func(t *testing.T) {
+		settings := serializedLogSettings{
+			Level:    "error",
+			JobLevel: "invalid",
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+
+		assert.ErrorContains(t, err, "invalid `job_level` \"invalid\"")
+	})
+}
+
+func TestSerializedRunnerSettings_applyTo(t *testing.T) {
+	t.Run("accepts valid settings without env file", func(t *testing.T) {
+		expected := Runner{
+			File:            ".my_runner",
+			Capacity:        762,
+			Envs:            map[string]string{"ABC": "def"},
+			EnvFile:         "",
+			Timeout:         892 * time.Second,
+			ShutdownTimeout: 878 * time.Second,
+			Insecure:        true,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     Retry{},
+		}
+
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        762,
+			Envs:            map[string]string{"ABC": "def"},
+			EnvFile:         "",
+			Timeout:         892 * time.Second,
+			ShutdownTimeout: 878 * time.Second,
+			Insecure:        true,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Runner)
+	})
+
+	t.Run("accepts valid settings with env file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		envPath := filepath.Join(tempDir, "env-file")
+
+		err := os.WriteFile(envPath, []byte("B=99\nC=3"), 0o644)
+		require.NoError(t, err)
+
+		expected := Runner{
+			File:            ".my_runner",
+			Capacity:        762,
+			Envs:            map[string]string{"A": "1", "B": "99", "C": "3"},
+			EnvFile:         envPath,
+			Timeout:         892 * time.Second,
+			ShutdownTimeout: 878 * time.Second,
+			Insecure:        true,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     Retry{},
+		}
+
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        762,
+			Envs:            map[string]string{"A": "1", "B": "2"},
+			EnvFile:         envPath,
+			Timeout:         892 * time.Second,
+			ShutdownTimeout: 878 * time.Second,
+			Insecure:        true,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{}
+		err = settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Runner)
+	})
+
+	t.Run("ignores missing env file", func(t *testing.T) {
+		expected := Runner{
+			File:            ".my_runner",
+			Capacity:        762,
+			Envs:            map[string]string{"A": "1", "B": "2"},
+			EnvFile:         "/does/not/exist",
+			Timeout:         892 * time.Second,
+			ShutdownTimeout: 878 * time.Second,
+			Insecure:        true,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     Retry{},
+		}
+
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        762,
+			Envs:            map[string]string{"A": "1", "B": "2"},
+			EnvFile:         "/does/not/exist",
+			Timeout:         892 * time.Second,
+			ShutdownTimeout: 878 * time.Second,
+			Insecure:        true,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Runner)
+	})
+
+	t.Run("ignores invalid capacity", func(t *testing.T) {
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        0,
+			Envs:            map[string]string{"ABC": "def"},
+			EnvFile:         "",
+			Timeout:         892 * time.Second,
+			ShutdownTimeout: 878 * time.Second,
+			Insecure:        false,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{Runner: Runner{Capacity: 1}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 1, config.Runner.Capacity)
+	})
+
+	t.Run("ignores invalid timeout", func(t *testing.T) {
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        370,
+			Envs:            map[string]string{"ABC": "def"},
+			EnvFile:         "",
+			Timeout:         0 * time.Second,
+			ShutdownTimeout: 878 * time.Second,
+			Insecure:        false,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{Runner: Runner{Timeout: time.Second}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, time.Second, config.Runner.Timeout)
+	})
+
+	t.Run("ignores invalid shutdown_timeout", func(t *testing.T) {
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        370,
+			Envs:            map[string]string{"ABC": "def"},
+			EnvFile:         "",
+			Timeout:         588 * time.Second,
+			ShutdownTimeout: -1 * time.Second,
+			Insecure:        false,
+			FetchTimeout:    299 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{Runner: Runner{ShutdownTimeout: 0}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 0*time.Second, config.Runner.ShutdownTimeout)
+	})
+
+	t.Run("ignores invalid fetch_timeout", func(t *testing.T) {
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        370,
+			Envs:            map[string]string{"ABC": "def"},
+			EnvFile:         "",
+			Timeout:         588 * time.Second,
+			ShutdownTimeout: 0 * time.Second,
+			Insecure:        false,
+			FetchTimeout:    -1 * time.Second,
+			FetchInterval:   820 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{Runner: Runner{FetchTimeout: 3 * time.Second}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 3*time.Second, config.Runner.FetchTimeout)
+	})
+
+	t.Run("ignores invalid fetch_interval", func(t *testing.T) {
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        370,
+			Envs:            map[string]string{"ABC": "def"},
+			EnvFile:         "",
+			Timeout:         588 * time.Second,
+			ShutdownTimeout: 0 * time.Second,
+			Insecure:        false,
+			FetchTimeout:    939 * time.Second,
+			FetchInterval:   -1 * time.Second,
+			ReportInterval:  868 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{Runner: Runner{FetchInterval: 0}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 0*time.Second, config.Runner.FetchInterval)
+	})
+
+	t.Run("ignores invalid report_interval", func(t *testing.T) {
+		settings := serializedRunnerSettings{
+			File:            ".my_runner",
+			Capacity:        370,
+			Envs:            map[string]string{"ABC": "def"},
+			EnvFile:         "",
+			Timeout:         588 * time.Second,
+			ShutdownTimeout: 0 * time.Second,
+			Insecure:        false,
+			FetchTimeout:    939 * time.Second,
+			FetchInterval:   477 * time.Second,
+			ReportInterval:  -1 * time.Second,
+			Labels:          []string{"label-1", "label-2"},
+			ReportRetry:     serializedReportRetrySettings{},
+		}
+
+		config := Config{Runner: Runner{ReportInterval: 0}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 0*time.Second, config.Runner.ReportInterval)
+	})
+}
+
+func TestSerializedReportRetrySettings_applyTo(t *testing.T) {
+	t.Run("accepts valid settings", func(t *testing.T) {
+		expected := Retry{
+			MaxRetries:   13,
+			InitialDelay: 200 * time.Millisecond,
+			MaxDelay:     30 * time.Second,
+		}
+
+		settings := serializedReportRetrySettings{
+			MaxRetries:   13,
+			InitialDelay: 200 * time.Millisecond,
+			MaxDelay:     30 * time.Second,
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Runner.ReportRetry)
+	})
+	t.Run("ignores invalid max_retries", func(t *testing.T) {
+		settings := serializedReportRetrySettings{
+			MaxRetries:   0,
+			InitialDelay: 100 * time.Millisecond,
+			MaxDelay:     0,
+		}
+
+		config := Config{Runner: Runner{ReportRetry: Retry{MaxRetries: 10}}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, uint(10), config.Runner.ReportRetry.MaxRetries)
+	})
+	t.Run("ignores invalid initial_delay", func(t *testing.T) {
+		settings := serializedReportRetrySettings{
+			MaxRetries:   10,
+			InitialDelay: 0,
+			MaxDelay:     0,
+		}
+
+		config := Config{Runner: Runner{ReportRetry: Retry{InitialDelay: 100 * time.Millisecond}}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 100*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
+	})
+	t.Run("ignores invalid max_delay", func(t *testing.T) {
+		settings := serializedReportRetrySettings{
+			MaxRetries:   10,
+			InitialDelay: 100 * time.Millisecond,
+			MaxDelay:     -1 * time.Second,
+		}
+
+		config := Config{Runner: Runner{ReportRetry: Retry{MaxDelay: 0}}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 0*time.Second, config.Runner.ReportRetry.MaxDelay)
+	})
+}
+
+func TestSerializedCacheSettings(t *testing.T) {
+	t.Run("accepts valid settings", func(t *testing.T) {
+		expected := Cache{
+			Enabled:                 true,
+			Dir:                     "/path/to/cache",
+			Host:                    "cache.local",
+			Port:                    1234,
+			ProxyPort:               5678,
+			ExternalServer:          "external.local",
+			ActionsCacheURLOverride: "https://example.com/",
+			Secret:                  "jaJEV8OHlux",
+		}
+
+		booleanTrue := true
+		settings := serializedCacheSettings{
+			Enabled:                 &booleanTrue,
+			Dir:                     "/path/to/cache",
+			Host:                    "cache.local",
+			Port:                    1234,
+			ProxyPort:               5678,
+			ExternalServer:          "external.local",
+			ActionsCacheURLOverride: "https://example.com/",
+			Secret:                  "jaJEV8OHlux",
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Cache)
+	})
+}
+
+func TestSerializedContainerSettings(t *testing.T) {
+	t.Run("accepts valid settings", func(t *testing.T) {
+		expected := Container{
+			Network:       "host",
+			EnableIPv6:    true,
+			Privileged:    true,
+			Options:       "--init",
+			WorkdirParent: "/path/to/parent",
+			ValidVolumes:  []string{"/tmp"},
+			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
+			ForcePull:     true,
+			ForceRebuild:  true,
+		}
+
+		settings := serializedContainerSettings{
+			Network:       "host",
+			NetworkMode:   "",
+			EnableIPv6:    true,
+			Privileged:    true,
+			Options:       "--init",
+			WorkdirParent: "/path/to/parent",
+			ValidVolumes:  []string{"/tmp"},
+			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
+			ForcePull:     true,
+			ForceRebuild:  true,
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Container)
+	})
+	t.Run("translates network_mode bridge to empty network", func(t *testing.T) {
+		expected := Container{
+			Network:       "",
+			EnableIPv6:    true,
+			Privileged:    true,
+			Options:       "--init",
+			WorkdirParent: "/path/to/parent",
+			ValidVolumes:  []string{"/tmp"},
+			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
+			ForcePull:     true,
+			ForceRebuild:  true,
+		}
+
+		settings := serializedContainerSettings{
+			Network:       "",
+			NetworkMode:   "bridge",
+			EnableIPv6:    true,
+			Privileged:    true,
+			Options:       "--init",
+			WorkdirParent: "/path/to/parent",
+			ValidVolumes:  []string{"/tmp"},
+			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
+			ForcePull:     true,
+			ForceRebuild:  true,
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Container)
+	})
+	t.Run("skips empty workdir_parent", func(t *testing.T) {
+		expected := Container{
+			Network:       "host",
+			EnableIPv6:    true,
+			Privileged:    true,
+			Options:       "--init",
+			WorkdirParent: "/path/to/parent",
+			ValidVolumes:  []string{"/tmp"},
+			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
+			ForcePull:     true,
+			ForceRebuild:  true,
+		}
+
+		settings := serializedContainerSettings{
+			Network:       "host",
+			NetworkMode:   "bridge",
+			EnableIPv6:    true,
+			Privileged:    true,
+			Options:       "--init",
+			WorkdirParent: "",
+			ValidVolumes:  []string{"/tmp"},
+			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
+			ForcePull:     true,
+			ForceRebuild:  true,
+		}
+
+		config := Config{Container: Container{WorkdirParent: "/path/to/parent"}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Container)
+	})
+	t.Run("skips empty docker_host", func(t *testing.T) {
+		expected := Container{
+			Network:       "host",
+			EnableIPv6:    true,
+			Privileged:    true,
+			Options:       "--init",
+			WorkdirParent: "/path/to/parent",
+			ValidVolumes:  []string{"/tmp"},
+			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
+			ForcePull:     true,
+			ForceRebuild:  true,
+		}
+
+		settings := serializedContainerSettings{
+			Network:       "host",
+			NetworkMode:   "bridge",
+			EnableIPv6:    true,
+			Privileged:    true,
+			Options:       "--init",
+			WorkdirParent: "/path/to/parent",
+			ValidVolumes:  []string{"/tmp"},
+			DockerHost:    "",
+			ForcePull:     true,
+			ForceRebuild:  true,
+		}
+
+		config := Config{Container: Container{DockerHost: "unix:///run/user/1000/podman/podman.sock"}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Container)
+	})
+}
+
+func TestFromFile(t *testing.T) {
+	t.Run("ignores empty path", func(t *testing.T) {
+		config := Config{}
+		err := FromFile("")(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, Config{}, config)
+	})
+
+	t.Run("returns error if file missing", func(t *testing.T) {
+		config := Config{}
+		err := FromFile("/does/not/exist")(&config)
+
+		assert.ErrorContains(t, err, "cannot open config file \"/does/not/exist\"")
+	})
+
+	t.Run("returns error if file is invalid", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		path := filepath.Join(tempDir, "config.yml")
+		err := os.WriteFile(path, []byte("/mal/formed/"), 0o644)
+		require.NoError(t, err)
+
+		config := Config{}
+		err = FromFile(path)(&config)
+
+		assert.ErrorContains(t, err, "cannot parse config file")
+	})
+
+	t.Run("accepts empty config file", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		path := filepath.Join(tempDir, "config.yml")
+		err := os.WriteFile(path, []byte{}, 0o644)
+		require.NoError(t, err)
+
+		config := Config{}
+		err = FromFile(path)(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, Config{}, config)
+	})
+
+	t.Run("accepts partial config file", func(t *testing.T) {
+		expected := Config{
+			Log: Log{
+				Level:    "info",
+				JobLevel: "warn",
+			},
+		}
+
+		tempDir := t.TempDir()
+
+		rawConfig := `
+log:
+  level: info
+  job_level: warn
+`
+
+		path := filepath.Join(tempDir, "config.yml")
+		err := os.WriteFile(path, []byte(rawConfig), 0o644)
+		require.NoError(t, err)
+
+		config := Config{}
+		err = FromFile(path)(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config)
 	})
 }

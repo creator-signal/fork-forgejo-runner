@@ -191,7 +191,7 @@ func registerInteractive(ctx context.Context, configFile string) error {
 		inputs = new(registerInputs)
 	)
 
-	cfg, err := config.LoadDefault(configFile)
+	cfg, err := config.New(config.FromFile(configFile))
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
@@ -247,7 +247,7 @@ func printStageHelp(stage registerStage) {
 }
 
 func registerNoInteractive(ctx context.Context, configFile string, regArgs *registerArgs) error {
-	cfg, err := config.LoadDefault(configFile)
+	cfg, err := config.New(config.FromFile(configFile))
 	if err != nil {
 		return err
 	}

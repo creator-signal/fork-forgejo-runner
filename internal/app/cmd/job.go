@@ -25,7 +25,7 @@ import (
 
 func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.LoadDefault(*configFile)
+		cfg, err := config.New(config.FromFile(*configFile))
 		if err != nil {
 			return fmt.Errorf("invalid configuration: %w", err)
 		}
@@ -94,7 +94,7 @@ func runJob(ctx context.Context, configFile *string) func(cmd *cobra.Command, ar
 		)
 
 		var cacheProxy *cacheproxy.Handler
-		if cfg.Cache.Enabled == nil || *cfg.Cache.Enabled {
+		if cfg.Cache.Enabled {
 			cacheProxy = run.SetupCache(cfg)
 			defer func() {
 				if cacheProxy != nil {

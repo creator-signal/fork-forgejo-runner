@@ -94,7 +94,7 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 		//
 		// Prepare the registration data
 		//
-		cfg, err := config.LoadDefault(*configFile)
+		cfg, err := config.New(config.FromFile(*configFile))
 		if err != nil {
 			return fmt.Errorf("invalid configuration: %w", err)
 		}

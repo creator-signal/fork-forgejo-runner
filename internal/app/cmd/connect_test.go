@@ -161,7 +161,7 @@ func prepareConfig(tempDir string) (string, *config.Config, error) {
 	configFile := filepath.Join(tempDir, "config.yml")
 	runnerFile := filepath.Join(tempDir, ".runner")
 
-	cfg, err := config.LoadDefault("")
+	cfg, err := config.New()
 	if err != nil {
 		return "", &config.Config{}, err
 	}

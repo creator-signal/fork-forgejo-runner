@@ -67,7 +67,7 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 	cli := createClient(cfg, reg)
 
 	var cacheProxy *cacheproxy.Handler
-	if cfg.Cache.Enabled == nil || *cfg.Cache.Enabled {
+	if cfg.Cache.Enabled {
 		cacheProxy = run.SetupCache(cfg)
 		defer func() {
 			if cacheProxy != nil {
@@ -102,7 +102,7 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 }
 
 var initializeConfig = func(configFile *string) (*config.Config, error) {
-	cfg, err := config.LoadDefault(*configFile)
+	cfg, err := config.New(config.FromFile(*configFile))
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
