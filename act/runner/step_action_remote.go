@@ -120,7 +120,11 @@ func (sar *stepActionRemote) prepare() common.Executor {
 			return err
 		}
 
-		sar.RunContext.addSupplementalContentDirectory(sar.workTree.SourceRepositoryDir())
+		sourceDir, err := filepath.EvalSymlinks(sar.workTree.SourceRepositoryDir());
+		if err != nil {
+			return err
+		}
+		sar.RunContext.addSupplementalContentDirectory(sourceDir)
 
 		return nil
 	}
