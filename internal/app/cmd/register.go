@@ -154,9 +154,9 @@ func (r *registerInputs) assignToNext(stage registerStage, value string, cfg *co
 	case StageInputRunnerName:
 		r.RunnerName = value
 		// if there are some labels configured in config file, skip input labels stage
-		if len(cfg.Runner.Labels) > 0 {
-			ls := make([]string, 0, len(cfg.Runner.Labels))
-			for _, l := range cfg.Runner.Labels {
+		if len(cfg.Runner.DefaultLabels) > 0 {
+			ls := make([]string, 0, len(cfg.Runner.DefaultLabels))
+			for _, l := range cfg.Runner.DefaultLabels {
 				_, err := labels.Parse(l)
 				if err != nil {
 					log.WithError(err).Warnf("ignored invalid label %q", l)
@@ -266,11 +266,11 @@ func registerNoInteractive(ctx context.Context, configFile string, regArgs *regi
 		inputs.Labels = commaSplit(regArgs.Labels)
 	}
 	// specify labels in config file.
-	if len(cfg.Runner.Labels) > 0 {
+	if len(cfg.Runner.DefaultLabels) > 0 {
 		if regArgs.Labels != "" {
 			log.Warn("Labels from command will be ignored, use labels defined in config file.")
 		}
-		inputs.Labels = cfg.Runner.Labels
+		inputs.Labels = cfg.Runner.DefaultLabels
 	}
 
 	if inputs.RunnerName == "" {

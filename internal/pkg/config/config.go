@@ -37,7 +37,7 @@ type Runner struct {
 	Insecure        bool              // Insecure indicates whether the runner operates in an insecure mode.
 	FetchTimeout    time.Duration     // FetchTimeout specifies the timeout duration for fetching resources.
 	ReportInterval  time.Duration     // ReportInterval specifies the interval duration for reporting status and logs of a running job.
-	Labels          []string          // Labels specify the labels of the runner. Labels are declared on each startup
+	DefaultLabels   []string          // Default labels for a runner, if not configured at server connection.
 	ReportRetry     Retry             // At the end of a job, configures retrying sending logs to remote.
 }
 
@@ -233,10 +233,10 @@ func (s *serializedRunnerSettings) applyTo(config *Config) error {
 		}
 	}
 	if len(s.Labels) != 0 {
-		if config.Runner.Labels == nil {
-			config.Runner.Labels = make([]string, 0, len(s.Labels))
+		if config.Runner.DefaultLabels == nil {
+			config.Runner.DefaultLabels = make([]string, 0, len(s.Labels))
 		}
-		config.Runner.Labels = append(config.Runner.Labels, s.Labels...)
+		config.Runner.DefaultLabels = append(config.Runner.DefaultLabels, s.Labels...)
 	}
 	if err := s.ReportRetry.applyTo(config); err != nil {
 		return fmt.Errorf("invalid `report_retry`: %w", err)
@@ -397,7 +397,7 @@ type serializedConnectionSettings struct {
 	URL           string        `yaml:"url"`            // URL of the Forgejo instance to connect to. Mandatory value.
 	UUID          string        `yaml:"uuid"`           // UUID of the runner. Mandatory value.
 	Token         string        `yaml:"token"`          // Token of the runner. Mandatory value.
-	Labels        []string      `yaml:"labels"`         // Labels of the runner. Mandatory value.
+	Labels        []string      `yaml:"labels"`         // Labels of the runner. If not present, runner.labels will be used instead.
 	FetchInterval time.Duration `yaml:"fetch_interval"` // FetchInterval specifies the interval duration for fetching resources.
 }
 
@@ -410,9 +410,6 @@ func (s *serializedConnectionSettings) applyTo(config *Config, connectionName st
 	}
 	if s.Token == "" {
 		return errors.New("`token` is empty")
-	}
-	if len(s.Labels) == 0 {
-		return errors.New("at least one `label` is required")
 	}
 
 	parsedURL, err := url.ParseRequestURI(s.URL)
@@ -470,7 +467,7 @@ func New(opts ...Option) (*Config, error) {
 				InitialDelay: 100 * time.Millisecond,
 				MaxDelay:     0,
 			},
-			Labels: []string{},
+			DefaultLabels: []string{},
 		},
 		Cache:     Cache{Enabled: true, Dir: filepath.Join(home, ".cache", "actcache")},
 		Container: Container{DockerHost: "-", WorkdirParent: "workspace", ValidVolumes: []string{}},
@@ -493,6 +490,15 @@ func New(opts ...Option) (*Config, error) {
 	}
 	config.Host.WorkdirParent = absWorkdirParent
 
+	var parsedDefaultLabels labels.Labels
+	for _, label := range config.Runner.DefaultLabels {
+		parsedLabel, err := labels.Parse(label)
+		if err != nil {
+			return nil, fmt.Errorf("malformed `label` %q: %w", label, err)
+		}
+		parsedDefaultLabels = append(parsedDefaultLabels, parsedLabel)
+	}
+
 	// Apply default values to each server connection if they weren't populated by `opts`:
 	for name, conn := range config.Server.Connections {
 		if conn.FetchInterval == 0 {
@@ -501,6 +507,9 @@ func New(opts ...Option) (*Config, error) {
 		if strings.HasSuffix(conn.URL.Hostname(), "codeberg.org") && conn.FetchInterval < 30*time.Second {
 			log.Infof("Fetch interval for connection %s has been increased to the minimum of 30 seconds for Codeberg", name)
 			conn.FetchInterval = 30 * time.Second
+		}
+		if len(conn.Labels) == 0 {
+			conn.Labels = parsedDefaultLabels
 		}
 	}
 

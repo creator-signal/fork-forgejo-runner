@@ -68,7 +68,7 @@ func TestNew(t *testing.T) {
 		assert.False(t, config.Runner.Insecure)
 		assert.Equal(t, 5*time.Second, config.Runner.FetchTimeout)
 		assert.Equal(t, 1*time.Second, config.Runner.ReportInterval)
-		assert.Empty(t, config.Runner.Labels)
+		assert.Empty(t, config.Runner.DefaultLabels)
 		assert.Equal(t, uint(10), config.Runner.ReportRetry.MaxRetries)
 		assert.Equal(t, 100*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
 		assert.Zero(t, config.Runner.ReportRetry.MaxDelay)
@@ -132,7 +132,7 @@ func TestNew(t *testing.T) {
 		assert.False(t, config.Runner.Insecure)
 		assert.Equal(t, 5*time.Second, config.Runner.FetchTimeout)
 		assert.Equal(t, 1*time.Second, config.Runner.ReportInterval)
-		assert.Empty(t, config.Runner.Labels)
+		assert.Empty(t, config.Runner.DefaultLabels)
 		assert.Equal(t, uint(10), config.Runner.ReportRetry.MaxRetries)
 		assert.Equal(t, 100*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
 		assert.Zero(t, config.Runner.ReportRetry.MaxDelay)
@@ -201,15 +201,14 @@ server:
 	t.Run("Global connection overrides", func(t *testing.T) {
 		rawConfig := `
 runner:
-  # FIXME: add labels here
   fetch_interval: 14s
+  labels: ["docker:docker://node:current-bookworm"]
 server:
   connections:
     example:
       url: https://example.com/
       uuid: 7f7695df-a064-4c70-a597-56714e851e2c
       token: LxV7RrjXd
-      labels: ["docker:docker://node:current-bookworm"] # FIXME: remove these labels
 `
 
 		tempDir := t.TempDir()
@@ -225,6 +224,7 @@ server:
 		c, ok := config.Server.Connections["example"]
 		require.True(t, ok)
 		assert.Equal(t, 14*time.Second, c.FetchInterval)
+		assert.Len(t, c.Labels, 1)
 	})
 
 	t.Run("Configuration file takes precedence over defaults", func(t *testing.T) {
@@ -329,8 +329,8 @@ server:
 		assert.Equal(t, 25*time.Second, config.Runner.FetchTimeout)
 		assert.NotEqual(t, defaultConfig.Runner.ReportInterval, config.Runner.ReportInterval)
 		assert.Equal(t, 5*time.Second, config.Runner.ReportInterval)
-		assert.NotEqual(t, defaultConfig.Runner.Labels, config.Runner.Labels)
-		assert.Equal(t, []string{"docker:docker://node:24-trixie"}, config.Runner.Labels)
+		assert.NotEqual(t, defaultConfig.Runner.DefaultLabels, config.Runner.DefaultLabels)
+		assert.Equal(t, []string{"docker:docker://node:24-trixie"}, config.Runner.DefaultLabels)
 		assert.NotEqual(t, defaultConfig.Runner.ReportRetry.MaxRetries, config.Runner.ReportRetry.MaxRetries)
 		assert.Equal(t, uint(26), config.Runner.ReportRetry.MaxRetries)
 		assert.NotEqual(t, defaultConfig.Runner.ReportRetry.InitialDelay, config.Runner.ReportRetry.InitialDelay)
@@ -520,7 +520,7 @@ func TestSerializedRunnerSettings_applyTo(t *testing.T) {
 			Insecure:        true,
 			FetchTimeout:    299 * time.Second,
 			ReportInterval:  868 * time.Second,
-			Labels:          []string{"label-1", "label-2"},
+			DefaultLabels:   []string{"label-1", "label-2"},
 			ReportRetry:     Retry{},
 		}
 
@@ -562,7 +562,7 @@ func TestSerializedRunnerSettings_applyTo(t *testing.T) {
 			Insecure:        true,
 			FetchTimeout:    299 * time.Second,
 			ReportInterval:  868 * time.Second,
-			Labels:          []string{"label-1", "label-2"},
+			DefaultLabels:   []string{"label-1", "label-2"},
 			ReportRetry:     Retry{},
 		}
 
@@ -599,7 +599,7 @@ func TestSerializedRunnerSettings_applyTo(t *testing.T) {
 			Insecure:        true,
 			FetchTimeout:    299 * time.Second,
 			ReportInterval:  868 * time.Second,
-			Labels:          []string{"label-1", "label-2"},
+			DefaultLabels:   []string{"label-1", "label-2"},
 			ReportRetry:     Retry{},
 		}
 
@@ -1138,21 +1138,6 @@ func TestSerializedConnectionSettings_applyTo(t *testing.T) {
 
 		err = serialized.applyTo(&Config{}, "example")
 		assert.ErrorContains(t, err, "`token` is empty")
-	})
-
-	t.Run("rejects missing labels", func(t *testing.T) {
-		serverURL, err := url.Parse("https://example.com/")
-		require.NoError(t, err)
-
-		serialized := serializedConnectionSettings{
-			URL:    serverURL.String(),
-			UUID:   "54d7e9a6-0b44-4d81-8948-50c1dd351d19",
-			Token:  "Shoi0zUBg6P",
-			Labels: nil,
-		}
-
-		err = serialized.applyTo(&Config{}, "example")
-		assert.ErrorContains(t, err, "at least one `label` is required")
 	})
 
 	t.Run("rejects malformed label", func(t *testing.T) {
