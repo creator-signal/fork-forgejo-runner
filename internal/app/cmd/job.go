@@ -98,7 +98,7 @@ func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) fun
 
 		var cacheProxy *cacheproxy.Handler
 		if cfg.Cache.Enabled {
-		  cacheProxy = run.SetupCache(cfg)
+			cacheProxy = run.SetupCache(cfg)
 			defer func() {
 				if cacheProxy != nil {
 					err := cacheProxy.Close()

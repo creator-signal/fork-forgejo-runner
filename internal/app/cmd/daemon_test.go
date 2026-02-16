@@ -241,7 +241,7 @@ func TestCreateRunner_PopulatesEphemeralFromClientResponse(t *testing.T) {
 
 	mockClient.On("Declare", mock.Anything, mock.Anything).Return(mockDeclareResponse, nil)
 
-	runner, runnerName, err := createRunner(ctx, cfg, reg, mockClient, ls)
+	runner, runnerName, err := createRunner(ctx, cfg, reg, mockClient, ls, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, runner)
