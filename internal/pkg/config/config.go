@@ -249,21 +249,25 @@ func (s *serializedRunnerSettings) applyTo(config *Config) error {
 
 // serializedReportRetrySettings adjusts Runner's retry behaviour when sending job logs to Forgejo.
 type serializedReportRetrySettings struct {
-	MaxRetries   uint          `yaml:"max_retries"`   // Maximum number of retry attempts, defaults to 10.
-	InitialDelay time.Duration `yaml:"initial_delay"` // Initial delay between retries, defaults to 100ms.  Delay between retries doubles up to `max_delay`.
-	MaxDelay     time.Duration `yaml:"max_delay"`     // Maximum delay between retries, defaults to 0, 0 is treated as no maximum.
+	MaxRetries   *uint          `yaml:"max_retries"`   // Maximum number of retry attempts, defaults to 10.
+	InitialDelay *time.Duration `yaml:"initial_delay"` // Initial delay between retries, defaults to 100ms.  Delay between retries doubles up to `max_delay`.
+	MaxDelay     time.Duration  `yaml:"max_delay"`     // Maximum delay between retries, defaults to 0, 0 is treated as no maximum.
 }
 
 func (s *serializedReportRetrySettings) applyTo(config *Config) error {
-	if s.MaxRetries < 1 {
-		log.Warnf("Ignoring invalid `runner.report_retry.max_retries`: %q", s.MaxRetries)
-	} else {
-		config.Runner.ReportRetry.MaxRetries = s.MaxRetries
+	if s.MaxRetries != nil {
+		if *s.MaxRetries < 1 {
+			log.Warnf("Ignoring invalid `runner.report_retry.max_retries`: %d", *s.MaxRetries)
+		} else {
+			config.Runner.ReportRetry.MaxRetries = *s.MaxRetries
+		}
 	}
-	if s.InitialDelay <= 0 {
-		log.Warnf("Ignoring invalid `runner.report_retry.initial_delay`: %q", s.MaxRetries)
-	} else {
-		config.Runner.ReportRetry.InitialDelay = s.InitialDelay
+	if s.InitialDelay != nil {
+		if *s.InitialDelay <= 0 {
+			log.Warnf("Ignoring invalid `runner.report_retry.initial_delay`: %q", *s.InitialDelay)
+		} else {
+			config.Runner.ReportRetry.InitialDelay = *s.InitialDelay
+		}
 	}
 	if s.MaxDelay < 0 {
 		log.Warnf("Ignoring invalid `runner.report_retry.max_delay`: %q", s.MaxDelay)

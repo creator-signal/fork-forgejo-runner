@@ -739,9 +739,11 @@ func TestSerializedReportRetrySettings_applyTo(t *testing.T) {
 			MaxDelay:     30 * time.Second,
 		}
 
+		maxRetries := uint(13)
+		initialDelay := 200 * time.Millisecond
 		settings := serializedReportRetrySettings{
-			MaxRetries:   13,
-			InitialDelay: 200 * time.Millisecond,
+			MaxRetries:   &maxRetries,
+			InitialDelay: &initialDelay,
 			MaxDelay:     30 * time.Second,
 		}
 
@@ -752,9 +754,11 @@ func TestSerializedReportRetrySettings_applyTo(t *testing.T) {
 		assert.Equal(t, expected, config.Runner.ReportRetry)
 	})
 	t.Run("ignores invalid max_retries", func(t *testing.T) {
+		maxRetries := uint(0)
+		initialDelay := 100 * time.Millisecond
 		settings := serializedReportRetrySettings{
-			MaxRetries:   0,
-			InitialDelay: 100 * time.Millisecond,
+			MaxRetries:   &maxRetries,
+			InitialDelay: &initialDelay,
 			MaxDelay:     0,
 		}
 
@@ -765,9 +769,11 @@ func TestSerializedReportRetrySettings_applyTo(t *testing.T) {
 		assert.Equal(t, uint(10), config.Runner.ReportRetry.MaxRetries)
 	})
 	t.Run("ignores invalid initial_delay", func(t *testing.T) {
+		maxRetries := uint(10)
+		initialDelay := 0 * time.Millisecond
 		settings := serializedReportRetrySettings{
-			MaxRetries:   10,
-			InitialDelay: 0,
+			MaxRetries:   &maxRetries,
+			InitialDelay: &initialDelay,
 			MaxDelay:     0,
 		}
 
@@ -778,9 +784,11 @@ func TestSerializedReportRetrySettings_applyTo(t *testing.T) {
 		assert.Equal(t, 100*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
 	})
 	t.Run("ignores invalid max_delay", func(t *testing.T) {
+		maxRetries := uint(10)
+		initialDelay := 100 * time.Millisecond
 		settings := serializedReportRetrySettings{
-			MaxRetries:   10,
-			InitialDelay: 100 * time.Millisecond,
+			MaxRetries:   &maxRetries,
+			InitialDelay: &initialDelay,
 			MaxDelay:     -1 * time.Second,
 		}
 
