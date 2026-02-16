@@ -54,19 +54,12 @@ type RunnerInterface interface {
 	Run(ctx context.Context, task *runnerv1.Task) error
 }
 
-func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client, cacheProxy *cacheproxy.Handler) *Runner {
-	ls := labels.Labels{}
-	for _, v := range reg.Labels {
-		if l, err := labels.Parse(v); err == nil {
-			ls = append(ls, l)
-		}
-	}
-
+func NewRunner(cfg *config.Config, name string, ls labels.Labels, cli client.Client, cacheProxy *cacheproxy.Handler) *Runner {
 	if cfg.Runner.Envs == nil {
 		cfg.Runner.Envs = make(map[string]string, 10)
 	}
 
-	cfg.Runner.Envs["GITHUB_SERVER_URL"] = reg.Address
+	cfg.Runner.Envs["GITHUB_SERVER_URL"] = cli.Address()
 
 	envs := make(map[string]string, len(cfg.Runner.Envs))
 	maps.Copy(envs, cfg.Runner.Envs)
@@ -86,7 +79,7 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client, 
 	envs["FORGEJO_ACTIONS_RUNNER_VERSION"] = ver.Version()
 
 	return &Runner{
-		name:       reg.Name,
+		name:       name,
 		cfg:        cfg,
 		client:     cli,
 		labels:     ls,

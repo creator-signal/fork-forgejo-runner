@@ -18,7 +18,6 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/envcheck"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/ver"
 )
 
@@ -34,38 +33,28 @@ func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) fun
 		)
 		if err != nil {
 			return fmt.Errorf("invalid configuration: %w", err)
+		} else if len(cfg.Server.Connections) != 1 {
+			return fmt.Errorf("one-job is only supported with a single connection, but %d connections are configured", len(cfg.Server.Connections))
+		}
+
+		var connName string
+		var conn config.Connection
+		for name, c := range cfg.Server.Connections {
+			connName = name
+			conn = c
 		}
 
 		initLogging(cfg)
 		log.Infoln("Starting job")
 
-		reg, err := config.LoadRegistration(cfg.Runner.File)
-		if os.IsNotExist(err) {
-			log.Error("registration file not found, please register the runner first")
-			return err
-		} else if err != nil {
-			return fmt.Errorf("failed to load registration file: %w", err)
-		}
-
-		lbls := reg.Labels
-		if len(cfg.Runner.Labels) > 0 {
-			lbls = cfg.Runner.Labels
-		}
-
-		ls := labels.Labels{}
-		for _, l := range lbls {
-			label, err := labels.Parse(l)
-			if err != nil {
-				log.WithError(err).Warnf("ignored invalid label %q", l)
-				continue
+		requireDocker := false
+		for _, conn := range cfg.Server.Connections {
+			if conn.Labels.RequireDocker() {
+				requireDocker = true
+				break
 			}
-			ls = append(ls, label)
 		}
-		if len(ls) == 0 {
-			log.Warn("no labels configured, runner may not be able to pick up jobs")
-		}
-
-		if ls.RequireDocker() {
+		if requireDocker {
 			dockerSocketPath, err := getDockerSocketPath(cfg.Container.DockerHost)
 			if err != nil {
 				return err
@@ -91,10 +80,10 @@ func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) fun
 		}
 
 		cli := client.New(
-			reg.Address,
+			conn.URL.String(),
 			cfg.Runner.Insecure,
-			reg.UUID,
-			reg.Token,
+			conn.UUID.String(),
+			conn.Token,
 			ver.Version(),
 			cfg.Runner.FetchInterval,
 		)
@@ -112,7 +101,7 @@ func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) fun
 			}()
 		}
 
-		runner, _, _, err := createRunner(ctx, cfg, reg, cli, ls, cacheProxy)
+		runner, _, _, err := createRunner(ctx, connName, cfg, cli, conn.Labels, cacheProxy)
 		if err != nil {
 			return err
 		}

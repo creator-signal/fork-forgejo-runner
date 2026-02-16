@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -51,20 +52,14 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 	initLogging(cfg)
 	log.Infoln("Starting runner daemon")
 
-	reg, err := loadRegistration(cfg)
+	err = configCheck(ctx, cfg)
 	if err != nil {
 		return err
 	}
 
-	cfg.Tune(reg.Address)
-	ls := extractLabels(cfg, reg)
-
-	err = configCheck(ctx, cfg, ls)
-	if err != nil {
-		return err
+	if len(cfg.Server.Connections) == 0 {
+		return errors.New("runner: 0 server connections configured, terminating")
 	}
-
-	cli := createClient(cfg, reg)
 
 	var cacheProxy *cacheproxy.Handler
 	if cfg.Cache.Enabled {
@@ -79,23 +74,42 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 		}()
 	}
 
-	runner, runnerName, ephemeral, err := createRunner(ctx, cfg, reg, cli, ls, cacheProxy)
-	if err != nil {
-		return err
+	clients := make([]client.Client, 0, len(cfg.Server.Connections))
+	runners := make([]run.RunnerInterface, 0, len(cfg.Server.Connections))
+	ephemeralRunners := make([]bool, 0, len(cfg.Server.Connections))
+	for name, conn := range cfg.Server.Connections {
+		cfg.Tune(conn.URL.String()) // FIXME: changes FetchInterval possibly multiple times; needs move of fetch interval to the connection level
+
+		cli := createClient(cfg, conn)
+		clients = append(clients, cli)
+
+		runner, _, ephemeral, err := createRunner(ctx, name, cfg, cli, conn.Labels, cacheProxy)
+		if err != nil {
+			return err
+		}
+		runners = append(runners, runner)
+		ephemeralRunners = append(ephemeralRunners, ephemeral)
 	}
 
-	poller := createPoller(ctx, cfg, []client.Client{cli}, []run.RunnerInterface{runner})
+	ephemeral := ephemeralRunners[0] // guaranteed len() > 0 because len(cfg.Server.Connections) can't be 0
+	for _, e := range ephemeralRunners {
+		if e != ephemeral {
+			return errors.New("runner: all server connections must be ephemeral, or non-ephemeral, but instead a mix of both configurations was found")
+		}
+	}
+
+	poller := createPoller(ctx, cfg, clients, runners)
 
 	pollTask(signalContext, poller, ephemeral)
 
-	log.Infof("runner: %s shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", runnerName, cfg.Runner.ShutdownTimeout)
+	log.Infof("runner: shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", cfg.Runner.ShutdownTimeout)
 
 	shutdownCtx, cancel := context.WithTimeout(daemonContext, cfg.Runner.ShutdownTimeout)
 	defer cancel()
 
 	err = poller.Shutdown(shutdownCtx)
 	if err != nil {
-		log.Warnf("runner: %s cancelled in progress jobs during shutdown", runnerName)
+		log.Warnf("runner: cancelled in progress jobs during shutdown")
 	}
 	return nil
 }
@@ -172,40 +186,15 @@ var initLogging = func(cfg *config.Config) {
 	}
 }
 
-var loadRegistration = func(cfg *config.Config) (*config.Registration, error) {
-	reg, err := config.LoadRegistration(cfg.Runner.File)
-	if os.IsNotExist(err) {
-		log.Error("registration file not found, please register the runner first")
-		return nil, err
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to load registration file: %w", err)
-	}
-	return reg, nil
-}
-
-var extractLabels = func(cfg *config.Config, reg *config.Registration) labels.Labels {
-	lbls := reg.Labels
-	if len(cfg.Runner.Labels) > 0 {
-		lbls = cfg.Runner.Labels
-	}
-
-	ls := labels.Labels{}
-	for _, l := range lbls {
-		label, err := labels.Parse(l)
-		if err != nil {
-			log.WithError(err).Warnf("ignored invalid label %q", l)
-			continue
+var configCheck = func(ctx context.Context, cfg *config.Config) error {
+	requireDocker := false
+	for _, conn := range cfg.Server.Connections {
+		if conn.Labels.RequireDocker() {
+			requireDocker = true
+			break
 		}
-		ls = append(ls, label)
 	}
-	if len(ls) == 0 {
-		log.Warn("no labels configured, runner may not be able to pick up jobs")
-	}
-	return ls
-}
-
-var configCheck = func(ctx context.Context, cfg *config.Config, ls labels.Labels) error {
-	if ls.RequireDocker() {
+	if requireDocker {
 		dockerSocketPath, err := getDockerSocketPath(cfg.Container.DockerHost)
 		if err != nil {
 			return err
@@ -229,20 +218,19 @@ var configCheck = func(ctx context.Context, cfg *config.Config, ls labels.Labels
 	return nil
 }
 
-var createClient = func(cfg *config.Config, reg *config.Registration) client.Client {
+var createClient = func(cfg *config.Config, conn config.Connection) client.Client {
 	return client.New(
-		reg.Address,
+		conn.URL.String(),
 		cfg.Runner.Insecure,
-		reg.UUID,
-		reg.Token,
+		conn.UUID.String(),
+		conn.Token,
 		ver.Version(),
 		cfg.Runner.FetchInterval,
 	)
 }
 
-// Returns runner, runner name, whether the runner is flagged as ephemeral on the server.
-var createRunner = func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
-	runner := run.NewRunner(cfg, reg, cli, cacheProxy)
+var createRunner = func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+	runner := run.NewRunner(cfg, name, ls, cli, cacheProxy)
 	// declare the labels of the runner before fetching tasks
 	resp, err := runner.Declare(ctx, ls.Names())
 	if err != nil && connect.CodeOf(err) == connect.CodeUnimplemented {
@@ -255,12 +243,6 @@ var createRunner = func(ctx context.Context, cfg *config.Config, reg *config.Reg
 
 	log.Infof("runner: %s, with version: %s, with labels: %v, ephemeral: %v, declared successfully",
 		resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels(), resp.Msg.GetRunner().GetEphemeral())
-	// if declared successfully, override the labels in the.runner file with valid labels in the config file (if specified)
-	runner.Update(ctx, ls)
-	reg.Labels = ls.ToStrings()
-	if err := config.SaveRegistration(cfg.Runner.File, reg); err != nil {
-		return nil, "", false, fmt.Errorf("failed to save runner config: %w", err)
-	}
 	return runner, resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetEphemeral(), nil
 }
 

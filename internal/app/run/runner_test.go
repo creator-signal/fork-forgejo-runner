@@ -281,9 +281,8 @@ func TestRunnerCacheConfiguration(t *testing.T) {
 
 	runner := NewRunner(
 		cfg,
-		&config.Registration{
-			Labels: []string{"ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm"},
-		},
+		"runner-name",
+		[]*labels.Label{labels.MustParse("ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm")},
 		forgejoClient,
 		cacheProxy)
 	require.NotNil(t, runner)
@@ -514,9 +513,8 @@ func TestRunnerCacheStartupFailure(t *testing.T) {
 
 			runner := NewRunner(
 				cfg,
-				&config.Registration{
-					Labels: []string{"ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm"},
-				},
+				"runner-name",
+				[]*labels.Label{labels.MustParse("ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm")},
 				forgejoClient,
 				cacheProxy)
 			require.NotNil(t, runner)
@@ -603,9 +601,8 @@ func TestRunnerLXC(t *testing.T) {
 				WorkdirParent: workdirParent,
 			},
 		},
-		&config.Registration{
-			Labels: []string{"lxc:lxc://debian:bookworm"},
-		},
+		"runner-name",
+		[]*labels.Label{labels.MustParse("lxc:lxc://debian:bookworm")},
 		forgejoClient,
 		nil)
 	require.NotNil(t, runner)
@@ -898,9 +895,8 @@ func TestRunnerResources(t *testing.T) {
 					Options:    options,
 				},
 			},
-			&config.Registration{
-				Labels: []string{"docker:docker://code.forgejo.org/oci/node:20-bookworm"},
-			},
+			"runner-name",
+			[]*labels.Label{labels.MustParse("ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm")},
 			forgejoClient,
 			nil)
 		require.NotNil(t, runner)
@@ -1073,9 +1069,8 @@ func TestRunnerContextsPopulated(t *testing.T) {
 					Options:    options,
 				},
 			},
-			&config.Registration{
-				Labels: []string{"docker:docker://code.forgejo.org/oci/node:20-bookworm"},
-			},
+			"runner-name",
+			[]*labels.Label{labels.MustParse("docker:docker://code.forgejo.org/oci/node:20-bookworm")},
 			forgejoClient,
 			nil)
 		require.NotNil(t, runner)

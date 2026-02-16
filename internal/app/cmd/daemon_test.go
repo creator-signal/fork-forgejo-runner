@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"net/url"
 	"path/filepath"
 	"testing"
 	"time"
@@ -39,29 +40,32 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 	mockRunner := mock_runner.NewRunnerInterface(t)
 	mockPoller := mock_poller.NewPoller(t)
 
+	connectionURL, err := url.Parse("https://example.com")
+	require.NoError(t, err)
 	defer testutils.MockVariable(&initializeConfig, func(configFile *string) (*config.Config, error) {
 		return &config.Config{
 			Runner: config.Runner{
 				// Default ShutdownTimeout of 0s won't work for the graceful shutdown test.
 				ShutdownTimeout: 30 * time.Second,
 			},
+			Server: config.Server{
+				Connections: map[string]config.Connection{
+					"default": {
+						URL: connectionURL,
+					},
+				},
+			},
 		}, nil
 	})()
 	defer testutils.MockVariable(&initLogging, func(cfg *config.Config) {})()
-	defer testutils.MockVariable(&loadRegistration, func(cfg *config.Config) (*config.Registration, error) {
-		return &config.Registration{}, nil
-	})()
-	defer testutils.MockVariable(&extractLabels, func(cfg *config.Config, reg *config.Registration) labels.Labels {
-		return labels.Labels{}
-	})()
-	defer testutils.MockVariable(&configCheck, func(ctx context.Context, cfg *config.Config, ls labels.Labels) error {
+	defer testutils.MockVariable(&configCheck, func(ctx context.Context, cfg *config.Config) error {
 		return nil
 	})()
-	defer testutils.MockVariable(&createClient, func(cfg *config.Config, reg *config.Registration) client.Client {
+	defer testutils.MockVariable(&createClient, func(cfg *config.Config, conn config.Connection) client.Client {
 		return mockClient
 	})()
 	var runnerContext context.Context
-	defer testutils.MockVariable(&createRunner, func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
 		runnerContext = ctx
 		return mockRunner, "runner", false, nil
 	})()
@@ -217,11 +221,6 @@ func TestCreateRunner_PopulatesEphemeralFromClientResponse(t *testing.T) {
 			File: runnerFile,
 		},
 	}
-	reg := &config.Registration{
-		Address: "https://example.com",
-		UUID:    "test-uuid",
-		Token:   "test-token",
-	}
 	ls := labels.Labels{}
 
 	mockClient := mock_client.NewClient(t)
@@ -241,13 +240,128 @@ func TestCreateRunner_PopulatesEphemeralFromClientResponse(t *testing.T) {
 
 	mockClient.On("Declare", mock.Anything, mock.Anything).Return(mockDeclareResponse, nil)
 
-	runner, runnerName, ephemeral, err := createRunner(ctx, cfg, reg, mockClient, ls, nil)
+	runner, runnerName, ephemeral, err := createRunner(ctx, "test-runner", cfg, mockClient, ls, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, runner)
 	assert.Equal(t, "test-runner", runnerName)
 
-	assert.Equal(t, expectedEphemeral, ephemeral, "reg.Ephemeral should be populated from the Declare response")
+	assert.Equal(t, expectedEphemeral, ephemeral, "Ephemeral should be populated from the Declare response")
 
 	mockClient.AssertCalled(t, "Declare", mock.Anything, mock.Anything)
+}
+
+func TestRunDaemon_MultipleServers(t *testing.T) {
+	// When there are multiple servers to connect to, the key responsibilities of the daemon command that we need to
+	// assert are:
+	//
+	// - each client is created with the right server connection config
+	//
+	// - each runner is created with the right client, name, and labels
+	//
+	// - clients and runners are passed into `createPoller` with the right index-by-index association between the two
+	// objects
+
+	serverURL1, err := url.Parse("https://example.com/forgejo1")
+	require.NoError(t, err)
+	serverURL2, err := url.Parse("https://example.com/forgejo2")
+	require.NoError(t, err)
+
+	mockClient1 := mock_client.NewClient(t)
+	mockClient2 := mock_client.NewClient(t)
+
+	mockRunner1 := mock_runner.NewRunnerInterface(t)
+	mockRunner2 := mock_runner.NewRunnerInterface(t)
+
+	mockPoller := mock_poller.NewPoller(t)
+
+	require.NoError(t, err)
+	defer testutils.MockVariable(&initializeConfig, func(configFile *string) (*config.Config, error) {
+		return &config.Config{
+			Runner: config.Runner{
+				// Default ShutdownTimeout of 0s won't work for the graceful shutdown test.
+				ShutdownTimeout: 30 * time.Second,
+			},
+			Server: config.Server{
+				Connections: map[string]*config.Connection{
+					"forgejo1": {
+						URL: serverURL1,
+					},
+					"forgejo2": {
+						URL: serverURL2,
+					},
+				},
+			},
+		}, nil
+	})()
+	defer testutils.MockVariable(&initLogging, func(cfg *config.Config) {})()
+	defer testutils.MockVariable(&configCheck, func(ctx context.Context, cfg *config.Config) error {
+		return nil
+	})()
+	defer testutils.MockVariable(&createClient, func(cfg *config.Config, conn *config.Connection) client.Client {
+		switch conn.URL.String() {
+		case serverURL1.String():
+			return mockClient1
+		case serverURL2.String():
+			return mockClient2
+		}
+		t.Fatalf("unexpected connection URL: %q", conn.URL.String())
+		return nil
+	})()
+	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+		switch name {
+		case "forgejo1":
+			return mockRunner1, "forgejo1", false, nil
+		case "forgejo2":
+			return mockRunner2, "forgejo2", false, nil
+		}
+		t.Fatalf("unexpected connection name: %q", name)
+		return nil, "", false, nil
+	})()
+	var createPollerInvoked bool
+	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) poll.Poller {
+		createPollerInvoked = true
+		require.Len(t, clients, 2)
+		require.Len(t, runners, 2)
+		// Order isn't important to the test, just equal identity between clients[0] and runners[0] -- so check both possible orders.
+		if clients[0] == mockClient1 {
+			assert.Same(t, mockClient1, clients[0])
+			assert.Same(t, mockRunner1, runners[0])
+			assert.Same(t, mockClient2, clients[1])
+			assert.Same(t, mockRunner2, runners[1])
+		} else {
+			assert.Same(t, mockClient1, clients[1])
+			assert.Same(t, mockRunner1, runners[1])
+			assert.Same(t, mockClient2, clients[0])
+			assert.Same(t, mockRunner2, runners[0])
+		}
+		return mockPoller
+	})()
+
+	pollBegunChannel := make(chan any)
+	mockPoller.On("Poll").Run(func(args mock.Arguments) {
+		// Indicate to test that Poll was invoked...
+		close(pollBegunChannel)
+	})
+	mockPoller.On("Shutdown", mock.Anything).Run(func(args mock.Arguments) {}).Return(nil)
+
+	// When runDaemon is begun, it will run "forever" until the passed-in context is done.  So, let's start that in a goroutine...
+	mockSignalContext, cancelSignal := context.WithCancel(t.Context())
+	runDaemonComplete := make(chan any)
+	go func() {
+		configFile := "config.yaml"
+		err := runDaemon(mockSignalContext, &configFile)
+		require.NoError(t, err)
+		close(runDaemonComplete)
+	}()
+
+	// Wait until runDaemon reaches poller.Poll(), and verify createPoller was run where our test assertions are.
+	<-pollBegunChannel
+	require.True(t, createPollerInvoked)
+
+	// Shutdown the daemon by killing the signal context
+	cancelSignal()
+
+	// Wait for the daemon goroutine to stop so that we're sure the test goroutines are complete.
+	<-runDaemonComplete
 }

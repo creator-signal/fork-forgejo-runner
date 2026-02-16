@@ -17,6 +17,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/ver"
 )
 
@@ -148,7 +149,7 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 				cfg.Runner.FetchInterval,
 			)
 
-			runner := run.NewRunner(cfg, reg, cli, nil)
+			runner := run.NewRunner(cfg, reg.Name, labels.Labels{}, cli, nil)
 			resp, err := runner.Declare(ctx, cfg.Runner.Labels)
 
 			if err != nil && connect.CodeOf(err) == connect.CodeUnimplemented {
