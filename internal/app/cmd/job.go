@@ -28,7 +28,10 @@ type runJobArgs struct {
 
 func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.New(config.FromFile(*configFile))
+		cfg, err := config.New(
+			config.FromFile(*configFile),
+			config.FromRegistration,
+		)
 		if err != nil {
 			return fmt.Errorf("invalid configuration: %w", err)
 		}

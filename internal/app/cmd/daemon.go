@@ -124,7 +124,10 @@ func pollTask(ctx context.Context, poller poll.Poller, ephemeral bool) {
 }
 
 var initializeConfig = func(configFile *string) (*config.Config, error) {
-	cfg, err := config.New(config.FromFile(*configFile))
+	cfg, err := config.New(
+		config.FromFile(*configFile),
+		config.FromRegistration,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
