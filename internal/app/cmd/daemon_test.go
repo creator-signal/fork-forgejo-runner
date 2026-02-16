@@ -61,9 +61,9 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 		return mockClient
 	})()
 	var runnerContext context.Context
-	defer testutils.MockVariable(&createRunner, func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, error) {
+	defer testutils.MockVariable(&createRunner, func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
 		runnerContext = ctx
-		return mockRunner, "runner", nil
+		return mockRunner, "runner", false, nil
 	})()
 	var pollerContext context.Context
 	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) poll.Poller {
@@ -241,13 +241,13 @@ func TestCreateRunner_PopulatesEphemeralFromClientResponse(t *testing.T) {
 
 	mockClient.On("Declare", mock.Anything, mock.Anything).Return(mockDeclareResponse, nil)
 
-	runner, runnerName, err := createRunner(ctx, cfg, reg, mockClient, ls, nil)
+	runner, runnerName, ephemeral, err := createRunner(ctx, cfg, reg, mockClient, ls, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, runner)
 	assert.Equal(t, "test-runner", runnerName)
 
-	assert.Equal(t, expectedEphemeral, reg.Ephemeral, "reg.Ephemeral should be populated from the Declare response")
+	assert.Equal(t, expectedEphemeral, ephemeral, "reg.Ephemeral should be populated from the Declare response")
 
 	mockClient.AssertCalled(t, "Declare", mock.Anything, mock.Anything)
 }

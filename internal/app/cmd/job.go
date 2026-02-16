@@ -112,7 +112,7 @@ func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) fun
 			}()
 		}
 
-		runner, _, err := createRunner(ctx, cfg, reg, cli, ls, cacheProxy)
+		runner, _, _, err := createRunner(ctx, cfg, reg, cli, ls, cacheProxy)
 		if err != nil {
 			return err
 		}

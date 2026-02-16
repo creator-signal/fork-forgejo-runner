@@ -323,11 +323,10 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 	}
 
 	reg := &config.Registration{
-		Name:      inputs.RunnerName,
-		Token:     inputs.Token,
-		Address:   inputs.InstanceAddr,
-		Labels:    inputs.Labels,
-		Ephemeral: inputs.Ephemeral,
+		Name:    inputs.RunnerName,
+		Token:   inputs.Token,
+		Address: inputs.InstanceAddr,
+		Labels:  inputs.Labels,
 	}
 
 	ls := make([]string, len(reg.Labels))
@@ -342,7 +341,7 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 		Version:     ver.Version(),
 		AgentLabels: ls, // Could be removed after Gitea 1.20
 		Labels:      ls,
-		Ephemeral:   reg.Ephemeral,
+		Ephemeral:   inputs.Ephemeral,
 	}))
 	if err != nil {
 		log.WithError(err).Error("poller: cannot register new runner")
@@ -353,7 +352,6 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 	reg.UUID = resp.Msg.GetRunner().GetUuid()
 	reg.Name = resp.Msg.GetRunner().GetName()
 	reg.Token = resp.Msg.GetRunner().GetToken()
-	reg.Ephemeral = resp.Msg.GetRunner().GetEphemeral()
 
 	if inputs.Ephemeral != resp.Msg.GetRunner().GetEphemeral() {
 		return fmt.Errorf("This Forgejo instance does not support ephemeral runners; requires Forgejo 15 or newer. The runner was registered as a non-ephemeral runner instead. Please manually delete the runner '%s' from the Forgejo UI to avoid a stale runner entry", reg.Name)

@@ -79,14 +79,14 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 		}()
 	}
 
-	runner, runnerName, err := createRunner(ctx, cfg, reg, cli, ls, cacheProxy)
+	runner, runnerName, ephemeral, err := createRunner(ctx, cfg, reg, cli, ls, cacheProxy)
 	if err != nil {
 		return err
 	}
 
 	poller := createPoller(ctx, cfg, []client.Client{cli}, []run.RunnerInterface{runner})
 
-	pollTask(signalContext, poller, reg.Ephemeral)
+	pollTask(signalContext, poller, ephemeral)
 
 	log.Infof("runner: %s shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", runnerName, cfg.Runner.ShutdownTimeout)
 
@@ -240,19 +240,18 @@ var createClient = func(cfg *config.Config, reg *config.Registration) client.Cli
 	)
 }
 
-var createRunner = func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, error) {
+// Returns runner, runner name, whether the runner is flagged as ephemeral on the server.
+var createRunner = func(ctx context.Context, cfg *config.Config, reg *config.Registration, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
 	runner := run.NewRunner(cfg, reg, cli, cacheProxy)
 	// declare the labels of the runner before fetching tasks
 	resp, err := runner.Declare(ctx, ls.Names())
 	if err != nil && connect.CodeOf(err) == connect.CodeUnimplemented {
 		log.Warn("Because the Forgejo instance is an old version, skipping declaring the labels and version.")
-		return runner, "runner", nil
+		return runner, "runner", false, nil
 	} else if err != nil {
 		log.WithError(err).Error("fail to invoke Declare")
-		return nil, "", err
+		return nil, "", false, err
 	}
-
-	reg.Ephemeral = resp.Msg.GetRunner().GetEphemeral()
 
 	log.Infof("runner: %s, with version: %s, with labels: %v, ephemeral: %v, declared successfully",
 		resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels(), resp.Msg.GetRunner().GetEphemeral())
@@ -260,9 +259,9 @@ var createRunner = func(ctx context.Context, cfg *config.Config, reg *config.Reg
 	runner.Update(ctx, ls)
 	reg.Labels = ls.ToStrings()
 	if err := config.SaveRegistration(cfg.Runner.File, reg); err != nil {
-		return nil, "", fmt.Errorf("failed to save runner config: %w", err)
+		return nil, "", false, fmt.Errorf("failed to save runner config: %w", err)
 	}
-	return runner, resp.Msg.GetRunner().GetName(), nil
+	return runner, resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetEphemeral(), nil
 }
 
 // func(ctx context.Context, cfg *config.Config, cli client.Client, runner run.RunnerInterface) poll.Poller
