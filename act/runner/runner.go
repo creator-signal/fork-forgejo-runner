@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/firecracker"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 )
 
@@ -68,12 +69,16 @@ type Config struct {
 	ContainerMaxLifetime  time.Duration                // the max lifetime of job containers
 	DefaultActionInstance string                       // the default actions web site
 	PlatformPicker        func(labels []string) string // platform picker, it will take precedence over Platforms if isn't nil
+	LabelPicker           func(labels []string) string // label picker, returns the matched label name for profile lookup
 	JobLoggerLevel        *log.Level                   // the level of job logger
 	ValidVolumes          []string                     // only volumes (and bind mounts) in this slice can be mounted on the job container or service containers
 	InsecureSkipTLS       bool                         // whether to skip verifying TLS certificate of the Gitea instance
 
 	ContainerNetworkEnableIPv6 bool   // create the network with IPv6 support enabled
 	ServerVersion              string // Git forge server version
+
+	FirecrackerProfiles map[string]firecracker.Config // Firecracker profiles mapping label names to full configs
+	MemoryScheduler     firecracker.Scheduler         // Memory scheduler for Firecracker VMs (nil = disabled)
 }
 
 // GetToken: Adapt to Gitea

@@ -16,6 +16,9 @@ const (
 
 	SchemeLXC = "lxc"
 	ArgLXC    = "//debian:bookworm"
+
+	SchemeFirecracker = "firecracker"
+	ArgFirecracker    = "//ubuntu:22.04"
 )
 
 type Label struct {
@@ -37,7 +40,7 @@ func Parse(str string) (*Label, error) {
 
 	if len(splits) >= 2 {
 		label.Schema = splits[1]
-		if label.Schema != SchemeHost && label.Schema != SchemeDocker && label.Schema != SchemeLXC {
+		if label.Schema != SchemeHost && label.Schema != SchemeDocker && label.Schema != SchemeLXC && label.Schema != SchemeFirecracker {
 			return nil, fmt.Errorf("unsupported schema: %s", label.Schema)
 		}
 	}
@@ -55,6 +58,8 @@ func Parse(str string) (*Label, error) {
 			label.Arg = ArgDocker
 		case SchemeLXC:
 			label.Arg = ArgLXC
+		case SchemeFirecracker:
+			label.Arg = ArgFirecracker
 		}
 	}
 
@@ -81,6 +86,31 @@ func (l Labels) RequireDocker() bool {
 	return false
 }
 
+// RequireFirecracker returns true if any label uses the firecracker scheme.
+func (l Labels) RequireFirecracker() bool {
+	for _, label := range l {
+		if label.Schema == SchemeFirecracker {
+			return true
+		}
+	}
+	return false
+}
+
+// PickLabel returns the name of the first label that matches any of the runsOn values.
+// Returns empty string if no match is found.
+func (l Labels) PickLabel(runsOn []string) string {
+	names := make(map[string]struct{}, len(l))
+	for _, label := range l {
+		names[label.Name] = struct{}{}
+	}
+	for _, v := range runsOn {
+		if _, ok := names[v]; ok {
+			return v
+		}
+	}
+	return ""
+}
+
 func (l Labels) PickPlatform(runsOn []string) string {
 	platforms := make(map[string]string, len(l))
 	for _, label := range l {
@@ -92,6 +122,8 @@ func (l Labels) PickPlatform(runsOn []string) string {
 			platforms[label.Name] = "-self-hosted"
 		case SchemeLXC:
 			platforms[label.Name] = "lxc:" + strings.TrimPrefix(label.Arg, "//")
+		case SchemeFirecracker:
+			platforms[label.Name] = "firecracker:" + strings.TrimPrefix(label.Arg, "//")
 		default:
 			// It should not happen, because Parse has checked it.
 			continue

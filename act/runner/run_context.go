@@ -24,6 +24,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/container"
 	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v12/act/firecracker"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
@@ -261,29 +262,45 @@ func (rc *RunContext) stopHostEnvironment(ctx context.Context) error {
 	logger := common.Logger(ctx)
 	logger.Debugf("stopHostEnvironment")
 
-	if !rc.IsLXCHostEnv(ctx) {
-		return nil
+	if rc.IsLXCHostEnv(ctx) {
+		var stopScript bytes.Buffer
+		if err := stopTemplate.Execute(&stopScript, struct {
+			Name string
+			Root string
+		}{
+			Name: rc.JobContainer.GetName(),
+			Root: rc.JobContainer.GetRoot(),
+		}); err != nil {
+			return err
+		}
+
+		return common.NewPipelineExecutor(
+			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
+				Name: "workflow/stop-lxc.sh",
+				Mode: 0o755,
+				Body: stopScript.String(),
+			}),
+			rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/stop-lxc.sh"}, map[string]string{}, "root", "/tmp"),
+		)(ctx)
 	}
 
-	var stopScript bytes.Buffer
-	if err := stopTemplate.Execute(&stopScript, struct {
-		Name string
-		Root string
-	}{
-		Name: rc.JobContainer.GetName(),
-		Root: rc.JobContainer.GetRoot(),
-	}); err != nil {
-		return err
+	if rc.IsFirecrackerHostEnv(ctx) {
+		he, ok := rc.JobContainer.(*container.HostEnvironment)
+		if !ok {
+			return fmt.Errorf("job container is not a HostEnvironment")
+		}
+		if he.FirecrackerVM != nil {
+			err := he.FirecrackerVM.Destroy(ctx)
+			// Release memory back to scheduler after VM is destroyed
+			if rc.Config.MemoryScheduler != nil && he.FirecrackerMemoryMB > 0 {
+				rc.Config.MemoryScheduler.Release(int64(he.FirecrackerMemoryMB))
+				he.FirecrackerMemoryMB = 0
+			}
+			return err
+		}
 	}
 
-	return common.NewPipelineExecutor(
-		rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
-			Name: "workflow/stop-lxc.sh",
-			Mode: 0o755,
-			Body: stopScript.String(),
-		}),
-		rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/stop-lxc.sh"}, map[string]string{}, "root", "/tmp"),
-	)(ctx)
+	return nil
 }
 
 func (rc *RunContext) startHostEnvironment() common.Executor {
@@ -314,15 +331,16 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 			return err
 		}
 		rc.JobContainer = &container.HostEnvironment{
-			Name:      randName,
-			Root:      miscpath,
-			Path:      path,
-			TmpDir:    runnerTmp,
-			ToolCache: rc.getToolCache(ctx),
-			Workdir:   rc.Config.Workdir,
-			ActPath:   actPath,
-			StdOut:    logWriter,
-			LXC:       rc.IsLXCHostEnv(ctx),
+			Name:        randName,
+			Root:        miscpath,
+			Path:        path,
+			TmpDir:      runnerTmp,
+			ToolCache:   rc.getToolCache(ctx),
+			Workdir:     rc.Config.Workdir,
+			ActPath:     actPath,
+			StdOut:      logWriter,
+			LXC:         rc.IsLXCHostEnv(ctx),
+			Firecracker: rc.IsFirecrackerHostEnv(ctx),
 		}
 		rc.cleanUpJobContainer = func(ctx context.Context) error {
 			if err := rc.stopHostEnvironment(ctx); err != nil {
@@ -392,6 +410,99 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 					Body: startScript.String(),
 				}),
 				rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, map[string]string{}, "root", "/tmp"),
+				func(ctx context.Context) error {
+					// After container creation, the PID of the container root process is stored in container.pid -- we
+					// need this for later cmd execution in the container.  Read & store into `LXCPID`.
+					pidFile := filepath.Join(rc.JobContainer.GetRoot(), "container.pid")
+					pidBytes, err := os.ReadFile(pidFile)
+					if err != nil {
+						return fmt.Errorf("failed to read container PID: %w", err)
+					}
+					pid := strings.TrimSpace(string(pidBytes))
+					he, ok := rc.JobContainer.(*container.HostEnvironment)
+					if !ok {
+						return fmt.Errorf("job container is not a HostEnvironment")
+					}
+					he.LXCPID = pid
+					return nil
+				},
+			)
+		}
+
+		isFirecracker, _ := rc.GetFirecrackerInfo(ctx)
+
+		if isFirecracker {
+			executors = append(executors,
+				func(ctx context.Context) error {
+					he, ok := rc.JobContainer.(*container.HostEnvironment)
+					if !ok {
+						return fmt.Errorf("job container is not a HostEnvironment")
+					}
+
+					// Get Firecracker config from matched profile
+					labelName := rc.getMatchedLabel(ctx)
+					fcConfig, err := rc.GetFirecrackerConfig(ctx)
+					if err != nil {
+						return fmt.Errorf("firecracker config: %w", err)
+					}
+
+					logger := common.Logger(ctx)
+					logger.Infof("Firecracker: using label=%s vcpus=%d memory=%dMB", labelName, fcConfig.VCPUs, fcConfig.MemoryMB)
+
+					// Acquire memory from scheduler if enabled
+					if rc.Config.MemoryScheduler != nil {
+						if err := rc.Config.MemoryScheduler.Acquire(ctx, int64(fcConfig.MemoryMB)); err != nil {
+							return fmt.Errorf("acquire memory: %w", err)
+						}
+						he.FirecrackerMemoryMB = fcConfig.MemoryMB
+					}
+
+					// releaseMemory is a helper to release acquired memory on error
+					releaseMemory := func() {
+						if rc.Config.MemoryScheduler != nil && he.FirecrackerMemoryMB > 0 {
+							rc.Config.MemoryScheduler.Release(int64(he.FirecrackerMemoryMB))
+							he.FirecrackerMemoryMB = 0
+						}
+					}
+
+					// Create and start Firecracker VM
+					vm := firecracker.NewVM(he.Name, he.Root, fcConfig)
+					if err := vm.Create(ctx); err != nil {
+						// Destroy cleans up any partially-allocated resources
+						// (subnet lock, TAP, NAT rules, etc.)
+						_ = vm.Destroy(ctx)
+						releaseMemory()
+						return fmt.Errorf("create Firecracker VM: %w", err)
+					}
+
+					connInfo, err := vm.Start(ctx)
+					if err != nil {
+						_ = vm.Destroy(ctx)
+						releaseMemory()
+						return fmt.Errorf("start Firecracker VM: %w", err)
+					}
+
+					// Store connection info in HostEnvironment
+					he.FirecrackerHost = connInfo.Host
+					he.FirecrackerHostIP = connInfo.HostIP
+					he.FirecrackerPort = connInfo.Port
+					he.FirecrackerKey = connInfo.Key
+					he.FirecrackerVM = vm
+
+					// Set the VM-local working directory path
+					// Use the same path structure inside the VM as configured in Workdir
+					// (e.g., /workspace/owner/repo)
+					he.FirecrackerVMPath = rc.Config.Workdir
+
+					// Create the working directory inside the VM
+					if err := vm.CreateVMDirectory(ctx, rc.Config.Workdir); err != nil {
+						_ = vm.Destroy(ctx)
+						releaseMemory()
+						return fmt.Errorf("create VM working directory: %w", err)
+					}
+
+					return nil
+				},
 			)
 		}
 
@@ -885,7 +996,10 @@ func (rc *RunContext) IsBareHostEnv(ctx context.Context) bool {
 	return image == "" && strings.EqualFold(platform, "-self-hosted")
 }
 
-const lxcPrefix = "lxc:"
+const (
+	lxcPrefix         = "lxc:"
+	firecrackerPrefix = "firecracker:"
+)
 
 func (rc *RunContext) IsLXCHostEnv(ctx context.Context) bool {
 	platform := rc.runsOnImage(ctx)
@@ -909,8 +1023,57 @@ func (rc *RunContext) GetLXCInfo(ctx context.Context) (isLXC bool, template, rel
 	return isLXC, template, release, config
 }
 
+func (rc *RunContext) IsFirecrackerHostEnv(ctx context.Context) bool {
+	platform := rc.runsOnImage(ctx)
+	return strings.HasPrefix(platform, firecrackerPrefix)
+}
+
+func (rc *RunContext) GetFirecrackerInfo(ctx context.Context) (isFirecracker bool, image string) {
+	platform := rc.runsOnImage(ctx)
+	if !strings.HasPrefix(platform, firecrackerPrefix) {
+		return false, ""
+	}
+	return true, strings.TrimPrefix(platform, firecrackerPrefix)
+}
+
+// getMatchedLabel returns the name of the label that matched the job's runs-on.
+func (rc *RunContext) getMatchedLabel(ctx context.Context) string {
+	if rc.Run.Job().RunsOn() == nil {
+		return ""
+	}
+	runsOn := rc.runsOnPlatformNames(ctx)
+	if pick := rc.Config.LabelPicker; pick != nil {
+		return pick(runsOn)
+	}
+	return ""
+}
+
+// GetFirecrackerConfig returns the Firecracker configuration for the matched profile.
+// Returns an error if no profile matches the job's runs-on labels.
+func (rc *RunContext) GetFirecrackerConfig(ctx context.Context) (firecracker.Config, error) {
+	labelName := rc.getMatchedLabel(ctx)
+	if labelName == "" {
+		return firecracker.Config{}, fmt.Errorf("no matching label for runs-on: %v", rc.runsOnPlatformNames(ctx))
+	}
+
+	if rc.Config.FirecrackerProfiles == nil {
+		return firecracker.Config{}, fmt.Errorf("no firecracker profiles configured")
+	}
+
+	profile, ok := rc.Config.FirecrackerProfiles[labelName]
+	if !ok {
+		availableProfiles := make([]string, 0, len(rc.Config.FirecrackerProfiles))
+		for name := range rc.Config.FirecrackerProfiles {
+			availableProfiles = append(availableProfiles, name)
+		}
+		return firecracker.Config{}, fmt.Errorf("no firecracker profile found for label %q (available profiles: %v)", labelName, availableProfiles)
+	}
+
+	return profile, nil
+}
+
 func (rc *RunContext) IsHostEnv(ctx context.Context) bool {
-	return rc.IsBareHostEnv(ctx) || rc.IsLXCHostEnv(ctx)
+	return rc.IsBareHostEnv(ctx) || rc.IsLXCHostEnv(ctx) || rc.IsFirecrackerHostEnv(ctx)
 }
 
 func (rc *RunContext) stopContainer() common.Executor {
@@ -924,6 +1087,22 @@ func (rc *RunContext) closeContainer() common.Executor {
 		if rc.JobContainer != nil {
 			return rc.JobContainer.Close()(ctx)
 		}
+		return nil
+	}
+}
+
+func (rc *RunContext) logContainerStats() common.Executor {
+	return func(ctx context.Context) error {
+		if !rc.IsFirecrackerHostEnv(ctx) {
+			return nil
+		}
+
+		he, ok := rc.JobContainer.(*container.HostEnvironment)
+		if !ok || he.FirecrackerVM == nil {
+			return nil
+		}
+
+		he.FirecrackerVM.LogStats(ctx)
 		return nil
 	}
 }
@@ -1343,6 +1522,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 		}
 	}
 	env["CI"] = "true"
+	env["TERM"] = "dumb"
 	set("WORKFLOW", github.Workflow)
 	set("RUN_ATTEMPT", github.RunAttempt)
 	set("RUN_ID", github.RunID)

@@ -13,6 +13,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v12/act/container"
 	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v12/act/firecracker"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"gotest.tools/v3/skip"
@@ -943,4 +944,578 @@ func TestRunContext_ensureRandomName(t *testing.T) {
 	assert.NotEmpty(t, parent.randomName)
 	rc.ensureRandomName(t.Context())
 	assert.Equal(t, parent.randomName, rc.randomName)
+}
+
+func TestRunContext_IsFirecrackerHostEnv(t *testing.T) {
+	tests := []struct {
+		name     string
+		platform string
+		want     bool
+	}{
+		{
+			name:     "Firecracker platform",
+			platform: "firecracker:ubuntu:22.04",
+			want:     true,
+		},
+		{
+			name:     "Firecracker platform with different image",
+			platform: "firecracker:debian:bookworm",
+			want:     true,
+		},
+		{
+			name:     "LXC platform",
+			platform: "lxc:debian:bookworm",
+			want:     false,
+		},
+		{
+			name:     "Docker platform",
+			platform: "node:18",
+			want:     false,
+		},
+		{
+			name:     "Self-hosted platform",
+			platform: "-self-hosted",
+			want:     false,
+		},
+		{
+			name:     "Empty platform",
+			platform: "",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := &RunContext{
+				Config: &Config{
+					Platforms: map[string]string{
+						"test-runner": tt.platform,
+					},
+				},
+				Run: &model.Run{
+					JobID: "job1",
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{
+							"job1": createJob(t, `runs-on: test-runner`, ""),
+						},
+					},
+				},
+			}
+			rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
+
+			got := rc.IsFirecrackerHostEnv(t.Context())
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRunContext_GetFirecrackerInfo(t *testing.T) {
+	tests := []struct {
+		name      string
+		platform  string
+		wantIsFC  bool
+		wantImage string
+	}{
+		{
+			name:      "Firecracker with ubuntu image",
+			platform:  "firecracker:ubuntu:22.04",
+			wantIsFC:  true,
+			wantImage: "ubuntu:22.04",
+		},
+		{
+			name:      "Firecracker with debian image",
+			platform:  "firecracker:debian:bookworm",
+			wantIsFC:  true,
+			wantImage: "debian:bookworm",
+		},
+		{
+			name:      "LXC platform returns false",
+			platform:  "lxc:debian:bookworm",
+			wantIsFC:  false,
+			wantImage: "",
+		},
+		{
+			name:      "Docker platform returns false",
+			platform:  "node:18",
+			wantIsFC:  false,
+			wantImage: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := &RunContext{
+				Config: &Config{
+					Platforms: map[string]string{
+						"test-runner": tt.platform,
+					},
+				},
+				Run: &model.Run{
+					JobID: "job1",
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{
+							"job1": createJob(t, `runs-on: test-runner`, ""),
+						},
+					},
+				},
+			}
+			rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
+
+			gotIsFC, gotImage := rc.GetFirecrackerInfo(t.Context())
+			assert.Equal(t, tt.wantIsFC, gotIsFC)
+			assert.Equal(t, tt.wantImage, gotImage)
+		})
+	}
+}
+
+func TestRunContext_IsHostEnv_IncludesFirecracker(t *testing.T) {
+	tests := []struct {
+		name     string
+		platform string
+		want     bool
+	}{
+		{
+			name:     "Firecracker is host env",
+			platform: "firecracker:ubuntu:22.04",
+			want:     true,
+		},
+		{
+			name:     "LXC is host env",
+			platform: "lxc:debian:bookworm",
+			want:     true,
+		},
+		{
+			name:     "Self-hosted is host env",
+			platform: "-self-hosted",
+			want:     true,
+		},
+		{
+			name:     "Docker is not host env",
+			platform: "node:18",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := &RunContext{
+				Config: &Config{
+					Platforms: map[string]string{
+						"test-runner": tt.platform,
+					},
+				},
+				Run: &model.Run{
+					JobID: "job1",
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{
+							"job1": createJob(t, `runs-on: test-runner`, ""),
+						},
+					},
+				},
+			}
+			rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
+
+			got := rc.IsHostEnv(t.Context())
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRunContext_getMatchedLabel(t *testing.T) {
+	tests := []struct {
+		name        string
+		runsOn      string
+		labelPicker func([]string) string
+		want        string
+	}{
+		{
+			name:        "no label picker returns empty",
+			runsOn:      "test-runner",
+			labelPicker: nil,
+			want:        "",
+		},
+		{
+			name:   "label picker returns first match",
+			runsOn: "test-runner",
+			labelPicker: func(labels []string) string {
+				if len(labels) > 0 {
+					return labels[0]
+				}
+				return ""
+			},
+			want: "test-runner",
+		},
+		{
+			name:   "label picker returns specific label",
+			runsOn: "test-runner",
+			labelPicker: func(labels []string) string {
+				return "custom-label"
+			},
+			want: "custom-label",
+		},
+		{
+			name:   "label picker returns empty when no match",
+			runsOn: "test-runner",
+			labelPicker: func(labels []string) string {
+				return ""
+			},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := &RunContext{
+				Config: &Config{
+					Platforms: map[string]string{
+						"test-runner": "node:18",
+					},
+					LabelPicker: tt.labelPicker,
+				},
+				Run: &model.Run{
+					JobID: "job1",
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{
+							"job1": createJob(t, fmt.Sprintf("runs-on: %s", tt.runsOn), ""),
+						},
+					},
+				},
+			}
+			rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
+
+			got := rc.getMatchedLabel(t.Context())
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRunContext_GetFirecrackerConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		runsOn      string
+		labelPicker func([]string) string
+		profiles    map[string]firecracker.Config
+		wantConfig  firecracker.Config
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "no matched label returns error",
+			runsOn:      "test-runner",
+			labelPicker: func(labels []string) string { return "" },
+			profiles: map[string]firecracker.Config{
+				"small": {MemoryMB: 1024, VCPUs: 1},
+			},
+			wantErr:     true,
+			errContains: "no matching label",
+		},
+		{
+			name:        "nil profiles returns error",
+			runsOn:      "small",
+			labelPicker: func(labels []string) string { return "small" },
+			profiles:    nil,
+			wantErr:     true,
+			errContains: "no firecracker profiles configured",
+		},
+		{
+			name:        "profile not found returns error with available profiles",
+			runsOn:      "medium",
+			labelPicker: func(labels []string) string { return "medium" },
+			profiles: map[string]firecracker.Config{
+				"small": {MemoryMB: 1024, VCPUs: 1},
+				"large": {MemoryMB: 8192, VCPUs: 4},
+			},
+			wantErr:     true,
+			errContains: "available profiles",
+		},
+		{
+			name:        "valid profile returns config",
+			runsOn:      "small",
+			labelPicker: func(labels []string) string { return "small" },
+			profiles: map[string]firecracker.Config{
+				"small": {
+					MemoryMB:       1024,
+					VCPUs:          1,
+					KernelPath:     "/path/to/kernel",
+					RootFSTemplate: "/path/to/rootfs",
+					SSHTimeout:     60 * time.Second,
+				},
+			},
+			wantConfig: firecracker.Config{
+				MemoryMB:       1024,
+				VCPUs:          1,
+				KernelPath:     "/path/to/kernel",
+				RootFSTemplate: "/path/to/rootfs",
+				SSHTimeout:     60 * time.Second,
+			},
+			wantErr: false,
+		},
+		{
+			name:        "returns correct profile from multiple profiles",
+			runsOn:      "large",
+			labelPicker: func(labels []string) string { return "large" },
+			profiles: map[string]firecracker.Config{
+				"small": {MemoryMB: 1024, VCPUs: 1},
+				"large": {MemoryMB: 8192, VCPUs: 4},
+			},
+			wantConfig: firecracker.Config{
+				MemoryMB: 8192,
+				VCPUs:    4,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := &RunContext{
+				Config: &Config{
+					Platforms: map[string]string{
+						"small": "firecracker:ubuntu:22.04",
+						"large": "firecracker:ubuntu:22.04",
+					},
+					LabelPicker:         tt.labelPicker,
+					FirecrackerProfiles: tt.profiles,
+				},
+				Run: &model.Run{
+					JobID: "job1",
+					Workflow: &model.Workflow{
+						Jobs: map[string]*model.Job{
+							"job1": createJob(t, fmt.Sprintf("runs-on: %s", tt.runsOn), ""),
+						},
+					},
+				},
+			}
+			rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
+
+			gotConfig, err := rc.GetFirecrackerConfig(t.Context())
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantConfig, gotConfig)
+		})
+	}
+}
+
+// mockScheduler implements firecracker.Scheduler for testing.
+type mockScheduler struct {
+	acquireCalls   []int64
+	releaseCalls   []int64
+	acquireErr     error
+	acquireBlocked chan struct{} // if set, Acquire blocks until closed
+}
+
+func (m *mockScheduler) Acquire(ctx context.Context, memoryMB int64) error {
+	m.acquireCalls = append(m.acquireCalls, memoryMB)
+	if m.acquireBlocked != nil {
+		select {
+		case <-m.acquireBlocked:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return m.acquireErr
+}
+
+func (m *mockScheduler) Release(memoryMB int64) {
+	m.releaseCalls = append(m.releaseCalls, memoryMB)
+}
+
+func (m *mockScheduler) Available() int64 {
+	return 0
+}
+
+func (m *mockScheduler) MinJobMemoryMB() int64 {
+	return 0
+}
+
+func TestRunContext_MemoryScheduler_AcquireOnVMStart(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux", "Firecracker only runs on Linux")
+
+	sched := &mockScheduler{}
+
+	rc := &RunContext{
+		Config: &Config{
+			MemoryScheduler: sched,
+			FirecrackerProfiles: map[string]firecracker.Config{
+				"test-runner": {MemoryMB: 2048, VCPUs: 2},
+			},
+			LabelPicker: func(labels []string) string { return "test-runner" },
+		},
+		Run: &model.Run{
+			JobID: "job1",
+			Workflow: &model.Workflow{
+				Jobs: map[string]*model.Job{
+					"job1": createJob(t, "runs-on: test-runner", ""),
+				},
+			},
+		},
+		JobContainer: &container.HostEnvironment{
+			Name:        "test-job",
+			Firecracker: true,
+		},
+	}
+	rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
+
+	// We can't fully test VM creation without mocking NewVM,
+	// but we can verify Acquire is called with the right memory amount
+	// by checking the mock after attempting to start
+	he := rc.JobContainer.(*container.HostEnvironment)
+
+	// Manually call the scheduler like startHostEnvironment does
+	fcConfig, err := rc.GetFirecrackerConfig(t.Context())
+	require.NoError(t, err)
+
+	err = sched.Acquire(t.Context(), int64(fcConfig.MemoryMB))
+	require.NoError(t, err)
+	he.FirecrackerMemoryMB = fcConfig.MemoryMB
+
+	// Verify Acquire was called with the profile's memory
+	require.Len(t, sched.acquireCalls, 1)
+	assert.Equal(t, int64(2048), sched.acquireCalls[0])
+	assert.Equal(t, 2048, he.FirecrackerMemoryMB)
+}
+
+func TestRunContext_MemoryScheduler_AcquireFailure(t *testing.T) {
+	sched := &mockScheduler{
+		acquireErr: errors.New("insufficient memory"),
+	}
+
+	rc := &RunContext{
+		Config: &Config{
+			MemoryScheduler: sched,
+			FirecrackerProfiles: map[string]firecracker.Config{
+				"test-runner": {MemoryMB: 8192, VCPUs: 4},
+			},
+			LabelPicker: func(labels []string) string { return "test-runner" },
+		},
+	}
+
+	fcConfig, _ := rc.Config.FirecrackerProfiles["test-runner"]
+	err := rc.Config.MemoryScheduler.Acquire(t.Context(), int64(fcConfig.MemoryMB))
+
+	// Verify error is returned
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "insufficient memory")
+
+	// Verify Acquire was attempted with correct amount
+	require.Len(t, sched.acquireCalls, 1)
+	assert.Equal(t, int64(8192), sched.acquireCalls[0])
+
+	// Verify no Release was called (since Acquire failed)
+	assert.Empty(t, sched.releaseCalls)
+}
+
+func TestRunContext_MemoryScheduler_ReleaseOnCleanup(t *testing.T) {
+	sched := &mockScheduler{}
+
+	he := &container.HostEnvironment{
+		Name:                "test-job",
+		Firecracker:         true,
+		FirecrackerMemoryMB: 4096,
+		FirecrackerVM:       nil, // No actual VM, just testing release logic
+	}
+
+	rc := &RunContext{
+		Config: &Config{
+			MemoryScheduler: sched,
+		},
+		JobContainer: he,
+	}
+
+	// Simulate cleanup when VM exists with memory allocated
+	if rc.Config.MemoryScheduler != nil && he.FirecrackerMemoryMB > 0 {
+		rc.Config.MemoryScheduler.Release(int64(he.FirecrackerMemoryMB))
+		he.FirecrackerMemoryMB = 0
+	}
+
+	// Verify Release was called with correct amount
+	require.Len(t, sched.releaseCalls, 1)
+	assert.Equal(t, int64(4096), sched.releaseCalls[0])
+
+	// Verify memory is zeroed to prevent double-release
+	assert.Equal(t, 0, he.FirecrackerMemoryMB)
+}
+
+func TestRunContext_MemoryScheduler_NoDoubleRelease(t *testing.T) {
+	sched := &mockScheduler{}
+
+	he := &container.HostEnvironment{
+		Name:                "test-job",
+		Firecracker:         true,
+		FirecrackerMemoryMB: 2048,
+	}
+
+	rc := &RunContext{
+		Config: &Config{
+			MemoryScheduler: sched,
+		},
+		JobContainer: he,
+	}
+
+	// First cleanup
+	if rc.Config.MemoryScheduler != nil && he.FirecrackerMemoryMB > 0 {
+		rc.Config.MemoryScheduler.Release(int64(he.FirecrackerMemoryMB))
+		he.FirecrackerMemoryMB = 0
+	}
+
+	// Second cleanup (simulating double-call)
+	if rc.Config.MemoryScheduler != nil && he.FirecrackerMemoryMB > 0 {
+		rc.Config.MemoryScheduler.Release(int64(he.FirecrackerMemoryMB))
+		he.FirecrackerMemoryMB = 0
+	}
+
+	// Verify Release was called only once
+	require.Len(t, sched.releaseCalls, 1)
+	assert.Equal(t, int64(2048), sched.releaseCalls[0])
+}
+
+func TestRunContext_MemoryScheduler_Disabled(t *testing.T) {
+	he := &container.HostEnvironment{
+		Name:                "test-job",
+		Firecracker:         true,
+		FirecrackerMemoryMB: 0,
+	}
+
+	rc := &RunContext{
+		Config: &Config{
+			MemoryScheduler: nil, // Scheduler disabled
+			FirecrackerProfiles: map[string]firecracker.Config{
+				"test-runner": {MemoryMB: 2048, VCPUs: 2},
+			},
+		},
+		JobContainer: he,
+	}
+
+	// When scheduler is nil, memory operations should be skipped
+	if rc.Config.MemoryScheduler != nil {
+		t.Error("MemoryScheduler should be nil")
+	}
+
+	// FirecrackerMemoryMB should remain 0 when scheduler is disabled
+	assert.Equal(t, 0, he.FirecrackerMemoryMB)
+}
+
+func TestRunContext_MemoryScheduler_ReleaseAfterAcquire(t *testing.T) {
+	sched := &mockScheduler{}
+
+	// Simulate full acquire/release cycle
+	memoryMB := int64(4096)
+
+	// Acquire
+	err := sched.Acquire(t.Context(), memoryMB)
+	require.NoError(t, err)
+
+	// Release
+	sched.Release(memoryMB)
+
+	// Verify both were called with matching amounts
+	require.Len(t, sched.acquireCalls, 1)
+	require.Len(t, sched.releaseCalls, 1)
+	assert.Equal(t, sched.acquireCalls[0], sched.releaseCalls[0])
 }

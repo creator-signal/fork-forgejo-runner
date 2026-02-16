@@ -16,6 +16,7 @@ import (
 
 	pingv1 "code.forgejo.org/forgejo/actions-proto/ping/v1"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+	"code.forgejo.org/forgejo/runner/v12/act/firecracker"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/report"
@@ -1309,4 +1310,177 @@ jobs:
 `
 		runWorkflow(ctx, cancel, workflow, "", "", "")
 	})
+}
+
+func TestBuildFirecrackerProfiles(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      *config.Config
+		wantKeys []string
+		validate func(t *testing.T, profiles map[string]firecracker.Config)
+	}{
+		{
+			name: "empty profiles returns empty map",
+			cfg: &config.Config{
+				Firecracker: config.Firecracker{
+					Profiles: map[string]config.FirecrackerProfile{},
+				},
+			},
+			wantKeys: []string{},
+		},
+		{
+			name: "nil profiles returns empty map",
+			cfg: &config.Config{
+				Firecracker: config.Firecracker{
+					Profiles: nil,
+				},
+			},
+			wantKeys: []string{},
+		},
+		{
+			name: "single profile inherits base config",
+			cfg: &config.Config{
+				Firecracker: config.Firecracker{
+					KernelPath:      "/path/to/kernel",
+					RootFSTemplate:  "/path/to/rootfs",
+					Binary:          "/usr/local/bin/firecracker",
+					NetworkPrefix:   "172.16",
+					SSHTimeout:      60 * time.Second,
+					OutputInterface: "eth0",
+					Profiles: map[string]config.FirecrackerProfile{
+						"small": {MemoryMB: 1024, VCPUs: 1},
+					},
+				},
+			},
+			wantKeys: []string{"small"},
+			validate: func(t *testing.T, profiles map[string]firecracker.Config) {
+				small := profiles["small"]
+				assert.Equal(t, "/path/to/kernel", small.KernelPath)
+				assert.Equal(t, "/path/to/rootfs", small.RootFSTemplate)
+				assert.Equal(t, "/usr/local/bin/firecracker", small.FirecrackerBin)
+				assert.Equal(t, "172.16", small.NetworkPrefix)
+				assert.Equal(t, "eth0", small.OutputInterface)
+				assert.Equal(t, 60*time.Second, small.SSHTimeout)
+				assert.Equal(t, 1024, small.MemoryMB)
+				assert.Equal(t, 1, small.VCPUs)
+			},
+		},
+		{
+			name: "multiple profiles with different memory and vcpus",
+			cfg: &config.Config{
+				Firecracker: config.Firecracker{
+					KernelPath:     "/path/to/kernel",
+					RootFSTemplate: "/path/to/rootfs",
+					SSHTimeout:     60 * time.Second,
+					Profiles: map[string]config.FirecrackerProfile{
+						"small":  {MemoryMB: 1024, VCPUs: 1},
+						"medium": {MemoryMB: 2048, VCPUs: 2},
+						"large":  {MemoryMB: 8192, VCPUs: 4},
+					},
+				},
+			},
+			wantKeys: []string{"small", "medium", "large"},
+			validate: func(t *testing.T, profiles map[string]firecracker.Config) {
+				assert.Equal(t, 1024, profiles["small"].MemoryMB)
+				assert.Equal(t, 1, profiles["small"].VCPUs)
+				assert.Equal(t, 2048, profiles["medium"].MemoryMB)
+				assert.Equal(t, 2, profiles["medium"].VCPUs)
+				assert.Equal(t, 8192, profiles["large"].MemoryMB)
+				assert.Equal(t, 4, profiles["large"].VCPUs)
+			},
+		},
+		{
+			name: "profile SSHTimeout overrides base SSHTimeout",
+			cfg: &config.Config{
+				Firecracker: config.Firecracker{
+					SSHTimeout: 60 * time.Second,
+					Profiles: map[string]config.FirecrackerProfile{
+						"default":        {MemoryMB: 1024, VCPUs: 1}, // uses base timeout
+						"custom-timeout": {MemoryMB: 2048, VCPUs: 2, SSHTimeout: 120 * time.Second},
+					},
+				},
+			},
+			wantKeys: []string{"default", "custom-timeout"},
+			validate: func(t *testing.T, profiles map[string]firecracker.Config) {
+				assert.Equal(t, 60*time.Second, profiles["default"].SSHTimeout)
+				assert.Equal(t, 120*time.Second, profiles["custom-timeout"].SSHTimeout)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			profiles := buildFirecrackerProfiles(tt.cfg)
+
+			// Check expected keys
+			assert.Len(t, profiles, len(tt.wantKeys))
+			for _, key := range tt.wantKeys {
+				_, ok := profiles[key]
+				assert.True(t, ok, "expected profile %q to exist", key)
+			}
+
+			// Run custom validation if provided
+			if tt.validate != nil {
+				tt.validate(t, profiles)
+			}
+		})
+	}
+}
+
+func TestSetupMemoryScheduler_Disabled(t *testing.T) {
+	disabled := false
+	cfg := &config.Config{
+		Firecracker: config.Firecracker{
+			MemoryScheduling: config.MemorySchedulingConfig{
+				Enabled: &disabled,
+			},
+		},
+	}
+
+	sched := setupMemoryScheduler(cfg)
+	assert.Nil(t, sched)
+}
+
+func TestSetupMemoryScheduler_Enabled(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux", "Memory detection only works on Linux")
+
+	enabled := true
+	cfg := &config.Config{
+		Firecracker: config.Firecracker{
+			MemoryScheduling: config.MemorySchedulingConfig{
+				Enabled:        &enabled,
+				MaxCommitMB:    8000,
+				ReserveMB:      2048,
+				AcquireTimeout: 2 * time.Minute,
+			},
+		},
+	}
+
+	sched := setupMemoryScheduler(cfg)
+	require.NotNil(t, sched)
+
+	// Verify we can use the scheduler
+	ctx := context.Background()
+	err := sched.Acquire(ctx, 1000)
+	require.NoError(t, err)
+	sched.Release(1000)
+}
+
+func TestSetupMemoryScheduler_AutoDetect(t *testing.T) {
+	skip.If(t, runtime.GOOS != "linux", "Memory detection only works on Linux")
+
+	enabled := true
+	cfg := &config.Config{
+		Firecracker: config.Firecracker{
+			MemoryScheduling: config.MemorySchedulingConfig{
+				Enabled:        &enabled,
+				MaxCommitMB:    0, // Auto-detect
+				ReserveMB:      1024,
+				AcquireTimeout: time.Minute,
+			},
+		},
+	}
+
+	sched := setupMemoryScheduler(cfg)
+	require.NotNil(t, sched)
 }

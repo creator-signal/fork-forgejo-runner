@@ -68,6 +68,9 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 		return mockPoller
 	})()
 
+	// Mock MemoryScheduler to return nil (no memory scheduling configured)
+	mockRunner.On("MemoryScheduler").Return(nil)
+
 	pollBegunChannel := make(chan interface{})
 	shutdownChannel := make(chan interface{})
 	mockPoller.On("Poll").Run(func(args mock.Arguments) {
@@ -108,11 +111,21 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 	}()
 
 	// Wait until runDaemon reaches poller.Poll(), where we expect graceful shutdown to trigger
-	<-pollBegunChannel
+	select {
+	case <-pollBegunChannel:
+		// Success - daemon reached Poll()
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for runDaemon to reach Poll() - daemon may have failed during initialization")
+	}
 
 	// Now we'll signal to the daemon to begin graceful shutdown; this begins the events described in #2
 	cancelSignal()
 
 	// Wait for the daemon goroutine to stop
-	<-runDaemonComplete
+	select {
+	case <-runDaemonComplete:
+		// Success - daemon shut down
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for runDaemon to complete shutdown")
+	}
 }

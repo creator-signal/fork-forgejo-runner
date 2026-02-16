@@ -17,6 +17,7 @@ type jobInfo interface {
 	startContainer() common.Executor
 	stopContainer() common.Executor
 	closeContainer() common.Executor
+	logContainerStats() common.Executor
 	interpolateOutputs() common.Executor
 	result(result string)
 }
@@ -165,9 +166,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		common.NewPipelineExecutor(pipeline...).
 			Finally(func(ctx context.Context) error { //nolint:contextcheck
 				var cancel context.CancelFunc
-				if ctx.Err() == context.Canceled {
-					// in case of an aborted run, we still should execute the
-					// post steps to allow cleanup.
+				if ctx.Err() != nil {
+					// in case of an aborted or timed-out run, we still should execute the
+					// post steps to allow cleanup (e.g., cache save).
 					ctx, cancel = context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), cleanupTimeout)
 					defer cancel()
 				}
@@ -175,6 +176,7 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			}).
 			Finally(info.interpolateOutputs()).
 			Finally(setJobResults).
+			Finally(info.logContainerStats()).
 			Finally(cleanupJob).
 			Finally(info.closeContainer()))
 }

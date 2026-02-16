@@ -81,6 +81,12 @@ func (jim *jobInfoMock) closeContainer() common.Executor {
 	return args.Get(0).(func(context.Context) error)
 }
 
+func (jim *jobInfoMock) logContainerStats() common.Executor {
+	args := jim.Called()
+
+	return args.Get(0).(func(context.Context) error)
+}
+
 func (jim *jobInfoMock) interpolateOutputs() common.Executor {
 	args := jim.Called()
 
@@ -344,6 +350,10 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 
 				jim.On("interpolateOutputs").Return(func(ctx context.Context) error {
 					executorOrder = append(executorOrder, "interpolateOutputs")
+					return nil
+				})
+
+				jim.On("logContainerStats").Return(func(ctx context.Context) error {
 					return nil
 				})
 

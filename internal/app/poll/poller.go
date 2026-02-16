@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
+	"code.forgejo.org/forgejo/runner/v12/act/firecracker"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
@@ -26,6 +27,7 @@ const PollerID = "PollerID"
 type Poller interface {
 	Poll()
 	Shutdown(ctx context.Context) error
+	SetMemoryScheduler(firecracker.Scheduler)
 }
 
 type poller struct {
@@ -39,7 +41,8 @@ type poller struct {
 	jobsCtx      context.Context
 	shutdownJobs context.CancelFunc
 
-	done chan any
+	done            chan any
+	memoryScheduler firecracker.Scheduler
 }
 
 func New(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) Poller {
@@ -68,6 +71,10 @@ func (p *poller) init(ctx context.Context, cfg *config.Config, clients []client.
 	p.done = done
 
 	return p
+}
+
+func (p *poller) SetMemoryScheduler(s firecracker.Scheduler) {
+	p.memoryScheduler = s
 }
 
 func (p *poller) Poll() {
@@ -110,6 +117,19 @@ func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runn
 
 		fetchMutex <- struct{}{} // lock mutex
 		availableCapacity := capacity - inProgressTasks.Load()
+
+		// Apply memory-based capacity limit if configured
+		if p.memoryScheduler != nil {
+			minMem := p.memoryScheduler.MinJobMemoryMB()
+			if minMem > 0 {
+				memCap := p.memoryScheduler.Available() / minMem
+				if memCap < availableCapacity {
+					log.Debugf("[poller] memory-limited capacity: %d -> %d", availableCapacity, memCap)
+					availableCapacity = memCap
+				}
+			}
+		}
+
 		if availableCapacity > 0 {
 			log.Tracef("[poller] fetching at most %d tasks from client %s", availableCapacity, client.Address())
 			tasks, ok := p.fetchTasks(p.pollingCtx, client, taskVersions, availableCapacity)

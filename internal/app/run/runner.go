@@ -21,6 +21,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/artifactcache"
 	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
 	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v12/act/firecracker"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"code.forgejo.org/forgejo/runner/v12/act/runner"
 	"connectrpc.com/connect"
@@ -44,7 +45,8 @@ type Runner struct {
 	labels labels.Labels
 	envs   map[string]string
 
-	cacheProxy *cacheproxy.Handler
+	cacheProxy      *cacheproxy.Handler
+	memoryScheduler firecracker.Scheduler
 
 	runningTasks sync.Map
 }
@@ -52,6 +54,7 @@ type Runner struct {
 //go:generate mockery --name RunnerInterface
 type RunnerInterface interface {
 	Run(ctx context.Context, task *runnerv1.Task) error
+	MemoryScheduler() firecracker.Scheduler
 }
 
 func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client, cacheProxy *cacheproxy.Handler) *Runner {
@@ -86,13 +89,39 @@ func NewRunner(cfg *config.Config, reg *config.Registration, cli client.Client, 
 	envs["FORGEJO_ACTIONS_RUNNER_VERSION"] = ver.Version()
 
 	return &Runner{
-		name:       reg.Name,
-		cfg:        cfg,
-		client:     cli,
-		labels:     ls,
-		envs:       envs,
-		cacheProxy: cacheProxy,
+		name:            reg.Name,
+		cfg:             cfg,
+		client:          cli,
+		labels:          ls,
+		envs:            envs,
+		cacheProxy:      cacheProxy,
+		memoryScheduler: setupMemoryScheduler(cfg),
 	}
+}
+
+func setupMemoryScheduler(cfg *config.Config) firecracker.Scheduler {
+	if cfg.Firecracker.MemoryScheduling.Enabled == nil || !*cfg.Firecracker.MemoryScheduling.Enabled {
+		return nil
+	}
+
+	logger := log.StandardLogger().WithField("module", "memory_scheduler")
+	scheduler, err := firecracker.NewMemorySchedulerWithLogger(
+		firecracker.MemorySchedulerConfig{
+			MaxCommitMB:    int64(cfg.Firecracker.MemoryScheduling.MaxCommitMB),
+			ReserveMB:      int64(cfg.Firecracker.MemoryScheduling.ReserveMB),
+			AcquireTimeout: cfg.Firecracker.MemoryScheduling.AcquireTimeout,
+			MinJobMemoryMB: int64(cfg.Firecracker.MemoryScheduling.MinJobMemoryMB),
+		},
+		logger,
+	)
+	if err != nil {
+		log.Errorf("Failed to create memory scheduler, scheduling disabled: %v", err)
+		return nil
+	}
+
+	log.Infof("Memory scheduler enabled: max %dMB, reserve %dMB, min_job_memory %dMB",
+		scheduler.MaxCommitMB(), cfg.Firecracker.MemoryScheduling.ReserveMB, scheduler.MinJobMemoryMB())
+	return scheduler
 }
 
 func SetupCache(cfg *config.Config) *cacheproxy.Handler {
@@ -234,12 +263,61 @@ func getWriteIsolationKey(ctx context.Context, eventName, ref string, event map[
 	return "", nil
 }
 
+// buildFirecrackerProfiles creates a map of label name to full firecracker.Config.
+// Each profile inherits base config values (kernel path, rootfs, etc.) and overrides
+// memory and vcpus from the profile definition.
+func buildFirecrackerProfiles(cfg *config.Config) map[string]firecracker.Config {
+	profiles := make(map[string]firecracker.Config, len(cfg.Firecracker.Profiles))
+	for name, profile := range cfg.Firecracker.Profiles {
+		sshTimeout := cfg.Firecracker.SSHTimeout
+		if profile.SSHTimeout > 0 {
+			sshTimeout = profile.SSHTimeout
+		}
+		profiles[name] = firecracker.Config{
+			KernelPath:      cfg.Firecracker.KernelPath,
+			RootFSTemplate:  cfg.Firecracker.RootFSTemplate,
+			FirecrackerBin:  cfg.Firecracker.Binary,
+			NetworkPrefix:   cfg.Firecracker.NetworkPrefix,
+			OutputInterface: cfg.Firecracker.OutputInterface,
+			MemoryMB:        profile.MemoryMB,
+			VCPUs:           profile.VCPUs,
+			SSHTimeout:      sshTimeout,
+			// Jailer configuration
+			UseJailer:     cfg.Firecracker.UseJailer != nil && *cfg.Firecracker.UseJailer,
+			JailerBin:     cfg.Firecracker.JailerBinary,
+			JailerUID:     cfg.Firecracker.JailerUID,
+			JailerGID:     cfg.Firecracker.JailerGID,
+			ChrootBaseDir: cfg.Firecracker.ChrootBaseDir,
+		}
+	}
+	return profiles
+}
+
 func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.Reporter) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
+
+	// Validate: if runner has firecracker labels, profiles must be defined and match
+	if r.labels.RequireFirecracker() {
+		if len(r.cfg.Firecracker.Profiles) == 0 {
+			return fmt.Errorf("runner has firecracker labels but no profiles defined in config.yaml firecracker.profiles")
+		}
+		// Validate that every firecracker label has a matching profile
+		for _, label := range r.labels {
+			if label.Schema == labels.SchemeFirecracker {
+				if _, ok := r.cfg.Firecracker.Profiles[label.Name]; !ok {
+					availableProfiles := make([]string, 0, len(r.cfg.Firecracker.Profiles))
+					for name := range r.cfg.Firecracker.Profiles {
+						availableProfiles = append(availableProfiles, name)
+					}
+					return fmt.Errorf("firecracker label %q has no matching profile in config.yaml firecracker.profiles (available: %v)", label.Name, availableProfiles)
+				}
+			}
+		}
+	}
 
 	reporter.Logf("%s(version:%s) received task %v of job %v, be triggered by event: %s", r.name, ver.Version(), task.Id, task.Context.Fields["job"].GetStringValue(), task.Context.Fields["event_name"].GetStringValue())
 
@@ -376,11 +454,16 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		Privileged:                 r.cfg.Container.Privileged,
 		DefaultActionInstance:      defaultActionURL,
 		PlatformPicker:             r.labels.PickPlatform,
+		LabelPicker:                r.labels.PickLabel,
 		Vars:                       task.Vars,
 		ValidVolumes:               r.cfg.Container.ValidVolumes,
 		InsecureSkipTLS:            r.cfg.Runner.Insecure,
 		Inputs:                     inputs,
 		ServerVersion:              serverVersion,
+		MemoryScheduler:            r.memoryScheduler,
+
+		// Firecracker profiles map label names to full configs with memory/vcpus
+		FirecrackerProfiles: buildFirecrackerProfiles(r.cfg),
 	}
 
 	if r.cfg.Log.JobLevel != "" {
@@ -420,4 +503,8 @@ func (r *Runner) Declare(ctx context.Context, labels []string) (*connect.Respons
 
 func (r *Runner) Update(ctx context.Context, labels labels.Labels) {
 	r.labels = labels
+}
+
+func (r *Runner) MemoryScheduler() firecracker.Scheduler {
+	return r.memoryScheduler
 }

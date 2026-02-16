@@ -56,6 +56,10 @@ func (*LinuxContainerEnvironmentExtensions) GetLXC() bool {
 	return false
 }
 
+func (*LinuxContainerEnvironmentExtensions) GetFirecracker() bool {
+	return false
+}
+
 func (*LinuxContainerEnvironmentExtensions) GetRoot() string {
 	return "/var/run"
 }

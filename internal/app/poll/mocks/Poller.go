@@ -5,6 +5,7 @@ package mocks
 import (
 	context "context"
 
+	"code.forgejo.org/forgejo/runner/v12/act/firecracker"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -16,6 +17,11 @@ type Poller struct {
 // Poll provides a mock function with no fields
 func (_m *Poller) Poll() {
 	_m.Called()
+}
+
+// SetMemoryScheduler provides a mock function with given fields: s
+func (_m *Poller) SetMemoryScheduler(s firecracker.Scheduler) {
+	_m.Called(s)
 }
 
 // Shutdown provides a mock function with given fields: ctx

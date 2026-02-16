@@ -86,6 +86,11 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 
 	poller := createPoller(ctx, cfg, []client.Client{cli}, []run.RunnerInterface{runner})
 
+	// Wire memory scheduler to poller for memory-aware job claiming
+	if ms := runner.MemoryScheduler(); ms != nil {
+		poller.SetMemoryScheduler(ms)
+	}
+
 	go poller.Poll()
 
 	<-signalContext.Done()

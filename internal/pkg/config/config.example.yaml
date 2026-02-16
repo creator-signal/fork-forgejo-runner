@@ -199,3 +199,39 @@ host:
   # The parent directory of a job's working directory.
   # If it's empty, $HOME/.cache/act/ will be used.
   workdir_parent:
+
+# Firecracker configuration for running jobs in microVMs.
+# Only used when labels specify the firecracker:// scheme.
+# Example label: "small:firecracker://ubuntu:22.04"
+firecracker:
+  # Path to the Linux kernel for VMs.
+  # kernel_path: /opt/firecracker/vmlinux
+  # Path to the rootfs image template.
+  # rootfs_template: /opt/firecracker/rootfs.ext4
+  # Path to the Firecracker binary.
+  # binary: /usr/local/bin/firecracker
+  # IP prefix for VM networking (e.g., "172.16").
+  # network_prefix: "172.16"
+  # Default timeout for waiting for SSH to become available.
+  # ssh_timeout: 60s
+  # Network interface for VM outbound traffic (e.g., "eth0", "eno1").
+  # When set, iptables FORWARD rules are added to allow VMs to reach external networks.
+  # When empty (default), FORWARD rules are skipped and must be managed manually.
+  # output_interface: ""
+  #
+  # Named profiles for VM resource configuration.
+  # Each profile defines memory and CPU allocation for VMs.
+  # Profile names must match the label names (e.g., "small" matches label "small:firecracker://...")
+  # At least one profile is required if any firecracker labels are configured.
+  #
+  # profiles:
+  #   small:
+  #     memory_mb: 1024   # Required: memory in megabytes (max 65536)
+  #     vcpus: 1          # Required: virtual CPUs (max 256)
+  #   medium:
+  #     memory_mb: 2048
+  #     vcpus: 2
+  #   large:
+  #     memory_mb: 8192
+  #     vcpus: 4
+  #     ssh_timeout: 120s # Optional: override default ssh_timeout for this profile

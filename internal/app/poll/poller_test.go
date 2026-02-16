@@ -16,6 +16,7 @@ import (
 	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
+	"code.forgejo.org/forgejo/runner/v12/act/firecracker"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	mock_runner "code.forgejo.org/forgejo/runner/v12/internal/app/run/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
@@ -128,6 +129,10 @@ func (o *mockRunner) Run(ctx context.Context, task *runnerv1.Task) error {
 			return nil
 		}
 	}
+}
+
+func (o *mockRunner) MemoryScheduler() firecracker.Scheduler {
+	return nil
 }
 
 func setTrace(t *testing.T) {

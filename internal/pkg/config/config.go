@@ -91,24 +91,59 @@ type Connection struct {
 	Labels labels.Labels // Labels of the runner. Mandatory value.
 }
 
+// MemorySchedulingConfig configures memory-aware VM scheduling.
+type MemorySchedulingConfig struct {
+	Enabled        *bool         // Enable memory-aware scheduling.
+	MaxCommitMB    int           // Max memory to commit (0 = auto-detect 80% of total).
+	ReserveMB      int           // Keep this much free for host.
+	AcquireTimeout time.Duration // Max wait for memory.
+	MinJobMemoryMB int           // Minimum memory per job for capacity calculation.
+}
+
+// FirecrackerProfile represents resource configuration for a named Firecracker profile.
+type FirecrackerProfile struct {
+	MemoryMB   int           // MemoryMB is the memory allocation for VMs in megabytes (required).
+	VCPUs      int           // VCPUs is the number of virtual CPUs for VMs (required).
+	SSHTimeout time.Duration // SSHTimeout overrides the base SSH timeout if set.
+}
+
+// Firecracker represents the configuration for Firecracker VM execution.
+type Firecracker struct {
+	KernelPath       string                        // KernelPath is the path to the Linux kernel for VMs.
+	RootFSTemplate   string                        // RootFSTemplate is the path to the rootfs image template.
+	Binary           string                        // Binary is the path to the Firecracker binary.
+	NetworkPrefix    string                        // NetworkPrefix is the IP prefix for VM networking (e.g., "172.16").
+	SSHTimeout       time.Duration                 // SSHTimeout is the default timeout for waiting for SSH to become available.
+	OutputInterface  string                        // OutputInterface is the network interface for VM outbound traffic. Empty skips FORWARD rules.
+	Profiles         map[string]FirecrackerProfile // Profiles defines named resource configurations (required for firecracker labels).
+	UseJailer        *bool                         // UseJailer enables jailer-based cgroup isolation per VM (default: true).
+	JailerBinary     string                        // JailerBinary is the path to the jailer binary.
+	JailerUID        int                           // JailerUID is the UID for the jailed process (0 = root).
+	JailerGID        int                           // JailerGID is the GID for the jailed process (0 = root).
+	ChrootBaseDir    string                        // ChrootBaseDir is the base directory for jailer chroots.
+	MemoryScheduling MemorySchedulingConfig        // MemoryScheduling configures memory-aware VM scheduling.
+}
+
 // Config represents the overall configuration.
 type Config struct {
-	Log       Log       // Log represents the configuration for logging.
-	Runner    Runner    // Runner represents the configuration for the runner.
-	Cache     Cache     // Cache represents the configuration for caching.
-	Container Container // Container represents the configuration for the container.
-	Host      Host      // Host represents the configuration for the host.
-	Server    Server    // Server configures connections to Forgejo and their behaviour.
+	Log         Log         // Log represents the configuration for logging.
+	Runner      Runner      // Runner represents the configuration for the runner.
+	Cache       Cache       // Cache represents the configuration for caching.
+	Container   Container   // Container represents the configuration for the container.
+	Host        Host        // Host represents the configuration for the host.
+	Server      Server      // Server configures connections to Forgejo and their behaviour.
+	Firecracker Firecracker // Firecracker represents the configuration for Firecracker VM execution.
 }
 
 // serializedConfiguration is the top-level structure of the on-disk format of the Forgejo Runner configuration.
 type serializedConfiguration struct {
-	Log       serializedLogSettings       `yaml:"log"`       // Log represents the configuration for logging.
-	Runner    serializedRunnerSettings    `yaml:"runner"`    // Runner represents the configuration for the runner.
-	Cache     serializedCacheSettings     `yaml:"cache"`     // Cache represents the configuration for caching.
-	Container serializedContainerSettings `yaml:"container"` // Container represents the configuration for the container.
-	Host      serializedHostSettings      `yaml:"host"`      // Host represents the configuration for the host.
-	Server    serializedServerSettings    `yaml:"server"`    // Server configures connections to Forgejo and their behaviour.
+	Log         serializedLogSettings         `yaml:"log"`         // Log represents the configuration for logging.
+	Runner      serializedRunnerSettings      `yaml:"runner"`      // Runner represents the configuration for the runner.
+	Cache       serializedCacheSettings       `yaml:"cache"`       // Cache represents the configuration for caching.
+	Container   serializedContainerSettings   `yaml:"container"`   // Container represents the configuration for the container.
+	Host        serializedHostSettings        `yaml:"host"`        // Host represents the configuration for the host.
+	Server      serializedServerSettings      `yaml:"server"`      // Server configures connections to Forgejo and their behaviour.
+	Firecracker serializedFirecrackerSettings `yaml:"firecracker"` // Firecracker represents the configuration for Firecracker VM execution.
 }
 
 func (s *serializedConfiguration) applyTo(config *Config) error {
@@ -129,6 +164,9 @@ func (s *serializedConfiguration) applyTo(config *Config) error {
 	}
 	if err := s.Server.applyTo(config); err != nil {
 		return fmt.Errorf("invalid `server` settings: %w", err)
+	}
+	if err := s.Firecracker.applyTo(config); err != nil {
+		return fmt.Errorf("invalid `firecracker` settings: %w", err)
 	}
 	return nil
 }
@@ -431,6 +469,115 @@ func (s *serializedConnectionSettings) applyTo(config *Config, connectionName st
 	return nil
 }
 
+// serializedFirecrackerProfileSettings is the on-disk format for a Firecracker resource profile.
+type serializedFirecrackerProfileSettings struct {
+	MemoryMB   int           `yaml:"memory_mb"`   // Memory allocation in megabytes (required).
+	VCPUs      int           `yaml:"vcpus"`        // Virtual CPU count (required).
+	SSHTimeout time.Duration `yaml:"ssh_timeout"`  // Override base SSH timeout for this profile.
+}
+
+// serializedMemorySchedulingSettings is the on-disk format for memory-aware scheduling config.
+type serializedMemorySchedulingSettings struct {
+	Enabled        *bool         `yaml:"enabled"`           // Enable memory-aware scheduling.
+	MaxCommitMB    int           `yaml:"max_commit_mb"`     // Max memory to commit (0 = auto-detect 80% of total).
+	ReserveMB      int           `yaml:"reserve_mb"`        // Keep this much free for host.
+	AcquireTimeout time.Duration `yaml:"acquire_timeout"`   // Max wait for memory.
+	MinJobMemoryMB int           `yaml:"min_job_memory_mb"` // Minimum memory per job for capacity calculation.
+}
+
+// serializedFirecrackerSettings is the on-disk format for Firecracker VM execution config.
+type serializedFirecrackerSettings struct {
+	KernelPath       string                                       `yaml:"kernel_path"`       // Path to the Linux kernel for VMs.
+	RootFSTemplate   string                                       `yaml:"rootfs_template"`   // Path to the rootfs image template.
+	Binary           string                                       `yaml:"binary"`            // Path to the Firecracker binary.
+	NetworkPrefix    string                                       `yaml:"network_prefix"`    // IP prefix for VM networking (e.g., "172.16").
+	SSHTimeout       time.Duration                                `yaml:"ssh_timeout"`       // Default timeout for waiting for SSH.
+	OutputInterface  string                                       `yaml:"output_interface"`  // Network interface for VM outbound traffic.
+	Profiles         map[string]serializedFirecrackerProfileSettings `yaml:"profiles"`        // Named resource configurations.
+	UseJailer        *bool                                        `yaml:"use_jailer"`        // Enable jailer-based cgroup isolation per VM (default: true).
+	JailerBinary     string                                       `yaml:"jailer_binary"`     // Path to the jailer binary.
+	JailerUID        int                                          `yaml:"jailer_uid"`        // UID for the jailed process.
+	JailerGID        int                                          `yaml:"jailer_gid"`        // GID for the jailed process.
+	ChrootBaseDir    string                                       `yaml:"chroot_base_dir"`   // Base directory for jailer chroots.
+	MemoryScheduling serializedMemorySchedulingSettings           `yaml:"memory_scheduling"` // Memory-aware VM scheduling config.
+}
+
+func (s *serializedFirecrackerSettings) applyTo(config *Config) error {
+	if s.KernelPath != "" {
+		config.Firecracker.KernelPath = s.KernelPath
+	}
+	if s.RootFSTemplate != "" {
+		config.Firecracker.RootFSTemplate = s.RootFSTemplate
+	}
+	if s.Binary != "" {
+		config.Firecracker.Binary = s.Binary
+	}
+	if s.NetworkPrefix != "" {
+		config.Firecracker.NetworkPrefix = s.NetworkPrefix
+	}
+	if s.SSHTimeout != 0 {
+		config.Firecracker.SSHTimeout = s.SSHTimeout
+	}
+	config.Firecracker.OutputInterface = s.OutputInterface
+	if s.UseJailer != nil {
+		config.Firecracker.UseJailer = s.UseJailer
+	}
+	if s.JailerBinary != "" {
+		config.Firecracker.JailerBinary = s.JailerBinary
+	}
+	config.Firecracker.JailerUID = s.JailerUID
+	config.Firecracker.JailerGID = s.JailerGID
+	if s.ChrootBaseDir != "" {
+		config.Firecracker.ChrootBaseDir = s.ChrootBaseDir
+	}
+
+	// Apply profiles
+	if len(s.Profiles) > 0 {
+		config.Firecracker.Profiles = make(map[string]FirecrackerProfile, len(s.Profiles))
+		for name, p := range s.Profiles {
+			if p.MemoryMB <= 0 {
+				return fmt.Errorf("profile %q: memory_mb is required and must be positive", name)
+			}
+			if p.MemoryMB > 65536 {
+				return fmt.Errorf("profile %q: memory_mb %d exceeds maximum 65536", name, p.MemoryMB)
+			}
+			if p.VCPUs <= 0 {
+				return fmt.Errorf("profile %q: vcpus is required and must be positive", name)
+			}
+			if p.VCPUs > 256 {
+				return fmt.Errorf("profile %q: vcpus %d exceeds maximum 256", name, p.VCPUs)
+			}
+			if p.SSHTimeout != 0 && (p.SSHTimeout < 5*time.Second || p.SSHTimeout > 5*time.Minute) {
+				return fmt.Errorf("profile %q: ssh_timeout must be between 5s and 5m", name)
+			}
+			config.Firecracker.Profiles[name] = FirecrackerProfile{
+				MemoryMB:   p.MemoryMB,
+				VCPUs:      p.VCPUs,
+				SSHTimeout: p.SSHTimeout,
+			}
+		}
+	}
+
+	// Apply memory scheduling
+	if s.MemoryScheduling.Enabled != nil {
+		config.Firecracker.MemoryScheduling.Enabled = s.MemoryScheduling.Enabled
+	}
+	if s.MemoryScheduling.MaxCommitMB != 0 {
+		config.Firecracker.MemoryScheduling.MaxCommitMB = s.MemoryScheduling.MaxCommitMB
+	}
+	if s.MemoryScheduling.ReserveMB != 0 {
+		config.Firecracker.MemoryScheduling.ReserveMB = s.MemoryScheduling.ReserveMB
+	}
+	if s.MemoryScheduling.AcquireTimeout != 0 {
+		config.Firecracker.MemoryScheduling.AcquireTimeout = s.MemoryScheduling.AcquireTimeout
+	}
+	if s.MemoryScheduling.MinJobMemoryMB != 0 {
+		config.Firecracker.MemoryScheduling.MinJobMemoryMB = s.MemoryScheduling.MinJobMemoryMB
+	}
+
+	return nil
+}
+
 // Option for customizing Config instances after their initialization.
 type Option func(config *Config) error
 
@@ -458,6 +605,21 @@ func New(opts ...Option) (*Config, error) {
 		Cache:     Cache{Enabled: true, Dir: filepath.Join(home, ".cache", "actcache")},
 		Container: Container{DockerHost: "-", WorkdirParent: "workspace", ValidVolumes: []string{}},
 		Host:      Host{WorkdirParent: filepath.Join(home, ".cache", "act")},
+		Firecracker: Firecracker{
+			KernelPath:     "/opt/firecracker/vmlinux",
+			RootFSTemplate: "/opt/firecracker/rootfs.ext4",
+			Binary:         "/usr/local/bin/firecracker",
+			NetworkPrefix:  "172.16",
+			SSHTimeout:     60 * time.Second,
+			UseJailer:      boolPtr(true),
+			JailerBinary:   "/usr/local/bin/jailer",
+			ChrootBaseDir:  "/srv/jailer",
+			MemoryScheduling: MemorySchedulingConfig{
+				Enabled:        boolPtr(true),
+				ReserveMB:      4096,
+				AcquireTimeout: time.Hour,
+			},
+		},
 	}
 
 	for _, opt := range opts {
@@ -509,6 +671,8 @@ func (c *Config) Tune(instanceURL string) {
 		}
 	}
 }
+
+func boolPtr(b bool) *bool { return &b }
 
 func readEnvFile(path string) (map[string]string, error) {
 	stat, err := os.Stat(path)

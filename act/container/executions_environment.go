@@ -8,6 +8,7 @@ type ExecutionsEnvironment interface {
 	GetName() string
 	GetRoot() string
 	GetLXC() bool
+	GetFirecracker() bool
 	GetActPath() string
 	GetPathVariableName() string
 	DefaultPathVariable() string
