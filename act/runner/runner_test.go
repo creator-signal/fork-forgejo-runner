@@ -813,6 +813,10 @@ func TestRunner_MixedArchitecture(t *testing.T) {
 }
 
 func TestRunner_ReusableWorkflowGitHubInstance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
 	for _, gitHubInstance := range []string{"code.forgejo.org", "https://code.forgejo.org"} {
 		t.Run(gitHubInstance, func(t *testing.T) {
 			tjfi := TestJobFileInfo{
