@@ -2,6 +2,20 @@
 
 This document explains the Firecracker Jailer integration for per-VM memory isolation using cgroups.
 
+## Prerequisites
+
+- **Linux host** with cgroups support (v2 recommended, e.g. Ubuntu 24.04+)
+- **KVM support** — `/dev/kvm` must be readable by the runner
+- **Firecracker with jailer** — both binaries ship in the same [release archive](https://github.com/firecracker-microvm/firecracker/releases)
+- **Same filesystem** — the kernel, firecracker binary, and `chroot_base_dir` must be on the same filesystem (jailer uses hard-links)
+
+Verify the filesystem requirement:
+
+```bash
+# These should show the same device number
+stat -c '%d %n' /opt/firecracker/vmlinux /usr/local/bin/firecracker /srv/jailer
+```
+
 ## Problem Statement
 
 When multiple concurrent VMs run without isolation, they share the runner process's cgroup. If total memory usage exceeds the host's available RAM, the Linux OOM killer may terminate the forgejo-runner service process (the parent) rather than individual VMs. This causes all running jobs to crash simultaneously.
@@ -16,10 +30,10 @@ The Firecracker Jailer creates a dedicated cgroup for each VM with a configurabl
 
 Jailer is a companion binary included in official Firecracker releases. It provides:
 
-1. **Cgroup isolation**: Each VM runs in its own cgroup with resource limits
+1. **Cgroup isolation**: Each VM runs in its own cgroup with resource limits (memory, CPU accounting)
 2. **Chroot isolation**: VMs run in a restricted filesystem namespace
-3. **User namespace isolation**: VMs can run as unprivileged users (optional)
-4. **Device node management**: Automatically creates `/dev/kvm` and `/dev/net/tun` in the chroot
+3. **User namespace isolation**: VMs can run as unprivileged users (optional — requires non-zero UID/GID)
+4. **Device node management**: Automatically creates `/dev/kvm` (KVM virtualization) and `/dev/net/tun` (TAP networking) in the chroot
 
 ### Process Hierarchy
 
@@ -53,10 +67,10 @@ When jailer is enabled, each VM gets a unique jail directory:
 └── firecracker/
     └── fc-{name}-{timestamp}/         # Unique VM ID
         └── root/                      # Chroot root for this VM
-            ├── vmlinux                # Hard-link to kernel (shared)
-            ├── rootfs.ext4            # Per-VM rootfs (moved from vmDir)
-            ├── ssh_key                # Per-VM SSH private key
-            ├── ssh_key.pub            # Per-VM SSH public key
+            ├── vmlinux                # Hard-link to kernel (instant, no extra disk space)
+            ├── rootfs.ext4            # Per-VM rootfs (moved from vmDir, not copied)
+            ├── ssh_key                # Per-VM SSH private key (moved from vmDir)
+            ├── ssh_key.pub            # Per-VM SSH public key (moved, optional)
             ├── config.json            # Firecracker config (chroot-relative paths)
             ├── firecracker            # Hard-link to firecracker binary (created by jailer)
             ├── firecracker.pid        # PID file (created by jailer when daemonized)
@@ -73,7 +87,7 @@ The firecracker config inside the jail uses chroot-relative paths:
 - RootFS: `/rootfs.ext4`
 - API socket: (not used, config-file mode)
 
-The runner tracks the actual host paths for SSH key access.
+The runner updates its SSH key reference to the jail path (e.g., `/srv/jailer/firecracker/fc-vm-123/root/ssh_key`) after the key is moved into the jail. The original VM directory no longer contains the key after `Start()`.
 
 ## Configuration
 
@@ -84,7 +98,7 @@ firecracker:
   # ... existing fields ...
 
   # Jailer settings
-  use_jailer: true                        # Enable jailer (default: false)
+  use_jailer: true                        # Enable jailer (default: true)
   jailer_binary: /usr/local/bin/jailer    # Path to jailer binary
   jailer_uid: 0                           # UID for jailed process (0=root)
   jailer_gid: 0                           # GID for jailed process (0=root)
@@ -136,7 +150,7 @@ Detection checks for `/sys/fs/cgroup/cgroup.controllers` which only exists in cg
 The current implementation keeps VMs in the host network namespace:
 
 1. TAP devices are created in the host namespace before jailer starts
-2. Jailer receives `--netns /proc/1/ns/net` to use the host network namespace
+2. Jailer receives `--netns /proc/1/ns/net` to use the init process's network namespace (i.e., the host network namespace)
 3. Firecracker binds to the pre-created TAP device
 
 This means network isolation is unchanged from non-jailer mode. Each VM still gets:
@@ -212,8 +226,8 @@ Key flags:
 - Jail directories are cleaned up after VM termination
 
 ### Filesystem Requirements
-- Hard-links require same filesystem for source and destination
-- Kernel and firecracker binary must be on same filesystem as `/srv/jailer`
+- Hard-links require same filesystem for source and destination — if kernel or firecracker binary are on a different filesystem from `chroot_base_dir`, jailer startup will fail
+- Verify with: `stat -c '%d %n' /opt/firecracker/vmlinux /usr/local/bin/firecracker /srv/jailer` (device numbers must match)
 - Consider using XFS or Btrfs for reflink support on rootfs copies
 
 ## Troubleshooting
@@ -257,8 +271,28 @@ If VMs fail to start with jailer:
 
 4. Look for jailer errors in runner logs (jailer stderr is captured)
 
+### Hard-Link Failures
+
+If jailer fails with a hard-link error, the source and destination are on different filesystems:
+
+```bash
+# Check device numbers match
+stat -c '%d %n' /opt/firecracker/vmlinux /srv/jailer
+# If they differ, move files to the same filesystem or change chroot_base_dir
+```
+
+### PID File Not Found
+
+Jailer starts but the runner can't find `firecracker.pid` (the runner retries 50 times at 100ms intervals, giving up after ~5 seconds):
+- Check jailer binary is the correct version: `/usr/local/bin/jailer --version`
+- Check `chroot_base_dir` is writable
+- Verify kernel and firecracker binary paths are valid
+- Check runner stderr for jailer error output
+
 ### OOM Events
+
 When a VM is killed by OOM, check:
+
 ```bash
 dmesg | grep -i oom
 journalctl -k | grep -i "killed process"
@@ -266,14 +300,44 @@ journalctl -k | grep -i "killed process"
 
 The output should show the firecracker process being killed, not the runner.
 
-## Configuration Default
+## Monitoring
 
-Jailer is enabled by default (`use_jailer: true`). To disable:
+### Resource Usage Logging
+
+When jailer is enabled, the runner automatically reads cgroup stats before VM cleanup and logs them at the `info` level:
+
+```
+Firecracker: VM build-job usage: requested 8192MB/4vcpu, used 6144MB peak (current 4096MB), 23.5s CPU
+```
+
+### Reading Cgroup Stats Directly
+
+For live monitoring of a running VM:
+
+```bash
+# cgroup v2 (Ubuntu 24.04+)
+VMID=fc-build-1234567890
+cat /sys/fs/cgroup/firecracker/$VMID/memory.current   # bytes currently used
+cat /sys/fs/cgroup/firecracker/$VMID/memory.peak      # high-water mark
+cat /sys/fs/cgroup/firecracker/$VMID/memory.max       # configured limit
+cat /sys/fs/cgroup/firecracker/$VMID/cpu.stat          # CPU time (usage_usec)
+
+# cgroup v1
+cat /sys/fs/cgroup/memory/firecracker/$VMID/memory.usage_in_bytes
+cat /sys/fs/cgroup/memory/firecracker/$VMID/memory.max_usage_in_bytes
+cat /sys/fs/cgroup/cpuacct/firecracker/$VMID/cpuacct.usage  # nanoseconds
+```
+
+## Disabling Jailer
+
+Jailer is enabled by default. To disable:
 
 ```yaml
 firecracker:
   use_jailer: false
 ```
+
+Without jailer, all VMs share the runner's cgroup and there is no per-VM memory limit enforcement.
 
 ## Security Notes
 

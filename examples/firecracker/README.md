@@ -2,10 +2,12 @@
 
 Run Forgejo Actions jobs in [Firecracker](https://firecracker-microvm.github.io/) microVMs for strong isolation, fast boot times, and reproducible environments.
 
+> **Note:** Firecracker is only supported on Linux. The runner compiles on other platforms but Firecracker jobs will fail with an error.
+
 ## Prerequisites
 
 - **Linux host with KVM support** - `/dev/kvm` must be accessible
-- **Firecracker binary** - [Install from releases](https://github.com/firecracker-microvm/firecracker/releases)
+- **Firecracker binary** - [Install from releases](https://github.com/firecracker-microvm/firecracker/releases) (tested with 1.7.x+)
 - **Linux kernel** - A vmlinux kernel image for the VMs
 - **Root filesystem** - An ext4 image with SSH server and basic tools
 - **Network tools** - `ip` and `iptables` commands available
@@ -40,9 +42,12 @@ mkdir -p /mnt/rootfs
 mount /opt/firecracker/rootfs.ext4 /mnt/rootfs
 debootstrap --include=openssh-server,git stable /mnt/rootfs
 
+# Generate an SSH keypair if you don't have one
+[ -f ~/.ssh/id_ed25519.pub ] || ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+
 # Configure SSH
 mkdir -p /mnt/rootfs/root/.ssh
-cat ~/.ssh/id_rsa.pub >> /mnt/rootfs/root/.ssh/authorized_keys
+cat ~/.ssh/id_ed25519.pub >> /mnt/rootfs/root/.ssh/authorized_keys
 chmod 600 /mnt/rootfs/root/.ssh/authorized_keys
 
 # Enable root login
@@ -65,6 +70,12 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 net.ipv4.ip_forward = 1
 ```
 
+Verify it's enabled:
+
+```bash
+cat /proc/sys/net/ipv4/ip_forward  # Should output: 1
+```
+
 ### Configure iptables NAT
 
 Replace `eth0` with your host's outbound network interface:
@@ -82,9 +93,11 @@ iptables -A FORWARD -i tap+ -j ACCEPT
 
 To make these rules persistent, use `iptables-save` or your distribution's method.
 
+> **Note:** The runner's auto-generated NAT rules exclude `172.16.0.0/16` from masquerading to prevent NAT loops between VMs on the same host.
+
 ### Automatic FORWARD Rules
 
-Set `output_interface` in your config to have the runner automatically add FORWARD rules for each VM:
+Set `output_interface` in your config to have the runner add per-VM FORWARD rules automatically, removing them when the VM stops:
 
 ```yaml
 firecracker:
@@ -92,6 +105,14 @@ firecracker:
 ```
 
 When empty (default), you must manage FORWARD rules manually as shown above.
+
+### Subnet Allocation
+
+Each VM gets a unique subnet from the configured `network_prefix`. Subnets are numbered 1-254:
+- Host side: `{network_prefix}.{N}.1`
+- VM side: `{network_prefix}.{N}.2`
+
+For example, with the default prefix `172.16`, the first VM gets `172.16.1.2` and the host-side TAP gets `172.16.1.1`.
 
 ## Configuration
 
@@ -151,6 +172,8 @@ runner:
 | `profiles` | Map of profile name to resources | (required) |
 | `use_jailer` | Enable cgroup isolation per VM (see below) | true |
 | `jailer_binary` | Path to jailer binary | /usr/local/bin/jailer |
+| `jailer_uid` | UID for jailed process (0 = root) | 0 |
+| `jailer_gid` | GID for jailed process (0 = root) | 0 |
 | `chroot_base_dir` | Base directory for jailer chroots | /srv/jailer |
 
 ### Jailer (Cgroup Isolation)
@@ -178,13 +201,15 @@ See [JAILER.md](../../docs/JAILER.md) for detailed documentation.
 
 ## Runner Registration
 
-Register the runner with Firecracker labels:
+Register the runner with Firecracker labels. Each label maps a name to the `firecracker` scheme (the image portion after `://` is metadata for Forgejo):
 
 ```bash
 forgejo-runner register \
   --instance https://your-forgejo.example.com \
   --token YOUR_REGISTRATION_TOKEN \
-  --labels "small:firecracker://ubuntu:22.04,medium:firecracker://ubuntu:22.04,large:firecracker://ubuntu:22.04"
+  --labels small:firecracker://ubuntu:22.04 \
+  --labels medium:firecracker://ubuntu:22.04 \
+  --labels large:firecracker://ubuntu:22.04
 ```
 
 ## Workflow Usage
@@ -217,33 +242,37 @@ jobs:
 
 ## Memory Scheduling
 
-By default, the runner accepts jobs without tracking total memory commitment. This can lead to over-commitment where multiple VMs exhaust host memory, causing the OOM killer to terminate processes.
-
-Memory scheduling prevents this by tracking committed memory and queuing jobs when capacity is reached.
+Memory scheduling is enabled by default. It tracks committed memory across VMs and queues jobs when capacity is reached, preventing the OOM killer from terminating the runner or unrelated VMs.
 
 ### Configuration
 
 ```yaml
 firecracker:
   memory_scheduling:
-    enabled: true
-    max_commit_mb: 0      # 0 = auto-detect (80% of total RAM)
-    reserve_mb: 2048      # Keep 2GB free for host OS
-    acquire_timeout: 5m   # Max time to wait for memory
+    enabled: true          # Enabled by default
+    max_commit_mb: 0       # 0 = auto-detect (80% of total RAM)
+    reserve_mb: 4096       # Keep 4GB free for host OS
+    acquire_timeout: 1h    # Max time to wait for memory
+    min_job_memory_mb: 0   # Minimum memory per job for capacity calculation
 ```
 
 ### Configuration Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `enabled` | Enable memory-aware scheduling | false |
+| `enabled` | Enable memory-aware scheduling | true |
 | `max_commit_mb` | Maximum memory to commit to VMs (MB) | 0 (auto) |
-| `reserve_mb` | Memory to keep free for host OS | 2048 |
-| `acquire_timeout` | Max wait time for memory availability | 5m |
+| `reserve_mb` | Memory to keep free for host OS (MB) | 4096 |
+| `acquire_timeout` | Max wait time for memory availability | 1h |
+| `min_job_memory_mb` | Minimum memory per job for capacity calculation | 0 |
 
 ### Auto-Detection
 
-When `max_commit_mb` is 0, the scheduler auto-detects 80% of total system memory as the limit. On a 64GB host, this allows ~51GB to be committed to VMs.
+When `max_commit_mb` is 0, the scheduler auto-detects 80% of total system memory as the limit. On a 64GB host, this allows ~51GB to be committed to VMs. The auto-detected limit appears in debug logs at startup:
+
+```
+level=debug msg="memory scheduler initialized: max_commit=51200MB, reserve=4096MB"
+```
 
 ### Memory Overcommit
 
@@ -355,6 +384,28 @@ VMs cannot reach external networks:
 - Check iptables FORWARD rules allow traffic from tap devices
 - Verify NAT/MASQUERADE rule is configured for your outbound interface
 - If using `output_interface`, ensure the interface name is correct
+
+### VM Exceeds Memory Limit
+
+When jailer is enabled, each VM runs in its own cgroup with a memory limit (profile `memory_mb` + 5% headroom). If a job process exceeds this, the kernel's OOM killer terminates that VM only — the runner and other VMs are unaffected.
+
+To fix, increase the profile's `memory_mb` and restart the runner.
+
+### Multiple Runners on Same Host
+
+Each runner instance should use different network and jailer paths to avoid conflicts:
+
+```yaml
+# runner1.yaml
+firecracker:
+  network_prefix: "172.16"
+  chroot_base_dir: "/srv/jailer-1"
+
+# runner2.yaml
+firecracker:
+  network_prefix: "172.17"
+  chroot_base_dir: "/srv/jailer-2"
+```
 
 ### Debug Logging
 
