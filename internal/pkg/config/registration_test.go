@@ -101,7 +101,7 @@ func TestFromRegistration(t *testing.T) {
 		_, err := New(
 			func(config *Config) error {
 				config.Runner.File = file
-				config.Server.Connections = map[string]Connection{
+				config.Server.Connections = map[string]*Connection{
 					"existing": {},
 				}
 				return nil

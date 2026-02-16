@@ -49,7 +49,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 				ShutdownTimeout: 30 * time.Second,
 			},
 			Server: config.Server{
-				Connections: map[string]config.Connection{
+				Connections: map[string]*config.Connection{
 					"default": {
 						URL: connectionURL,
 					},
@@ -61,7 +61,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 	defer testutils.MockVariable(&configCheck, func(ctx context.Context, cfg *config.Config) error {
 		return nil
 	})()
-	defer testutils.MockVariable(&createClient, func(cfg *config.Config, conn config.Connection) client.Client {
+	defer testutils.MockVariable(&createClient, func(cfg *config.Config, conn *config.Connection) client.Client {
 		return mockClient
 	})()
 	var runnerContext context.Context

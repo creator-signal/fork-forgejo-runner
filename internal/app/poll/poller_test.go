@@ -189,9 +189,8 @@ func TestPoller_Runner(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			runnerLog := make(chan string, 3)
 			configRunner := config.Runner{
-				FetchInterval: 1,
-				Capacity:      1,
-				Timeout:       testCase.timeout,
+				Capacity: 1,
+				Timeout:  testCase.timeout,
 			}
 			p := &mockPoller{}
 			p.init(

@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
@@ -110,7 +111,7 @@ func Test_runCreateRunnerFile(t *testing.T) {
 		reg.UUID,
 		reg.Token,
 		ver.Version(),
-		cfg.Runner.FetchInterval,
+		1*time.Second, // FetchInterval isn't defined in create-runner-file, but it's irrelevant since we're not going to start a poller
 	)
 	resp, err := cli.FetchTask(ctx, connect.NewRequest(&runnerv1.FetchTaskRequest{}))
 	assert.NoError(t, err)

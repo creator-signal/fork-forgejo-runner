@@ -38,7 +38,7 @@ func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) fun
 		}
 
 		var connName string
-		var conn config.Connection
+		var conn *config.Connection
 		for name, c := range cfg.Server.Connections {
 			connName = name
 			conn = c
@@ -85,7 +85,7 @@ func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) fun
 			conn.UUID.String(),
 			conn.Token,
 			ver.Version(),
-			cfg.Runner.FetchInterval,
+			conn.FetchInterval,
 		)
 
 		var cacheProxy *cacheproxy.Handler

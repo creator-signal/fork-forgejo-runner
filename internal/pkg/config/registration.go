@@ -62,9 +62,9 @@ func FromRegistration(config *Config) error {
 	}
 
 	if config.Server.Connections == nil {
-		config.Server.Connections = make(map[string]Connection)
+		config.Server.Connections = make(map[string]*Connection)
 	}
-	config.Server.Connections[reg.Name] = Connection{
+	config.Server.Connections[reg.Name] = &Connection{
 		URL:    parsedURL,
 		UUID:   parsedUUID,
 		Token:  reg.Token,

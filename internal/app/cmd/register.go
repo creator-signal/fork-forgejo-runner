@@ -296,7 +296,7 @@ func doRegister(ctx context.Context, cfg *config.Config, inputs *registerInputs)
 		"",
 		"",
 		ver.Version(),
-		cfg.Runner.FetchInterval,
+		1*time.Second, // FetchInterval isn't defined in register, but it's irrelevant since we're not going to start a poller
 	)
 
 	for {

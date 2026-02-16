@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"time"
 
 	pingv1 "code.forgejo.org/forgejo/actions-proto/ping/v1"
 	"connectrpc.com/connect"
@@ -146,7 +147,7 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 				reg.UUID,
 				reg.Token,
 				ver.Version(),
-				cfg.Runner.FetchInterval,
+				1*time.Second, // FetchInterval isn't defined in create-runner-file, but it's irrelevant since we're not going to start a poller
 			)
 
 			runner := run.NewRunner(cfg, reg.Name, labels.Labels{}, cli, nil)

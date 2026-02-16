@@ -78,8 +78,6 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 	runners := make([]run.RunnerInterface, 0, len(cfg.Server.Connections))
 	ephemeralRunners := make([]bool, 0, len(cfg.Server.Connections))
 	for name, conn := range cfg.Server.Connections {
-		cfg.Tune(conn.URL.String()) // FIXME: changes FetchInterval possibly multiple times; needs move of fetch interval to the connection level
-
 		cli := createClient(cfg, conn)
 		clients = append(clients, cli)
 
@@ -218,14 +216,14 @@ var configCheck = func(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-var createClient = func(cfg *config.Config, conn config.Connection) client.Client {
+var createClient = func(cfg *config.Config, conn *config.Connection) client.Client {
 	return client.New(
 		conn.URL.String(),
 		cfg.Runner.Insecure,
 		conn.UUID.String(),
 		conn.Token,
 		ver.Version(),
-		cfg.Runner.FetchInterval,
+		conn.FetchInterval,
 	)
 }
 
