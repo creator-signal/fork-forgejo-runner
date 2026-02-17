@@ -90,7 +90,24 @@ type Connection struct {
 	Token         string        // Token of the runner. Mandatory value.
 	Labels        labels.Labels // Labels of the runner. Mandatory value.
 	FetchInterval time.Duration // FetchInterval specifies the interval duration for fetching resources.
+
+	// Legacy support for `.runner` registration file leaves the need for a hack here, which should be removed when
+	// `.runner` is deprecated and removed.  Labels in the `.runner` file came from the first runner registration and
+	// may be used, but may also be overridden by other configuration sources.  If labels are specified in `.runner`,
+	// then they are configured on the connection with the priority `OverrideIfPossible` which indicates that any other
+	// source of labels (such as `Runner.DefaultLabels`) should override these labels.
+	//
+	// This field is internal to the `config` package because the priority should be resolved by `New()` before the
+	// config is exposed for usage.
+	labelPriority labelPriority
 }
+
+type labelPriority int64
+
+const (
+	userSpecified      labelPriority = iota // default priority -- indicates to use these labels
+	overrideIfPossible                      // provided labels should be overridden by default labels
+)
 
 // Config represents the overall configuration.
 type Config struct {
@@ -508,7 +525,7 @@ func New(opts ...Option) (*Config, error) {
 			log.Infof("Fetch interval for connection %s has been increased to the minimum of 30 seconds for Codeberg", name)
 			conn.FetchInterval = 30 * time.Second
 		}
-		if len(conn.Labels) == 0 {
+		if len(parsedDefaultLabels) > 0 && (len(conn.Labels) == 0 || conn.labelPriority == overrideIfPossible) {
 			conn.Labels = parsedDefaultLabels
 		}
 	}

@@ -464,6 +464,47 @@ runner:
 		assert.Nil(t, config)
 		assert.ErrorContains(t, err, "could not read env file")
 	})
+
+	t.Run(".runner label overrides", func(t *testing.T) {
+		rawConfig := `
+runner:
+  fetch_interval: 14s
+  labels: ["docker:docker://node:current-bookworm"]
+`
+		tempDir := t.TempDir()
+
+		configPath := filepath.Join(tempDir, "config.yml")
+		err := os.WriteFile(configPath, []byte(rawConfig), 0o644)
+		require.NoError(t, err)
+
+		config, err := New(
+			FromFile(configPath),
+			func(config *Config) error {
+				if config.Server.Connections == nil {
+					config.Server.Connections = make(map[string]*Connection)
+				}
+				parsedURL, err := url.ParseRequestURI("https://example.com")
+				require.NoError(t, err)
+				config.Server.Connections["runner"] = &Connection{
+					URL:           parsedURL,
+					UUID:          gouuid.New(),
+					Token:         "token-goes-here",
+					Labels:        []*labels.Label{labels.MustParse("lxc:lxc://debian:bookworm")},
+					labelPriority: overrideIfPossible, // indicates that this label should be overridden
+				}
+				return nil
+			},
+		)
+		require.NoError(t, err)
+
+		require.Len(t, config.Server.Connections, 1)
+		c, ok := config.Server.Connections["runner"]
+		require.True(t, ok)
+		require.Len(t, c.Labels, 1)
+		assert.Equal(t, c.Labels[0].Name, "docker")
+		assert.Equal(t, c.Labels[0].Schema, "docker")
+		assert.Equal(t, c.Labels[0].Arg, "//node:current-bookworm")
+	})
 }
 
 func TestSerializedLogSettings_applyTo(t *testing.T) {

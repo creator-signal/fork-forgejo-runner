@@ -95,6 +95,7 @@ func TestFromRegistration(t *testing.T) {
 		assert.Equal(t, c.Labels[0].Name, "ubuntu-latest")
 		assert.Equal(t, c.Labels[0].Schema, "docker")
 		assert.Equal(t, c.Labels[0].Arg, "//code.forgejo.org/oci/node:20-bookworm")
+		assert.Equal(t, c.labelPriority, overrideIfPossible)
 	})
 
 	t.Run("existing connection error", func(t *testing.T) {

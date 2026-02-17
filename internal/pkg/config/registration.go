@@ -65,10 +65,11 @@ func FromRegistration(config *Config) error {
 		config.Server.Connections = make(map[string]*Connection)
 	}
 	config.Server.Connections[reg.Name] = &Connection{
-		URL:    parsedURL,
-		UUID:   parsedUUID,
-		Token:  reg.Token,
-		Labels: parsedLabels,
+		URL:           parsedURL,
+		UUID:          parsedUUID,
+		Token:         reg.Token,
+		Labels:        parsedLabels,
+		labelPriority: overrideIfPossible,
 	}
 
 	return nil
