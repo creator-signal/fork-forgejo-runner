@@ -121,6 +121,7 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 			UUID:    uuid,
 			Token:   args.Secret,
 			Address: args.InstanceAddr,
+			Labels:  cfg.Runner.DefaultLabels,
 		}
 
 		//
@@ -151,7 +152,7 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 			)
 
 			runner := run.NewRunner(cfg, reg.Name, labels.Labels{}, cli, nil)
-			resp, err := runner.Declare(ctx, cfg.Runner.DefaultLabels)
+			resp, err := runner.Declare(ctx, reg.Labels)
 
 			if err != nil && connect.CodeOf(err) == connect.CodeUnimplemented {
 				log.Warn("Cannot verify the connection because the Forgejo instance is lower than v1.21")
