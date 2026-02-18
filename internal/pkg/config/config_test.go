@@ -501,9 +501,7 @@ runner:
 		c, ok := config.Server.Connections["runner"]
 		require.True(t, ok)
 		require.Len(t, c.Labels, 1)
-		assert.Equal(t, c.Labels[0].Name, "docker")
-		assert.Equal(t, c.Labels[0].Schema, "docker")
-		assert.Equal(t, c.Labels[0].Arg, "//node:current-bookworm")
+		assert.Equal(t, c.Labels[0].String(), "docker:docker://node:current-bookworm")
 	})
 }
 

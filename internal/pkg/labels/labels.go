@@ -70,6 +70,18 @@ func MustParse(str string) *Label {
 	return label
 }
 
+// String returns the string representation of a Label. It is the inverse operation of Parse.
+func (l *Label) String() string {
+	stringLabel := l.Name
+	if l.Schema != "" {
+		stringLabel += ":" + l.Schema
+		if l.Arg != "" {
+			stringLabel += ":" + l.Arg
+		}
+	}
+	return stringLabel
+}
+
 type Labels []*Label
 
 func (l Labels) RequireDocker() bool {
@@ -114,17 +126,10 @@ func (l Labels) Names() []string {
 	return names
 }
 
-func (l Labels) ToStrings() []string {
+func (l Labels) Strings() []string {
 	ls := make([]string, 0, len(l))
 	for _, label := range l {
-		lbl := label.Name
-		if label.Schema != "" {
-			lbl += ":" + label.Schema
-			if label.Arg != "" {
-				lbl += ":" + label.Arg
-			}
-		}
-		ls = append(ls, lbl)
+		ls = append(ls, label.String())
 	}
 	return ls
 }

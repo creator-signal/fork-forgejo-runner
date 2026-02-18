@@ -6,12 +6,11 @@ package labels
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"gotest.tools/v3/assert"
 )
 
-func TestParse(t *testing.T) {
+func TestLabel_Parse(t *testing.T) {
 	tests := []struct {
 		args    string
 		want    *Label
@@ -101,12 +100,12 @@ func TestParse(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.DeepEqual(t, got, tt.want)
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }
 
-func TestMustParse(t *testing.T) {
+func TestLabel_MustParse(t *testing.T) {
 	t.Run("panics if label is invalid", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r == nil {
@@ -124,4 +123,50 @@ func TestMustParse(t *testing.T) {
 		assert.Equal(t, label.Schema, SchemeDocker)
 		assert.Equal(t, label.Arg, "//node:18")
 	})
+}
+
+func TestLabel_String(t *testing.T) {
+	testCases := []struct {
+		name     string
+		label    *Label
+		expected string
+	}{
+		{
+			name:     "Name only",
+			label:    &Label{"label-1", "", ""},
+			expected: "label-1",
+		},
+		{
+			name:     "Name and scheme",
+			label:    &Label{"label-2", "host", ""},
+			expected: "label-2:host",
+		},
+		{
+			name:     "Name and scheme and arg",
+			label:    &Label{"label-3", "docker", "//node:lts"},
+			expected: "label-3:docker://node:lts",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			assert.Equal(t, testCase.expected, testCase.label.String())
+		})
+	}
+}
+
+func TestLabels_Strings(t *testing.T) {
+	expected := []string{
+		"label-1",
+		"label-2:host",
+		"label-3:docker://node:lts",
+	}
+
+	labels := Labels{
+		&Label{"label-1", "", ""},
+		&Label{"label-2", "host", ""},
+		&Label{"label-3", "docker", "//node:lts"},
+	}
+
+	assert.Equal(t, expected, labels.Strings())
 }

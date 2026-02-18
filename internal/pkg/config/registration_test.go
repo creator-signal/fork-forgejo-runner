@@ -92,9 +92,7 @@ func TestFromRegistration(t *testing.T) {
 		assert.Equal(t, "7f7d3055-711d-4c8e-88ad-a6d9d668801d", c.UUID.String())
 		assert.Equal(t, "TOKEN", c.Token)
 		require.Len(t, c.Labels, 1)
-		assert.Equal(t, c.Labels[0].Name, "ubuntu-latest")
-		assert.Equal(t, c.Labels[0].Schema, "docker")
-		assert.Equal(t, c.Labels[0].Arg, "//code.forgejo.org/oci/node:20-bookworm")
+		assert.Equal(t, c.Labels[0].String(), "ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm")
 		assert.Equal(t, c.labelPriority, overrideIfPossible)
 	})
 
