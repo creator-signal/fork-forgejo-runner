@@ -259,6 +259,7 @@ cache:
   external_server: https://external.example.com/
   actions_cache_url_override: https://override.example.com/
   secret: vruvRdu5Rm
+  secret_url: 
 container:
   network: host
   network_mode: bridge
@@ -279,6 +280,7 @@ server:
       url: https://example.com/
       uuid: 7f7695df-a064-4c70-a597-56714e851e2c
       token: LxV7RrjXd
+      token_url:
       fetch_interval: 8s
       labels:
         - debian:docker://node:24-trixie
@@ -905,6 +907,52 @@ func TestSerializedCacheSettings(t *testing.T) {
 
 		assert.Equal(t, expected, config.Cache)
 	})
+
+	t.Run("resolves secret_url", func(t *testing.T) {
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte("y114lUUM"), 0o644)
+		require.NoError(t, err)
+
+		booleanTrue := true
+		settings := serializedCacheSettings{
+			Enabled:                 &booleanTrue,
+			Dir:                     "/path/to/cache",
+			Host:                    "cache.local",
+			Port:                    1234,
+			ProxyPort:               5678,
+			ExternalServer:          "external.local",
+			ActionsCacheURLOverride: "https://example.com/",
+			Secret:                  "",
+			SecretURL:               fmt.Sprintf("file:%s", secretPath),
+		}
+
+		config := Config{}
+		err = settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, "y114lUUM", config.Cache.Secret)
+	})
+
+	t.Run("rejects mutually exclusive secret and secret_url", func(t *testing.T) {
+		booleanFalse := true
+		settings := serializedCacheSettings{
+			Enabled:                 &booleanFalse,
+			Dir:                     "/path/to/cache",
+			Host:                    "cache.local",
+			Port:                    1234,
+			ProxyPort:               5678,
+			ExternalServer:          "external.local",
+			ActionsCacheURLOverride: "https://example.com/",
+			Secret:                  "hCCOI4b",
+			SecretURL:               "file:some-secret.txt",
+		}
+
+		err := settings.applyTo(&Config{})
+
+		assert.ErrorContains(t, err, "`secret` and `secret_url` are mutually exclusive")
+	})
 }
 
 func TestSerializedContainerSettings(t *testing.T) {
@@ -1166,7 +1214,7 @@ func TestSerializedConnectionSettings_applyTo(t *testing.T) {
 		assert.ErrorContains(t, err, "malformed `uuid` \"very invalid\"")
 	})
 
-	t.Run("rejects empty token", func(t *testing.T) {
+	t.Run("token and token_url cannot be empty simultaneously", func(t *testing.T) {
 		serverURL, err := url.Parse("https://example.com/")
 		require.NoError(t, err)
 
@@ -1178,7 +1226,48 @@ func TestSerializedConnectionSettings_applyTo(t *testing.T) {
 		}
 
 		err = serialized.applyTo(&Config{}, "example")
-		assert.ErrorContains(t, err, "`token` is empty")
+		assert.ErrorContains(t, err, "`token` and `token_url` are empty")
+	})
+
+	t.Run("token and token_url are mutually exclusive", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:      serverURL.String(),
+			UUID:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			Token:    "8pqwdboRFjX",
+			TokenURL: "file:does-not-exist.txt",
+			Labels:   []string{"label-1"},
+		}
+
+		err = serialized.applyTo(&Config{}, "example")
+		assert.ErrorContains(t, err, "`token` and `token_url` are mutually exclusive")
+	})
+
+	t.Run("resolves token_url", func(t *testing.T) {
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte("8tBZOQlSaH"), 0o644)
+		require.NoError(t, err)
+
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:      serverURL.String(),
+			UUID:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			Token:    "",
+			TokenURL: fmt.Sprintf("file:%s", secretPath),
+			Labels:   []string{"label-1"},
+		}
+
+		config := Config{}
+		err = serialized.applyTo(&config, "example")
+		require.NoError(t, err)
+
+		assert.Equal(t, "8tBZOQlSaH", config.Server.Connections["example"].Token)
 	})
 
 	t.Run("rejects malformed label", func(t *testing.T) {
@@ -1265,5 +1354,133 @@ log:
 		require.NoError(t, err)
 
 		assert.Equal(t, expected, config)
+	})
+}
+
+func TestResolveSecretURL(t *testing.T) {
+	t.Run("file scheme", func(t *testing.T) {
+		rawSecret := "0v2kLviH0\r\nV1OfGph"
+
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
+		require.NoError(t, err)
+
+		secret, err := resolveSecretURL(fmt.Sprintf("file://%s", secretPath))
+		require.NoError(t, err)
+
+		assert.Equal(t, rawSecret, secret)
+	})
+
+	t.Run("error returned if URL is empty", func(t *testing.T) {
+		_, err := resolveSecretURL("")
+
+		assert.ErrorContains(t, err, "unsupported secret URL: \"\"")
+	})
+
+	t.Run("error returned if scheme is unsupported", func(t *testing.T) {
+		_, err := resolveSecretURL("unsupported:some-secret")
+
+		assert.ErrorContains(t, err, "unsupported secret URL: \"unsupported:some-secret\"")
+	})
+}
+
+func TestResolveFileSecret(t *testing.T) {
+	t.Run("empty host", func(t *testing.T) {
+		rawSecret := "8AftSFunni1"
+
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(fmt.Sprintf("file://%s", secretPath))
+		require.NoError(t, err)
+
+		assert.Equal(t, rawSecret, secret)
+	})
+
+	t.Run("without host", func(t *testing.T) {
+		rawSecret := "VT6mi1t"
+
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(fmt.Sprintf("file:%s", secretPath))
+		require.NoError(t, err)
+
+		assert.Equal(t, rawSecret, secret)
+	})
+
+	t.Run("ignores host", func(t *testing.T) {
+		rawSecret := "Jojr4bopPe"
+
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(fmt.Sprintf("file://some-host%s", secretPath))
+		require.NoError(t, err)
+
+		assert.Equal(t, rawSecret, secret)
+	})
+
+	t.Run("with env variable CREDENTIALS_DIRECTORY", func(t *testing.T) {
+		rawSecret := "zoN4nQX"
+
+		tempDir := t.TempDir()
+		t.Setenv("CREDENTIALS_DIRECTORY", tempDir)
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret("file://$CREDENTIALS_DIRECTORY/secret.txt")
+		require.NoError(t, err)
+
+		assert.Equal(t, rawSecret, secret)
+	})
+
+	t.Run("without env variable CREDENTIALS_DIRECTORY", func(t *testing.T) {
+		_, ok := os.LookupEnv("CREDENTIALS_DIRECTORY")
+		assert.False(t, ok, "environment variable CREDENTIALS_DIRECTORY exists")
+
+		_, err := resolveFileSecret("file://$CREDENTIALS_DIRECTORY/secret.txt")
+
+		assert.ErrorContains(t, err, "cannot read secret \"file://$CREDENTIALS_DIRECTORY/secret.txt\"")
+	})
+
+	t.Run("empty string if file is empty", func(t *testing.T) {
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte{}, 0o644)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(fmt.Sprintf("file://%s", secretPath))
+		require.NoError(t, err)
+
+		assert.Empty(t, secret)
+	})
+
+	t.Run("error if file does not exist", func(t *testing.T) {
+		secret, err := resolveFileSecret("file:///does/not/exist")
+
+		assert.ErrorContains(t, err, "cannot read secret \"file:///does/not/exist\"")
+		assert.Equal(t, "", secret)
+	})
+
+	t.Run("error if path is empty", func(t *testing.T) {
+		secret, err := resolveFileSecret("file:")
+
+		assert.ErrorContains(t, err, "cannot read secret \"file:\"")
+		assert.Equal(t, "", secret)
 	})
 }

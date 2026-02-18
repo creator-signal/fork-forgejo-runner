@@ -315,10 +315,15 @@ type serializedCacheSettings struct {
 	ProxyPort               uint16 `yaml:"proxy_port"`                 // ProxyPort specifies the cache proxy port.
 	ExternalServer          string `yaml:"external_server"`            // ExternalServer specifies the URL of external cache server
 	ActionsCacheURLOverride string `yaml:"actions_cache_url_override"` // Allows the user to override the ACTIONS_CACHE_URL passed to the workflow containers
-	Secret                  string `yaml:"secret"`                     // Shared secret to secure caches.
+	Secret                  string `yaml:"secret"`                     // Secret defines a secret to secure all caches. Secret and SecretURL are mutually exclusive.
+	SecretURL               string `yaml:"secret_url"`                 // SecretURL defines a URL where the Secret can be loaded from. Secret and SecretURL are mutually exclusive.
 }
 
 func (s *serializedCacheSettings) applyTo(config *Config) error {
+	if s.Secret != "" && s.SecretURL != "" {
+		return fmt.Errorf("`secret` and `secret_url` are mutually exclusive")
+	}
+
 	if s.Enabled != nil {
 		config.Cache.Enabled = *s.Enabled
 	}
@@ -330,7 +335,17 @@ func (s *serializedCacheSettings) applyTo(config *Config) error {
 	config.Cache.ProxyPort = s.ProxyPort
 	config.Cache.ExternalServer = s.ExternalServer
 	config.Cache.ActionsCacheURLOverride = s.ActionsCacheURLOverride
-	config.Cache.Secret = s.Secret
+
+	var resolvedSecret string
+	if s.SecretURL != "" {
+		var err error
+		if resolvedSecret, err = resolveSecretURL(s.SecretURL); err != nil {
+			return fmt.Errorf("cannot resolve `secret_url`: %w", err)
+		}
+	} else {
+		resolvedSecret = s.Secret
+	}
+	config.Cache.Secret = resolvedSecret
 
 	return nil
 }
@@ -413,7 +428,8 @@ func (s *serializedServerSettings) applyTo(config *Config) error {
 type serializedConnectionSettings struct {
 	URL           string        `yaml:"url"`            // URL of the Forgejo instance to connect to. Mandatory value.
 	UUID          string        `yaml:"uuid"`           // UUID of the runner. Mandatory value.
-	Token         string        `yaml:"token"`          // Token of the runner. Mandatory value.
+	Token         string        `yaml:"token"`          // Token of the runner. Token and TokenURL are mutually exclusive.
+	TokenURL      string        `yaml:"token_url"`      // TokenURL defines a URL where the runner token can be loaded from. Token and TokenURL are mutually exclusive.
 	Labels        []string      `yaml:"labels"`         // Labels of the runner. If not present, runner.labels will be used instead.
 	FetchInterval time.Duration `yaml:"fetch_interval"` // FetchInterval specifies the interval duration for fetching resources.
 }
@@ -425,8 +441,11 @@ func (s *serializedConnectionSettings) applyTo(config *Config, connectionName st
 	if s.UUID == "" {
 		return errors.New("`uuid` is empty")
 	}
-	if s.Token == "" {
-		return errors.New("`token` is empty")
+	if s.Token == "" && s.TokenURL == "" {
+		return errors.New("`token` and `token_url` are empty")
+	}
+	if s.Token != "" && s.TokenURL != "" {
+		return errors.New("`token` and `token_url` are mutually exclusive")
 	}
 
 	parsedURL, err := url.ParseRequestURI(s.URL)
@@ -448,6 +467,14 @@ func (s *serializedConnectionSettings) applyTo(config *Config, connectionName st
 		}
 		parsedLabels = append(parsedLabels, parsedLabel)
 	}
+	var resolvedToken string
+	if s.TokenURL != "" {
+		if resolvedToken, err = resolveSecretURL(s.TokenURL); err != nil {
+			return fmt.Errorf("invalid `secret_url`: %w", err)
+		}
+	} else {
+		resolvedToken = s.Token
+	}
 
 	if config.Server.Connections == nil {
 		config.Server.Connections = map[string]*Connection{}
@@ -455,7 +482,7 @@ func (s *serializedConnectionSettings) applyTo(config *Config, connectionName st
 	config.Server.Connections[connectionName] = &Connection{
 		URL:           parsedURL,
 		UUID:          parsedUUID,
-		Token:         s.Token,
+		Token:         resolvedToken,
 		Labels:        parsedLabels,
 		FetchInterval: s.FetchInterval,
 	}
@@ -570,4 +597,39 @@ func readEnvFile(path string) (map[string]string, error) {
 	}
 
 	return env, nil
+}
+
+func resolveSecretURL(input string) (string, error) {
+	// We're not using url.Parse() for identifying the secret's scheme because, depending on the scheme, reparsing might
+	// be necessary.
+	if strings.HasPrefix(input, "file:") {
+		return resolveFileSecret(input)
+	}
+
+	return "", fmt.Errorf("unsupported secret URL: %q", input)
+}
+
+func resolveFileSecret(input string) (string, error) {
+	// Replace placeholder `$CREDENTIALS_DIRECTORY` with the value of the environment variable `CREDENTIALS_DIRECTORY`
+	// if it exists. That adds support for systemd Credentials (https://systemd.io/CREDENTIALS/).
+	if credentialsDirectory, ok := os.LookupEnv("CREDENTIALS_DIRECTORY"); ok {
+		input = strings.Replace(input, "$CREDENTIALS_DIRECTORY", credentialsDirectory, 1)
+	}
+
+	fileURL, err := url.Parse(input)
+	if err != nil {
+		return "", fmt.Errorf("malformed secret URL %q: %w", input, err)
+	}
+
+	hostname := fileURL.Hostname()
+	if hostname != "" {
+		log.Warnf("Ignoring hostname %q in secret: %q", hostname, input)
+	}
+
+	value, err := os.ReadFile(fileURL.Path)
+	if err != nil {
+		return "", fmt.Errorf("cannot read secret %q: %w", input, err)
+	}
+
+	return string(value), nil
 }

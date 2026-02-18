@@ -124,7 +124,24 @@ cache:
   # If empty, it will be generated to a new secret automatically when
   # the server starts, and it will stay the same until it restarts.
   #
+  # `secret` and `secret_url` are mutually exclusive.
+  #
   secret: ""
+  #
+  # The secret for securing the cache can alternatively be loaded from a URL.
+  # Currently, only file URLs can be resolved. Example:
+  # `file:/path/to/secret.txt`.
+  #
+  # `secret_url` supports a single placeholder: `$CREDENTIALS_DIRECTORY`. If
+  # the environment variable `CREDENTIALS_DIRECTORY` exists, the placeholder is
+  # replaced with the value of `CREDENTIALS_DIRECTORY`. Otherwise, it is
+  # retained.
+  #
+  #  Example: file:$CREDENTIALS_DIRECTORY/secret.txt
+  #
+  # `secret` and `secret_url` are mutually exclusive.
+  #
+  secret_url: ""
   #
   #######################################################################
   #
@@ -199,3 +216,41 @@ host:
   # The parent directory of a job's working directory.
   # If it's empty, $HOME/.cache/act/ will be used.
   workdir_parent:
+
+server:
+  # A map of connections to one or more Forgejo instances. Example:
+  #
+  # ```
+  # connections:
+  #   example:
+  #     url: https://example.com/
+  #     uuid: c9e50be9-a7c3-4aee-ba35-624c4ff8c519
+  #     token: 6634bb58be0db23cc013a2e72dd1828ae0257cf
+  #     fetch_interval: 30s
+  #   codeberg:
+  #     url: https://codeberg.org/
+  #     uuid: f543b661-cb02-4ba2-9820-108df62808b5
+  #     token_url: file:$CREDENTIALS_DIRECTORY/token.txt
+  #     labels:
+  #       - debian:docker://docker.io/library/node:lts-trixie
+  # ```
+  #
+  # The map's keys (`example`, and `codeberg` above) serve as the connections'
+  # names.
+  #
+  # The runner token can either be specified inline using `token` or be loaded
+  # from a file using `token_url`. The methods are mutually exclusive.
+  # `token_url` supports a single placeholder: `$CREDENTIALS_DIRECTORY`. If the
+  # environment variable `CREDENTIALS_DIRECTORY` exists, the placeholder is
+  # replaced with the value of `CREDENTIALS_DIRECTORY`. Otherwise, it is
+  # retained.
+  #
+  # Labels defined on a connection are limited to that particular connection.
+  # If a connection defines no labels, the labels declared by `runner.labels`
+  # are used instead.
+  #
+  # `fetch_interval` specifies how often Forgejo Runner should ask Forgejo for
+  # pending jobs. If `fetch_interval` is not defined on a connection,
+  # `runner.fetch_interval` is used. Note that Forgejo Runner might enforce a
+  # minimum value for certain instances like Codeberg.
+  connections:
