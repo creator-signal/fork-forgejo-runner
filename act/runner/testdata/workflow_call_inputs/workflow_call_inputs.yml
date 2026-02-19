@@ -14,6 +14,10 @@ on:
         description: an input of type boolean
         required: false
         type: boolean
+      boolean_with_default:
+        description: an input of type boolean with a default value
+        default: true
+        type: boolean
 
 jobs:
   test:
@@ -21,11 +25,11 @@ jobs:
     steps:
       - name: test required input
         run: |
-          echo input.required=${{ inputs.required }}
+          echo inputs.required=${{ inputs.required }}
           [[ "${{ inputs.required }}" = "required input" ]] || exit 1
       - name: test input with default
         run: |
-          echo input.with_default=${{ inputs.with_default }}
+          echo inputs.with_default=${{ inputs.with_default }}
           [[ "${{ inputs.with_default }}" = "default" ]] || exit 1
       - id: boolean-test
         name: run on boolean input
@@ -34,3 +38,7 @@ jobs:
       - name: has boolean test?
         run: |
           [[ "${{ steps.boolean-test.outputs.value }}" = "executed" ]] || exit 1
+      - name: test boolean with default input
+        run: |
+          echo "inputs.boolean_with_default=${{ inputs.boolean_with_default }}"
+          [[ "${{ inputs.boolean_with_default }}" == "true" ]] || exit 1

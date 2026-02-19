@@ -458,7 +458,7 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 					_ = v.Default.Decode(&value)
 				}
 				if v.Type == "boolean" {
-					inputs[k] = value == "true"
+					inputs[k] = value == true || value == "true"
 				} else {
 					inputs[k] = value
 				}
