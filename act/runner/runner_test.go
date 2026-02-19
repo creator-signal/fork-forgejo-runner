@@ -270,7 +270,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "uses-composite-check-for-input-shadowing", "push", "", platforms, secrets},
 		{workdir, "uses-nested-composite", "push", "", platforms, secrets},
 		{workdir, "uses-composite-check-for-input-in-if-uses", "push", "", platforms, secrets},
-		//		{workdir, "remote-action-composite-js-pre-with-defaults", "push", "", platforms, secrets},
+		{workdir, "remote-action-composite-js-pre-with-defaults", "push", "", platforms, secrets},
 		{workdir, "remote-action-composite-action-ref", "push", "", platforms, secrets},
 		{workdir, "uses-workflow-local", "push", "", platforms, map[string]string{"secret": "keep_it_private"}},
 		{workdir, "uses-workflow-remote-absolute", "push", "", platforms, map[string]string{"secret": "keep_it_private"}},
@@ -294,7 +294,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "checkout", "push", "", platforms, secrets},
 		{workdir, "remote-action-docker", "push", "", platforms, secrets},
 		{workdir, "remote-action-js", "push", "", platforms, secrets},
-		// {workdir, "remote-action-js-node-user", "push", "", platforms, secrets}, // Test if this works with non root container
+		{workdir, "remote-action-js-node-user", "push", "", platforms, secrets},
 		{workdir, "matrix", "push", "", platforms, secrets},
 		{workdir, "matrix-include-exclude", "push", "", platforms, secrets},
 		{workdir, "matrix-exitcode", "push", "Job 'test' failed", platforms, secrets},

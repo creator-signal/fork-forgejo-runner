@@ -27,4 +27,4 @@ jobs:
       with:
         who-to-greet: 'Mona the Octocat'
 
-    - uses: cloudposse/actions/github/slash-command-dispatch@0.14.0
+    - uses: https://github.com/cloudposse/actions/github/slash-command-dispatch@0.14.0
