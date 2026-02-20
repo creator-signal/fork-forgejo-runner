@@ -4,6 +4,7 @@
 package client
 
 const (
-	UUIDHeader  = "x-runner-uuid"
-	TokenHeader = "x-runner-token"
+	UUIDHeader       = "x-runner-uuid"
+	TokenHeader      = "x-runner-token"
+	RequestKeyHeader = "x-runner-request-key"
 )

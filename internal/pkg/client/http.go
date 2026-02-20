@@ -15,6 +15,7 @@ import (
 	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
 	"connectrpc.com/connect"
+	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -55,6 +56,12 @@ func getHTTPClient(endpoint string, insecure bool) *http.Client {
 func New(endpoint string, insecure bool, uuid, token, version string, fetchInterval time.Duration, opts ...connect.ClientOption) *HTTPClient {
 	baseURL := strings.TrimRight(endpoint, "/") + "/api/actions"
 
+	client := &HTTPClient{
+		endpoint:      endpoint,
+		insecure:      insecure,
+		fetchInterval: fetchInterval,
+	}
+
 	opts = append(opts, connect.WithInterceptors(connect.UnaryInterceptorFunc(func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			if uuid != "" {
@@ -63,25 +70,25 @@ func New(endpoint string, insecure bool, uuid, token, version string, fetchInter
 			if token != "" {
 				req.Header().Set(TokenHeader, token)
 			}
+			if client.requestKey != nil {
+				req.Header().Set(RequestKeyHeader, client.requestKey.String())
+			}
 			return next(ctx, req)
 		}
 	})))
 
-	return &HTTPClient{
-		PingServiceClient: pingv1connect.NewPingServiceClient(
-			getHTTPClient(endpoint, insecure),
-			baseURL,
-			opts...,
-		),
-		RunnerServiceClient: runnerv1connect.NewRunnerServiceClient(
-			getHTTPClient(endpoint, insecure),
-			baseURL,
-			opts...,
-		),
-		endpoint:      endpoint,
-		insecure:      insecure,
-		fetchInterval: fetchInterval,
-	}
+	client.PingServiceClient = pingv1connect.NewPingServiceClient(
+		getHTTPClient(endpoint, insecure),
+		baseURL,
+		opts...,
+	)
+	client.RunnerServiceClient = runnerv1connect.NewRunnerServiceClient(
+		getHTTPClient(endpoint, insecure),
+		baseURL,
+		opts...,
+	)
+
+	return client
 }
 
 func (c *HTTPClient) Address() string {
@@ -96,6 +103,13 @@ func (c *HTTPClient) FetchInterval() time.Duration {
 	return c.fetchInterval
 }
 
+func (c *HTTPClient) SetRequestKey(uuid gouuid.UUID) func() {
+	c.requestKey = &uuid
+	return func() {
+		c.requestKey = nil
+	}
+}
+
 var _ Client = (*HTTPClient)(nil)
 
 // An HTTPClient manages communication with the runner API.
@@ -105,4 +119,5 @@ type HTTPClient struct {
 	endpoint      string
 	insecure      bool
 	fetchInterval time.Duration
+	requestKey    *gouuid.UUID
 }

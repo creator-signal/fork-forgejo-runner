@@ -20,6 +20,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/report"
 	"connectrpc.com/connect"
+	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/structpb"
 	"gotest.tools/v3/skip"
@@ -93,6 +94,11 @@ func (m *forgejoClientMock) Insecure() bool {
 func (m *forgejoClientMock) FetchInterval() time.Duration {
 	args := m.Called()
 	return time.Duration(args.Int(0))
+}
+
+func (m *forgejoClientMock) SetRequestKey(requestKey gouuid.UUID) func() {
+	args := m.Called(requestKey)
+	return args.Get(0).(func())
 }
 
 func (m *forgejoClientMock) Ping(ctx context.Context, request *connect.Request[pingv1.PingRequest]) (*connect.Response[pingv1.PingResponse], error) {

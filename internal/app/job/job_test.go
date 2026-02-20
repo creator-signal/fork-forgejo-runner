@@ -17,6 +17,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 
+	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -41,6 +42,10 @@ func (o mockClient) Insecure() bool {
 
 func (o mockClient) FetchInterval() time.Duration {
 	return time.Second
+}
+
+func (o mockClient) SetRequestKey(requestKey gouuid.UUID) func() {
+	return func() {}
 }
 
 func (o *mockClient) FetchTask(ctx context.Context, _ *connect.Request[runnerv1.FetchTaskRequest]) (*connect.Response[runnerv1.FetchTaskResponse], error) {

@@ -5,7 +5,9 @@ package poll
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -22,6 +24,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 
+	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -57,6 +60,10 @@ func (o mockClient) Insecure() bool {
 
 func (o mockClient) FetchInterval() time.Duration {
 	return time.Second
+}
+
+func (o mockClient) SetRequestKey(requestKey gouuid.UUID) func() {
+	return func() {}
 }
 
 func (o *mockClient) FetchTask(ctx context.Context, req *connect.Request[runnerv1.FetchTaskRequest]) (*connect.Response[runnerv1.FetchTaskResponse], error) {
@@ -251,8 +258,9 @@ func TestPoller_Fetch(t *testing.T) {
 			cancel: true,
 		},
 		{
-			name:   "NoTask",
-			noTask: true,
+			name:    "NoTask",
+			success: true,
+			noTask:  true,
 		},
 		{
 			name:      "AdditionalTasks",
@@ -291,13 +299,13 @@ func TestPoller_Fetch(t *testing.T) {
 				}},
 				[]run.RunnerInterface{&mockRunner{}},
 			)
-			task, ok := p.fetchTasks(context.Background(), p.clients[0], &atomic.Int64{}, 100)
+			task, reuseRequestKey := p.fetchTasks(context.Background(), p.clients[0], &atomic.Int64{}, 100, gouuid.New())
 			if testCase.success {
-				assert.True(t, ok)
+				assert.False(t, reuseRequestKey)
 				assert.NotNil(t, task)
 				assert.Len(t, task, testCase.taskCount)
 			} else {
-				assert.False(t, ok)
+				assert.True(t, reuseRequestKey)
 				assert.Nil(t, task)
 			}
 		})
@@ -309,6 +317,7 @@ func TestPollerPoll(t *testing.T) {
 		mockClient := mocks.NewClient(t)
 		mockClient.On("FetchInterval").Return(1 * time.Second)
 		mockClient.On("Address").Return("https://client")
+		mockClient.On("SetRequestKey", mock.Anything).Return(func() {})
 		mockRunner := mock_runner.NewRunnerInterface(t)
 		poller := New(pollingCtx, &config.Config{
 			Runner: config.Runner{
@@ -498,6 +507,7 @@ func TestPollerPollOnce(t *testing.T) {
 		mockClient := mocks.NewClient(t)
 		mockClient.On("FetchInterval").Return(10 * time.Millisecond)
 		mockClient.On("Address").Return("https://client")
+		mockClient.On("SetRequestKey", mock.Anything).Return(func() {})
 		mockRunner := mock_runner.NewRunnerInterface(t)
 		poller := New(pollingCtx, &config.Config{
 			Runner: config.Runner{
@@ -601,9 +611,11 @@ func TestPollerPollMultipleClients(t *testing.T) {
 		mockClient1 := mocks.NewClient(t)
 		mockClient1.On("FetchInterval").Return(1 * time.Second)
 		mockClient1.On("Address").Return("https://client1")
+		mockClient1.On("SetRequestKey", mock.Anything).Return(func() {})
 		mockClient2 := mocks.NewClient(t)
 		mockClient2.On("FetchInterval").Return(30 * time.Second)
 		mockClient2.On("Address").Return("https://client2")
+		mockClient2.On("SetRequestKey", mock.Anything).Return(func() {})
 		mockRunner := mock_runner.NewRunnerInterface(t)
 		poller := New(pollingCtx, &config.Config{
 			Runner: config.Runner{
@@ -762,6 +774,115 @@ func TestPollerPollMultipleClients(t *testing.T) {
 			mockClient2.AssertNumberOfCalls(t, "FetchTask", 2)
 
 			teardown(t, mockClient1, mockClient2, mockRunner)
+		})
+	})
+}
+
+func TestPollerPollRequestKey(t *testing.T) {
+	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.Client, *mock_runner.RunnerInterface, Poller) {
+		mockClient := mocks.NewClient(t)
+		mockClient.On("FetchInterval").Return(1 * time.Second)
+		mockClient.On("Address").Return("https://client")
+		mockRunner := mock_runner.NewRunnerInterface(t)
+		poller := New(pollingCtx, &config.Config{
+			Runner: config.Runner{
+				Capacity: 3,
+			},
+		}, []client.Client{mockClient}, []run.RunnerInterface{mockRunner})
+		return mockClient, mockRunner, poller
+	}
+	teardown := func(t *testing.T, mockClient *mocks.Client, mockRunner *mock_runner.RunnerInterface) {
+		mockClient.AssertExpectations(t)
+		mockRunner.AssertExpectations(t)
+	}
+	emptyResponse := connect.NewResponse(&runnerv1.FetchTaskResponse{
+		Task:            nil,
+		TasksVersion:    int64(1),
+		AdditionalTasks: nil,
+	})
+
+	t.Run("each poll sets unique requestKey on client", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			var requestKeyMutex sync.Mutex // prevents this test from being flagged as a data race
+			var requestKey1 gouuid.UUID
+			var requestKey2 gouuid.UUID
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).Return(emptyResponse, nil)
+			mockClient.On("SetRequestKey", mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					requestKeyMutex.Lock()
+					requestKey1 = args.Get(0).(gouuid.UUID)
+					requestKeyMutex.Unlock()
+				}).
+				Return(func() {})
+			mockClient.On("SetRequestKey", mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					requestKeyMutex.Lock()
+					requestKey2 = args.Get(0).(gouuid.UUID)
+					requestKeyMutex.Unlock()
+				}).
+				Return(func() {})
+
+			go poller.Poll()
+			time.Sleep(1500 * time.Millisecond) // synctest delay to ensure two poll runs are complete
+
+			requestKeyMutex.Lock()
+			assert.NotEqualValues(t, 0, requestKey1.ID())                        // invocation with a non-zero UUID
+			assert.NotEqualValues(t, 0, requestKey2.ID())                        // invocation with a non-zero UUID
+			assert.NotEqualValues(t, requestKey1.String(), requestKey2.String()) // different UUIDs
+			requestKeyMutex.Unlock()
+
+			require.NoError(t, poller.Shutdown(t.Context()))
+			teardown(t, mockClient, mockRunner)
+		})
+	})
+
+	t.Run("retains same requestKey on error", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			pollingCtx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			var requestKeyMutex sync.Mutex // prevents this test from being flagged as a data race
+			var requestKey1 gouuid.UUID
+			var requestKey2 gouuid.UUID
+
+			mockClient, mockRunner, poller := setup(t, pollingCtx)
+			mockClient.On("FetchTask", mock.Anything, mock.Anything).
+				Return(nil, errors.New("some error"))
+			mockClient.On("SetRequestKey", mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					requestKeyMutex.Lock()
+					requestKey1 = args.Get(0).(gouuid.UUID)
+					requestKeyMutex.Unlock()
+				}).
+				Return(func() {})
+			mockClient.On("SetRequestKey", mock.Anything).
+				Once().
+				Run(func(args mock.Arguments) {
+					requestKeyMutex.Lock()
+					requestKey2 = args.Get(0).(gouuid.UUID)
+					requestKeyMutex.Unlock()
+				}).
+				Return(func() {})
+
+			go poller.Poll()
+			time.Sleep(1500 * time.Millisecond) // synctest delay to ensure two poll runs are complete
+
+			requestKeyMutex.Lock()
+			assert.NotEqualValues(t, 0, requestKey1.ID())                     // invocation with a non-zero UUID
+			assert.NotEqualValues(t, 0, requestKey2.ID())                     // invocation with a non-zero UUID
+			assert.EqualValues(t, requestKey1.String(), requestKey2.String()) // same UUIDs
+			requestKeyMutex.Unlock()
+
+			require.NoError(t, poller.Shutdown(t.Context()))
+			teardown(t, mockClient, mockRunner)
 		})
 	})
 }
