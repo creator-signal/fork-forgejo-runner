@@ -16,21 +16,8 @@ type RunnerInterface struct {
 }
 
 // Run provides a mock function with given fields: ctx, task
-func (_m *RunnerInterface) Run(ctx context.Context, task *runnerv1.Task) error {
-	ret := _m.Called(ctx, task)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Run")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *runnerv1.Task) error); ok {
-		r0 = rf(ctx, task)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+func (_m *RunnerInterface) Run(ctx context.Context, task *runnerv1.Task) {
+	_m.Called(ctx, task)
 }
 
 // NewRunnerInterface creates a new instance of RunnerInterface. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

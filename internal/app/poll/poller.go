@@ -193,10 +193,7 @@ func (p *poller) runTaskWithRecover(ctx context.Context, runner run.RunnerInterf
 			log.WithError(err).Error("panic in runTaskWithRecover")
 		}
 	}()
-
-	if err := runner.Run(ctx, task); err != nil {
-		log.WithError(err).Error("failed to run task")
-	}
+	runner.Run(ctx, task)
 }
 
 func (p *poller) fetchTasks(ctx context.Context, client client.Client, tasksVersion *atomic.Int64, availableCapacity int64, requestKey gouuid.UUID) (taskSlice []*runnerv1.Task, reuseRequestKey bool) {

@@ -81,10 +81,9 @@ type mockRunner struct {
 	cfg    *config.Runner
 	log    chan string
 	panics bool
-	err    error
 }
 
-func (o *mockRunner) Run(ctx context.Context, _ *runnerv1.Task) error {
+func (o *mockRunner) Run(ctx context.Context, _ *runnerv1.Task) {
 	o.log <- "runner starts"
 	if o.panics {
 		log.Trace("panics")
@@ -92,24 +91,13 @@ func (o *mockRunner) Run(ctx context.Context, _ *runnerv1.Task) error {
 		o.panics = false
 		panic("whatever")
 	}
-	if o.err != nil {
-		log.Trace("error")
-		o.log <- "runner error"
-		err := o.err
-		o.err = nil
-		return err
-	}
-	for {
-		select {
-		case <-ctx.Done():
-			log.Trace("shutdown")
-			o.log <- "runner shutdown"
-			return nil
-		case <-time.After(o.cfg.Timeout):
-			log.Trace("after")
-			o.log <- "runner timeout"
-			return nil
-		}
+	select {
+	case <-ctx.Done():
+		log.Trace("shutdown")
+		o.log <- "runner shutdown"
+	case <-time.After(o.cfg.Timeout):
+		log.Trace("after")
+		o.log <- "runner timeout"
 	}
 }
 
@@ -207,7 +195,6 @@ func TestJob_Run_NoWait(t *testing.T) {
 		name          string
 		noTask        bool
 		clientErr     error
-		runnerErr     error
 		runnerPanics  bool
 		expectError   bool
 		errorContains string
@@ -227,11 +214,6 @@ func TestJob_Run_NoWait(t *testing.T) {
 			clientErr:     fmt.Errorf("fetch error"),
 			expectError:   true,
 			errorContains: "could not fetch task",
-		},
-		{
-			name:        "Runner error",
-			runnerErr:   fmt.Errorf("runner failed"),
-			expectError: true,
 		},
 		{
 			name:         "Runner panics",
@@ -258,7 +240,6 @@ func TestJob_Run_NoWait(t *testing.T) {
 					cfg:    &configRunner,
 					log:    logChan,
 					panics: testCase.runnerPanics,
-					err:    testCase.runnerErr,
 				},
 			)
 

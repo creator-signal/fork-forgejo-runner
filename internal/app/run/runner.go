@@ -51,7 +51,7 @@ type Runner struct {
 
 //go:generate mockery --name RunnerInterface
 type RunnerInterface interface {
-	Run(ctx context.Context, task *runnerv1.Task) error
+	Run(ctx context.Context, task *runnerv1.Task)
 }
 
 func NewRunner(cfg *config.Config, name string, ls labels.Labels, cli client.Client, cacheProxy *cacheproxy.Handler) *Runner {
@@ -150,9 +150,10 @@ func SetupCache(cfg *config.Config) *cacheproxy.Handler {
 	return cacheProxy
 }
 
-func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
+func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) {
 	if _, ok := r.runningTasks.Load(task.Id); ok {
-		return fmt.Errorf("task %d is already running", task.Id)
+		log.Errorf("task %d is already running", task.Id)
+		return
 	}
 	r.runningTasks.Store(task.Id, struct{}{})
 	defer r.runningTasks.Delete(task.Id)
@@ -169,8 +170,6 @@ func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) error {
 	}()
 	reporter.RunDaemon()
 	runErr = r.run(ctx, task, reporter)
-
-	return nil
 }
 
 func logAndReport(reporter *report.Reporter, message string, args ...any) {
