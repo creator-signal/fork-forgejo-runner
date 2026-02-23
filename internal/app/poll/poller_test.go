@@ -102,19 +102,12 @@ func (o *mockClient) FetchTask(ctx context.Context, req *connect.Request[runnerv
 }
 
 type mockRunner struct {
-	cfg    *config.Runner
-	log    chan string
-	panics bool
+	cfg *config.Runner
+	log chan string
 }
 
 func (o *mockRunner) Run(ctx context.Context, task *runnerv1.Task) {
 	o.log <- "runner starts"
-	if o.panics {
-		log.Trace("panics")
-		o.log <- "runner panics"
-		o.panics = false
-		panic("whatever")
-	}
 	select {
 	case <-ctx.Done():
 		log.Trace("shutdown")

@@ -6,7 +6,6 @@ package poll
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -159,7 +158,7 @@ func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runn
 			log.Tracef("[poller] successfully fetched %d tasks from client %s", len(tasks), client.Address())
 			for _, task := range tasks {
 				wg.Go(func() {
-					p.runTaskWithRecover(p.jobsCtx, runner, task)
+					runner.Run(p.jobsCtx, task)
 					inProgressTasks.Add(-1)
 				})
 			}
@@ -184,16 +183,6 @@ func (p *poller) Shutdown(ctx context.Context) error {
 		log.Info("all jobs have been shutdown")
 		return ctx.Err()
 	}
-}
-
-func (p *poller) runTaskWithRecover(ctx context.Context, runner run.RunnerInterface, task *runnerv1.Task) {
-	defer func() {
-		if r := recover(); r != nil {
-			err := fmt.Errorf("panic: %v", r)
-			log.WithError(err).Error("panic in runTaskWithRecover")
-		}
-	}()
-	runner.Run(ctx, task)
 }
 
 func (p *poller) fetchTasks(ctx context.Context, client client.Client, tasksVersion *atomic.Int64, availableCapacity int64, requestKey gouuid.UUID) (taskSlice []*runnerv1.Task, reuseRequestKey bool) {
