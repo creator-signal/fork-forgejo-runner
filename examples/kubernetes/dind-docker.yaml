@@ -12,49 +12,53 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: forgejo-runner
+  name: forgejo-runner-docker
   labels:
-    app: forgejo-runner
-    app.kubernetes.io/component: forgejo-runner
-    app.kubernetes.io/instance: forgejo-runner
+    app: forgejo-runner-docker
+    app.kubernetes.io/component: forgejo-runner-docker
+    app.kubernetes.io/instance: forgejo-runner-docker
     app.kubernetes.io/managed-by: Kustomize
-    app.kubernetes.io/name: forgejo-runner
+    app.kubernetes.io/name: forgejo-runner-docker
   annotations:
     argocd.argoproj.io/sync-wave: '1'
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: forgejo-runner
+      app: forgejo-runner-docker
   template:
     metadata:
-      name: forgejo-runner
+      name: forgejo-runner-docker
       labels:
-        app: forgejo-runner
-        app.kubernetes.io/component: forgejo-runner
-        app.kubernetes.io/instance: forgejo-runner
+        app: forgejo-runner-docker
+        app.kubernetes.io/component: forgejo-runner-docker
+        app.kubernetes.io/instance: forgejo-runner-docker
         app.kubernetes.io/managed-by: Kustomize
-        app.kubernetes.io/name: forgejo-runner
+        app.kubernetes.io/name: forgejo-runner-docker
     spec:
       automountServiceAccountToken: false
       restartPolicy: Always
       initContainers:
         - name: runner-register
-          image: code.forgejo.org/forgejo/runner:6.4.0
+          image: code.forgejo.org/forgejo/runner:12.7.0
           command:
             - /bin/bash
             - -c
           args:
             - |
               while : ; do
-                forgejo-runner register --no-interactive --token $(RUNNER_SECRET) --name $(RUNNER_NAME) --instance $(FORGEJO_INSTANCE_URL) && break ;
+                forgejo-runner register \
+                  --no-interactive \
+                  --token "${RUNNER_SECRET}" \
+                  --name "${RUNNER_NAME}" \
+                  --instance "${FORGEJO_INSTANCE_URL}" && break ;
                 sleep 1 ;
               done ;
               forgejo-runner generate-config > /data/config.yml ;
-              sed -i -e "s|network: .*|network: host|" config.yml ;
-              sed -i -e "s|^  envs:$$|  envs:\n    DOCKER_HOST: tcp://localhost:2376\n    DOCKER_TLS_VERIFY: 1\n    DOCKER_CERT_PATH: /certs/client|" config.yml ;
-              sed -i -e "s|^  options:|  options: -v /certs/client:/certs/client|" config.yml ;
-              sed -i -e "s|  valid_volumes: \[\]$$|  valid_volumes:\n    - /certs/client|" config.yml
+              sed -i -e "s|network: .*|network: host|" /data/config.yml ;
+              sed -i -e "s|^  envs:$$|  envs:\n    DOCKER_HOST: tcp://localhost:2376\n    DOCKER_TLS_VERIFY: 1\n    DOCKER_CERT_PATH: /certs/client|" /data/config.yml ;
+              sed -i -e "s|^  options:|  options: -v /certs/client:/certs/client|" /data/config.yml ;
+              sed -i -e "s|  valid_volumes: \[\]$$|  valid_volumes:\n    - /certs/client|" /data/config.yml
           env:
             - name: RUNNER_NAME
               valueFrom:
@@ -91,7 +95,7 @@ spec:
               type: RuntimeDefault
       containers:
         - name: runner
-          image: code.forgejo.org/forgejo/runner:6.4.0
+          image: code.forgejo.org/forgejo/runner:12.7.0
           command:
             - /bin/bash
             - -c
@@ -135,8 +139,8 @@ spec:
             runAsNonRoot: true
             seccompProfile:
               type: RuntimeDefault
-        - name: daemon
-          image: docker.io/docker:28.3.0-dind
+        - name: docker
+          image: docker.io/docker:29.2.1-dind
           env:
             - name: DOCKER_TLS_CERTDIR
               value: /certs

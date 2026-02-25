@@ -3,29 +3,36 @@ name: build
 on:
   push:
     paths:
+      - .forgejo/workflows/build.yaml
       - airflow/Dockerfile       # Trigger only if Dockerfile is changed
       - airflow/requirements.txt # Trigger only if requirements.txt is changed
+
+env:
+  REGISTRY: ${{ github.server_url }}
+  APP: airflow
+  CONTEXT: airflow
+  DOCKERFILE: Dockerfile
 
 jobs:
   build:
     runs-on: docker
     steps:
-      - name: Checkout the repo
-        uses: https://data.forgejo.org/actions/checkout@v4
+      - name: Checkout
+        uses: https://data.forgejo.org/actions/checkout@v6
 
-      - name: Extract the current airflow version from the Dockerfile and set it in a variable name airflow_version
-        id: extract_airflow_version
-        run: echo "::set-output name=airflow_version::$(grep -oP '(?<=FROM apache/airflow:)[0-9]+\.[0-9]+\.[0-9]+' airflow/Dockerfile)"
-
-      - name: Add variables
-        id: add-vars
+      - name: Compute image tag
+        id: vars
         run: |
-          echo "::set-output name=registry::${GITHUB_SERVER_URL#*//}"  # built-in env variable
-          echo "::set-output name=repository::${GITHUB_REPOSITORY}"    # built-in env variable
-          echo "::set-output name=app::airflow"
-          echo "::set-output name=context::airflow"                    # Dockerfile is in airflow folder, so context is airflow folder not .
-          echo "::set-output name=dockerfile::airflow/Dockerfile"      # Dockerfile path
-          echo "::set-output name=tag::${{ steps.extract_airflow_version.outputs.airflow_version }}-${{ github.sha}}"
+          REGISTRY="${GITHUB_SERVER_URL#*//}"
+          REPOSITORY="${GITHUB_REPOSITORY}"
+          # Extract version from Dockerfile using sed (BusyBox compatible)
+          KC_VERSION=$(sed -n '/^FROM/ s/.*:\([^ ]*\).*/\1/p' "${CONTEXT}/${DOCKERFILE}")
+          TAG="${KC_VERSION}-${GITHUB_SHA::8}"
+
+          echo "registry=${REGISTRY}"          >> $GITHUB_OUTPUT
+          echo "repository=${REPOSITORY}"      >> $GITHUB_OUTPUT
+          echo "tag=${TAG}"                    >> $GITHUB_OUTPUT
+          echo "full_image=${REGISTRY}/${REPOSITORY}/${APP}:${TAG}" >> $GITHUB_OUTPUT
 
       - name: Docker CLI installation
         run: |
@@ -35,14 +42,21 @@ jobs:
           sh get-docker.sh
 
       - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ steps.add-vars.outputs.registry }}
-          username: ${{ secrets.USERNAME_WRITE_REPOSITORY }}
-          password: ${{ secrets.PASSWORD_WRITE_REPOSITORY }}
+        run: |
+          echo "${{ secrets.PASSWORD_WRITE_REPOSITORY }}" | \
+          docker login ${{ steps.vars.outputs.registry }} \
+            -u ${{ secrets.USERNAME_WRITE_REPOSITORY }} --password-stdin
 
-      - name: Image build
-        run: docker build -f ${{ steps.add-vars.outputs.dockerfile }} -t ${{ steps.add-vars.outputs.registry }}/${{ steps.add-vars.outputs.repository }}:${{ steps.add-vars.outputs.app }}-${{ steps.add-vars.outputs.tag }} ${{ steps.add-vars.outputs.context }}
+      - name: Build image
+        run: |
+          docker build \
+            -f ${{ env.CONTEXT }}/${{ env.DOCKERFILE }} \
+            -t ${{ steps.vars.outputs.full_image }} \
+            ${{ env.CONTEXT }}
 
-      - name: Image push to registry
-        run: docker push ${{steps.add-vars.outputs.registry }}/${{steps.add-vars.outputs.repository }}:${{steps.add-vars.outputs.app }}-${{ steps.add-vars.outputs.tag }}
+      - name: Push image
+        run: docker push ${{ steps.vars.outputs.full_image }}
+
+      - name: Summary
+        run: |
+          echo "### ✅ Image pushed: ${{ steps.vars.outputs.full_image }}" >> $GITHUB_STEP_SUMMARY
