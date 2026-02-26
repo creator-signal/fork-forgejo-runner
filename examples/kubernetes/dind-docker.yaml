@@ -70,7 +70,7 @@ spec:
                   name: runner-secret
                   key: token
             - name: FORGEJO_INSTANCE_URL
-              value: https://my-forgejo.fr # Replace with your Forgejo instance URL
+              value: https://my-beloved-forgejo.fr # Replace with your Forgejo instance URL
           resources:
             limits:
               cpu: '0.5'
