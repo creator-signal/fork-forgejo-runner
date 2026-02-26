@@ -8,7 +8,6 @@ on:
       - airflow/requirements.txt # Trigger only if requirements.txt is changed
 
 env:
-  REGISTRY: ${{ github.server_url }}
   APP: airflow
   CONTEXT: airflow
   DOCKERFILE: Dockerfile
@@ -24,15 +23,14 @@ jobs:
         id: vars
         run: |
           REGISTRY="${GITHUB_SERVER_URL#*//}"
-          REPOSITORY="${GITHUB_REPOSITORY}"
-          # Extract version from Dockerfile using sed (BusyBox compatible)
+          # Extract version using sed (BusyBox compatible)
           KC_VERSION=$(sed -n '/^FROM/ s/.*:\([^ ]*\).*/\1/p' "${CONTEXT}/${DOCKERFILE}")
           TAG="${KC_VERSION}-${GITHUB_SHA::8}"
 
-          echo "registry=${REGISTRY}"          >> $GITHUB_OUTPUT
-          echo "repository=${REPOSITORY}"      >> $GITHUB_OUTPUT
-          echo "tag=${TAG}"                    >> $GITHUB_OUTPUT
-          echo "full_image=${REGISTRY}/${REPOSITORY}/${APP}:${TAG}" >> $GITHUB_OUTPUT
+          echo "registry=${REGISTRY}"             >> $GITHUB_OUTPUT
+          echo "repository=${GITHUB_REPOSITORY}"  >> $GITHUB_OUTPUT
+          echo "tag=${TAG}"                       >> $GITHUB_OUTPUT
+          echo "full_image=${REGISTRY}/${GITHUB_REPOSITORY}/${APP}:${TAG}" >> $GITHUB_OUTPUT
 
       - name: Docker CLI installation
         run: |
@@ -43,7 +41,7 @@ jobs:
 
       - name: Login to Container Registry
         run: |
-          echo "${{ secrets.PASSWORD_WRITE_REPOSITORY }}" | \
+          echo '${{ secrets.PASSWORD_WRITE_REPOSITORY }}' | \
           docker login ${{ steps.vars.outputs.registry }} \
             -u ${{ secrets.USERNAME_WRITE_REPOSITORY }} --password-stdin
 
@@ -59,4 +57,4 @@ jobs:
 
       - name: Summary
         run: |
-          echo "### ✅ Image pushed: ${{ steps.vars.outputs.full_image }}" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Image built and delivered with style: ${{ steps.vars.outputs.full_image }}" >> $GITHUB_STEP_SUMMARY
