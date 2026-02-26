@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - .forgejo/workflows/build.yaml
-      - airflow/Dockerfile       # Trigger only if Dockerfile is changed
+      - airflow/Dockerfile # Trigger only if Dockerfile is changed
       - airflow/requirements.txt # Trigger only if requirements.txt is changed
 
 env:
