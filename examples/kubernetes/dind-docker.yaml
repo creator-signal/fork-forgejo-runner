@@ -55,8 +55,8 @@ spec:
                 sleep 1 ;
               done ;
               forgejo-runner generate-config > /data/config.yml ;
-              sed -i -e "s|network: .*|network: host|" /data/config.yml ;
-              sed -i -e "s|^  envs:$$|  envs:\n    DOCKER_HOST: tcp://localhost:2376\n    DOCKER_TLS_VERIFY: 1\n    DOCKER_CERT_PATH: /certs/client|" /data/config.yml ;
+              # Point the runner to the local dind sidecar
+              sed -i -e 's|docker_host: "-"|docker_host: "tcp://localhost:2376"|' /data/config.yml ;
               sed -i -e "s|^  options:|  options: -v /certs/client:/certs/client|" /data/config.yml ;
               sed -i -e "s|  valid_volumes: \[\]$$|  valid_volumes:\n    - /certs/client|" /data/config.yml
           env:
