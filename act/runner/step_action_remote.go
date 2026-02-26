@@ -32,7 +32,7 @@ type stepActionRemote struct {
 
 var stepActionRemoteGitClone = git.Clone
 
-var protoRegex = regexp.MustCompile("^https?://")
+var schemePattern = regexp.MustCompile("^https?://")
 
 func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 	return func(ctx context.Context) error {
@@ -71,11 +71,16 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 			if err != nil {
 				common.Logger(ctx).Warnf("failed to determine token auth support from server version '%s': %w", sar.RunContext.Config.ServerVersion, err)
 			}
+			common.Logger(ctx).Debugf("Authentication with token supported: %v", tokenSupported)
 
 			// If we're pulling the action from the instance itself, set the auth token
-			if tokenSupported && (sar.remoteAction.URL == "" && sar.RunContext.Config.DefaultActionInstance == sar.RunContext.Config.GitHubInstance) || (protoRegex.ReplaceAllString(sar.remoteAction.URL, "") == sar.RunContext.Config.GitHubInstance) {
+			if tokenSupported && actionHostedOnSameInstanceAsWorkflow(sar.remoteAction.URL, sar.RunContext.Config.GitHubInstance, sar.RunContext.Config.DefaultActionInstance) {
 				token = github.Token
+			} else {
+				common.Logger(ctx).Debugf("Authentication with token disabled for action URL %q, origin URL %q, and default URL %q",
+					sar.remoteAction.URL, sar.RunContext.Config.GitHubInstance, sar.RunContext.Config.DefaultActionInstance)
 			}
+
 			wt, err := stepActionRemoteGitClone(ctx, git.CloneInput{
 				CacheDir:    sar.RunContext.ActionCacheDir(),
 				URL:         sar.remoteAction.CloneURL(sar.RunContext.Config.DefaultActionInstance),
@@ -331,4 +336,36 @@ func tokenAuthSupported(serverVersion string) (bool, error) {
 	}
 
 	return c.Check(v), nil
+}
+
+// actionHostedOnSameInstanceAsWorkflow tests whether an action is hosted on the same instance as the workflow that is
+// being run. Returns `true` if both URLs match (including scheme, ports, and paths), `false` otherwise.
+func actionHostedOnSameInstanceAsWorkflow(actionURL, originInstance, defaultActionsInstance string) bool {
+	// Remove trailing slashes if present. It preserves the meaning of the URLs while removing a source of configuration
+	// problems.
+	actionURL = strings.TrimSuffix(actionURL, "/")
+	originInstance = strings.TrimSuffix(originInstance, "/")
+	defaultActionsInstance = strings.TrimSuffix(defaultActionsInstance, "/")
+
+	isHostname := func(s string) bool {
+		return !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://")
+	}
+
+	// Handle an action reference with an empty URL like `uses: actions/checkout`.
+	if actionURL == "" {
+		if isHostname(originInstance) || isHostname(defaultActionsInstance) {
+			originInstance = schemePattern.ReplaceAllString(originInstance, "")
+			defaultActionsInstance = schemePattern.ReplaceAllString(defaultActionsInstance, "")
+		}
+		return originInstance == defaultActionsInstance
+	}
+
+	// Test if an action loaded from an arbitrary URL (like `uses: https://forge.example.com/actions/checkout`) comes
+	// from the same instance as the workflow that is being run. Because Forgejo can be hosted on paths or use
+	// arbitrary ports, looking at the hostname is not sufficient. Both URLs have to be equal.
+	if isHostname(originInstance) || isHostname(actionURL) {
+		originInstance = schemePattern.ReplaceAllString(originInstance, "")
+		actionURL = schemePattern.ReplaceAllString(actionURL, "")
+	}
+	return originInstance == actionURL
 }
