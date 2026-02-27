@@ -108,6 +108,8 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 				reader, err = cli.ImagePull(ctx, imageRef, imagePullOptions)
 
 				_ = logDockerResponse(logger, reader, err != nil)
+			} else if strings.Contains(err.Error(), "no basic auth credentials") {
+				logger.Errorf("pulling image '%v' (%s) failed without credentials %s - consider using DOCKER_USERNAME and DOCKER_PASSWORD build secrets", imageRef, input.Platform, err.Error())
 			}
 			return err
 		}
