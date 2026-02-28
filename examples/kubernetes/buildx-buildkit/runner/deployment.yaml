@@ -1,0 +1,211 @@
+# Secret data.
+# You will need to retrieve this from the web UI, and your Forgejo instance must be running v1.21+
+# Alternatively, create this with
+# kubectl create secret generic runner-secret --from-literal=token=your_offline_token_here
+apiVersion: v1
+kind: Secret
+metadata:
+  name: runner-secret
+stringData:
+  token: your_offline_secret_here # Replace with your Forgejo offline registration token
+---
+# This Secret will allow you to connect to your forgejo instance's container registry from within the runner
+# So you can pull built images
+# You can also add other private registries here if needed (e.g. Docker Hub, Quay, etc.)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: private-registries
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: |
+    {
+      "auths": {
+        "my-beloved-forgejo.fr": {
+          "auth": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        "dhi.io": {
+          "auth": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgejo-runner
+  labels:
+    app: forgejo-runner
+    app.kubernetes.io/component: forgejo-runner
+    app.kubernetes.io/instance: forgejo-runner
+    app.kubernetes.io/managed-by: Kustomize
+    app.kubernetes.io/name: forgejo-runner
+  annotations:
+    argocd.argoproj.io/sync-wave: '1'
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: forgejo-runner
+  template:
+    metadata:
+      name: forgejo-runner
+      labels:
+        app: forgejo-runner
+        app.kubernetes.io/component: forgejo-runner
+        app.kubernetes.io/instance: forgejo-runner
+        app.kubernetes.io/managed-by: Kustomize
+        app.kubernetes.io/name: forgejo-runner
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Always
+      initContainers:
+        - name: runner-register
+          image: code.forgejo.org/forgejo/runner:12.7.0
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+              while : ; do
+                forgejo-runner register \
+                  --no-interactive \
+                  --token "${RUNNER_SECRET}" \
+                  --name "${RUNNER_NAME}" \
+                  --instance "${FORGEJO_INSTANCE_URL}" && break ;
+                sleep 1 ;
+              done ;
+              forgejo-runner generate-config > /data/config.yml ;
+              # 1. Automatically mount BuildKit certs into every job container
+              # This is crucial so job containers can securely connect to the BuildKit daemon
+              sed -i -e 's|options:|options: "-v /certs/buildkit:/certs/buildkit:ro"|' /data/config.yml ;
+              # 2. List valid volumes for security
+              sed -i -e 's|valid_volumes: \[\]|valid_volumes: ["/certs/buildkit**","/workspace/**","/tmp/**"]|' /data/config.yml ;
+              # 3. Point the runner to the local dind sidecar
+              sed -i -e 's|docker_host: "-"|docker_host: "tcp://localhost:2376"|' /data/config.yml ;
+          env:
+            - name: RUNNER_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: RUNNER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: runner-secret
+                  key: token
+            - name: FORGEJO_INSTANCE_URL
+              value: https://my-beloved-forgejo.fr # Replace with your Forgejo instance URL
+          resources:
+            limits:
+              cpu: '0.5'
+              ephemeral-storage: 100Mi
+              memory: 64Mi
+            requests:
+              cpu: 100m
+              ephemeral-storage: '0'
+              memory: 64Mi
+          volumeMounts:
+            - name: runner-data
+              mountPath: /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      containers:
+        - name: runner
+          image: code.forgejo.org/forgejo/runner:12.7.0
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+              while ! nc -z localhost 2376 </dev/null ; do
+                echo 'waiting for docker daemon...' ;
+                sleep 5 ;
+                done ;
+              forgejo-runner --config /data/config.yml daemon
+          env:
+            - name: DOCKER_HOST
+              value: tcp://localhost:2376
+            - name: DOCKER_CERT_PATH
+              value: /certs/client
+            - name: DOCKER_TLS_VERIFY
+              value: '1'
+            - name: DOCKER_CONFIG
+              value: /docker-credentials
+          resources:
+            limits:
+              cpu: '1'
+              ephemeral-storage: 3Gi
+              memory: 4Gi
+            requests:
+              cpu: 100m
+              ephemeral-storage: '0'
+              memory: 64Mi
+          volumeMounts:
+            - name: docker-certs
+              mountPath: /certs
+            - name: buildkit-client-cert
+              mountPath: /certs/buildkit
+            - name: private-registries
+              mountPath: /docker-credentials/config.json
+              subPath: .dockerconfigjson
+              readOnly: true
+            - name: runner-data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+        - name: docker
+          image: docker.io/docker:29-dind
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: /certs
+          resources:
+            limits:
+              cpu: '1'
+              ephemeral-storage: 3Gi
+              memory: 4Gi
+            requests:
+              cpu: 100m
+              ephemeral-storage: '0'
+              memory: 64Mi
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: docker-certs
+              mountPath: /certs
+            - name: buildkit-client-cert
+              mountPath: /certs/buildkit
+            - name: private-registries
+              mountPath: /root/.docker/config.json
+              subPath: .dockerconfigjson
+              readOnly: true
+      volumes:
+        - name: docker-certs
+          emptyDir: {}
+        - name: runner-data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: buildkit-client-cert
+          secret:
+            secretName: buildkit-client-cert
+        - name: private-registries
+          secret:
+            secretName: private-registries

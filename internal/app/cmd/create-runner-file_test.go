@@ -13,6 +13,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/ver"
 	"connectrpc.com/connect"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 	"go.yaml.in/yaml/v3"
@@ -59,6 +60,29 @@ func Test_ping(t *testing.T) {
 		UUID:    "create-runner-file_test.go",
 	}
 	assert.NoError(t, ping(cfg, reg))
+}
+
+func TestCreateRunnerFile_OfflineRunnerFileCreation(t *testing.T) {
+	configFile, configuration, err := prepareConfig(t.TempDir())
+	require.NoError(t, err)
+
+	secret := "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	instance := "https://example.com/"
+	name := "offline-runner"
+
+	cmd := createRunnerFileCmd(t.Context(), &configFile)
+	output, _, _, err := executeCommand(t.Context(), t, cmd, "--secret", secret, "--instance", instance, "--name", name)
+
+	require.NoError(t, err)
+	assert.Empty(t, output)
+
+	reg, err := config.LoadRegistration(configuration.Runner.File)
+	require.NoError(t, err)
+	assert.Zero(t, reg.ID)
+	assert.Equal(t, "41414141-4141-4141-4141-414141414141", reg.UUID)
+	assert.Equal(t, secret, reg.Token)
+	assert.Equal(t, instance, reg.Address)
+	assert.Equal(t, name, reg.Name)
 }
 
 func Test_runCreateRunnerFile(t *testing.T) {

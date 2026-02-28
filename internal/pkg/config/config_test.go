@@ -9,14 +9,17 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	gouuid "github.com/google/uuid"
+	"github.com/powerman/fileuri"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/skip"
 )
 
 func TestNew(t *testing.T) {
@@ -24,7 +27,7 @@ func TestNew(t *testing.T) {
 		config, err := New(FromFile("does-not-exist"))
 
 		assert.Nil(t, config)
-		assert.ErrorContains(t, err, "open does-not-exist: no such file or directory")
+		assert.ErrorContains(t, err, "open does-not-exist:")
 	})
 
 	t.Run("Malformed configuration file results in error", func(t *testing.T) {
@@ -38,7 +41,7 @@ func TestNew(t *testing.T) {
 		config, err := New(FromFile(configPath))
 
 		assert.Nil(t, config)
-		assert.ErrorContains(t, err, fmt.Sprintf(`cannot parse config file "%s"`, configPath))
+		assert.ErrorContains(t, err, fmt.Sprintf(`cannot parse config file %q`, configPath))
 	})
 
 	t.Run("Without configuration file", func(t *testing.T) {
@@ -259,7 +262,7 @@ cache:
   external_server: https://external.example.com/
   actions_cache_url_override: https://override.example.com/
   secret: vruvRdu5Rm
-  secret_url: 
+  secret_url:
 container:
   network: host
   network_mode: bridge
@@ -377,7 +380,7 @@ server:
 		assert.True(t, config.Container.ForceRebuild)
 
 		assert.NotEqual(t, defaultConfig.Host.WorkdirParent, config.Host.WorkdirParent)
-		assert.True(t, strings.HasSuffix(config.Host.WorkdirParent, "some/path"))
+		assert.True(t, strings.HasSuffix(config.Host.WorkdirParent, filepath.FromSlash("some/path")))
 		assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
 
 		assert.NotEqual(t, len(defaultConfig.Server.Connections), len(config.Server.Connections))
@@ -390,12 +393,31 @@ server:
 		assert.Equal(t, labels.MustParse("debian:docker://node:24-trixie"), config.Server.Connections["example"].Labels[0])
 	})
 
-	t.Run("Imports optional env file", func(t *testing.T) {
+	t.Run("Imports optional env file configured with os-native path", func(t *testing.T) {
 		tempDir := t.TempDir()
 		configFile := filepath.Join(tempDir, "config.yaml")
 		envFile := filepath.Join(tempDir, ".env")
 
-		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFile)
+		rawConfig := fmt.Sprintf(`{ runner: { env_file: %q } }`, envFile)
+		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
+		require.NoError(t, err)
+
+		err = os.WriteFile(envFile, []byte("SOME_ENV_VAR=some-value"), 0o644)
+		require.NoError(t, err)
+
+		config, err := New(FromFile(configFile))
+		require.NoError(t, err)
+
+		assert.Equal(t, envFile, config.Runner.EnvFile)
+		assert.Equal(t, map[string]string{"SOME_ENV_VAR": "some-value"}, config.Runner.Envs)
+	})
+
+	t.Run("Imports optional env file configured with UNIX path", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configFile := filepath.Join(tempDir, "config.yaml")
+		envFile := filepath.ToSlash(filepath.Join(tempDir, ".env"))
+
+		rawConfig := fmt.Sprintf(`{ runner: { env_file: %q } }`, envFile)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
@@ -418,7 +440,7 @@ server:
 runner:
   envs:
     MY_VARIABLE: value
-  env_file: "%s"
+  env_file: %q
 `, envFile)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
@@ -438,7 +460,7 @@ runner:
 		configFile := filepath.Join(tempDir, "config.yaml")
 		envFile := filepath.Join(tempDir, ".env")
 
-		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFile)
+		rawConfig := fmt.Sprintf(`{ runner: { env_file: %q } }`, envFile)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
@@ -454,7 +476,7 @@ runner:
 		configFile := filepath.Join(tempDir, "config.yaml")
 		envFile := filepath.Join(tempDir, ".env")
 
-		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFile)
+		rawConfig := fmt.Sprintf(`{ runner: { env_file: %q } }`, envFile)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
@@ -913,6 +935,9 @@ func TestSerializedCacheSettings(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte("y114lUUM"), 0o644)
 		require.NoError(t, err)
 
+		secretURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
 		booleanTrue := true
 		settings := serializedCacheSettings{
 			Enabled:                 &booleanTrue,
@@ -923,7 +948,7 @@ func TestSerializedCacheSettings(t *testing.T) {
 			ExternalServer:          "external.local",
 			ActionsCacheURLOverride: "https://example.com/",
 			Secret:                  "",
-			SecretURL:               fmt.Sprintf("file:%s", secretPath),
+			SecretURL:               secretURL.String(),
 		}
 
 		config := Config{}
@@ -1253,11 +1278,14 @@ func TestSerializedConnectionSettings_applyTo(t *testing.T) {
 		serverURL, err := url.Parse("https://example.com/")
 		require.NoError(t, err)
 
+		tokenURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
 		serialized := serializedConnectionSettings{
 			URL:      serverURL.String(),
 			UUID:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
 			Token:    "",
-			TokenURL: fmt.Sprintf("file:%s", secretPath),
+			TokenURL: tokenURL.String(),
 			Labels:   []string{"label-1"},
 		}
 
@@ -1365,7 +1393,10 @@ func TestResolveSecretURL(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secret, err := resolveSecretURL(fmt.Sprintf("file://%s", secretPath))
+		secretURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		secret, err := resolveSecretURL(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1394,7 +1425,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(fmt.Sprintf("file://%s", secretPath))
+		secretURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1409,7 +1443,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(fmt.Sprintf("file:%s", secretPath))
+		secretURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1423,14 +1460,18 @@ func TestResolveFileSecret(t *testing.T) {
 
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
+		secretURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+		secretURL.Host = "some-host"
 
-		secret, err := resolveFileSecret(fmt.Sprintf("file://some-host%s", secretPath))
+		secret, err := resolveFileSecret(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
 	})
 
 	t.Run("with env variable CREDENTIALS_DIRECTORY", func(t *testing.T) {
+		skip.If(t, runtime.GOOS != "linux") // The $CREDENTIALS_DIRECTORY environment variable is only relevant on Linux.
 		rawSecret := "zoN4nQX"
 
 		tempDir := t.TempDir()
@@ -1462,7 +1503,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte{}, 0o644)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(fmt.Sprintf("file://%s", secretPath))
+		secretURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Empty(t, secret)

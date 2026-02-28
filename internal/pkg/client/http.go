@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -73,6 +74,7 @@ func New(endpoint string, insecure bool, uuid, token, version string, fetchInter
 			if client.requestKey != nil {
 				req.Header().Set(RequestKeyHeader, client.requestKey.String())
 			}
+			req.Header().Set(UserAgentHeader, fmt.Sprintf("forgejo-runner/%s", version))
 			return next(ctx, req)
 		}
 	})))

@@ -55,7 +55,9 @@ func Execute(ctx context.Context) {
 		Use:   "one-job",
 		Short: "Run only one job",
 		Args:  cobra.MaximumNArgs(1),
-		RunE:  runJob(ctx, &configFile, &runJobArgs),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runJob(ctx, &configFile, &runJobArgs)
+		},
 	}
 	jobCmd.Flags().BoolVarP(&runJobArgs.wait, "wait", "w", false, "waits until task has been assigned")
 	rootCmd.AddCommand(jobCmd)

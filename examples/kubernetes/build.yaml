@@ -23,14 +23,17 @@ jobs:
         id: vars
         run: |
           REGISTRY="${GITHUB_SERVER_URL#*//}"
+          # Lowercase the repository name to ensure consistency, as some registries are case-sensitive
+          REPOSITORY="${GITHUB_REPOSITORY,,}"
           # Extract version using sed (BusyBox compatible)
           KC_VERSION=$(sed -n '/^FROM/ s/.*:\([^ ]*\).*/\1/p' "${CONTEXT}/${DOCKERFILE}")
           TAG="${KC_VERSION}-${GITHUB_SHA::8}"
 
-          echo "registry=${REGISTRY}"             >> $GITHUB_OUTPUT
-          echo "repository=${GITHUB_REPOSITORY}"  >> $GITHUB_OUTPUT
-          echo "tag=${TAG}"                       >> $GITHUB_OUTPUT
-          echo "full_image=${REGISTRY}/${GITHUB_REPOSITORY}/${APP}:${TAG}" >> $GITHUB_OUTPUT
+          echo "registry=${REGISTRY}"      >> $GITHUB_OUTPUT
+          # Lowercase the repository name to ensure consistency, as some registries are case-sensitive
+          echo "repository=${REPOSITORY}"  >> $GITHUB_OUTPUT
+          echo "tag=${TAG}"                >> $GITHUB_OUTPUT
+          echo "full_image=${REGISTRY}/${REPOSITORY}/${APP}:${TAG}" >> $GITHUB_OUTPUT
 
       - name: Docker CLI installation
         run: |
@@ -40,10 +43,11 @@ jobs:
           sh get-docker.sh
 
       - name: Login to Container Registry
-        run: |
-          echo '${{ secrets.PASSWORD_WRITE_REPOSITORY }}' | \
-          docker login ${{ steps.vars.outputs.registry }} \
-            -u ${{ secrets.USERNAME_WRITE_REPOSITORY }} --password-stdin
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ steps.vars.outputs.registry }}
+          username: ${{ secrets.USERNAME_WRITE_REPOSITORY }}
+          password: ${{ secrets.PASSWORD_WRITE_REPOSITORY }}
 
       - name: Build image
         run: |

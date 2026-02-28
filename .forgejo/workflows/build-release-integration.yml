@@ -19,7 +19,7 @@ on:
 enable-email-notifications: true
 
 env:
-  FORGEJO_VERSION: 11.0.10 # renovate: datasource=docker depName=data.forgejo.org/forgejo/forgejo
+  FORGEJO_VERSION: 11.0.11 # renovate: datasource=docker depName=data.forgejo.org/forgejo/forgejo
 
 jobs:
   release-simulation:
@@ -29,7 +29,7 @@ jobs:
       - uses:  https://data.forgejo.org/actions/checkout@v4
 
       - id: forgejo
-        uses: https://data.forgejo.org/actions/setup-forgejo@v3.1.6
+        uses: https://data.forgejo.org/actions/setup-forgejo@v3.1.8
         with:
           user: root
           password: admin1234

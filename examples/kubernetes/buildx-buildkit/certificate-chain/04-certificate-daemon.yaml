@@ -1,0 +1,25 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: buildkit-daemon
+spec:
+  secretName: buildkit-daemon-cert
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  # If you deploy the BuildKit daemon in a namespace different from forgejo,
+  # you must update the corresponding dnsNames in the certificate configuration
+  # buildkitd.<namespace>
+  # buildkitd.<namespace>.svc
+  # buildkitd.<namespace>.svc.cluster.local
+  dnsNames:
+    - buildkitd
+    - buildkitd.forgejo
+    - buildkitd.forgejo.svc
+    - buildkitd.forgejo.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: buildkit-ca
+  usages:
+    - client auth
+    - server auth

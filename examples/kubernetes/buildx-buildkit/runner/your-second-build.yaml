@@ -1,0 +1,73 @@
+name: build
+
+on:
+  push:
+    paths:
+      - .forgejo/workflows/build.yaml
+      - builder/Dockerfile
+
+env:
+  APP: builder
+  CONTEXT: builder
+  DOCKERFILE: Dockerfile
+  BUILDKIT_ADDR: tcp://buildkitd:1234
+
+jobs:
+  build:
+    runs-on: docker
+    # You can set your custom image here if you prefer instead of set if with the labels in the runner deployment
+    container:
+      image: my-beloved-forgejo.fr/forgejo/builder:24-alpine-xxxxxxxx
+    steps:
+      - name: Checkout
+        uses: https://data.forgejo.org/actions/checkout@v6
+
+      - name: Compute image tag
+        id: vars
+        run: |
+          REGISTRY="${GITHUB_SERVER_URL#*//}"
+          # Lowercase the repository name to ensure consistency, as some registries are case-sensitive
+          REPOSITORY="${GITHUB_REPOSITORY,,}"
+          # Extract version using sed (BusyBox compatible)
+          KC_VERSION=$(sed -n '/^FROM/ s/.*:\([^ ]*\).*/\1/p' "${CONTEXT}/${DOCKERFILE}")
+          TAG="${KC_VERSION}-${GITHUB_SHA::8}"
+
+          echo "registry=${REGISTRY}"      >> $GITHUB_OUTPUT
+          # Lowercase the repository name to ensure consistency, as some registries are case-sensitive
+          echo "repository=${REPOSITORY}"  >> $GITHUB_OUTPUT
+          echo "tag=${TAG}"                >> $GITHUB_OUTPUT
+          echo "full_image=${REGISTRY}/${REPOSITORY}/${APP}:${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Login to Forgejo container registry
+        run: |
+          echo '${{ secrets.PASSWORD_WRITE_REPOSITORY }}' | \
+          docker login ${{ steps.vars.outputs.registry }} \
+            -u ${{ secrets.USERNAME_WRITE_REPOSITORY }} --password-stdin
+
+      - name: Set up Buildx
+        run: |
+          # Set up Buildx with remote BuildKit
+          docker buildx create --name remote-builder \
+            --driver remote \
+            --driver-opt 'cacert=/certs/buildkit/ca.crt,cert=/certs/buildkit/tls.crt,key=/certs/buildkit/tls.key' \
+            --use "${{ env.BUILDKIT_ADDR }}"
+
+          # Check Buildx builder status
+          docker buildx inspect --bootstrap
+
+      - name: Build and Push with Buildx
+        run: |
+          # Buildx combines build and push in one command, and supports multi-platform builds
+          docker buildx build \
+            --platform linux/amd64 \
+            --file "${{ env.CONTEXT }}/${{ env.DOCKERFILE }}" \
+            --tag "${{ steps.vars.outputs.full_image }}" \
+            --metadata-file metadata.json \
+            --push \
+            --cache-from "type=registry,ref=${{ steps.vars.outputs.registry }}/${{ github.repository }}/${{ env.APP }}:cache-${{ github.ref_name }}" \
+            --cache-to "type=registry,ref=${{ steps.vars.outputs.registry }}/${{ github.repository }}/${{ env.APP }}:cache-${{ github.ref_name }},mode=max" \
+            "${{ env.CONTEXT }}"
+
+      - name: Summary
+        run: |
+          echo "### ✅ Image built and delivered with style: ${{ steps.vars.outputs.full_image }}" >> $GITHUB_STEP_SUMMARY

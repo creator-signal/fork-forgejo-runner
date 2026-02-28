@@ -747,7 +747,6 @@ func TestClone_UsesTokenForHTTPAuth_NoInteractivePrompt(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// Any path is fine; useHttpPath=true makes git include the path in credential lookup.
 	url := srv.URL + "/org/repo"
 
 	_, err := Clone(t.Context(), CloneInput{

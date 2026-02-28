@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: buildkitd
+  labels:
+    app: buildkitd
+    app.kubernetes.io/component: buildkitd
+    app.kubernetes.io/instance: buildkitd
+    app.kubernetes.io/managed-by: Kustomize
+    app.kubernetes.io/name: buildkitd
+  annotations:
+    argocd.argoproj.io/sync-wave: '1'
+spec:
+  serviceName: buildkitd
+  replicas: 2
+  selector:
+    matchLabels:
+      app: buildkitd
+  template:
+    metadata:
+      name: buildkitd
+      labels:
+        app: buildkitd
+        app.kubernetes.io/component: buildkitd
+        app.kubernetes.io/instance: buildkitd
+        app.kubernetes.io/managed-by: Kustomize
+        app.kubernetes.io/name: buildkitd
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: buildkitd
+          image: docker.io/moby/buildkit:v0.27.1-rootless
+          ports:
+            - name: http
+              containerPort: 1234
+              protocol: TCP
+          args:
+            - --addr
+            - unix:///run/user/1000/buildkit/buildkitd.sock
+            - --addr
+            - tcp://0.0.0.0:1234
+            - --tlscacert
+            - /certs/ca.crt
+            - --tlscert
+            - /certs/tls.crt
+            - --tlskey
+            - /certs/tls.key
+            - --oci-worker-no-process-sandbox
+            - --oci-worker-gc
+            - --oci-worker-gc-keepstorage
+            - '4294967296' # Must be changed if volumeClaimTemplates storage is changed
+          readinessProbe:
+            exec:
+              command:
+                - buildctl
+                - --addr
+                - unix:///run/user/1000/buildkit/buildkitd.sock
+                - debug
+                - workers
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          livenessProbe:
+            exec:
+              command:
+                - buildctl
+                - --addr
+                - unix:///run/user/1000/buildkit/buildkitd.sock
+                - debug
+                - workers
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            limits:
+              cpu: '1'
+              memory: 4Gi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: true
+            privileged: false
+            readOnlyRootFilesystem: true # It should work but you can set it to false if you have some issues with it
+            runAsNonRoot: true
+            appArmorProfile:
+              type: Unconfined
+            seccompProfile:
+              type: Unconfined
+          volumeMounts:
+            - name: certs
+              mountPath: /certs
+              readOnly: true
+            - name: local-share
+              mountPath: /home/user/.local/share
+            - name: local-tmp
+              mountPath: /home/user/.local/tmp
+            - name: run-user
+              mountPath: /run/user/1000
+            - name: tmp
+              mountPath: /tmp
+            - name: buildkitd-cache
+              mountPath: /var/lib/buildkit
+      volumes:
+        - name: certs
+          secret:
+            secretName: buildkit-daemon-cert
+        - name: local-share
+          emptyDir: {}
+        - name: local-tmp
+          emptyDir: {}
+        - name: run-user
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: buildkitd-cache
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: buildkitd
+  labels:
+    app: buildkitd
+  annotations:
+    argocd.argoproj.io/sync-wave: '0'
+spec:
+  clusterIP: None
+  selector:
+    app: buildkitd
+  ports:
+    - name: http
+      protocol: TCP
+      port: 1234
+      targetPort: 1234

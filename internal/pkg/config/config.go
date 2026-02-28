@@ -16,6 +16,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	gouuid "github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/powerman/fileuri"
 	log "github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
 )
@@ -216,7 +217,7 @@ func (s *serializedRunnerSettings) applyTo(config *Config) error {
 		if config.Runner.Envs == nil {
 			config.Runner.Envs = make(map[string]string, len(s.Envs))
 		}
-		env, err := readEnvFile(s.EnvFile)
+		env, err := readEnvFile(filepath.FromSlash(s.EnvFile))
 		if err != nil {
 			return err
 		}
@@ -403,7 +404,7 @@ type serializedHostSettings struct {
 
 func (s *serializedHostSettings) applyTo(config *Config) error {
 	if s.WorkdirParent != "" {
-		config.Host.WorkdirParent = s.WorkdirParent
+		config.Host.WorkdirParent = filepath.FromSlash(s.WorkdirParent)
 	}
 
 	return nil
@@ -624,9 +625,11 @@ func resolveFileSecret(input string) (string, error) {
 	hostname := fileURL.Hostname()
 	if hostname != "" {
 		log.Warnf("Ignoring hostname %q in secret: %q", hostname, input)
+		fileURL.Host = ""
 	}
 
-	value, err := os.ReadFile(fileURL.Path)
+	filePath, _ := fileuri.ToFilePath(fileURL)
+	value, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("cannot read secret %q: %w", input, err)
 	}

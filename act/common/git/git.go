@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -442,40 +444,15 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 			return "", fmt.Errorf("failed to parse remote URL %q to use git token: %w", options.remoteURL, err)
 		}
 
-		credentialsFile, err := os.CreateTemp("", "forgejo-runner-git-token-")
-		if err != nil {
-			return "", fmt.Errorf("failed to create temporary file to store Git token: %w", err)
-		}
-
-		credentialsPath := credentialsFile.Name()
-		defer func() {
-			_ = credentialsFile.Close()
-			if err := os.Remove(credentialsPath); err != nil {
-				log.Warnf("Unable to remove temporary file to store Git token %s: %v", credentialsPath, err)
-			}
-		}()
-
-		// Git credential store expects an URL with embedded credentials.
-		// Use a fixed username to keep behaviour consistent across providers.
-		remoteURL.User = url.UserPassword("x-access-token", options.token)
-		if remoteURL.Path == "" {
-			remoteURL.Path = "/"
-		}
-
-		_, err = credentialsFile.Write([]byte(remoteURL.String() + "\n"))
-		if err != nil {
-			return "", fmt.Errorf("failed to write Git token to temporary file %s: %w", credentialsPath, err)
-		}
-		err = credentialsFile.Close()
-		if err != nil {
-			return "", fmt.Errorf("failed to close temporary file %s that stores Git token: %w", credentialsPath, err)
-		}
-
-		gitArguments = append(gitArguments, "-c", fmt.Sprintf("credential.helper=store --file=%s", credentialsPath))
-		gitArguments = append(gitArguments, "-c", "credential.useHttpPath=true")
+		const envVarName = "GIT_AUTH_HEADER"
+		scopedExtraHeader := fmt.Sprintf("http.%s://%s/.extraHeader", remoteURL.Scheme, remoteURL.Host)
+		gitArguments = append(gitArguments, "--config-env", fmt.Sprintf("%s=%s", scopedExtraHeader, envVarName))
 	}
 	if options.ignoreInvalidCertificates {
 		gitArguments = append(gitArguments, "-c", "http.sslVerify=false")
+	}
+	if runtime.GOOS == "windows" {
+		gitArguments = append(gitArguments, "-c", "core.longpaths=true")
 	}
 	if options.workingDirectory != "" {
 		gitArguments = append(gitArguments, "-C", options.workingDirectory)
@@ -487,6 +464,13 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 	logger.Debugf("  git %s", strings.Join(gitArguments, " "))
 
 	cmd := exec.CommandContext(ctx, "git", gitArguments...)
+
+	if options.token != "" {
+		auth := "x-access-token:" + options.token
+		authHeader := "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+		cmd.Env = append(os.Environ(), "GIT_AUTH_HEADER="+authHeader)
+	}
+
 	output, err := cmd.Output()
 	trimmedOutput := strings.TrimSpace(string(output))
 

@@ -7,4 +7,5 @@ const (
 	UUIDHeader       = "x-runner-uuid"
 	TokenHeader      = "x-runner-token"
 	RequestKeyHeader = "x-runner-request-key"
+	UserAgentHeader  = "user-agent"
 )
