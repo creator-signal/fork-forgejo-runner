@@ -127,8 +127,10 @@ func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, config
 		//
 		// Verify the Forgejo instance is reachable
 		//
-		if err := ping(cfg, reg); err != nil {
-			return err
+		if args.Connect {
+			if err := ping(cfg, reg); err != nil {
+				return err
+			}
 		}
 
 		//
