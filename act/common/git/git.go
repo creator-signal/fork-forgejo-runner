@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -476,6 +477,9 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 	}
 	if options.ignoreInvalidCertificates {
 		gitArguments = append(gitArguments, "-c", "http.sslVerify=false")
+	}
+	if runtime.GOOS == "windows" {
+		gitArguments = append(gitArguments, "-c", "core.longpaths=true")
 	}
 	if options.workingDirectory != "" {
 		gitArguments = append(gitArguments, "-C", options.workingDirectory)
