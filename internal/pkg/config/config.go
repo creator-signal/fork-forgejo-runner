@@ -614,11 +614,11 @@ func resolveFileSecret(input string) (string, error) {
 	// Replace placeholder `$CREDENTIALS_DIRECTORY` with the value of the environment variable `CREDENTIALS_DIRECTORY`
 	// if it exists. That adds support for systemd Credentials (https://systemd.io/CREDENTIALS/).
 	if credentialsDirectory, ok := os.LookupEnv("CREDENTIALS_DIRECTORY"); ok {
-		credentialsUrl, err := fileuri.FromFilePath(credentialsDirectory)
+		credentialsURL, err := fileuri.FromFilePath(credentialsDirectory)
 		if err != nil {
 			return "", fmt.Errorf("malformed secret URL %q: %w", input, err)
 		}
-		input = strings.Replace(input, "$CREDENTIALS_DIRECTORY", credentialsUrl.Path, 1)
+		input = strings.Replace(input, "$CREDENTIALS_DIRECTORY", credentialsURL.Path, 1)
 	}
 
 	fileURL, err := url.Parse(input)

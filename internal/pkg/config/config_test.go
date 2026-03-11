@@ -1377,10 +1377,10 @@ func TestResolveSecretURL(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secretUrl, err := fileuri.FromFilePath(secretPath)
+		secretURL, err := fileuri.FromFilePath(secretPath)
 		require.NoError(t, err)
 
-		secret, err := resolveSecretURL(secretUrl.String())
+		secret, err := resolveSecretURL(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1409,10 +1409,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secretUrl, err := fileuri.FromFilePath(secretPath)
+		secretURL, err := fileuri.FromFilePath(secretPath)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(secretUrl.String())
+		secret, err := resolveFileSecret(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1427,10 +1427,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secretUrl, err := fileuri.FromFilePath(secretPath)
+		secretURL, err := fileuri.FromFilePath(secretPath)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(secretUrl.String())
+		secret, err := resolveFileSecret(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1444,11 +1444,11 @@ func TestResolveFileSecret(t *testing.T) {
 
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
-		secretUrl, err := fileuri.FromFilePath(secretPath)
+		secretURL, err := fileuri.FromFilePath(secretPath)
 		require.NoError(t, err)
-		secretUrl.Host = "some-host"
+		secretURL.Host = "some-host"
 
-		secret, err := resolveFileSecret(secretUrl.String())
+		secret, err := resolveFileSecret(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1486,10 +1486,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte{}, 0o644)
 		require.NoError(t, err)
 
-		secretUrl, err := fileuri.FromFilePath(secretPath)
+		secretURL, err := fileuri.FromFilePath(secretPath)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(secretUrl.String())
+		secret, err := resolveFileSecret(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Empty(t, secret)
