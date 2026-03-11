@@ -31,6 +31,7 @@ require (
 	github.com/moby/patternmatcher v0.6.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/selinux v1.13.0
+	github.com/powerman/fileuri v0.2.0
 	github.com/rhysd/actionlint v1.7.10
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2

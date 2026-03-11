@@ -16,6 +16,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	gouuid "github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/powerman/fileuri"
 	log "github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
 )
@@ -613,7 +614,11 @@ func resolveFileSecret(input string) (string, error) {
 	// Replace placeholder `$CREDENTIALS_DIRECTORY` with the value of the environment variable `CREDENTIALS_DIRECTORY`
 	// if it exists. That adds support for systemd Credentials (https://systemd.io/CREDENTIALS/).
 	if credentialsDirectory, ok := os.LookupEnv("CREDENTIALS_DIRECTORY"); ok {
-		input = strings.Replace(input, "$CREDENTIALS_DIRECTORY", credentialsDirectory, 1)
+		credentialsUrl, err := fileuri.FromFilePath(credentialsDirectory)
+		if err != nil {
+			return "", fmt.Errorf("malformed secret URL %q: %w", input, err)
+		}
+		input = strings.Replace(input, "$CREDENTIALS_DIRECTORY", credentialsUrl.Path, 1)
 	}
 
 	fileURL, err := url.Parse(input)
@@ -624,9 +629,11 @@ func resolveFileSecret(input string) (string, error) {
 	hostname := fileURL.Hostname()
 	if hostname != "" {
 		log.Warnf("Ignoring hostname %q in secret: %q", hostname, input)
+		fileURL.Host = ""
 	}
 
-	value, err := os.ReadFile(fileURL.Path)
+	filePath, err := fileuri.ToFilePath(fileURL)
+	value, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("cannot read secret %q: %w", input, err)
 	}

@@ -15,6 +15,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	gouuid "github.com/google/uuid"
+	"github.com/powerman/fileuri"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -918,6 +919,9 @@ func TestSerializedCacheSettings(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte("y114lUUM"), 0o644)
 		require.NoError(t, err)
 
+		secretURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
 		booleanTrue := true
 		settings := serializedCacheSettings{
 			Enabled:                 &booleanTrue,
@@ -928,7 +932,7 @@ func TestSerializedCacheSettings(t *testing.T) {
 			ExternalServer:          "external.local",
 			ActionsCacheURLOverride: "https://example.com/",
 			Secret:                  "",
-			SecretURL:               fmt.Sprintf("file:%s", secretPath),
+			SecretURL:               secretURL.String(),
 		}
 
 		config := Config{}
@@ -1258,11 +1262,14 @@ func TestSerializedConnectionSettings_applyTo(t *testing.T) {
 		serverURL, err := url.Parse("https://example.com/")
 		require.NoError(t, err)
 
+		tokenURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
 		serialized := serializedConnectionSettings{
 			URL:      serverURL.String(),
 			UUID:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
 			Token:    "",
-			TokenURL: fmt.Sprintf("file:%s", secretPath),
+			TokenURL: tokenURL.String(),
 			Labels:   []string{"label-1"},
 		}
 
@@ -1370,7 +1377,10 @@ func TestResolveSecretURL(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secret, err := resolveSecretURL(fmt.Sprintf("file://%s", secretPath))
+		secretUrl, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		secret, err := resolveSecretURL(secretUrl.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1399,7 +1409,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(fmt.Sprintf("file://%s", secretPath))
+		secretUrl, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(secretUrl.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1414,7 +1427,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(fmt.Sprintf("file:%s", secretPath))
+		secretUrl, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(secretUrl.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1428,8 +1444,11 @@ func TestResolveFileSecret(t *testing.T) {
 
 		err := os.WriteFile(secretPath, []byte(rawSecret), 0o644)
 		require.NoError(t, err)
+		secretUrl, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+		secretUrl.Host = "some-host"
 
-		secret, err := resolveFileSecret(fmt.Sprintf("file://some-host%s", secretPath))
+		secret, err := resolveFileSecret(secretUrl.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
@@ -1467,7 +1486,10 @@ func TestResolveFileSecret(t *testing.T) {
 		err := os.WriteFile(secretPath, []byte{}, 0o644)
 		require.NoError(t, err)
 
-		secret, err := resolveFileSecret(fmt.Sprintf("file://%s", secretPath))
+		secretUrl, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		secret, err := resolveFileSecret(secretUrl.String())
 		require.NoError(t, err)
 
 		assert.Empty(t, secret)
