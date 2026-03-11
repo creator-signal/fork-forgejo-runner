@@ -216,7 +216,7 @@ func (s *serializedRunnerSettings) applyTo(config *Config) error {
 		if config.Runner.Envs == nil {
 			config.Runner.Envs = make(map[string]string, len(s.Envs))
 		}
-		env, err := readEnvFile(s.EnvFile)
+		env, err := readEnvFile(filepath.FromSlash(s.EnvFile))
 		if err != nil {
 			return err
 		}
@@ -403,7 +403,7 @@ type serializedHostSettings struct {
 
 func (s *serializedHostSettings) applyTo(config *Config) error {
 	if s.WorkdirParent != "" {
-		config.Host.WorkdirParent = s.WorkdirParent
+		config.Host.WorkdirParent = filepath.FromSlash(s.WorkdirParent)
 	}
 
 	return nil

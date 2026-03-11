@@ -377,7 +377,7 @@ server:
 		assert.True(t, config.Container.ForceRebuild)
 
 		assert.NotEqual(t, defaultConfig.Host.WorkdirParent, config.Host.WorkdirParent)
-		assert.True(t, strings.HasSuffix(config.Host.WorkdirParent, "some/path"))
+		assert.True(t, strings.HasSuffix(config.Host.WorkdirParent, filepath.FromSlash("some/path")))
 		assert.True(t, filepath.IsAbs(config.Host.WorkdirParent))
 
 		assert.NotEqual(t, len(defaultConfig.Server.Connections), len(config.Server.Connections))
@@ -394,8 +394,10 @@ server:
 		tempDir := t.TempDir()
 		configFile := filepath.Join(tempDir, "config.yaml")
 		envFile := filepath.Join(tempDir, ".env")
+		// Use forward slashes in YAML to avoid backslash escape issues on Windows
+		envFileYaml := filepath.ToSlash(envFile)
 
-		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFile)
+		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFileYaml)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
@@ -405,7 +407,7 @@ server:
 		config, err := New(FromFile(configFile))
 		require.NoError(t, err)
 
-		assert.Equal(t, envFile, config.Runner.EnvFile)
+		assert.Equal(t, envFileYaml, config.Runner.EnvFile)
 		assert.Equal(t, map[string]string{"SOME_ENV_VAR": "some-value"}, config.Runner.Envs)
 	})
 
@@ -413,13 +415,14 @@ server:
 		tempDir := t.TempDir()
 		configFile := filepath.Join(tempDir, "config.yaml")
 		envFile := filepath.Join(tempDir, ".env")
+		envFileYaml := filepath.ToSlash(envFile)
 
 		rawConfig := fmt.Sprintf(`
 runner:
   envs:
     MY_VARIABLE: value
   env_file: "%s"
-`, envFile)
+`, envFileYaml)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
@@ -429,7 +432,7 @@ runner:
 		config, err := New(FromFile(configFile))
 		require.NoError(t, err)
 
-		assert.Equal(t, envFile, config.Runner.EnvFile)
+		assert.Equal(t, envFileYaml, config.Runner.EnvFile)
 		assert.Equal(t, map[string]string{"MY_VARIABLE": "value", "SOME_ENV_VAR": "some-value"}, config.Runner.Envs)
 	})
 
@@ -437,15 +440,16 @@ runner:
 		tempDir := t.TempDir()
 		configFile := filepath.Join(tempDir, "config.yaml")
 		envFile := filepath.Join(tempDir, ".env")
+		envFileYaml := filepath.ToSlash(envFile)
 
-		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFile)
+		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFileYaml)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
 		config, err := New(FromFile(configFile))
 		require.NoError(t, err)
 
-		assert.Equal(t, envFile, config.Runner.EnvFile)
+		assert.Equal(t, envFileYaml, config.Runner.EnvFile)
 		assert.Empty(t, config.Runner.Envs)
 	})
 
@@ -453,8 +457,9 @@ runner:
 		tempDir := t.TempDir()
 		configFile := filepath.Join(tempDir, "config.yaml")
 		envFile := filepath.Join(tempDir, ".env")
+		envFileYaml := filepath.ToSlash(envFile)
 
-		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFile)
+		rawConfig := fmt.Sprintf(`{ runner: { env_file: "%s" } }`, envFileYaml)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
 		require.NoError(t, err)
 
