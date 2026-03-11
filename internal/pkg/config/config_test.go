@@ -38,7 +38,7 @@ func TestNew(t *testing.T) {
 		config, err := New(FromFile(configPath))
 
 		assert.Nil(t, config)
-		assert.ErrorContains(t, err, fmt.Sprintf(`cannot parse config file "%s"`, configPath))
+		assert.ErrorContains(t, err, fmt.Sprintf(`cannot parse config file %q`, configPath))
 	})
 
 	t.Run("Without configuration file", func(t *testing.T) {
@@ -259,7 +259,7 @@ cache:
   external_server: https://external.example.com/
   actions_cache_url_override: https://override.example.com/
   secret: vruvRdu5Rm
-  secret_url: 
+  secret_url:
 container:
   network: host
   network_mode: bridge
