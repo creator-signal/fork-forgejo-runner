@@ -444,10 +444,9 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 			return "", fmt.Errorf("failed to parse remote URL %q to use git token: %w", options.remoteURL, err)
 		}
 
-		// On Windows, GCM interferes with credential.helper. Use http.extraHeader instead,
-		// which is more reliable for programmatic authentication.
+		// On Windows, Git Credential Manager interferes with credential.helper.
+		// Use http.extraHeader to bypass the credential helper system entirely.
 		if runtime.GOOS == "windows" {
-			// Create Basic Auth header
 			auth := "x-access-token:" + options.token
 			authHeader := "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
 			gitArguments = append(gitArguments, "-c", fmt.Sprintf("http.extraHeader=%s", authHeader))
