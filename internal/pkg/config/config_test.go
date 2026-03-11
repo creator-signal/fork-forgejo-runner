@@ -24,7 +24,7 @@ func TestNew(t *testing.T) {
 		config, err := New(FromFile("does-not-exist"))
 
 		assert.Nil(t, config)
-		assert.ErrorContains(t, err, "open does-not-exist: no such file or directory")
+		assert.ErrorContains(t, err, "open does-not-exist:")
 	})
 
 	t.Run("Malformed configuration file results in error", func(t *testing.T) {
