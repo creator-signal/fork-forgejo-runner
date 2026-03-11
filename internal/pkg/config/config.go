@@ -632,7 +632,7 @@ func resolveFileSecret(input string) (string, error) {
 		fileURL.Host = ""
 	}
 
-	filePath, err := fileuri.ToFilePath(fileURL)
+	filePath, _ := fileuri.ToFilePath(fileURL)
 	value, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("cannot read secret %q: %w", input, err)
