@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -443,37 +444,46 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 			return "", fmt.Errorf("failed to parse remote URL %q to use git token: %w", options.remoteURL, err)
 		}
 
-		credentialsFile, err := os.CreateTemp("", "forgejo-runner-git-token-")
-		if err != nil {
-			return "", fmt.Errorf("failed to create temporary file to store Git token: %w", err)
-		}
-
-		credentialsPath := credentialsFile.Name()
-		defer func() {
-			_ = credentialsFile.Close()
-			if err := os.Remove(credentialsPath); err != nil {
-				log.Warnf("Unable to remove temporary file to store Git token %s: %v", credentialsPath, err)
+		// On Windows, GCM interferes with credential.helper. Use http.extraHeader instead,
+		// which is more reliable for programmatic authentication.
+		if runtime.GOOS == "windows" {
+			// Create Basic Auth header
+			auth := "x-access-token:" + options.token
+			authHeader := "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+			gitArguments = append(gitArguments, "-c", fmt.Sprintf("http.extraHeader=%s", authHeader))
+		} else {
+			credentialsFile, err := os.CreateTemp("", "forgejo-runner-git-token-")
+			if err != nil {
+				return "", fmt.Errorf("failed to create temporary file to store Git token: %w", err)
 			}
-		}()
 
-		// Git credential store expects an URL with embedded credentials.
-		// Use a fixed username to keep behaviour consistent across providers.
-		remoteURL.User = url.UserPassword("x-access-token", options.token)
-		if remoteURL.Path == "" {
-			remoteURL.Path = "/"
-		}
+			credentialsPath := credentialsFile.Name()
+			defer func() {
+				_ = credentialsFile.Close()
+				if err := os.Remove(credentialsPath); err != nil {
+					log.Warnf("Unable to remove temporary file to store Git token %s: %v", credentialsPath, err)
+				}
+			}()
 
-		_, err = credentialsFile.Write([]byte(remoteURL.String() + "\n"))
-		if err != nil {
-			return "", fmt.Errorf("failed to write Git token to temporary file %s: %w", credentialsPath, err)
-		}
-		err = credentialsFile.Close()
-		if err != nil {
-			return "", fmt.Errorf("failed to close temporary file %s that stores Git token: %w", credentialsPath, err)
-		}
+			// Git credential store expects a URL with embedded credentials.
+			// Use a fixed username to keep behavior consistent across providers.
+			remoteURL.User = url.UserPassword("x-access-token", options.token)
+			if remoteURL.Path == "" {
+				remoteURL.Path = "/"
+			}
 
-		gitArguments = append(gitArguments, "-c", fmt.Sprintf("credential.helper=store --file=%s", credentialsPath))
-		gitArguments = append(gitArguments, "-c", "credential.useHttpPath=true")
+			_, err = credentialsFile.Write([]byte(remoteURL.String() + "\n"))
+			if err != nil {
+				return "", fmt.Errorf("failed to write Git token to temporary file %s: %w", credentialsPath, err)
+			}
+			err = credentialsFile.Close()
+			if err != nil {
+				return "", fmt.Errorf("failed to close temporary file %s that stores Git token: %w", credentialsPath, err)
+			}
+
+			gitArguments = append(gitArguments, "-c", fmt.Sprintf("credential.helper=store --file=%s", credentialsPath))
+			gitArguments = append(gitArguments, "-c", "credential.useHttpPath=true")
+		}
 	}
 	if options.ignoreInvalidCertificates {
 		gitArguments = append(gitArguments, "-c", "http.sslVerify=false")
