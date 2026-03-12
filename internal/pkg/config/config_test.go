@@ -391,10 +391,29 @@ server:
 		assert.Equal(t, labels.MustParse("debian:docker://node:24-trixie"), config.Server.Connections["example"].Labels[0])
 	})
 
-	t.Run("Imports optional env file", func(t *testing.T) {
+	t.Run("Imports optional env file configured with os-native path", func(t *testing.T) {
 		tempDir := t.TempDir()
 		configFile := filepath.Join(tempDir, "config.yaml")
 		envFile := filepath.Join(tempDir, ".env")
+
+		rawConfig := fmt.Sprintf(`{ runner: { env_file: %q } }`, envFile)
+		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
+		require.NoError(t, err)
+
+		err = os.WriteFile(envFile, []byte("SOME_ENV_VAR=some-value"), 0o644)
+		require.NoError(t, err)
+
+		config, err := New(FromFile(configFile))
+		require.NoError(t, err)
+
+		assert.Equal(t, envFile, config.Runner.EnvFile)
+		assert.Equal(t, map[string]string{"SOME_ENV_VAR": "some-value"}, config.Runner.Envs)
+	})
+
+	t.Run("Imports optional env file configured with UNIX path", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configFile := filepath.Join(tempDir, "config.yaml")
+		envFile := filepath.ToSlash(filepath.Join(tempDir, ".env"))
 
 		rawConfig := fmt.Sprintf(`{ runner: { env_file: %q } }`, envFile)
 		err := os.WriteFile(configFile, []byte(rawConfig), 0o644)
