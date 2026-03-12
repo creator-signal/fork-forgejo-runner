@@ -39,7 +39,7 @@ jobs:
       vars.DEBUG == 'yes'
     runs-on: docker
     container:
-      image: data.forgejo.org/oci/node:24-bookworm
+      image: data.forgejo.org/oci/node:24-trixie
     steps:
       - name: event
         run: |
@@ -79,7 +79,7 @@ jobs:
       )
     runs-on: docker
     container:
-      image: 'data.forgejo.org/oci/node:24-bookworm'
+      image: 'data.forgejo.org/oci/node:24-trixie'
     steps:
       - uses: https://data.forgejo.org/actions/cascading-pr@v2.3.0
         with:
