@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/powerman/fileuri"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gotest.tools/v3/skip"
 )
 
 func TestNew(t *testing.T) {
@@ -1469,6 +1471,7 @@ func TestResolveFileSecret(t *testing.T) {
 	})
 
 	t.Run("with env variable CREDENTIALS_DIRECTORY", func(t *testing.T) {
+		skip.If(t, runtime.GOOS != "linux") // The $CREDENTIALS_DIRECTORY environment variable is only relevant on Linux.
 		rawSecret := "zoN4nQX"
 
 		tempDir := t.TempDir()
