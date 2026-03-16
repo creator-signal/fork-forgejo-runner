@@ -444,9 +444,8 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 			return "", fmt.Errorf("failed to parse remote URL %q to use git token: %w", options.remoteURL, err)
 		}
 
-		auth := "x-access-token:" + options.token
-		authHeader := "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
-		gitArguments = append(gitArguments, "-c", fmt.Sprintf("http.extraHeader=%s", authHeader))
+		const envVarName = "GIT_AUTH_HEADER"
+		gitArguments = append(gitArguments, "--config-env", fmt.Sprintf("http.extraHeader=%s", envVarName))
 	}
 	if options.ignoreInvalidCertificates {
 		gitArguments = append(gitArguments, "-c", "http.sslVerify=false")
@@ -464,6 +463,13 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 	logger.Debugf("  git %s", strings.Join(gitArguments, " "))
 
 	cmd := exec.CommandContext(ctx, "git", gitArguments...)
+
+	if options.token != "" {
+		auth := "x-access-token:" + options.token
+		authHeader := "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+		cmd.Env = append(os.Environ(), "GIT_AUTH_HEADER="+authHeader)
+	}
+
 	output, err := cmd.Output()
 	trimmedOutput := strings.TrimSpace(string(output))
 
