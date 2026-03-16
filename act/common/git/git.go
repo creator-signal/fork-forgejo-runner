@@ -445,7 +445,8 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 		}
 
 		const envVarName = "GIT_AUTH_HEADER"
-		gitArguments = append(gitArguments, "--config-env", fmt.Sprintf("http.extraHeader=%s", envVarName))
+		scopedExtraHeader := fmt.Sprintf("http.%s://%s/.extraHeader", remoteURL.Scheme, remoteURL.Host)
+		gitArguments = append(gitArguments, "--config-env", fmt.Sprintf("%s=%s", scopedExtraHeader, envVarName))
 	}
 	if options.ignoreInvalidCertificates {
 		gitArguments = append(gitArguments, "-c", "http.sslVerify=false")
