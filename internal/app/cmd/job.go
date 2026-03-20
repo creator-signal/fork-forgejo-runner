@@ -7,17 +7,28 @@ import (
 	"context"
 	"fmt"
 
+	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
 	log "github.com/sirupsen/logrus"
 
 	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
-	"code.forgejo.org/forgejo/runner/v12/internal/app/job"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 )
 
 type runJobArgs struct {
-	wait bool
+	wait   bool
+	handle string
 }
+
+func (a *runJobArgs) GetHandle() *string {
+	if a.handle == "" {
+		return nil
+	}
+
+	return &a.handle
+}
+
+var newSingleTaskPoller = poll.NewSingleTaskPoller
 
 var initializeRunJobConfig = func(configFile *string) (*config.Config, error) {
 	cfg, err := config.New(
@@ -30,7 +41,7 @@ var initializeRunJobConfig = func(configFile *string) (*config.Config, error) {
 	return cfg, nil
 }
 
-func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) error {
+func runJob(ctx context.Context, configFile *string, args *runJobArgs) error {
 	cfg, err := initializeRunJobConfig(configFile)
 	if err != nil {
 		return err
@@ -75,6 +86,7 @@ func runJob(ctx context.Context, configFile *string, runJobArgs *runJobArgs) err
 		return err
 	}
 
-	j := job.NewJob(cfg, client, runner)
-	return j.Run(ctx, runJobArgs.wait)
+	poller := newSingleTaskPoller(ctx, cfg, client, runner, args.wait, args.GetHandle())
+	poller.Poll()
+	return poller.Shutdown(ctx)
 }

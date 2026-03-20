@@ -60,6 +60,7 @@ func Execute(ctx context.Context) {
 		},
 	}
 	jobCmd.Flags().BoolVarP(&runJobArgs.wait, "wait", "w", false, "waits until task has been assigned")
+	jobCmd.Flags().StringVar(&runJobArgs.handle, "handle", "", "request the job attempt with the given handle (Forgejo >= 15)")
 	rootCmd.AddCommand(jobCmd)
 
 	rootCmd.AddCommand(loadExecCmd(ctx))
