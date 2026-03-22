@@ -75,28 +75,40 @@ func (w *Workflow) OnEvent(event string) any {
 	return nil
 }
 
-func (w *Workflow) OnSchedule() []string {
+type Schedule struct {
+	Cron     string
+	TimeZone string
+}
+
+func (w *Workflow) OnSchedule() []Schedule {
 	schedules := w.OnEvent("schedule")
 	if schedules == nil {
-		return []string{}
+		return []Schedule{}
 	}
 
 	switch val := schedules.(type) {
 	case []any:
-		allSchedules := []string{}
+		allSchedules := []Schedule{}
 		for _, v := range val {
-			for k, cron := range v.(map[string]any) {
-				if k != "cron" {
-					continue
-				}
-				allSchedules = append(allSchedules, cron.(string))
+			rawSchedule := v.(map[string]any)
+
+			schedule := Schedule{}
+			if cron, ok := rawSchedule["cron"]; ok {
+				schedule.Cron = cron.(string)
+			} else {
+				continue
 			}
+			if timeZone, ok := rawSchedule["timezone"]; ok {
+				schedule.TimeZone = timeZone.(string)
+			}
+
+			allSchedules = append(allSchedules, schedule)
 		}
 		return allSchedules
 	default:
 	}
 
-	return []string{}
+	return []Schedule{}
 }
 
 type WorkflowValidate Workflow

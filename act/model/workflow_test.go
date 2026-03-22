@@ -17,6 +17,7 @@ name: local-action-docker-url
 on:
   schedule:
     - cron: '30 5 * * 1,3'
+      timezone: 'Europe/Berlin'
     - cron: '30 5 * * 2,4'
 
 jobs:
@@ -35,8 +36,8 @@ jobs:
 	newSchedules := workflow.OnSchedule()
 	assert.Len(t, newSchedules, 2)
 
-	assert.Equal(t, "30 5 * * 1,3", newSchedules[0])
-	assert.Equal(t, "30 5 * * 2,4", newSchedules[1])
+	assert.Equal(t, Schedule{Cron: "30 5 * * 1,3", TimeZone: "Europe/Berlin"}, newSchedules[0])
+	assert.Equal(t, Schedule{Cron: "30 5 * * 2,4", TimeZone: ""}, newSchedules[1])
 
 	yaml = `
 name: local-action-docker-url

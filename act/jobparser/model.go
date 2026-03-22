@@ -3,6 +3,7 @@ package jobparser
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 
 	"code.forgejo.org/forgejo/runner/v12/act/model"
@@ -355,6 +356,7 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 				if k != "schedule" {
 					return nil, fmt.Errorf("key %q had an type %T; only the 'schedule' key is expected with this type", k, v)
 				}
+				allowedKeys := []string{"cron", "timezone"}
 				schedules := make([]map[string]string, len(t))
 				for i, tt := range t {
 					vv, ok := tt.(map[string]any)
@@ -363,12 +365,12 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 					}
 					schedules[i] = make(map[string]string, len(vv))
 					for kk, vvv := range vv {
-						if strings.ToLower(kk) != "cron" {
-							return nil, fmt.Errorf("key %q[%d] had unexpected key %q; \"cron\" was expected", k, i, kk)
+						if !slices.Contains(allowedKeys, strings.ToLower(kk)) {
+							return nil, fmt.Errorf("key %q[%d] had unexpected key %q; one of %q was expected", k, i, kk, allowedKeys)
 						}
 						var ok bool
 						if schedules[i][kk], ok = vvv.(string); !ok {
-							return nil, fmt.Errorf("key %q[%d].%q had unexpected type %[4]T; a string was expected by was %#[4]v", k, i, kk, vvv)
+							return nil, fmt.Errorf("key %q[%d].%q had unexpected type %[4]T; a string was expected but was %#[4]v", k, i, kk, vvv)
 						}
 					}
 				}

@@ -494,3 +494,74 @@ __metadata:
 	}).UnmarshalYAML(&node)
 	assert.NoError(t, err)
 }
+
+func TestSchema_ScheduleTimezone(t *testing.T) {
+	testCases := []struct {
+		name            string
+		workflowContent string
+		expectedError   string
+	}{
+		{
+			name: "without timezone",
+			workflowContent: `
+on:
+  schedule:
+    - cron: "30 5 * * 1-5"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "OK"
+`,
+		},
+		{
+			name: "with timezone",
+			workflowContent: `
+on:
+  schedule:
+    - cron: "30 5 * * 1-5"
+      timezone: "America/New_York"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "OK"
+`,
+		},
+		{
+			name: "with unknown timezone",
+			workflowContent: `
+on:
+  schedule:
+    - cron: "30 5 * * 1-5"
+      timezone: "not-an-iana-timezone"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "OK"
+`,
+			expectedError: "got not-an-iana-timezone",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var node yaml.Node
+			err := yaml.Unmarshal([]byte(testCase.workflowContent), &node)
+			require.NoError(t, err)
+
+			n := &Node{
+				Definition: "workflow-root-strict",
+				Schema:     GetWorkflowSchema(),
+			}
+
+			err = n.UnmarshalYAML(&node)
+
+			if testCase.expectedError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, testCase.expectedError)
+			}
+		})
+	}
+}

@@ -211,6 +211,20 @@ func TestParseRawOn(t *testing.T) {
 			},
 		},
 		{
+			input: "on:\n  schedule:\n    - { cron: '20 6 * * *', timezone: 'Europe/Berlin' }",
+			result: []*Event{
+				{
+					Name: "schedule",
+					schedules: []map[string]string{
+						{
+							"cron":     "20 6 * * *",
+							"timezone": "Europe/Berlin",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: "on:\n  schedule2:\n    - cron: '20 6 * * *'",
 			err:   "key \"schedule2\" had an type []interface {}; only the 'schedule' key is expected with this type",
 		},
@@ -220,11 +234,19 @@ func TestParseRawOn(t *testing.T) {
 		},
 		{
 			input: "on:\n  schedule:\n    - corn: '20 6 * * *'",
-			err:   "key \"schedule\"[0] had unexpected key \"corn\"; \"cron\" was expected",
+			err:   "key \"schedule\"[0] had unexpected key \"corn\"; one of [\"cron\" \"timezone\"] was expected",
+		},
+		{
+			input: "on:\n  schedule:\n    - { cron: '20 6 * * *', timesone: 'Pacific/Auckland' }",
+			err:   "key \"schedule\"[0] had unexpected key \"timesone\"; one of [\"cron\" \"timezone\"] was expected",
 		},
 		{
 			input: "on:\n  schedule:\n    - cron: 123",
-			err:   "key \"schedule\"[0].\"cron\" had unexpected type int; a string was expected by was 123",
+			err:   "key \"schedule\"[0].\"cron\" had unexpected type int; a string was expected but was 123",
+		},
+		{
+			input: "on:\n  schedule:\n    - { cron: '20 6 * * *', timezone: 123 }",
+			err:   "key \"schedule\"[0].\"timezone\" had unexpected type int; a string was expected but was 123",
 		},
 		{
 			input: `
