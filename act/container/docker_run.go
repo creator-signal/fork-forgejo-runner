@@ -103,16 +103,13 @@ func (cr *containerReference) connectToNetwork(name string, aliases []string) co
 // supportsContainerImagePlatform returns true if the underlying Docker server
 // API version is 1.41 and beyond
 func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) bool {
-	logger := common.Logger(ctx)
 	ver, err := cli.ServerVersion(ctx)
 	if err != nil {
-		logger.Panicf("Failed to get Docker API Version: %s", err)
-		return false
+		panic(fmt.Sprintf("Failed to get Docker API Version: %s", err))
 	}
 	sv, err := semver.NewVersion(ver.APIVersion)
 	if err != nil {
-		logger.Panicf("Failed to unmarshal Docker Version: %s", err)
-		return false
+		panic(fmt.Sprintf("Failed to unmarshal Docker Version: %s", err))
 	}
 	constraint, _ := semver.NewConstraint(">= 1.41")
 	return constraint.Check(sv)
@@ -121,16 +118,13 @@ func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) b
 // supportsImageInspectPlatform returns true if the underlying Docker server supports using
 // `client.ImageInspectWithPlatform`, which is API version 1.49 and beyond.
 func supportsImageInspectPlatform(ctx context.Context, cli client.APIClient) bool {
-	logger := common.Logger(ctx)
 	ver, err := cli.ServerVersion(ctx)
 	if err != nil {
-		logger.Panicf("Failed to get Docker API Version: %s", err)
-		return false
+		panic(fmt.Sprintf("Failed to get Docker API Version: %s", err))
 	}
 	sv, err := semver.NewVersion(ver.APIVersion)
 	if err != nil {
-		logger.Panicf("Failed to unmarshal Docker Version: %s", err)
-		return false
+		panic(fmt.Sprintf("Failed to unmarshal Docker Version: %s", err))
 	}
 	constraint, _ := semver.NewConstraint(">= 1.49")
 	return constraint.Check(sv)
