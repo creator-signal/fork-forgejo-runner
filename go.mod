@@ -5,7 +5,7 @@ go 1.25.0
 toolchain go1.25.8
 
 require (
-	code.forgejo.org/forgejo/actions-proto v0.6.0
+	code.forgejo.org/forgejo/actions-proto v0.7.0
 	connectrpc.com/connect v1.19.1
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver v1.5.0
