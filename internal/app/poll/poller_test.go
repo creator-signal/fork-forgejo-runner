@@ -101,23 +101,6 @@ func (o *mockClient) FetchTask(ctx context.Context, req *connect.Request[runnerv
 	}), nil
 }
 
-type mockRunner struct {
-	cfg *config.Runner
-	log chan string
-}
-
-func (o *mockRunner) Run(ctx context.Context, task *runnerv1.Task) {
-	o.log <- "runner starts"
-	select {
-	case <-ctx.Done():
-		log.Trace("shutdown")
-		o.log <- "runner shutdown"
-	case <-time.After(o.cfg.Timeout):
-		log.Trace("after")
-		o.log <- "runner timeout"
-	}
-}
-
 func setTrace(t *testing.T) {
 	t.Helper()
 	log.SetReportCaller(true)
@@ -125,7 +108,7 @@ func setTrace(t *testing.T) {
 }
 
 func TestPoller_New(t *testing.T) {
-	p := New(t.Context(), &config.Config{}, []client.Client{&mockClient{}}, []run.RunnerInterface{&mockRunner{}})
+	p := New(t.Context(), &config.Config{}, []client.Client{&mockClient{}}, []run.RunnerInterface{mock_runner.NewRunnerInterface(t)})
 	assert.NotNil(t, p)
 }
 
@@ -162,6 +145,21 @@ func TestPoller_Runner(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			runnerLog := make(chan string, 3)
+			runner := mock_runner.NewRunnerInterface(t)
+			runner.On("Run", mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					ctx := args.Get(0).(context.Context)
+					runnerLog <- "runner starts"
+					select {
+					case <-ctx.Done():
+						log.Trace("shutdown")
+						runnerLog <- "runner shutdown"
+					case <-time.After(testCase.timeout):
+						log.Trace("after")
+						runnerLog <- "runner timeout"
+					}
+				})
+
 			configRunner := config.Runner{
 				Capacity: 1,
 				Timeout:  testCase.timeout,
@@ -175,10 +173,7 @@ func TestPoller_Runner(t *testing.T) {
 				[]client.Client{&mockClient{
 					noTask: testCase.noTask,
 				}},
-				[]run.RunnerInterface{&mockRunner{
-					cfg: &configRunner,
-					log: runnerLog,
-				}})
+				[]run.RunnerInterface{runner})
 			go p.Poll()
 			assert.Equal(t, "runner starts", <-runnerLog)
 			var ctx context.Context
@@ -262,7 +257,7 @@ func TestPoller_Fetch(t *testing.T) {
 					err:       testCase.err,
 					addtTasks: testCase.addtTasks,
 				}},
-				[]run.RunnerInterface{&mockRunner{}},
+				[]run.RunnerInterface{mock_runner.NewRunnerInterface(t)},
 			)
 			task, reuseRequestKey := p.fetchTasks(context.Background(), p.clients[0], &atomic.Int64{}, 100, gouuid.New())
 			if testCase.success {

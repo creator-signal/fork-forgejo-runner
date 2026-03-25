@@ -14,12 +14,14 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
 	pollmocks "code.forgejo.org/forgejo/runner/v12/internal/app/poll/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
+	mock_runner "code.forgejo.org/forgejo/runner/v12/internal/app/run/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 
 	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type mockClient struct {
@@ -77,25 +79,8 @@ func (o *mockClient) FetchTask(ctx context.Context, _ *connect.Request[runnerv1.
 	}), nil
 }
 
-type mockRunner struct {
-	cfg *config.Runner
-	log chan string
-}
-
-func (o *mockRunner) Run(ctx context.Context, _ *runnerv1.Task) {
-	o.log <- "runner starts"
-	select {
-	case <-ctx.Done():
-		log.Trace("shutdown")
-		o.log <- "runner shutdown"
-	case <-time.After(o.cfg.Timeout):
-		log.Trace("after")
-		o.log <- "runner timeout"
-	}
-}
-
 func TestNewJob(t *testing.T) {
-	j := NewJob(&config.Config{}, &mockClient{}, &mockRunner{})
+	j := NewJob(&config.Config{}, &mockClient{}, mock_runner.NewRunnerInterface(t))
 	assert.NotNil(t, j)
 }
 
@@ -147,7 +132,7 @@ func TestJob_fetchTask(t *testing.T) {
 					noTask: testCase.noTask,
 					err:    testCase.err,
 				},
-				&mockRunner{},
+				mock_runner.NewRunnerInterface(t),
 			)
 
 			task, ok := j.fetchTask(context.Background())
@@ -174,7 +159,7 @@ func TestJob_Run_Wait(t *testing.T) {
 	}
 	defer func() { NewPoller = originalNewPoller }()
 
-	j := NewJob(&config.Config{}, &mockClient{}, &mockRunner{})
+	j := NewJob(&config.Config{}, &mockClient{}, mock_runner.NewRunnerInterface(t))
 
 	err := j.Run(t.Context(), true)
 	assert.NoError(t, err)
@@ -209,7 +194,11 @@ func TestJob_Run_NoWait(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			logChan := make(chan string, 10)
+			runner := mock_runner.NewRunnerInterface(t)
+			if !testCase.expectError {
+				runner.On("Run", mock.Anything, mock.Anything)
+			}
+
 			configRunner := config.Runner{
 				FetchTimeout: 1 * time.Second,
 				Timeout:      10 * time.Millisecond,
@@ -223,10 +212,7 @@ func TestJob_Run_NoWait(t *testing.T) {
 					noTask: testCase.noTask,
 					err:    testCase.clientErr,
 				},
-				&mockRunner{
-					cfg: &configRunner,
-					log: logChan,
-				},
+				runner,
 			)
 
 			err := j.Run(t.Context(), false)
