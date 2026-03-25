@@ -133,6 +133,14 @@ func (m *forgejoClientMock) FetchTask(ctx context.Context, request *connect.Requ
 	return args.Get(0).(*connect.Response[runnerv1.FetchTaskResponse]), args.Error(1)
 }
 
+func (m *forgejoClientMock) FetchSingleTask(ctx context.Context, request *connect.Request[runnerv1.FetchSingleTaskRequest]) (*connect.Response[runnerv1.FetchSingleTaskResponse], error) {
+	args := m.Called(ctx, request)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*connect.Response[runnerv1.FetchSingleTaskResponse]), args.Error(1)
+}
+
 func (m *forgejoClientMock) UpdateTask(ctx context.Context, request *connect.Request[runnerv1.UpdateTaskRequest]) (*connect.Response[runnerv1.UpdateTaskResponse], error) {
 	args := m.Called(ctx, request)
 	if args.Get(0) == nil {

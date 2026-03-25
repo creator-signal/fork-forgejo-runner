@@ -89,6 +89,36 @@ func (_m *Client) FetchInterval() time.Duration {
 	return r0
 }
 
+// FetchSingleTask provides a mock function with given fields: _a0, _a1
+func (_m *Client) FetchSingleTask(_a0 context.Context, _a1 *connect.Request[runnerv1.FetchSingleTaskRequest]) (*connect.Response[runnerv1.FetchSingleTaskResponse], error) {
+	ret := _m.Called(_a0, _a1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchSingleTask")
+	}
+
+	var r0 *connect.Response[runnerv1.FetchSingleTaskResponse]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *connect.Request[runnerv1.FetchSingleTaskRequest]) (*connect.Response[runnerv1.FetchSingleTaskResponse], error)); ok {
+		return rf(_a0, _a1)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *connect.Request[runnerv1.FetchSingleTaskRequest]) *connect.Response[runnerv1.FetchSingleTaskResponse]); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*connect.Response[runnerv1.FetchSingleTaskResponse])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *connect.Request[runnerv1.FetchSingleTaskRequest]) error); ok {
+		r1 = rf(_a0, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FetchTask provides a mock function with given fields: _a0, _a1
 func (_m *Client) FetchTask(_a0 context.Context, _a1 *connect.Request[runnerv1.FetchTaskRequest]) (*connect.Response[runnerv1.FetchTaskResponse], error) {
 	ret := _m.Called(_a0, _a1)
