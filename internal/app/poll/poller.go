@@ -205,7 +205,7 @@ func (p *poller) fetchTasks(ctx context.Context, client client.Client, tasksVers
 		TaskCapacity: &availableCapacity,
 	}))
 	if errors.Is(err, context.DeadlineExceeded) {
-		log.Trace("failed to fetch task: deadline exceeded")
+		log.Error("failed to fetch task: deadline exceeded; increase fetch_timeout if this error is persistent")
 		return taskSlice, reuseRequestKey
 	} else if err != nil {
 		if errors.Is(err, context.Canceled) {
