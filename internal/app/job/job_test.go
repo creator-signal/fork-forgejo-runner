@@ -6,81 +6,23 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
-
-	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
 	pollmocks "code.forgejo.org/forgejo/runner/v12/internal/app/poll/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	mock_runner "code.forgejo.org/forgejo/runner/v12/internal/app/run/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	"connectrpc.com/connect"
 
-	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-type mockClient struct {
-	pingv1connect.PingServiceClient
-	runnerv1connect.RunnerServiceClient
-
-	sleep  time.Duration
-	cancel bool
-	err    error
-	noTask bool
-}
-
-func (o mockClient) Address() string {
-	return ""
-}
-
-func (o mockClient) Insecure() bool {
-	return true
-}
-
-func (o mockClient) FetchInterval() time.Duration {
-	return time.Second
-}
-
-func (o mockClient) SetRequestKey(requestKey gouuid.UUID) func() {
-	return func() {}
-}
-
-func (o *mockClient) FetchTask(ctx context.Context, _ *connect.Request[runnerv1.FetchTaskRequest]) (*connect.Response[runnerv1.FetchTaskResponse], error) {
-	if o.sleep > 0 {
-		select {
-		case <-ctx.Done():
-			log.Trace("fetch task done")
-			return nil, context.DeadlineExceeded
-		case <-time.After(o.sleep):
-			log.Trace("slept")
-			return nil, fmt.Errorf("unexpected")
-		}
-	}
-	if o.cancel {
-		return nil, context.Canceled
-	}
-	if o.err != nil {
-		return nil, o.err
-	}
-	task := &runnerv1.Task{}
-	if o.noTask {
-		task = nil
-		o.noTask = false
-	}
-
-	return connect.NewResponse(&runnerv1.FetchTaskResponse{
-		Task:         task,
-		TasksVersion: int64(1),
-	}), nil
-}
-
 func TestNewJob(t *testing.T) {
-	j := NewJob(&config.Config{}, &mockClient{}, mock_runner.NewRunnerInterface(t))
+	j := NewJob(&config.Config{}, mocks.NewClient(t), mock_runner.NewRunnerInterface(t))
 	assert.NotNil(t, j)
 }
 
@@ -121,17 +63,28 @@ func TestJob_fetchTask(t *testing.T) {
 			configRunner := config.Runner{
 				FetchTimeout: 1 * time.Millisecond,
 			}
+			client := mocks.NewClient(t)
+			if testCase.cancel {
+				client.On("FetchTask", mock.Anything, mock.Anything).Return(nil, context.Canceled)
+			} else if testCase.err != nil {
+				client.On("FetchTask", mock.Anything, mock.Anything).Return(nil, testCase.err)
+			} else if testCase.noTask {
+				client.On("FetchTask", mock.Anything, mock.Anything).Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+					Task:         nil,
+					TasksVersion: int64(1),
+				}), nil)
+			} else {
+				client.On("FetchTask", mock.Anything, mock.Anything).Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+					Task:         &runnerv1.Task{},
+					TasksVersion: int64(1),
+				}), nil)
+			}
 
 			j := NewJob(
 				&config.Config{
 					Runner: configRunner,
 				},
-				&mockClient{
-					sleep:  testCase.sleep,
-					cancel: testCase.cancel,
-					noTask: testCase.noTask,
-					err:    testCase.err,
-				},
+				client,
 				mock_runner.NewRunnerInterface(t),
 			)
 
@@ -159,7 +112,7 @@ func TestJob_Run_Wait(t *testing.T) {
 	}
 	defer func() { NewPoller = originalNewPoller }()
 
-	j := NewJob(&config.Config{}, &mockClient{}, mock_runner.NewRunnerInterface(t))
+	j := NewJob(&config.Config{}, mocks.NewClient(t), mock_runner.NewRunnerInterface(t))
 
 	err := j.Run(t.Context(), true)
 	assert.NoError(t, err)
@@ -203,15 +156,26 @@ func TestJob_Run_NoWait(t *testing.T) {
 				FetchTimeout: 1 * time.Second,
 				Timeout:      10 * time.Millisecond,
 			}
+			client := mocks.NewClient(t)
+			if testCase.clientErr != nil {
+				client.On("FetchTask", mock.Anything, mock.Anything).Return(nil, testCase.clientErr)
+			} else if testCase.noTask {
+				client.On("FetchTask", mock.Anything, mock.Anything).Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+					Task:         nil,
+					TasksVersion: int64(1),
+				}), nil)
+			} else {
+				client.On("FetchTask", mock.Anything, mock.Anything).Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+					Task:         &runnerv1.Task{},
+					TasksVersion: int64(1),
+				}), nil)
+			}
 
 			j := NewJob(
 				&config.Config{
 					Runner: configRunner,
 				},
-				&mockClient{
-					noTask: testCase.noTask,
-					err:    testCase.clientErr,
-				},
+				client,
 				runner,
 			)
 

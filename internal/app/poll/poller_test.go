@@ -15,9 +15,7 @@ import (
 
 	"connectrpc.com/connect"
 
-	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/actions-proto/runner/v1/runnerv1connect"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
 	mock_runner "code.forgejo.org/forgejo/runner/v12/internal/app/run/mocks"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
@@ -39,66 +37,12 @@ func (o *mockPoller) Poll() {
 	o.poller.Poll()
 }
 
-type mockClient struct {
-	pingv1connect.PingServiceClient
-	runnerv1connect.RunnerServiceClient
-
-	sleep     time.Duration
-	cancel    bool
-	err       error
-	noTask    bool
-	addtTasks bool
-}
-
-func (o mockClient) Address() string {
-	return ""
-}
-
-func (o mockClient) Insecure() bool {
-	return true
-}
-
-func (o mockClient) FetchInterval() time.Duration {
-	return time.Second
-}
-
-func (o mockClient) SetRequestKey(requestKey gouuid.UUID) func() {
-	return func() {}
-}
-
-func (o *mockClient) FetchTask(ctx context.Context, req *connect.Request[runnerv1.FetchTaskRequest]) (*connect.Response[runnerv1.FetchTaskResponse], error) {
-	if o.sleep > 0 {
-		select {
-		case <-ctx.Done():
-			log.Trace("fetch task done")
-			return nil, context.DeadlineExceeded
-		case <-time.After(o.sleep):
-			log.Trace("slept")
-			return nil, fmt.Errorf("unexpected")
-		}
-	}
-	if o.cancel {
-		return nil, context.Canceled
-	}
-	if o.err != nil {
-		return nil, o.err
-	}
-	task := &runnerv1.Task{}
-	if o.noTask {
-		task = nil
-		o.noTask = false
-	}
-
-	var addt []*runnerv1.Task
-	if o.addtTasks {
-		addt = append(addt, &runnerv1.Task{})
-	}
-
-	return connect.NewResponse(&runnerv1.FetchTaskResponse{
-		Task:            task,
-		TasksVersion:    int64(1),
-		AdditionalTasks: addt,
-	}), nil
+func basicMockClient(t *testing.T) *mocks.Client {
+	mockClient := mocks.NewClient(t)
+	mockClient.On("FetchInterval").Return(time.Second).Maybe()
+	mockClient.On("Address").Return("").Maybe()
+	mockClient.On("SetRequestKey", mock.Anything).Return(func() {}).Maybe()
+	return mockClient
 }
 
 func setTrace(t *testing.T) {
@@ -108,15 +52,11 @@ func setTrace(t *testing.T) {
 }
 
 func TestPoller_New(t *testing.T) {
-	p := New(t.Context(), &config.Config{}, []client.Client{&mockClient{}}, []run.RunnerInterface{mock_runner.NewRunnerInterface(t)})
+	p := New(t.Context(), &config.Config{}, []client.Client{mocks.NewClient(t)}, []run.RunnerInterface{mock_runner.NewRunnerInterface(t)})
 	assert.NotNil(t, p)
 }
 
 func TestPoller_Runner(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
 	setTrace(t)
 	for _, testCase := range []struct {
 		name           string
@@ -164,15 +104,32 @@ func TestPoller_Runner(t *testing.T) {
 				Capacity: 1,
 				Timeout:  testCase.timeout,
 			}
+			mockClient := basicMockClient(t)
+			if testCase.noTask {
+				mockClient.On("FetchTask", mock.Anything, mock.Anything).
+					Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+						Task:         nil,
+						TasksVersion: int64(1),
+					}), nil).Once()
+				mockClient.On("FetchTask", mock.Anything, mock.Anything).
+					Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+						Task:         &runnerv1.Task{},
+						TasksVersion: int64(1),
+					}), nil)
+			} else {
+				mockClient.On("FetchTask", mock.Anything, mock.Anything).Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+					Task:         &runnerv1.Task{},
+					TasksVersion: int64(1),
+				}), nil)
+			}
+
 			p := &mockPoller{}
 			p.init(
 				t.Context(),
 				&config.Config{
 					Runner: configRunner,
 				},
-				[]client.Client{&mockClient{
-					noTask: testCase.noTask,
-				}},
+				[]client.Client{mockClient},
 				[]run.RunnerInterface{runner})
 			go p.Poll()
 			assert.Equal(t, "runner starts", <-runnerLog)
@@ -244,19 +201,61 @@ func TestPoller_Fetch(t *testing.T) {
 			configRunner := config.Runner{
 				FetchTimeout: 1 * time.Millisecond,
 			}
+			mockClient := basicMockClient(t)
+			if testCase.sleep > 0 {
+				mockClient.On("FetchTask", mock.Anything, mock.Anything).
+					Run(func(args mock.Arguments) {
+						ctx := args.Get(0).(context.Context)
+						select {
+						case <-ctx.Done():
+							log.Trace("fetch task done")
+						case <-time.After(testCase.sleep):
+							log.Trace("slept")
+							t.Error("unexpected timeout in FetchTask")
+						}
+					}).
+					Return(nil, context.DeadlineExceeded)
+			} else if testCase.cancel {
+				mockClient.On("FetchTask", mock.Anything, mock.Anything).Return(nil, context.Canceled)
+			} else if testCase.err != nil {
+				mockClient.On("FetchTask", mock.Anything, mock.Anything).Return(nil, testCase.err)
+			} else if testCase.noTask {
+				var addt []*runnerv1.Task
+				if testCase.addtTasks {
+					addt = append(addt, &runnerv1.Task{})
+				}
+				mockClient.On("FetchTask", mock.Anything, mock.Anything).Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+					Task:            nil,
+					TasksVersion:    int64(1),
+					AdditionalTasks: addt,
+				}), nil)
+			} else {
+				var addt []*runnerv1.Task
+				if testCase.addtTasks {
+					addt = append(addt, &runnerv1.Task{})
+				}
+				mockClient.On("FetchTask", mock.Anything, mock.Anything).Return(connect.NewResponse(&runnerv1.FetchTaskResponse{
+					Task:            &runnerv1.Task{},
+					TasksVersion:    int64(1),
+					AdditionalTasks: addt,
+				}), nil)
+			}
+
 			p := &mockPoller{}
 			p.init(
 				t.Context(),
 				&config.Config{
 					Runner: configRunner,
 				},
-				[]client.Client{&mockClient{
-					sleep:     testCase.sleep,
-					cancel:    testCase.cancel,
-					noTask:    testCase.noTask,
-					err:       testCase.err,
-					addtTasks: testCase.addtTasks,
-				}},
+				[]client.Client{mockClient},
+				/*&mockClient{
+				sleep:     testCase.sleep,
+				cancel:    testCase.cancel,
+				noTask:    testCase.noTask,
+				err:       testCase.err,
+				addtTasks: testCase.addtTasks,
+				}
+				*/
 				[]run.RunnerInterface{mock_runner.NewRunnerInterface(t)},
 			)
 			task, reuseRequestKey := p.fetchTasks(context.Background(), p.clients[0], &atomic.Int64{}, 100, gouuid.New())
