@@ -33,7 +33,7 @@ func createRunnerFileCmd(ctx context.Context, configFile *string) *cobra.Command
 	var argsVar createRunnerFileArgs
 	cmd := &cobra.Command{
 		Use:   "create-runner-file",
-		Short: "Create a runner file using a shared secret used to pre-register the runner on the Forgejo instance",
+		Short: "Create a runner file using a shared secret used to pre-register the runner on the Forgejo instance (deprecated)",
 		Args:  cobra.MaximumNArgs(0),
 		RunE:  runCreateRunnerFile(ctx, &argsVar, configFile),
 	}
@@ -91,6 +91,9 @@ func ping(cfg *config.Config, reg *config.Registration) error {
 func runCreateRunnerFile(ctx context.Context, args *createRunnerFileArgs, configFile *string) func(cmd *cobra.Command, args []string) error {
 	return func(*cobra.Command, []string) error {
 		log.SetLevel(log.DebugLevel)
+
+		log.Warn("`create-runner-file` has been deprecated; declare connections in the runner configuration instead")
+
 		log.Info("Creating runner file")
 
 		//

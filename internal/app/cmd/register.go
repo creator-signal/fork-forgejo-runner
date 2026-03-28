@@ -37,6 +37,8 @@ func runRegister(ctx context.Context, regArgs *registerArgs, configFile *string)
 		})
 		log.SetLevel(log.DebugLevel)
 
+		log.Warn("`register` has been deprecated; declare connections in the runner configuration instead")
+
 		log.Infof("Registering runner, arch=%s, os=%s, version=%s.",
 			goruntime.GOARCH, goruntime.GOOS, ver.Version())
 

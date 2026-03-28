@@ -28,7 +28,7 @@ func Execute(ctx context.Context) {
 	var regArgs registerArgs
 	registerCmd := &cobra.Command{
 		Use:   "register",
-		Short: "Register a runner to the server",
+		Short: "Register a runner to the server (deprecated)",
 		Args:  cobra.MaximumNArgs(0),
 		RunE:  runRegister(ctx, &regArgs, &configFile), // must use a pointer to regArgs
 	}
