@@ -76,8 +76,9 @@ func (w *Workflow) OnEvent(event string) any {
 }
 
 type Schedule struct {
-	Cron     string
-	TimeZone string
+	Cron           string
+	TimeZone       string
+	SomeExtraField string
 }
 
 func (w *Workflow) OnSchedule() []Schedule {
