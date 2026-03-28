@@ -43,7 +43,7 @@ runner:
   # Whether skip verifying the TLS certificate of the instance.
   insecure: false
   # The timeout for fetching the job from the Forgejo instance.
-  fetch_timeout: 5s
+  fetch_timeout: 30s
   # The interval for fetching the job from the Forgejo instance.
   fetch_interval: 2s
   # The interval for reporting the job status and logs to the Forgejo instance.

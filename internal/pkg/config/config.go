@@ -505,7 +505,7 @@ func New(opts ...Option) (*Config, error) {
 			File:           ".runner",
 			Capacity:       1,
 			Timeout:        3 * time.Hour,
-			FetchTimeout:   5 * time.Second,
+			FetchTimeout:   30 * time.Second,
 			ReportInterval: time.Second,
 			ReportRetry: Retry{
 				MaxRetries:   10,
