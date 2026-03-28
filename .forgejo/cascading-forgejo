@@ -35,12 +35,14 @@ find * -name '*.go' -o -name 'go.mod' | xargs sed -i -E -e "s|code.forgejo.org/f
 if test -f "$runner_pr_or_ref"; then
   repository=$(jq --raw-output .head.repo.full_name <$runner_pr_or_ref)
   test "$repository"
-  module=$(echo $module | sed -e "s|code.forgejo.org/forgejo/runner|code.forgejo.org/$repository|")
+  replacement_module=$(echo $module | sed -e "s|code.forgejo.org/forgejo/runner|code.forgejo.org/$repository|")
+else
+  replacement_module=$module
 fi
 #
 # add a "replace code.forgejo.org/forgejo/runner/v?? $sha" line to the forgejo go.mod
 # so that it uses the branch or pull request from which the cascade is run.
 #
 sed -i -e "\|replace $module|d" go.mod
-echo "replace $module => $module $sha" >>go.mod
+echo "replace $module => $replacement_module $sha" >>go.mod
 go mod tidy
