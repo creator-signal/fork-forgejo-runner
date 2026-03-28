@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -140,4 +141,26 @@ func Test_runCreateRunnerFile(t *testing.T) {
 	resp, err := cli.FetchTask(ctx, connect.NewRequest(&runnerv1.FetchTaskRequest{}))
 	assert.NoError(t, err)
 	assert.Nil(t, resp.Msg.GetTask())
+}
+
+func prepareConfig(tempDir string) (string, *config.Config, error) {
+	configFile := filepath.Join(tempDir, "config.yml")
+	runnerFile := filepath.Join(tempDir, ".runner")
+
+	cfg, err := config.New()
+	if err != nil {
+		return "", &config.Config{}, err
+	}
+
+	cfg.Runner.File = runnerFile
+	yamlData, err := yaml.Marshal(cfg)
+	if err != nil {
+		return "", &config.Config{}, err
+	}
+
+	if err := os.WriteFile(configFile, yamlData, 0o644); err != nil {
+		return "", &config.Config{}, err
+	}
+
+	return configFile, cfg, nil
 }
