@@ -42,12 +42,20 @@ func Execute(ctx context.Context) {
 
 	rootCmd.AddCommand(createRunnerFileCmd(ctx, &configFile))
 
+	var daemonCmdArgs daemonArgs
 	daemonCmd := &cobra.Command{
 		Use:   "daemon",
-		Short: "Run as a runner daemon",
+		Short: "Run as daemon",
 		Args:  cobra.MaximumNArgs(1),
-		RunE:  getRunDaemonCommandProcessor(ctx, &configFile),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDaemon(ctx, &configFile, &daemonCmdArgs)
+		},
 	}
+	daemonCmd.Flags().StringVar(&daemonCmdArgs.url, "url", "", "URL of the Forgejo instance to connect to")
+	daemonCmd.Flags().StringVar(&daemonCmdArgs.uuid, "uuid", "", "UUID of the runner")
+	daemonCmd.Flags().StringVar(&daemonCmdArgs.tokenURL, "token-url", "", "URL where the runner token can be loaded from")
+	daemonCmd.Flags().StringArrayVar(&daemonCmdArgs.labels, "label", []string{}, "labels of the runner (repeatable)")
+	daemonCmd.Flags().DurationVar(&daemonCmdArgs.fetchInterval, "fetch-interval", 0, "specifies the interval duration for fetching resources.")
 	rootCmd.AddCommand(daemonCmd)
 
 	var runJobArgs runJobArgs
@@ -61,6 +69,11 @@ func Execute(ctx context.Context) {
 	}
 	jobCmd.Flags().BoolVarP(&runJobArgs.wait, "wait", "w", false, "waits until task has been assigned")
 	jobCmd.Flags().StringVar(&runJobArgs.handle, "handle", "", "request the job attempt with the given handle (Forgejo >= 15)")
+	jobCmd.Flags().StringVar(&runJobArgs.url, "url", "", "URL of the Forgejo instance to connect to")
+	jobCmd.Flags().StringVar(&runJobArgs.uuid, "uuid", "", "UUID of the runner")
+	jobCmd.Flags().StringVar(&runJobArgs.tokenURL, "token-url", "", "URL where the runner token can be loaded from")
+	jobCmd.Flags().StringArrayVar(&runJobArgs.labels, "label", []string{}, "labels of the runner (repeatable)")
+	jobCmd.Flags().DurationVar(&runJobArgs.fetchInterval, "fetch-interval", 0, "specifies the interval duration for fetching resources.")
 	rootCmd.AddCommand(jobCmd)
 
 	rootCmd.AddCommand(loadExecCmd(ctx))

@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"net/url"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"connectrpc.com/connect"
+	"github.com/powerman/fileuri"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -42,7 +44,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 
 	connectionURL, err := url.Parse("https://example.com")
 	require.NoError(t, err)
-	defer testutils.MockVariable(&initializeConfig, func(configFile *string) (*config.Config, error) {
+	defer testutils.MockVariable(&initializeConfig, func(configFile *string, args *daemonArgs) (*config.Config, error) {
 		return &config.Config{
 			Runner: config.Runner{
 				// Default ShutdownTimeout of 0s won't work for the graceful shutdown test.
@@ -109,7 +111,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 	runDaemonComplete := make(chan interface{})
 	go func() {
 		configFile := "config.yaml"
-		err := runDaemon(mockSignalContext, &configFile)
+		err := runDaemon(mockSignalContext, &configFile, &daemonArgs{})
 		close(runDaemonComplete)
 		require.NoError(t, err)
 	}()
@@ -276,7 +278,7 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 	mockPoller := mock_poller.NewPoller(t)
 
 	require.NoError(t, err)
-	defer testutils.MockVariable(&initializeConfig, func(configFile *string) (*config.Config, error) {
+	defer testutils.MockVariable(&initializeConfig, func(configFile *string, args *daemonArgs) (*config.Config, error) {
 		return &config.Config{
 			Runner: config.Runner{
 				// Default ShutdownTimeout of 0s won't work for the graceful shutdown test.
@@ -350,7 +352,7 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 	runDaemonComplete := make(chan any)
 	go func() {
 		configFile := "config.yaml"
-		err := runDaemon(mockSignalContext, &configFile)
+		err := runDaemon(mockSignalContext, &configFile, &daemonArgs{})
 		require.NoError(t, err)
 		close(runDaemonComplete)
 	}()
@@ -360,6 +362,87 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 	require.True(t, createPollerInvoked)
 
 	// Shutdown the daemon by killing the signal context
+	cancelSignal()
+
+	// Wait for the daemon goroutine to stop so that we're sure the test goroutines are complete.
+	<-runDaemonComplete
+}
+
+func TestRunDaemon_WithConnectionFromCommandOptions(t *testing.T) {
+	tempDir := t.TempDir()
+	tokenPath := filepath.Join(tempDir, "token.txt")
+
+	err := os.WriteFile(tokenPath, []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), 0o644)
+	require.NoError(t, err)
+
+	tokenURL, err := fileuri.FromFilePath(tokenPath)
+	require.NoError(t, err)
+
+	mockClient := mock_client.NewClient(t)
+	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockPoller := mock_poller.NewPoller(t)
+
+	defer testutils.MockVariable(&initLogging, func(cfg *config.Config) {})()
+	defer testutils.MockVariable(&configCheck, func(ctx context.Context, cfg *config.Config) error {
+		return nil
+	})()
+	defer testutils.MockVariable(&createClient, func(cfg *config.Config, conn *config.Connection) client.Client {
+		assert.Equal(t, "https://example.com/forgejo", conn.URL.String())
+		assert.Equal(t, "41414141-4141-4141-4141-414141414141", conn.UUID.String())
+		assert.Equal(t, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", conn.Token)
+		assert.Equal(t, labels.Labels{labels.MustParse("some-label")}, conn.Labels)
+
+		return mockClient
+	})()
+	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+		if name == "default" {
+			return mockRunner, "default", false, nil
+		}
+		t.Fatalf("unexpected connection name: %q", name)
+		return nil, "", false, nil
+	})()
+	var createPollerInvoked bool
+	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) poll.Poller {
+		createPollerInvoked = true
+		require.Len(t, clients, 1)
+		require.Len(t, runners, 1)
+
+		assert.Same(t, mockClient, clients[0])
+		assert.Same(t, mockRunner, runners[0])
+
+		return mockPoller
+	})()
+
+	pollBegunChannel := make(chan any)
+	mockPoller.On("Poll").Run(func(args mock.Arguments) {
+		// Indicate to test that Poll was invoked...
+		close(pollBegunChannel)
+	})
+	mockPoller.On("Shutdown", mock.Anything).Run(func(args mock.Arguments) {}).Return(nil)
+
+	// When runDaemon is begun, it will run "forever" until the passed-in context is done.
+	// So, let's start that in a goroutine...
+	mockSignalContext, cancelSignal := context.WithCancel(t.Context())
+	runDaemonComplete := make(chan any)
+	go func() {
+		conn := connection{
+			url:      "https://example.com/forgejo",
+			uuid:     "41414141-4141-4141-4141-414141414141",
+			tokenURL: tokenURL.String(),
+			labels:   []string{"some-label"},
+		}
+
+		configPath := ""
+		err := runDaemon(mockSignalContext, &configPath, &daemonArgs{connection: conn})
+		require.NoError(t, err)
+		close(runDaemonComplete)
+	}()
+
+	// Wait until runDaemon reaches poller.Poll(), and verify createPoller was run where our test assertions are.
+	<-pollBegunChannel
+	require.True(t, createPollerInvoked)
+
+	// Shutdown the daemon by killing the signal context.
 	cancelSignal()
 
 	// Wait for the daemon goroutine to stop so that we're sure the test goroutines are complete.

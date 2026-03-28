@@ -14,11 +14,6 @@ import (
 	"strconv"
 	"strings"
 
-	"connectrpc.com/connect"
-	"github.com/mattn/go-isatty"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-
 	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
@@ -28,15 +23,16 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/envcheck"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/ver"
+	"connectrpc.com/connect"
+	"github.com/mattn/go-isatty"
+	log "github.com/sirupsen/logrus"
 )
 
-func getRunDaemonCommandProcessor(signalContext context.Context, configFile *string) func(cmd *cobra.Command, args []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		return runDaemon(signalContext, configFile)
-	}
+type daemonArgs struct {
+	connection
 }
 
-func runDaemon(signalContext context.Context, configFile *string) error {
+func runDaemon(signalContext context.Context, configFile *string, args *daemonArgs) error {
 	// signalContext will be 'done' when we receive a graceful shutdown signal; daemonContext is not a derived context
 	// because we want it to 'outlive' the signalContext in order to perform graceful cleanup.
 	daemonContext, cancel := context.WithCancel(context.Background())
@@ -44,7 +40,7 @@ func runDaemon(signalContext context.Context, configFile *string) error {
 
 	ctx := common.WithDaemonContext(daemonContext, daemonContext)
 
-	cfg, err := initializeConfig(configFile)
+	cfg, err := initializeConfig(configFile, args)
 	if err != nil {
 		return err
 	}
@@ -135,10 +131,11 @@ func pollTask(ctx context.Context, poller poll.Poller, ephemeral bool) {
 	log.Info("runner: received shutdown signal")
 }
 
-var initializeConfig = func(configFile *string) (*config.Config, error) {
+var initializeConfig = func(configFile *string, args *daemonArgs) (*config.Config, error) {
 	cfg, err := config.New(
 		config.FromFile(*configFile),
 		config.FromRegistration,
+		connectionFromArguments(&args.connection),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)

@@ -16,6 +16,7 @@ import (
 )
 
 type runJobArgs struct {
+	connection
 	wait   bool
 	handle string
 }
@@ -30,10 +31,11 @@ func (a *runJobArgs) GetHandle() *string {
 
 var newSingleTaskPoller = poll.NewSingleTaskPoller
 
-var initializeRunJobConfig = func(configFile *string) (*config.Config, error) {
+var initializeRunJobConfig = func(configFile *string, args *runJobArgs) (*config.Config, error) {
 	cfg, err := config.New(
 		config.FromFile(*configFile),
 		config.FromRegistration,
+		connectionFromArguments(&args.connection),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
@@ -42,7 +44,7 @@ var initializeRunJobConfig = func(configFile *string) (*config.Config, error) {
 }
 
 func runJob(ctx context.Context, configFile *string, args *runJobArgs) error {
-	cfg, err := initializeRunJobConfig(configFile)
+	cfg, err := initializeRunJobConfig(configFile, args)
 	if err != nil {
 		return err
 	} else if len(cfg.Server.Connections) != 1 {

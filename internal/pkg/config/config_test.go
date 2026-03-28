@@ -1396,20 +1396,20 @@ func TestResolveSecretURL(t *testing.T) {
 		secretURL, err := fileuri.FromFilePath(secretPath)
 		require.NoError(t, err)
 
-		secret, err := resolveSecretURL(secretURL.String())
+		secret, err := ResolveSecretURL(secretURL.String())
 		require.NoError(t, err)
 
 		assert.Equal(t, rawSecret, secret)
 	})
 
 	t.Run("error returned if URL is empty", func(t *testing.T) {
-		_, err := resolveSecretURL("")
+		_, err := ResolveSecretURL("")
 
 		assert.ErrorContains(t, err, "unsupported secret URL: \"\"")
 	})
 
 	t.Run("error returned if scheme is unsupported", func(t *testing.T) {
-		_, err := resolveSecretURL("unsupported:some-secret")
+		_, err := ResolveSecretURL("unsupported:some-secret")
 
 		assert.ErrorContains(t, err, "unsupported secret URL: \"unsupported:some-secret\"")
 	})

@@ -340,7 +340,7 @@ func (s *serializedCacheSettings) applyTo(config *Config) error {
 	var resolvedSecret string
 	if s.SecretURL != "" {
 		var err error
-		if resolvedSecret, err = resolveSecretURL(s.SecretURL); err != nil {
+		if resolvedSecret, err = ResolveSecretURL(s.SecretURL); err != nil {
 			return fmt.Errorf("cannot resolve `secret_url`: %w", err)
 		}
 	} else {
@@ -470,7 +470,7 @@ func (s *serializedConnectionSettings) applyTo(config *Config, connectionName st
 	}
 	var resolvedToken string
 	if s.TokenURL != "" {
-		if resolvedToken, err = resolveSecretURL(s.TokenURL); err != nil {
+		if resolvedToken, err = ResolveSecretURL(s.TokenURL); err != nil {
 			return fmt.Errorf("invalid `secret_url`: %w", err)
 		}
 	} else {
@@ -600,7 +600,7 @@ func readEnvFile(path string) (map[string]string, error) {
 	return env, nil
 }
 
-func resolveSecretURL(input string) (string, error) {
+func ResolveSecretURL(input string) (string, error) {
 	// We're not using url.Parse() for identifying the secret's scheme because, depending on the scheme, reparsing might
 	// be necessary.
 	if strings.HasPrefix(input, "file:") {
