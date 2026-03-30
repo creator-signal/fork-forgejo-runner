@@ -385,6 +385,18 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 		return nil, fmt.Errorf("git worktree add error: %w", err)
 	}
 
+	// `git worktree add ... {hash}` can cause the `{hash}` parameter to be resolved to an unexpected commit if there's
+	// a branch named `hash`. While we have tests `Prefers commit IDs over shadowing references` and `Cannot resolve a
+	// tag that appears to be a commit ID` that indicate this isn't the case, it's possible that the behaviour could be
+	// non-deterministic on some git systems. Due to the security risk involved, after the worktree is created, verify
+	// that the worktree has the expected hash and fail the Clone operation otherwise:
+	_, actualHash, err := ResolveHead(ctx, worktreeDir)
+	if err != nil {
+		return nil, err
+	} else if actualHash != hash {
+		return nil, fmt.Errorf("worktree creation of hash %[1]q resulted in a worktree with HEAD %[2]q, possibly indicating that %[1]q is an ambiguous git reference such as a tag shadowing a legitimate git commit", hash, actualHash)
+	}
+
 	return &gitWorktree{repoDir: repoDir, worktreeDir: worktreeDir}, nil
 }
 

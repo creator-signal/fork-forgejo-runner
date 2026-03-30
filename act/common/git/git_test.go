@@ -1,6 +1,8 @@
 package git
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -595,6 +597,89 @@ func TestClone(t *testing.T) {
 		_, err = os.Stat(obstacleFilePath)
 		assert.Error(t, err)
 	})
+
+	// These tests protects against a potential security vulnerability in pinned actions references. If an action
+	// reference is pinned such as `uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98`, it is possible
+	// that the remote `actions/checkout` repository is compromised, and a reference (branch or tag) could be created
+	// that is named `0c366fd6a839edf440554fa01a7085ccba70ac98`. Runner must treat this as a commit ID, not a branch,
+	// not a tag, in order to prevent a substitution from occurring on a compromised repository.
+	refTypes := []struct {
+		refType    string
+		refCreator func(t *testing.T, repoPath, commitSHA, tag string)
+		refChecker func(t *testing.T, repoPath, commitSHA, tag string)
+	}{
+		{
+			refType:    "branch",
+			refCreator: makeTestBranch,
+		},
+		{
+			refType:    "tag",
+			refCreator: makeTestTag,
+			refChecker: verifyTag,
+		},
+	}
+	for _, ref := range refTypes {
+		t.Run(fmt.Sprintf("%s shadows a commit", ref.refType), func(t *testing.T) {
+			cacheDir := t.TempDir()
+
+			// Create a local repo that will act as the remote to be cloned.
+			remoteDir := makeTestRepo(t)
+
+			// Create a test commit that we'll try to clone
+			originalSHA := makeTestCommit(t, remoteDir, "initial commit")
+
+			// Now we're going to create a second commit, and we're going to put a branch-or-tag on that commit where
+			// the name is the same as the git SHA from the first commit.
+			secondSHA := makeTestCommit(t, remoteDir, "second commit")
+			ref.refCreator(t, remoteDir, secondSHA /* commit */, originalSHA /* tag name */)
+
+			// Clone the repo by the first commit's specific SHA:
+			wt1, err := Clone(t.Context(), CloneInput{
+				CacheDir: cacheDir,
+				URL:      remoteDir,
+				Ref:      originalSHA,
+			})
+			// Either an error, or a correct checkout with the right commit, are fine -- as long as we're not tricked
+			// into the wrong commit:
+			if err != nil {
+				assert.ErrorContains(t, err, "ambiguous git reference such as a tag shadowing a legitimate git commit")
+			} else {
+				require.NoError(t, err)
+				defer wt1.Close(t.Context())
+
+				// Verify that the head in cloneDir is correct.
+				clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
+				assert.Equal(t, originalSHA, clonedSHA)
+
+				// Although it isn't what we checked out, verify that we did get the shadow reference into our cloned
+				// repo in order to ensure our test was valid.
+				ref.refChecker(t, wt1.WorktreeDir(), secondSHA, originalSHA)
+			}
+		})
+
+		t.Run(fmt.Sprintf("%s replaces a commit", ref.refType), func(t *testing.T) {
+			cacheDir := t.TempDir()
+
+			// Create a local repo that will act as the remote to be cloned.
+			remoteDir := makeTestRepo(t)
+
+			// Create a commit that stands in as our "malicious content"
+			maliciousSHA := makeTestCommit(t, remoteDir, "malicious content")
+
+			// Tag it with something that looks like a git commit
+			targetSHA := "024ee462437e33b6ea5a7a850679708b906387a0"
+			ref.refCreator(t, remoteDir, maliciousSHA /* commit */, targetSHA /* tag name */)
+
+			// Clone the repo by the target SHA, which is actually a git branch/tag in this repo...
+			_, err := Clone(t.Context(), CloneInput{
+				CacheDir: cacheDir,
+				URL:      remoteDir,
+				Ref:      targetSHA,
+			})
+			assert.Error(t, err)
+			assert.ErrorContains(t, err, fmt.Sprintf("invalid reference: %s", targetSHA))
+		})
+	}
 }
 
 func makeTestRepo(t *testing.T) string {
@@ -619,6 +704,14 @@ func makeTestCommit(t *testing.T, repoPath, comment string) string {
 func makeTestTag(t *testing.T, repoPath, commitSHA, tag string) {
 	t.Helper()
 	require.NoError(t, gitCmd("-C", repoPath, "tag", "--force", tag, commitSHA))
+	verifyTag(t, repoPath, commitSHA, tag)
+}
+
+func verifyTag(t *testing.T, repoPath, commitSHA, tag string) {
+	t.Helper()
+	output, err := gitCmdWithStdout("-C", repoPath, "tag", "--list", "--points-at", commitSHA, tag)
+	require.NoError(t, err)
+	assert.Equal(t, fmt.Sprintf("%s\n", tag), string(output))
 }
 
 func makeTestBranch(t *testing.T, repoPath, commitSHA, branchName string) {
@@ -678,18 +771,27 @@ func gitConfig() {
 }
 
 func gitCmd(args ...string) error {
+	_, err := gitCmdWithStdout(args...)
+	return err
+}
+
+func gitCmdWithStdout(args ...string) ([]byte, error) {
+	var stdoutBuffer bytes.Buffer
+	stdout := bufio.NewWriter(&stdoutBuffer)
+
 	cmd := exec.Command("git", args...)
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = stdout
 	cmd.Stderr = os.Stderr
 
 	err := cmd.Run()
 	if exitError, ok := err.(*exec.ExitError); ok {
 		if waitStatus, ok := exitError.Sys().(syscall.WaitStatus); ok {
-			return fmt.Errorf("Exit error %d", waitStatus.ExitStatus())
+			return nil, fmt.Errorf("Exit error %d", waitStatus.ExitStatus())
 		}
-		return exitError
+		return nil, exitError
 	}
-	return nil
+
+	return stdoutBuffer.Bytes(), nil
 }
 
 func TestCloneIfRequired(t *testing.T) {
