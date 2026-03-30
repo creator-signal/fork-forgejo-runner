@@ -26,7 +26,7 @@ jobs:
           curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
           echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
           apt-get update -qq
-          apt-get install -qq -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+          apt-get install -qq -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin python3
           docker version
           docker compose version
 
@@ -36,13 +36,14 @@ jobs:
           cd examples/docker-compose
           secret=$(openssl rand -hex 20)
           sed -i -e "s/{SHARED_SECRET}/$secret/" compose-forgejo-and-runner.yml
+          uuid=$(echo -n "$secret" | python3 -c 'import sys; import uuid;input=sys.stdin.read();print(str(uuid.UUID(bytes=input[:16].encode("utf-8"))))')
+          sed -i -e "s/{UUID}/$uuid/" compose-forgejo-and-runner.yml
           cli="docker compose --progress quiet -f compose-forgejo-and-runner.yml"
           #
           # Launch Forgejo & the runner
           #
           $cli up -d
-          for delay in $(seq 60) ; do test -f /srv/runner-data/.runner && break ; sleep 30 ; done
-          test -f /srv/runner-data/.runner
+          for delay in $(seq 60) ; do test -f /srv/runner-data/config.yml && break ; sleep 30 ; done
           #
           # Run the demo workflow
           #
@@ -63,7 +64,7 @@ jobs:
           done
           grep --quiet "$success" /tmp/out
           $cli logs runner-daemon > /tmp/runner.log
-          grep --quiet 'Start image=code.forgejo.org/oci/node:20-bookworm' /tmp/runner.log
+          grep --quiet 'Start image=code.forgejo.org/oci/node:lts' /tmp/runner.log
 
       - name: full docker compose logs
         if: always()

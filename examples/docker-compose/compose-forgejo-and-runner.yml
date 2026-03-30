@@ -8,6 +8,12 @@
 #
 # Replace all occurrences of {SHARED_SECRET} below with the output.
 #
+# Generate the UUID from the secret:
+#
+#   echo -n '{SHARED_SECRET}' | python -c 'import sys; import uuid;input=sys.stdin.read();print(str(uuid.UUID(bytes=input[:16].encode("utf-8"))))'
+#
+# Replace all occurrences of {UUID} below with the output.
+#
 # NOTE: a token obtained from the Forgejo web interface cannot be used
 #       as a shared secret.
 #
@@ -62,17 +68,15 @@ services:
     user: 0:0
     command: >-
       bash -ec '
-      while : ; do
-        forgejo-runner create-runner-file --connect --instance http://forgejo:3000 --name runner --secret {SHARED_SECRET} && break ;
-        sleep 1 ;
-      done ;
-      sed -i -e "s|\"labels\": \[\]|\"labels\": [\"docker-cli:docker://code.forgejo.org/oci/docker:cli\",\"node-bookworm:docker://code.forgejo.org/oci/node:20-bookworm\"]|" .runner ;
+      if [ -e config.yml ] ; then echo "config.yml already exists"; exit 0; fi;
       forgejo-runner generate-config > config.yml ;
       sed -i -e "s|  level: info|  level: debug|" config.yml ;
+      sed -i -e "s|  labels: \[\]|  labels: [\"docker-cli:docker://code.forgejo.org/oci/docker:cli\", \"node:docker://code.forgejo.org/oci/node:lts\"]|" config.yml;
       sed -i -e "s|network: .*|network: host|" config.yml ;
       sed -i -e "s|^  envs:$$|  envs:\n    DOCKER_HOST: tcp://docker:2376\n    DOCKER_TLS_VERIFY: 1\n    DOCKER_CERT_PATH: /certs/client|" config.yml ;
       sed -i -e "s|^  options:|  options: -v /certs/client:/certs/client|" config.yml ;
       sed -i -e "s|  valid_volumes: \[\]$$|  valid_volumes:\n    - /certs/client|" config.yml ;
+      sed -i -e "s|  connections:|  connections:\n    default:\n      url: http://forgejo:3000\n      uuid: {UUID}\n      token: {SHARED_SECRET}|" config.yml ;
       chown -R 1000:1000 /data
       '
 
@@ -88,7 +92,8 @@ services:
     volumes:
       - /srv/runner-data:/data
       - docker_certs:/certs
+    restart: unless-stopped
+    depends_on:
+      - runner-register
     command: >-
-      bash -c '
-      while : ; do test -w .runner && forgejo-runner --config config.yml daemon ; sleep 1 ; done
-      '
+      forgejo-runner --config config.yml daemon

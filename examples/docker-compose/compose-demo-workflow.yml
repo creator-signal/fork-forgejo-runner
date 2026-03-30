@@ -14,7 +14,7 @@ services:
       cd /srv/demo ;
       git init --initial-branch=main ;
       mkdir -p .forgejo/workflows ;
-      echo "{ on: [push], jobs: { test: { runs-on: node-bookworm, steps: [ {uses: https://code.forgejo.org/actions/checkout@v4}, { run: echo All Good } ] } } }" > .forgejo/workflows/demo.yml ;
+      echo "{ on: [push], jobs: { test: { runs-on: node, steps: [ {uses: https://code.forgejo.org/actions/checkout@v4}, { run: echo All Good } ] } } }" > .forgejo/workflows/demo.yml ;
       echo "{ on: [push], jobs: { test_docker: { runs-on: docker-cli, steps: [ { run: docker info, shell: sh } ] } } }" > .forgejo/workflows/demo_docker.yml ;
       git add . ;
       git config user.email root@example.com ;
