@@ -1,4 +1,6 @@
 on: push
+env:
+  MY_ENV: should be overridden
 jobs:
   _:
     runs-on: ubuntu-latest

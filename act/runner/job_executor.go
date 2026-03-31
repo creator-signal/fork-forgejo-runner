@@ -50,10 +50,17 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			return nil
 		}
 		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
-		// evaluate environment variables since they can contain
-		// GitHub's special environment variables.
+
+		// Env already contains job variables, not only workflow variables. And those job variables might have
+		// overridden workflow variables. Identify the workflow variables to interpolate by looping over
+		// rc.Run.Workflow.Env, but take their _current_ value from Env.
 		for k, v := range rc.Run.Workflow.Env {
-			rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+			// Only interpolate the workflow-level env variable if its value hasn't been overridden by a job-level env
+			// variable. Otherwise, it might contain a reference to a variable that is only visible on the job-level.
+			// But that wouldn't be safe because the job-level hasn't been fully populated, yet.
+			if currentValue, ok := rc.Env[k]; ok && currentValue == v {
+				rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+			}
 		}
 		return nil
 	}
