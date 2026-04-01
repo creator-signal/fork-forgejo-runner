@@ -424,14 +424,6 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 		env = rc.GetEnv()
 	}
 
-	for k, v := range env {
-		if after, ok := strings.CutPrefix(k, "INPUT_"); ok {
-			inputs[strings.ToLower(after)] = v
-		}
-	}
-
-	setupWorkflowInputs(ctx, &inputs, rc)
-
 	if rc.caller == nil && ghc.EventName == "workflow_dispatch" {
 		config := rc.Run.Workflow.WorkflowDispatchConfig()
 		if config != nil && config.Inputs != nil {
@@ -465,6 +457,15 @@ func getEvaluatorInputs(ctx context.Context, rc *RunContext, step step, ghc *mod
 			}
 		}
 	}
+
+	for k, v := range env {
+		if after, ok := strings.CutPrefix(k, "INPUT_"); ok {
+			inputs[strings.ToLower(after)] = v
+		}
+	}
+
+	setupWorkflowInputs(ctx, &inputs, rc)
+
 	return inputs
 }
 

@@ -1,0 +1,10 @@
+inputs:
+  x:
+    required: true
+    description: "This is x."
+
+runs:
+  using: docker
+  image: Dockerfile
+  args:
+    - ${{ inputs.x }}

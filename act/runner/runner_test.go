@@ -262,6 +262,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir + "/local-action-dockerfile-tag/example2", "local-action-dockerfile-example2", "push", "", platforms, secrets},
 		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms, secrets},
 		{workdir, "local-action-js", "push", "", platforms, secrets},
+		{workdir, "local-action-docker-input-precedence", "workflow_dispatch", "", platforms, secrets},
 
 		// Uses
 		{workdir, "uses-composite", "push", "", platforms, secrets},

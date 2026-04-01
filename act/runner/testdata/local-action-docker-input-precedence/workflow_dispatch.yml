@@ -1,0 +1,36 @@
+# This test verifies that `with:` inputs take precedence when identically named inputs are present
+# that are populated by `workflow_dispatch`. Therefore, it's crucial that all variables have the
+# same name `x`.
+on:
+  workflow_dispatch:
+    inputs:
+      x:
+        type: number
+        required: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout action
+        uses: actions/checkout@v6
+
+      - name: Using the argument
+        uses: ./actions/docker-input-precedence
+        with:
+          x: 21
+
+      - name: Verify test result
+        run: |
+          echo "TEST_RESULT=$TEST_RESULT"
+          [[ "$TEST_RESULT" == 21 ]] || exit 1
+
+      - name: Using the value from workflow_dispatch
+        uses: ./actions/docker-input-precedence
+        with:
+          x: ${{ inputs.x }}
+
+      - name: Verify test result
+        run: |
+          echo "TEST_RESULT=$TEST_RESULT"
+          [[ "$TEST_RESULT" == 985 ]] || exit 1
