@@ -117,10 +117,6 @@ func (s *singleTaskPoller) Poll() {
 	}
 }
 
-func (s *singleTaskPoller) PollOnce() {
-	panic("unsupported")
-}
-
 func (s *singleTaskPoller) Shutdown(ctx context.Context) error {
 	s.cancelPolling()
 

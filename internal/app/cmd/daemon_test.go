@@ -126,66 +126,6 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 	<-runDaemonComplete
 }
 
-func TestRunDaemonEphemeral_pollTask_StopsAfterOneJob(t *testing.T) {
-	mockPoller := mock_poller.NewPoller(t)
-	mockPoller.On("PollOnce").Return(nil)
-
-	pollTask(t.Context(), mockPoller, true)
-	mockPoller.AssertCalled(t, "PollOnce", mock.Anything)
-	mockPoller.AssertNotCalled(t, "Poll", mock.Anything)
-}
-
-// expecting that pollTask returns when PollOnce succeeds
-func TestRunDaemonEphemeral_pollTask_DoneContextFinished(t *testing.T) {
-	mockPoller := mock_poller.NewPoller(t)
-	mockPoller.On("PollOnce").Run(func(args mock.Arguments) {}).Return(nil)
-
-	osSignal := t.Context()
-
-	pollFinishedChan := make(chan interface{})
-	go func() {
-		defer close(pollFinishedChan)
-		pollTask(osSignal, mockPoller, true)
-	}()
-
-	select {
-	case <-pollFinishedChan:
-		// good case
-	case <-time.After(10 * time.Millisecond):
-		assert.Fail(t, "routine 'pollTask' took too long to finish")
-		// bad case
-	}
-
-	mockPoller.AssertNumberOfCalls(t, "PollOnce", 1)
-}
-
-// expecting that pollTask respects provided context
-func TestRunDaemonEphemeral_pollTask_ReactsOnContext(t *testing.T) {
-	osSignal, cancelOsSignal := context.WithCancel(t.Context())
-	mockPoller := mock_poller.NewPoller(t)
-	mockPoller.On("PollOnce").Run(func(args mock.Arguments) {
-		cancelOsSignal()
-		// block until test is done
-		<-t.Context().Done()
-	}).Return(nil)
-
-	pollFinishedChan := make(chan interface{})
-	go func() {
-		defer close(pollFinishedChan)
-		pollTask(osSignal, mockPoller, true)
-	}()
-
-	select {
-	case <-pollFinishedChan:
-		// good case
-	case <-time.After(10 * time.Millisecond):
-		assert.Fail(t, "routine 'pollTask' took too long to finish")
-		// bad case
-	}
-
-	mockPoller.AssertNumberOfCalls(t, "PollOnce", 1)
-}
-
 func TestRunDaemon_pollTask_ReactsOnContext(t *testing.T) {
 	osSignal, cancelOsSignal := context.WithCancel(t.Context())
 	mockPoller := mock_poller.NewPoller(t)
@@ -198,7 +138,7 @@ func TestRunDaemon_pollTask_ReactsOnContext(t *testing.T) {
 	pollFinishedChan := make(chan interface{})
 	go func() {
 		defer close(pollFinishedChan)
-		pollTask(osSignal, mockPoller, false)
+		pollTask(osSignal, mockPoller)
 	}()
 
 	select {
@@ -366,6 +306,64 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 
 	// Wait for the daemon goroutine to stop so that we're sure the test goroutines are complete.
 	<-runDaemonComplete
+}
+
+func TestRunDaemon_MultipleServersQuitsIfOneIsEphemeral(t *testing.T) {
+	serverURL1, err := url.Parse("https://example.com/forgejo1")
+	require.NoError(t, err)
+	serverURL2, err := url.Parse("https://example.com/forgejo2")
+	require.NoError(t, err)
+
+	mockClient1 := mock_client.NewClient(t)
+	mockClient2 := mock_client.NewClient(t)
+
+	mockRunner1 := mock_runner.NewRunnerInterface(t)
+	mockRunner2 := mock_runner.NewRunnerInterface(t)
+
+	mockPoller := mock_poller.NewPoller(t)
+
+	require.NoError(t, err)
+	defer testutils.MockVariable(&initializeConfig, func(configFile *string, args *daemonArgs) (*config.Config, error) {
+		return &config.Config{
+			Server: config.Server{
+				Connections: map[string]*config.Connection{
+					"forgejo1": {
+						URL: serverURL1,
+					},
+					"forgejo2": {
+						URL: serverURL2,
+					},
+				},
+			},
+		}, nil
+	})()
+	defer testutils.MockVariable(&createClient, func(cfg *config.Config, conn *config.Connection) client.Client {
+		switch conn.URL.String() {
+		case serverURL1.String():
+			return mockClient1
+		case serverURL2.String():
+			return mockClient2
+		}
+		t.Fatalf("unexpected connection URL: %q", conn.URL.String())
+		return nil
+	})()
+	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+		switch name {
+		case "forgejo1":
+			return mockRunner1, "forgejo1", false, nil
+		case "forgejo2":
+			return mockRunner2, "forgejo2", true, nil
+		}
+		t.Fatalf("unexpected connection name: %q", name)
+		return nil, "", false, nil
+	})()
+	defer testutils.MockVariable(&createPoller, func(ctx context.Context, cfg *config.Config, clients []client.Client, runners []run.RunnerInterface) poll.Poller {
+		return mockPoller
+	})()
+
+	configFile := "config.yaml"
+	err = runDaemon(t.Context(), &configFile, &daemonArgs{})
+	require.ErrorContains(t, err, "connection \"forgejo2\" requires an ephemeral runner")
 }
 
 func TestRunDaemon_WithConnectionFromCommandOptions(t *testing.T) {

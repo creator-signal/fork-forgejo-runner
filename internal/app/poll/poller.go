@@ -25,7 +25,6 @@ const PollerID = "PollerID"
 //go:generate mockery --name Poller
 type Poller interface {
 	Poll()
-	PollOnce()
 	Shutdown(ctx context.Context) error
 }
 
@@ -72,15 +71,6 @@ func (p *poller) init(ctx context.Context, cfg *config.Config, clients []client.
 }
 
 func (p *poller) Poll() {
-	capacity := int64(p.cfg.Runner.Capacity)
-	p.poll(capacity, false)
-}
-
-func (p *poller) PollOnce() {
-	p.poll(1, true)
-}
-
-func (p *poller) poll(capacity int64, ephemeral bool) {
 	limiters := make([]*rate.Limiter, len(p.clients))
 	for i := range p.clients {
 		limiters[i] = rate.NewLimiter(rate.Every(p.clients[i].FetchInterval()), 1)
@@ -95,10 +85,12 @@ func (p *poller) poll(capacity int64, ephemeral bool) {
 	// synctest; a buffered channel of size 1 is used as a replacement.
 	fetchMutex := make(chan any, 1)
 
+	capacity := int64(p.cfg.Runner.Capacity)
+
 	log.Infof("[poller] launched")
 	for i := range p.clients {
 		wg.Go(func() {
-			p.pollForClient(limiters[i], p.clients[i], p.runners[i], capacity, fetchMutex, &taskVersions[i], &inProgressTasks, wg, ephemeral)
+			p.pollForClient(limiters[i], p.clients[i], p.runners[i], capacity, fetchMutex, &taskVersions[i], &inProgressTasks, wg)
 		})
 	}
 
@@ -109,12 +101,7 @@ func (p *poller) poll(capacity int64, ephemeral bool) {
 	close(p.done)
 }
 
-func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runner run.RunnerInterface, capacity int64, fetchMutex chan any, taskVersions, inProgressTasks *atomic.Int64, wg *sync.WaitGroup, ephemeral bool) {
-	if ephemeral && capacity > 1 {
-		log.Infof("[poller] connot run ephemeral runner with more than 1 capacity")
-		return
-	}
-
+func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runner run.RunnerInterface, capacity int64, fetchMutex chan any, taskVersions, inProgressTasks *atomic.Int64, wg *sync.WaitGroup) {
 	// When the FetchTask() API is invoked to create a task, unpreventable environmental errors may occur; for example,
 	// network disconnects and timeouts. It's possible that these errors occur after the server-side has assigned a task
 	// to the runner during the API call, in which case the error would cause that task to be lost between the two
@@ -143,9 +130,7 @@ func (p *poller) pollForClient(limiter *rate.Limiter, client client.Client, runn
 			log.Tracef("[poller] fetching at most %d tasks from client %s", availableCapacity, client.Address())
 			tasks, reuseRequestKey := p.fetchTasks(p.pollingCtx, client, taskVersions, availableCapacity, requestKey)
 			inProgressTasks.Add(int64(len(tasks)))
-			if len(tasks) > 0 && ephemeral {
-				p.shutdownPolling()
-			}
+
 			<-fetchMutex // unlock mutex by draining channel
 
 			if !reuseRequestKey {

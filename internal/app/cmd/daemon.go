@@ -72,7 +72,6 @@ func runDaemon(signalContext context.Context, configFile *string, args *daemonAr
 
 	clients := make([]client.Client, 0, len(cfg.Server.Connections))
 	runners := make([]run.RunnerInterface, 0, len(cfg.Server.Connections))
-	ephemeralRunners := make([]bool, 0, len(cfg.Server.Connections))
 	for name, conn := range cfg.Server.Connections {
 		cli := createClient(cfg, conn)
 		clients = append(clients, cli)
@@ -81,20 +80,15 @@ func runDaemon(signalContext context.Context, configFile *string, args *daemonAr
 		if err != nil {
 			return err
 		}
-		runners = append(runners, runner)
-		ephemeralRunners = append(ephemeralRunners, ephemeral)
-	}
-
-	ephemeral := ephemeralRunners[0] // guaranteed len() > 0 because len(cfg.Server.Connections) can't be 0
-	for _, e := range ephemeralRunners {
-		if e != ephemeral {
-			return errors.New("runner: all server connections must be ephemeral, or non-ephemeral, but instead a mix of both configurations was found")
+		if ephemeral {
+			return fmt.Errorf("connection %q requires an ephemeral runner, which is not supported in daemon-mode", name)
 		}
+		runners = append(runners, runner)
 	}
 
 	poller := createPoller(ctx, cfg, clients, runners)
 
-	pollTask(signalContext, poller, ephemeral)
+	pollTask(signalContext, poller)
 
 	log.Infof("runner: shutdown initiated, waiting [runner].shutdown_timeout=%s for running jobs to complete before shutting down", cfg.Runner.ShutdownTimeout)
 
@@ -108,24 +102,7 @@ func runDaemon(signalContext context.Context, configFile *string, args *daemonAr
 	return nil
 }
 
-func pollTask(ctx context.Context, poller poll.Poller, ephemeral bool) {
-	if ephemeral {
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			poller.PollOnce()
-		}()
-
-		// shutdown when we complete a job or cancel is requested
-		select {
-		case <-ctx.Done():
-			log.Info("runner: received shutdown signal")
-		case <-done:
-			log.Info("runner: ephemeral runner shutting down after job has completed")
-		}
-		return
-	}
-
+func pollTask(ctx context.Context, poller poll.Poller) {
 	go poller.Poll()
 	<-ctx.Done()
 	log.Info("runner: received shutdown signal")
