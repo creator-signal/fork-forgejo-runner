@@ -46,7 +46,7 @@ func stringToRows(s string) []*runnerv1.LogRow {
 	return rows
 }
 
-func mockReporter(t *testing.T) (*Reporter, *mocks.Client, func()) {
+func mockReporter(t *testing.T) (*Reporter, *mocks.MockClient, func()) {
 	t.Helper()
 
 	taskCtx, err := structpb.NewStruct(map[string]any{})
@@ -58,10 +58,10 @@ func mockReporter(t *testing.T) (*Reporter, *mocks.Client, func()) {
 	return mockReporterWithTask(t, task)
 }
 
-func mockReporterWithTask(t *testing.T, task *runnerv1.Task) (*Reporter, *mocks.Client, func()) {
+func mockReporterWithTask(t *testing.T, task *runnerv1.Task) (*Reporter, *mocks.MockClient, func()) {
 	t.Helper()
 
-	client := mocks.NewClient(t)
+	client := mocks.NewMockClient(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	reporter := NewReporter(common.WithDaemonContext(ctx, t.Context()), cancel, client, task, time.Second, &config.Retry{})
 	close := func() {
@@ -329,13 +329,13 @@ func TestReporter_Fire(t *testing.T) {
 func TestReporterReportState(t *testing.T) {
 	for _, testCase := range []struct {
 		name    string
-		fixture func(t *testing.T, reporter *Reporter, client *mocks.Client)
+		fixture func(t *testing.T, reporter *Reporter, client *mocks.MockClient)
 		assert  func(t *testing.T, reporter *Reporter, ctx context.Context, err error)
 		noMore  bool
 	}{
 		{
 			name: "PartialOutputs",
-			fixture: func(t *testing.T, reporter *Reporter, client *mocks.Client) {
+			fixture: func(t *testing.T, reporter *Reporter, client *mocks.MockClient) {
 				t.Helper()
 				outputKey1 := "KEY1"
 				outputValue1 := "VALUE1"
@@ -365,7 +365,7 @@ func TestReporterReportState(t *testing.T) {
 		},
 		{
 			name: "AllDone",
-			fixture: func(t *testing.T, reporter *Reporter, client *mocks.Client) {
+			fixture: func(t *testing.T, reporter *Reporter, client *mocks.MockClient) {
 				t.Helper()
 				client.On("UpdateTask", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
 					t.Logf("Received UpdateTask: %s", req.Msg.String())
@@ -381,7 +381,7 @@ func TestReporterReportState(t *testing.T) {
 		},
 		{
 			name: "Canceled",
-			fixture: func(t *testing.T, reporter *Reporter, client *mocks.Client) {
+			fixture: func(t *testing.T, reporter *Reporter, client *mocks.MockClient) {
 				t.Helper()
 				client.On("UpdateTask", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
 					t.Logf("Received UpdateTask: %s", req.Msg.String())
@@ -400,7 +400,7 @@ func TestReporterReportState(t *testing.T) {
 		},
 		{
 			name: "Failed",
-			fixture: func(t *testing.T, reporter *Reporter, client *mocks.Client) {
+			fixture: func(t *testing.T, reporter *Reporter, client *mocks.MockClient) {
 				t.Helper()
 				client.On("UpdateTask", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateTaskRequest]) (*connect_go.Response[runnerv1.UpdateTaskResponse], error) {
 					t.Logf("Received UpdateTask: %s", req.Msg.String())
@@ -419,7 +419,7 @@ func TestReporterReportState(t *testing.T) {
 		},
 		{
 			name: "should not send final update when it is not the final message",
-			fixture: func(t *testing.T, reporter *Reporter, client *mocks.Client) {
+			fixture: func(t *testing.T, reporter *Reporter, client *mocks.MockClient) {
 				t.Helper()
 				reporter.state = &runnerv1.TaskState{
 					Result: runnerv1.Result_RESULT_SUCCESS,
@@ -428,13 +428,13 @@ func TestReporterReportState(t *testing.T) {
 			assert: func(t *testing.T, reporter *Reporter, ctx context.Context, err error) {
 				t.Helper()
 				require.NoError(t, err)
-				reporter.client.(*mocks.Client).AssertNotCalled(t, "UpdateTask")
+				reporter.client.(*mocks.MockClient).AssertNotCalled(t, "UpdateTask")
 			},
 			noMore: false,
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			client := mocks.NewClient(t)
+			client := mocks.NewMockClient(t)
 			ctx, cancel := context.WithCancel(context.Background())
 			taskCtx, err := structpb.NewStruct(map[string]any{})
 			require.NoError(t, err)

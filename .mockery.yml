@@ -1,0 +1,14 @@
+formatter: gofmt
+template: testify
+packages:
+  code.forgejo.org/forgejo/runner/v12/act/artifactcache:
+  code.forgejo.org/forgejo/runner/v12/act/container:
+  code.forgejo.org/forgejo/runner/v12/internal/app/poll:
+  code.forgejo.org/forgejo/runner/v12/internal/app/run:
+  code.forgejo.org/forgejo/runner/v12/internal/pkg/client:
+  github.com/sirupsen/logrus:
+    interfaces:
+      FieldLogger:
+        config:
+          pkgname: runner
+          dir: act/runner

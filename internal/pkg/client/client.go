@@ -13,7 +13,9 @@ import (
 
 // A Client manages communication with the runner.
 //
-//go:generate mockery --name Client
+//mockery:generate: true
+//mockery:filename: mocks/client.go
+//mockery:pkgname: mocks
 type Client interface {
 	pingv1connect.PingServiceClient
 	runnerv1connect.RunnerServiceClient

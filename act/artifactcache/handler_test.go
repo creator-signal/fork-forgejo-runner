@@ -945,7 +945,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 		{
 			name: "upload",
 			caches: func(t *testing.T, message string) caches {
-				caches := newMockCaches(t)
+				caches := newMockcaches(t)
 				caches.On("close").Return()
 				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))
@@ -963,7 +963,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 		{
 			name: "commit",
 			caches: func(t *testing.T, message string) caches {
-				caches := newMockCaches(t)
+				caches := newMockcaches(t)
 				caches.On("close").Return()
 				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))
@@ -981,7 +981,7 @@ func TestHandlerAPIFatalErrors(t *testing.T) {
 		{
 			name: "get",
 			caches: func(t *testing.T, message string) caches {
-				caches := newMockCaches(t)
+				caches := newMockcaches(t)
 				caches.On("close").Return()
 				caches.On("validateMac", RunData{}).Return(cacheRepo, nil)
 				caches.On("readCache", mock.Anything, mock.Anything).Return(nil, errors.New(message))

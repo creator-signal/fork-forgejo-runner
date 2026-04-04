@@ -20,9 +20,9 @@ import (
 	gouuid "github.com/google/uuid"
 )
 
-const PollerID = "PollerID"
-
-//go:generate mockery --name Poller
+//mockery:generate: true
+//mockery:filename: mocks/poller.go
+//mockery:pkgname: mocks
 type Poller interface {
 	Poll()
 	Shutdown(ctx context.Context) error

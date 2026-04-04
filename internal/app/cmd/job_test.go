@@ -44,7 +44,7 @@ server:
 	err := os.WriteFile(configPath, []byte(rawConfig), 0o644)
 	require.NoError(t, err)
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -52,7 +52,7 @@ server:
 		On("FetchTask", mock.Anything, connect.NewRequest(&runnerv1.FetchTaskRequest{})).
 		Return(connect.NewResponse(&runnerv1.FetchTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil)
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})
@@ -106,7 +106,7 @@ cache:
 	tokenURL, err := fileuri.FromFilePath(tokenPath)
 	require.NoError(t, err)
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -114,7 +114,7 @@ cache:
 		On("FetchTask", mock.Anything, connect.NewRequest(&runnerv1.FetchTaskRequest{})).
 		Return(connect.NewResponse(&runnerv1.FetchTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil)
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})
@@ -176,7 +176,7 @@ server:
 	err := os.WriteFile(configPath, []byte(rawConfig), 0o644)
 	require.NoError(t, err)
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -186,7 +186,7 @@ server:
 		On("FetchTask", mock.Anything, connect.NewRequest(&runnerv1.FetchTaskRequest{})).
 		Return(connect.NewResponse(&runnerv1.FetchTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil).Once()
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})
@@ -242,7 +242,7 @@ server:
 
 	handle := "1bd04a66-e7ae-4e8a-9edb-c3344d6deec6"
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -250,7 +250,7 @@ server:
 		On("FetchSingleTask", mock.Anything, connect.NewRequest(&runnerv1.FetchSingleTaskRequest{Handle: &handle})).
 		Return(connect.NewResponse(&runnerv1.FetchSingleTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil)
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})
@@ -306,7 +306,7 @@ server:
 
 	handle := "1bd04a66-e7ae-4e8a-9edb-c3344d6deec6"
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -316,7 +316,7 @@ server:
 		On("FetchSingleTask", mock.Anything, connect.NewRequest(&runnerv1.FetchSingleTaskRequest{Handle: &handle})).
 		Return(connect.NewResponse(&runnerv1.FetchSingleTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil).Once()
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})

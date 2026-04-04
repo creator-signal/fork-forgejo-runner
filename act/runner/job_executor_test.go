@@ -13,14 +13,11 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/container"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
-	"code.forgejo.org/forgejo/runner/v12/act/runner/mocks"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gotest.tools/v3/skip"
 )
-
-//go:generate mockery --srcpkg=github.com/sirupsen/logrus --name=FieldLogger
 
 func TestJobExecutor(t *testing.T) {
 	if testing.Short() {
@@ -265,7 +262,7 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 
 			executorOrder := make([]string, 0)
 
-			mockLogger := mocks.NewFieldLogger(t)
+			mockLogger := NewMockFieldLogger(t)
 			mockLogger.On("Debugf", mock.Anything, mock.Anything, mock.Anything).Return(0).Maybe()
 			mockLogger.On("Warningf", mock.Anything, mock.Anything, mock.Anything).Return(0).Maybe()
 			mockLogger.On("WithField", mock.Anything, mock.Anything, mock.Anything).Return(&logrus.Entry{Logger: &logrus.Logger{}}).Maybe()
@@ -456,7 +453,7 @@ func TestSetJobResult_SkipsBannerInChildReusableWorkflow(t *testing.T) {
 	// Test that child reusable workflow does not print final banner
 	// to prevent premature token revocation
 
-	mockLogger := mocks.NewFieldLogger(t)
+	mockLogger := NewMockFieldLogger(t)
 	// Allow all variants of Debugf (git operations can call with 1-3 args)
 	mockLogger.On("Debugf", mock.Anything).Return(0).Maybe()
 	mockLogger.On("Debugf", mock.Anything, mock.Anything).Return(0).Maybe()

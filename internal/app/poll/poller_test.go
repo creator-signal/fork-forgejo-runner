@@ -37,8 +37,8 @@ func (o *mockPoller) Poll() {
 	o.poller.Poll()
 }
 
-func basicMockClient(t *testing.T) *mocks.Client {
-	mockClient := mocks.NewClient(t)
+func basicMockClient(t *testing.T) *mocks.MockClient {
+	mockClient := mocks.NewMockClient(t)
 	mockClient.On("FetchInterval").Return(time.Second).Maybe()
 	mockClient.On("Address").Return("").Maybe()
 	mockClient.On("SetRequestKey", mock.Anything).Return(func() {}).Maybe()
@@ -52,7 +52,7 @@ func setTrace(t *testing.T) {
 }
 
 func TestPoller_New(t *testing.T) {
-	p := New(t.Context(), &config.Config{}, []client.Client{mocks.NewClient(t)}, []run.RunnerInterface{mock_runner.NewRunnerInterface(t)})
+	p := New(t.Context(), &config.Config{}, []client.Client{mocks.NewMockClient(t)}, []run.RunnerInterface{mock_runner.NewMockRunner(t)})
 	assert.NotNil(t, p)
 }
 
@@ -85,7 +85,7 @@ func TestPoller_Runner(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			runnerLog := make(chan string, 3)
-			runner := mock_runner.NewRunnerInterface(t)
+			runner := mock_runner.NewMockRunner(t)
 			runner.On("Run", mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {
 					ctx := args.Get(0).(context.Context)
@@ -256,7 +256,7 @@ func TestPoller_Fetch(t *testing.T) {
 				addtTasks: testCase.addtTasks,
 				}
 				*/
-				[]run.RunnerInterface{mock_runner.NewRunnerInterface(t)},
+				[]run.RunnerInterface{mock_runner.NewMockRunner(t)},
 			)
 			task, reuseRequestKey := p.fetchTasks(context.Background(), p.clients[0], &atomic.Int64{}, 100, gouuid.New())
 			if testCase.success {
@@ -272,12 +272,12 @@ func TestPoller_Fetch(t *testing.T) {
 }
 
 func TestPollerPoll(t *testing.T) {
-	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.Client, *mock_runner.RunnerInterface, Poller) {
-		mockClient := mocks.NewClient(t)
+	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.MockClient, *mock_runner.MockRunner, Poller) {
+		mockClient := mocks.NewMockClient(t)
 		mockClient.On("FetchInterval").Return(1 * time.Second)
 		mockClient.On("Address").Return("https://client")
 		mockClient.On("SetRequestKey", mock.Anything).Return(func() {})
-		mockRunner := mock_runner.NewRunnerInterface(t)
+		mockRunner := mock_runner.NewMockRunner(t)
 		poller := New(pollingCtx, &config.Config{
 			Runner: config.Runner{
 				Capacity: 3,
@@ -285,7 +285,7 @@ func TestPollerPoll(t *testing.T) {
 		}, []client.Client{mockClient}, []run.RunnerInterface{mockRunner})
 		return mockClient, mockRunner, poller
 	}
-	teardown := func(t *testing.T, mockClient *mocks.Client, mockRunner *mock_runner.RunnerInterface) {
+	teardown := func(t *testing.T, mockClient *mocks.MockClient, mockRunner *mock_runner.MockRunner) {
 		mockClient.AssertExpectations(t)
 		mockRunner.AssertExpectations(t)
 	}
@@ -462,16 +462,16 @@ func TestPollerPoll(t *testing.T) {
 }
 
 func TestPollerPollMultipleClients(t *testing.T) {
-	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.Client, *mocks.Client, *mock_runner.RunnerInterface, Poller) {
-		mockClient1 := mocks.NewClient(t)
+	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.MockClient, *mocks.MockClient, *mock_runner.MockRunner, Poller) {
+		mockClient1 := mocks.NewMockClient(t)
 		mockClient1.On("FetchInterval").Return(1 * time.Second)
 		mockClient1.On("Address").Return("https://client1")
 		mockClient1.On("SetRequestKey", mock.Anything).Return(func() {})
-		mockClient2 := mocks.NewClient(t)
+		mockClient2 := mocks.NewMockClient(t)
 		mockClient2.On("FetchInterval").Return(30 * time.Second)
 		mockClient2.On("Address").Return("https://client2")
 		mockClient2.On("SetRequestKey", mock.Anything).Return(func() {})
-		mockRunner := mock_runner.NewRunnerInterface(t)
+		mockRunner := mock_runner.NewMockRunner(t)
 		poller := New(pollingCtx, &config.Config{
 			Runner: config.Runner{
 				Capacity: 3,
@@ -479,7 +479,7 @@ func TestPollerPollMultipleClients(t *testing.T) {
 		}, []client.Client{mockClient1, mockClient2}, []run.RunnerInterface{mockRunner, mockRunner})
 		return mockClient1, mockClient2, mockRunner, poller
 	}
-	teardown := func(t *testing.T, mockClient1, mockClient2 *mocks.Client, mockRunner *mock_runner.RunnerInterface) {
+	teardown := func(t *testing.T, mockClient1, mockClient2 *mocks.MockClient, mockRunner *mock_runner.MockRunner) {
 		mockClient1.AssertExpectations(t)
 		mockClient2.AssertExpectations(t)
 		mockRunner.AssertExpectations(t)
@@ -634,11 +634,11 @@ func TestPollerPollMultipleClients(t *testing.T) {
 }
 
 func TestPollerPollRequestKey(t *testing.T) {
-	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.Client, *mock_runner.RunnerInterface, Poller) {
-		mockClient := mocks.NewClient(t)
+	setup := func(t *testing.T, pollingCtx context.Context) (*mocks.MockClient, *mock_runner.MockRunner, Poller) {
+		mockClient := mocks.NewMockClient(t)
 		mockClient.On("FetchInterval").Return(1 * time.Second)
 		mockClient.On("Address").Return("https://client")
-		mockRunner := mock_runner.NewRunnerInterface(t)
+		mockRunner := mock_runner.NewMockRunner(t)
 		poller := New(pollingCtx, &config.Config{
 			Runner: config.Runner{
 				Capacity: 3,
@@ -646,7 +646,7 @@ func TestPollerPollRequestKey(t *testing.T) {
 		}, []client.Client{mockClient}, []run.RunnerInterface{mockRunner})
 		return mockClient, mockRunner, poller
 	}
-	teardown := func(t *testing.T, mockClient *mocks.Client, mockRunner *mock_runner.RunnerInterface) {
+	teardown := func(t *testing.T, mockClient *mocks.MockClient, mockRunner *mock_runner.MockRunner) {
 		mockClient.AssertExpectations(t)
 		mockRunner.AssertExpectations(t)
 	}

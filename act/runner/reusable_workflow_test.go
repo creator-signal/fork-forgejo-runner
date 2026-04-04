@@ -6,7 +6,6 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
-	"code.forgejo.org/forgejo/runner/v12/act/runner/mocks"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -46,7 +45,7 @@ func TestConfig_GetToken(t *testing.T) {
 }
 
 func TestFinalizeReusableWorkflow_PrintsBannerSuccess(t *testing.T) {
-	mockLogger := mocks.NewFieldLogger(t)
+	mockLogger := NewMockFieldLogger(t)
 
 	bannerCalled := false
 	mockLogger.On("WithFields",
@@ -82,7 +81,7 @@ func TestFinalizeReusableWorkflow_PrintsBannerSuccess(t *testing.T) {
 }
 
 func TestFinalizeReusableWorkflow_PrintsBannerFailure(t *testing.T) {
-	mockLogger := mocks.NewFieldLogger(t)
+	mockLogger := NewMockFieldLogger(t)
 
 	bannerCalled := false
 	mockLogger.On("WithFields",
@@ -113,7 +112,7 @@ func TestFinalizeReusableWorkflow_PrintsBannerFailure(t *testing.T) {
 }
 
 func TestFinalizeReusableWorkflow_SkipsBannerForNestedReusable(t *testing.T) {
-	mockLogger := mocks.NewFieldLogger(t)
+	mockLogger := NewMockFieldLogger(t)
 
 	ctx := common.WithLogger(t.Context(), mockLogger)
 	planErr := errors.New("nested workflow failed")

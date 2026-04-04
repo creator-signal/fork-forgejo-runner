@@ -18,7 +18,7 @@ import (
 func TestSingleTaskPoller_FetchesAvailableTask(t *testing.T) {
 	cfg := &config.Config{}
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -26,7 +26,7 @@ func TestSingleTaskPoller_FetchesAvailableTask(t *testing.T) {
 		On("FetchTask", mock.Anything, connect.NewRequest(&runnerv1.FetchTaskRequest{})).
 		Return(connect.NewResponse(&runnerv1.FetchTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil)
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})
@@ -40,7 +40,7 @@ func TestSingleTaskPoller_FetchesAvailableTask(t *testing.T) {
 func TestSingleTaskPoller_WaitsForAvailableTask(t *testing.T) {
 	cfg := &config.Config{}
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -50,7 +50,7 @@ func TestSingleTaskPoller_WaitsForAvailableTask(t *testing.T) {
 		On("FetchTask", mock.Anything, connect.NewRequest(&runnerv1.FetchTaskRequest{})).
 		Return(connect.NewResponse(&runnerv1.FetchTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil).Once()
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})
@@ -66,7 +66,7 @@ func TestSingleTaskPoller_FetchesRequestedTask(t *testing.T) {
 
 	handle := "fc0dbe3b-aca2-4ad7-9b7e-d8d7a15dfc42"
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -74,7 +74,7 @@ func TestSingleTaskPoller_FetchesRequestedTask(t *testing.T) {
 		On("FetchSingleTask", mock.Anything, connect.NewRequest(&runnerv1.FetchSingleTaskRequest{Handle: &handle})).
 		Return(connect.NewResponse(&runnerv1.FetchSingleTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil)
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})
@@ -90,7 +90,7 @@ func TestSingleTaskPoller_WaitsForRequestedTask(t *testing.T) {
 
 	handle := "fc0dbe3b-aca2-4ad7-9b7e-d8d7a15dfc42"
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.
 		On("Address").Return("https://example.com/forgejo").
 		On("SetRequestKey", mock.Anything).Return(func() {}).
@@ -100,7 +100,7 @@ func TestSingleTaskPoller_WaitsForRequestedTask(t *testing.T) {
 		On("FetchSingleTask", mock.Anything, connect.NewRequest(&runnerv1.FetchSingleTaskRequest{Handle: &handle})).
 		Return(connect.NewResponse(&runnerv1.FetchSingleTaskResponse{Task: &runnerv1.Task{}, TasksVersion: int64(1)}), nil).Once()
 
-	mockRunner := mock_runner.NewRunnerInterface(t)
+	mockRunner := mock_runner.NewMockRunner(t)
 	mockRunner.
 		On("Run", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {})

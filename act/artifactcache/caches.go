@@ -17,7 +17,7 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-//go:generate mockery --inpackage --name caches
+//mockery:generate: true
 type caches interface {
 	getDB() *bolthold.Store
 	validateMac(rundata RunData) (string, error)

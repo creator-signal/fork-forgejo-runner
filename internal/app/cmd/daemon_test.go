@@ -38,9 +38,9 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 	// - When shutting down, the order of operations should be: close signalContext, which causes Shutdown mock to be
 	// invoked, and Shutdown mock causes the Poll method to be stopped: #2
 
-	mockClient := mock_client.NewClient(t)
-	mockRunner := mock_runner.NewRunnerInterface(t)
-	mockPoller := mock_poller.NewPoller(t)
+	mockClient := mock_client.NewMockClient(t)
+	mockRunner := mock_runner.NewMockRunner(t)
+	mockPoller := mock_poller.NewMockPoller(t)
 
 	connectionURL, err := url.Parse("https://example.com")
 	require.NoError(t, err)
@@ -128,7 +128,7 @@ func TestRunDaemonGracefulShutdown(t *testing.T) {
 
 func TestRunDaemon_pollTask_ReactsOnContext(t *testing.T) {
 	osSignal, cancelOsSignal := context.WithCancel(t.Context())
-	mockPoller := mock_poller.NewPoller(t)
+	mockPoller := mock_poller.NewMockPoller(t)
 	mockPoller.On("Poll").Run(func(args mock.Arguments) {
 		cancelOsSignal()
 		// block until test is done
@@ -165,7 +165,7 @@ func TestCreateRunner_PopulatesEphemeralFromClientResponse(t *testing.T) {
 	}
 	ls := labels.Labels{}
 
-	mockClient := mock_client.NewClient(t)
+	mockClient := mock_client.NewMockClient(t)
 	mockClient.On("Address").Return("https://example.com")
 
 	expectedEphemeral := true
@@ -209,13 +209,13 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 	serverURL2, err := url.Parse("https://example.com/forgejo2")
 	require.NoError(t, err)
 
-	mockClient1 := mock_client.NewClient(t)
-	mockClient2 := mock_client.NewClient(t)
+	mockClient1 := mock_client.NewMockClient(t)
+	mockClient2 := mock_client.NewMockClient(t)
 
-	mockRunner1 := mock_runner.NewRunnerInterface(t)
-	mockRunner2 := mock_runner.NewRunnerInterface(t)
+	mockRunner1 := mock_runner.NewMockRunner(t)
+	mockRunner2 := mock_runner.NewMockRunner(t)
 
-	mockPoller := mock_poller.NewPoller(t)
+	mockPoller := mock_poller.NewMockPoller(t)
 
 	require.NoError(t, err)
 	defer testutils.MockVariable(&initializeConfig, func(configFile *string, args *daemonArgs) (*config.Config, error) {
@@ -314,13 +314,13 @@ func TestRunDaemon_MultipleServersQuitsIfOneIsEphemeral(t *testing.T) {
 	serverURL2, err := url.Parse("https://example.com/forgejo2")
 	require.NoError(t, err)
 
-	mockClient1 := mock_client.NewClient(t)
-	mockClient2 := mock_client.NewClient(t)
+	mockClient1 := mock_client.NewMockClient(t)
+	mockClient2 := mock_client.NewMockClient(t)
 
-	mockRunner1 := mock_runner.NewRunnerInterface(t)
-	mockRunner2 := mock_runner.NewRunnerInterface(t)
+	mockRunner1 := mock_runner.NewMockRunner(t)
+	mockRunner2 := mock_runner.NewMockRunner(t)
 
-	mockPoller := mock_poller.NewPoller(t)
+	mockPoller := mock_poller.NewMockPoller(t)
 
 	require.NoError(t, err)
 	defer testutils.MockVariable(&initializeConfig, func(configFile *string, args *daemonArgs) (*config.Config, error) {
@@ -376,9 +376,9 @@ func TestRunDaemon_WithConnectionFromCommandOptions(t *testing.T) {
 	tokenURL, err := fileuri.FromFilePath(tokenPath)
 	require.NoError(t, err)
 
-	mockClient := mock_client.NewClient(t)
-	mockRunner := mock_runner.NewRunnerInterface(t)
-	mockPoller := mock_poller.NewPoller(t)
+	mockClient := mock_client.NewMockClient(t)
+	mockRunner := mock_runner.NewMockRunner(t)
+	mockPoller := mock_poller.NewMockPoller(t)
 
 	defer testutils.MockVariable(&initLogging, func(cfg *config.Config) {})()
 	defer testutils.MockVariable(&configCheck, func(ctx context.Context, cfg *config.Config) error {
