@@ -711,7 +711,7 @@ func TestClone(t *testing.T) {
 				Ref:      targetSHA,
 			})
 			assert.Error(t, err)
-			assert.ErrorContains(t, err, fmt.Sprintf("invalid reference: %s", targetSHA))
+			assert.ErrorContains(t, err, fmt.Sprintf("ambiguous argument '%s^{commit}'", targetSHA))
 		})
 	}
 }

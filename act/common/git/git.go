@@ -328,7 +328,7 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	// Optimization: if `input.Ref` is a full sha and it can be found in the repo already, then we can avoid
 	// performing a fetch operation because it won't change.
 	skipFetch := false
-	hash, err := ResolveRevision(ctx, repoDir, input.Ref)
+	hash, err := ResolveRevision(ctx, repoDir, fmt.Sprintf("%s^{commit}", input.Ref))
 	if err == nil && hash != "" && hash == input.Ref {
 		exists, err := objectExists(ctx, repoDir, hash)
 		skipFetch = err == nil && exists
@@ -358,7 +358,7 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 		}
 	}
 
-	if hash, err = ResolveRevision(ctx, repoDir, input.Ref); err != nil {
+	if hash, err = ResolveRevision(ctx, repoDir, fmt.Sprintf("%s^{commit}", input.Ref)); err != nil {
 		logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
 		return nil, err
 	}
