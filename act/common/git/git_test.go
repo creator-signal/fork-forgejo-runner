@@ -196,6 +196,11 @@ func TestClone(t *testing.T) {
 			URL: "https://github.com/actions/checkout",
 			Ref: "v2",
 		},
+		"annotated-tag": {
+			Err: nil,
+			URL: "https://github.com/Swatinem/rust-cache",
+			Ref: "v2",
+		},
 		"branch": {
 			Err: nil,
 			URL: "https://github.com/anchore/scan-action",
@@ -356,6 +361,30 @@ func TestClone(t *testing.T) {
 		// The clone should be updated to the new tag ref
 		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, newCommitSHA, clonedSHA)
+	})
+
+	t.Run("Clones Annotated Tag", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
+		// Create a local repo that will act as the remote to be cloned.
+		remoteDir := makeTestRepo(t)
+
+		// Create a tag
+		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
+		makeTestAnnotatedTag(t, remoteDir, fullSHA, "tag-1")
+
+		// Clone the repo by tag
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "tag-1",
+		})
+		require.NoError(t, err)
+		defer wt1.Close(t.Context())
+
+		// Verify that the head in cloneDir is correct.
+		clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
+		assert.Equal(t, fullSHA, clonedSHA)
 	})
 
 	t.Run("Refetches Tag Force-Push", func(t *testing.T) {
@@ -617,6 +646,11 @@ func TestClone(t *testing.T) {
 			refCreator: makeTestTag,
 			refChecker: verifyTag,
 		},
+		{
+			refType:    "annotated-tag",
+			refCreator: makeTestAnnotatedTag,
+			refChecker: verifyTag,
+		},
 	}
 	for _, ref := range refTypes {
 		t.Run(fmt.Sprintf("%s shadows a commit", ref.refType), func(t *testing.T) {
@@ -704,6 +738,12 @@ func makeTestCommit(t *testing.T, repoPath, comment string) string {
 func makeTestTag(t *testing.T, repoPath, commitSHA, tag string) {
 	t.Helper()
 	require.NoError(t, gitCmd("-C", repoPath, "tag", "--force", tag, commitSHA))
+	verifyTag(t, repoPath, commitSHA, tag)
+}
+
+func makeTestAnnotatedTag(t *testing.T, repoPath, commitSHA, tag string) {
+	t.Helper()
+	require.NoError(t, gitCmd("-C", repoPath, "tag", "--force", tag, "-m", tag, commitSHA))
 	verifyTag(t, repoPath, commitSHA, tag)
 }
 
