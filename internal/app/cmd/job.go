@@ -89,6 +89,11 @@ func runJob(ctx context.Context, configFile *string, args *runJobArgs) error {
 	}
 
 	poller := newSingleTaskPoller(ctx, cfg, client, runner, args.wait, args.GetHandle())
-	poller.Poll()
-	return poller.Shutdown(ctx)
+	err = poller.Poll()
+	if shutdownErr := poller.Shutdown(ctx); shutdownErr != nil {
+		// If the shutdown error was returned, then context cancellation or a timeout would result in an exit code that
+		// indicates an error.
+		log.Warnf("error during poller shutdown: %s", shutdownErr)
+	}
+	return err
 }

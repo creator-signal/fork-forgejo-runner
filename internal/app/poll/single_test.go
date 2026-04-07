@@ -13,6 +13,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSingleTaskPoller_FetchesAvailableTask(t *testing.T) {
@@ -32,9 +33,26 @@ func TestSingleTaskPoller_FetchesAvailableTask(t *testing.T) {
 		Run(func(args mock.Arguments) {})
 
 	taskPoller := NewSingleTaskPoller(t.Context(), cfg, mockClient, mockRunner, false, nil)
-	taskPoller.Poll()
+	err := taskPoller.Poll()
+	require.NoError(t, err)
+}
 
-	mockRunner.On("Run", mock.Anything, mock.Anything)
+func TestSingleTaskPoller_ReturnsErrorWhenNoTaskReceived(t *testing.T) {
+	cfg := &config.Config{}
+
+	mockClient := mock_client.NewMockClient(t)
+	mockClient.
+		On("Address").Return("https://example.com/forgejo").
+		On("SetRequestKey", mock.Anything).Return(func() {}).
+		On("FetchInterval").Return(time.Millisecond).
+		On("FetchTask", mock.Anything, connect.NewRequest(&runnerv1.FetchTaskRequest{})).
+		Return(connect.NewResponse(&runnerv1.FetchTaskResponse{Task: nil, TasksVersion: int64(1)}), nil)
+
+	mockRunner := mock_runner.NewMockRunner(t)
+
+	taskPoller := NewSingleTaskPoller(t.Context(), cfg, mockClient, mockRunner, false, nil)
+	err := taskPoller.Poll()
+	require.ErrorIs(t, err, ErrNoTaskReceived)
 }
 
 func TestSingleTaskPoller_WaitsForAvailableTask(t *testing.T) {
@@ -56,9 +74,8 @@ func TestSingleTaskPoller_WaitsForAvailableTask(t *testing.T) {
 		Run(func(args mock.Arguments) {})
 
 	taskPoller := NewSingleTaskPoller(t.Context(), cfg, mockClient, mockRunner, true, nil)
-	taskPoller.Poll()
-
-	mockRunner.On("Run", mock.Anything, mock.Anything)
+	err := taskPoller.Poll()
+	require.NoError(t, err)
 }
 
 func TestSingleTaskPoller_FetchesRequestedTask(t *testing.T) {
@@ -80,9 +97,28 @@ func TestSingleTaskPoller_FetchesRequestedTask(t *testing.T) {
 		Run(func(args mock.Arguments) {})
 
 	taskPoller := NewSingleTaskPoller(t.Context(), cfg, mockClient, mockRunner, false, &handle)
-	taskPoller.Poll()
+	err := taskPoller.Poll()
+	require.NoError(t, err)
+}
 
-	mockRunner.On("Run", mock.Anything, mock.Anything)
+func TestSingleTaskPoller_ReturnsErrorWhenRequestedTaskNotReceived(t *testing.T) {
+	cfg := &config.Config{}
+
+	handle := "fc0dbe3b-aca2-4ad7-9b7e-d8d7a15dfc42"
+
+	mockClient := mock_client.NewMockClient(t)
+	mockClient.
+		On("Address").Return("https://example.com/forgejo").
+		On("SetRequestKey", mock.Anything).Return(func() {}).
+		On("FetchInterval").Return(time.Millisecond).
+		On("FetchSingleTask", mock.Anything, connect.NewRequest(&runnerv1.FetchSingleTaskRequest{Handle: &handle})).
+		Return(connect.NewResponse(&runnerv1.FetchSingleTaskResponse{Task: nil, TasksVersion: int64(1)}), nil)
+
+	mockRunner := mock_runner.NewMockRunner(t)
+
+	taskPoller := NewSingleTaskPoller(t.Context(), cfg, mockClient, mockRunner, false, &handle)
+	err := taskPoller.Poll()
+	require.ErrorIs(t, err, ErrNoTaskReceived)
 }
 
 func TestSingleTaskPoller_WaitsForRequestedTask(t *testing.T) {
@@ -106,7 +142,6 @@ func TestSingleTaskPoller_WaitsForRequestedTask(t *testing.T) {
 		Run(func(args mock.Arguments) {})
 
 	taskPoller := NewSingleTaskPoller(t.Context(), cfg, mockClient, mockRunner, true, &handle)
-	taskPoller.Poll()
-
-	mockRunner.On("Run", mock.Anything, mock.Anything)
+	err := taskPoller.Poll()
+	require.NoError(t, err)
 }

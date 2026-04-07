@@ -17,6 +17,17 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// ErrNoTaskReceived signals that no task was received from the server.
+var ErrNoTaskReceived = errors.New("no task received")
+
+//mockery:generate: true
+//mockery:filename: mocks/single.go
+//mockery:pkgname: mocks
+type SingleTaskPoller interface {
+	Poll() error
+	Shutdown(ctx context.Context) error
+}
+
 type singleTaskPoller struct {
 	client client.Client
 	runner run.RunnerInterface
@@ -34,7 +45,7 @@ type singleTaskPoller struct {
 	handle *string
 }
 
-func NewSingleTaskPoller(ctx context.Context, cfg *config.Config, client client.Client, runner run.RunnerInterface, wait bool, handle *string) Poller {
+func NewSingleTaskPoller(ctx context.Context, cfg *config.Config, client client.Client, runner run.RunnerInterface, wait bool, handle *string) SingleTaskPoller {
 	pollingCtx, cancelPolling := context.WithCancel(ctx)
 	taskCtx, cancelTasks := context.WithCancel(ctx)
 
@@ -52,7 +63,7 @@ func NewSingleTaskPoller(ctx context.Context, cfg *config.Config, client client.
 	}
 }
 
-func (s *singleTaskPoller) Poll() {
+func (s *singleTaskPoller) Poll() error {
 	rateLimiter := rate.NewLimiter(rate.Every(s.client.FetchInterval()), 1)
 
 	log.Info("single task poller launched")
@@ -77,7 +88,7 @@ func (s *singleTaskPoller) Poll() {
 		if err := rateLimiter.Wait(s.pollingCtx); err != nil {
 			log.Infof("single task poller is shutting down")
 			close(s.done)
-			return
+			return nil
 		}
 
 		log.Tracef("single task poller asking client %s for a task", s.client.Address())
@@ -100,11 +111,13 @@ func (s *singleTaskPoller) Poll() {
 			continue
 		}
 
+		var err error
 		if task != nil {
 			log.Infof("single task poller successfully fetched one task from %s", s.client.Address())
 			s.runner.Run(s.taskCtx, task)
 		} else {
-			log.Infof("single task poller received no task from %s", s.client.Address())
+			log.Debugf("single task poller received no task from %s", s.client.Address())
+			err = ErrNoTaskReceived
 		}
 
 		log.Info("single task poller is shutting down")
@@ -113,7 +126,7 @@ func (s *singleTaskPoller) Poll() {
 		// Signal that the poller is done.
 		close(s.done)
 
-		return
+		return err
 	}
 }
 

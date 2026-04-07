@@ -5,9 +5,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
+	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
 	"github.com/spf13/cobra"
 
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
@@ -106,6 +108,10 @@ func Execute(ctx context.Context) {
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
 	if err := rootCmd.Execute(); err != nil {
+		if errors.Is(err, poll.ErrNoTaskReceived) {
+			os.Exit(2)
+		}
+
 		os.Exit(1)
 	}
 }
