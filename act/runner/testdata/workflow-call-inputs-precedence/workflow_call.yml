@@ -1,0 +1,32 @@
+name: workflow_call
+
+on:
+  workflow_call:
+    inputs:
+      # The purpose of this variable is to verify that *default* values are injected correctly.
+      # If you change the variable's name, you also have to change the name of the env variable.
+      name:
+        name: name of the person to greet
+        default: Mona the Octocat
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # The name of the env variable must be `INPUT_` followed by the capitalized name of the input
+      # variable. That's because the expression parser uses variables named like that for storing
+      # input variables. That can cause precedence problems if they are not handled correctly.
+      INPUT_NAME: ${{ inputs.name }}
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "inputs.name=${{ inputs.name }}"
+          [[ "${{ inputs.name }}" = "Mona the Octocat" ]] || exit 1
+      - name: Validate env
+        run: |
+          echo "env.INPUT_NAME=${{ env.INPUT_NAME }}"
+          [[ "${{ env.INPUT_NAME }}" = "Mona the Octocat" ]] || exit 1
+      - name: Validate environment variables
+        run: |
+          echo "INPUT_NAME=$INPUT_NAME"
+          [[ "$INPUT_NAME" = "Mona the Octocat" ]] || exit 1

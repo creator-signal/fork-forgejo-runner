@@ -326,6 +326,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "GITHUB_ENV-use-in-env-ctx", "push", "", platforms, secrets},
 		{workdir, "ensure-post-steps", "push", "Job 'second-post-step-should-fail' failed", platforms, secrets},
 		{workdir, "workflow_call_inputs", "workflow_call", "", platforms, secrets},
+		{workdir, "workflow-call-inputs-precedence", "workflow_call", "", platforms, secrets},
 		{workdir, "workflow_dispatch", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "workflow_dispatch_no_inputs_mapping", "workflow_dispatch", "", platforms, secrets},
 		{workdir, "workflow_dispatch-scalar", "workflow_dispatch", "", platforms, secrets},
