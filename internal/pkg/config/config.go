@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -471,10 +472,14 @@ func (s *serializedConnectionSettings) applyTo(config *Config, connectionName st
 	var resolvedToken string
 	if s.TokenURL != "" {
 		if resolvedToken, err = ResolveSecretURL(s.TokenURL); err != nil {
-			return fmt.Errorf("invalid `secret_url`: %w", err)
+			return fmt.Errorf("invalid `token_url`: %w", err)
 		}
 	} else {
 		resolvedToken = s.Token
+	}
+	resolvedToken = strings.TrimSpace(resolvedToken)
+	if !IsValidToken(resolvedToken) {
+		return errors.New("token contains invalid characters")
 	}
 
 	if config.Server.Connections == nil {
@@ -635,4 +640,11 @@ func resolveFileSecret(input string) (string, error) {
 	}
 
 	return string(value), nil
+}
+
+var validTokenPattern = regexp.MustCompile("(?i)^[a-z0-9]*$")
+
+// IsValidToken tests whether the given string does not contain characters that are not allowed in a runner token.
+func IsValidToken(str string) bool {
+	return validTokenPattern.MatchString(str)
 }

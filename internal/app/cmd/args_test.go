@@ -211,6 +211,46 @@ func TestArgs_connectionFromArguments(t *testing.T) {
 		assert.Equal(t, "8tBZOQlSaH", cfg.Server.Connections["default"].Token)
 	})
 
+	t.Run("trims token from token_url", func(t *testing.T) {
+		tokenURL, err := prepareTokenFile(t, "\n8tBZOQlSaH\r\n")
+		require.NoError(t, err)
+
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		conn := connection{
+			url:      serverURL.String(),
+			uuid:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			tokenURL: tokenURL.String(),
+			labels:   []string{"label-1"},
+		}
+
+		cfg := config.Config{}
+		err = connectionFromArguments(&conn)(&cfg)
+		require.NoError(t, err)
+
+		assert.Equal(t, "8tBZOQlSaH", cfg.Server.Connections["default"].Token)
+	})
+
+	t.Run("rejects token from token_url containing invalid characters", func(t *testing.T) {
+		tokenURL, err := prepareTokenFile(t, "8tBZ\nOQ\rlSaH")
+		require.NoError(t, err)
+
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		conn := connection{
+			url:      serverURL.String(),
+			uuid:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			tokenURL: tokenURL.String(),
+			labels:   []string{"label-1"},
+		}
+
+		cfg := config.Config{}
+		err = connectionFromArguments(&conn)(&cfg)
+		require.ErrorContains(t, err, "token contains invalid characters")
+	})
+
 	t.Run("rejects malformed label", func(t *testing.T) {
 		serverURL, err := url.Parse("https://example.com/")
 		require.NoError(t, err)
