@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
@@ -73,6 +74,10 @@ func connectionFromArguments(conn *connection) func(cfg *config.Config) error {
 			if resolvedToken, err = config.ResolveSecretURL(conn.tokenURL); err != nil {
 				return fmt.Errorf("invalid `token-url`: %w", err)
 			}
+		}
+		resolvedToken = strings.TrimSpace(resolvedToken)
+		if !config.IsValidToken(resolvedToken) {
+			return errors.New("token contains invalid characters")
 		}
 
 		if cfg.Server.Connections == nil {

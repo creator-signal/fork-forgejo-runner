@@ -1296,6 +1296,96 @@ func TestSerializedConnectionSettings_applyTo(t *testing.T) {
 		assert.Equal(t, "8tBZOQlSaH", config.Server.Connections["example"].Token)
 	})
 
+	t.Run("rejects token from token containing invalid characters", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:      serverURL.String(),
+			UUID:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			Token:    "VV\nb1\n\teuy",
+			TokenURL: "",
+			Labels:   []string{"label-1"},
+		}
+
+		config := Config{}
+		err = serialized.applyTo(&config, "example")
+		require.ErrorContains(t, err, "token contains invalid characters")
+	})
+
+	t.Run("rejects token from token_url containing invalid characters", func(t *testing.T) {
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte("VV\nb1\r\teuy"), 0o644)
+		require.NoError(t, err)
+
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		tokenURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:      serverURL.String(),
+			UUID:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			Token:    "",
+			TokenURL: tokenURL.String(),
+			Labels:   []string{"label-1"},
+		}
+
+		config := Config{}
+		err = serialized.applyTo(&config, "example")
+		require.ErrorContains(t, err, "token contains invalid characters")
+	})
+
+	t.Run("trims whitespace from token", func(t *testing.T) {
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:      serverURL.String(),
+			UUID:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			Token:    "\nVVb1teuy\r\n",
+			TokenURL: "",
+			Labels:   []string{"label-1"},
+		}
+
+		config := Config{}
+		err = serialized.applyTo(&config, "example")
+		require.NoError(t, err)
+
+		assert.Equal(t, "VVb1teuy", config.Server.Connections["example"].Token)
+	})
+
+	t.Run("trims whitespace from token from token_url", func(t *testing.T) {
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte("\nVVb1teuy\r\n"), 0o644)
+		require.NoError(t, err)
+
+		serverURL, err := url.Parse("https://example.com/")
+		require.NoError(t, err)
+
+		tokenURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		serialized := serializedConnectionSettings{
+			URL:      serverURL.String(),
+			UUID:     "009e3230-0881-4690-8e0e-43ce2c01d2f9",
+			Token:    "",
+			TokenURL: tokenURL.String(),
+			Labels:   []string{"label-1"},
+		}
+
+		config := Config{}
+		err = serialized.applyTo(&config, "example")
+		require.NoError(t, err)
+
+		assert.Equal(t, "VVb1teuy", config.Server.Connections["example"].Token)
+	})
+
 	t.Run("rejects malformed label", func(t *testing.T) {
 		serverURL, err := url.Parse("https://example.com/")
 		require.NoError(t, err)
