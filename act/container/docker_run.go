@@ -188,9 +188,6 @@ func (cr *containerReference) Pull(forcePull bool) common.Executor {
 			return err
 		}
 
-		logger := common.Logger(ctx)
-		logger.Infof("%sdocker pull image=%s platform=%s username=%s forcePull=%t", logPrefix, cr.input.Image, platform, cr.input.Username, forcePull)
-
 		return NewDockerPullExecutor(NewDockerPullExecutorInput{
 			Image:     cr.input.Image,
 			ForcePull: forcePull,
