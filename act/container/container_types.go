@@ -16,6 +16,8 @@ type NewContainerInput struct {
 	Password        string
 	Entrypoint      []string
 	Cmd             []string
+	Init            bool
+	TTY             bool
 	WorkingDir      string
 	Env             []string
 	ToolCache       string

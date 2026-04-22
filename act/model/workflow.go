@@ -633,13 +633,36 @@ type ContainerSpec struct {
 	Volumes     []string          `yaml:"volumes"`
 	Options     string            `yaml:"options"`
 	Credentials map[string]string `yaml:"credentials"`
-	Entrypoint  string
+	Entrypoint  []string          `yaml:"entrypoint"`
+	Init        *bool             `yaml:"init"`
+	TTY         *bool             `yaml:"tty"`
 	Args        string
 	Name        string
 	Reuse       bool
 
 	// Gitea specific
 	Cmd []string `yaml:"cmd"`
+}
+
+func (c *ContainerSpec) GetEntrypoint(defaultValue []string) []string {
+	if c.Entrypoint != nil {
+		return c.Entrypoint
+	}
+	return defaultValue
+}
+
+func (c *ContainerSpec) EnableInit(defaultValue bool) bool {
+	if c.Init != nil {
+		return *c.Init
+	}
+	return defaultValue
+}
+
+func (c *ContainerSpec) WithTTY(defaultValue bool) bool {
+	if c.TTY != nil {
+		return *c.TTY
+	}
+	return defaultValue
 }
 
 // Step is the structure of one step in a job

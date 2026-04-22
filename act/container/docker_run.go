@@ -635,7 +635,7 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			WorkingDir:   input.WorkingDir,
 			Env:          input.Env,
 			ExposedPorts: input.ExposedPorts,
-			Tty:          isTerminal,
+			Tty:          isTerminal || input.TTY,
 		}
 		logger.Debugf("Common container.Config ==> %+v", config)
 
@@ -679,6 +679,7 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			Privileged:   input.Privileged,
 			UsernsMode:   container.UsernsMode(input.UsernsMode),
 			PortBindings: input.PortBindings,
+			Init:         &input.Init,
 		}
 		logger.Debugf("Common container.HostConfig ==> %+v", hostConfig)
 

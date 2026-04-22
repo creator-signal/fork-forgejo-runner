@@ -599,9 +599,21 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		return nil
 	}
 
+	entrypoint := GetContainerProperty(rc, []string{"tail", "-f", "/dev/null"}, func(spec *model.ContainerSpec) []string {
+		return spec.GetEntrypoint([]string{"tail", "-f", "/dev/null"})
+	})
+	enableInit := GetContainerProperty(rc, false, func(spec *model.ContainerSpec) bool {
+		return spec.EnableInit(false)
+	})
+	withTTY := GetContainerProperty(rc, false, func(spec *model.ContainerSpec) bool {
+		return spec.WithTTY(false)
+	})
+
 	rc.JobContainer = container.NewContainer(&container.NewContainerInput{
 		Cmd:             nil,
-		Entrypoint:      []string{"tail", "-f", "/dev/null"},
+		Entrypoint:      entrypoint,
+		Init:            enableInit,
+		TTY:             withTTY,
 		WorkingDir:      ext.ToContainerPath(rc.Config.Workdir),
 		Image:           image,
 		Username:        username,
@@ -1485,4 +1497,16 @@ func (rc *RunContext) GetServiceBindsAndMounts(svcVolumes []string) ([]string, m
 	}
 
 	return binds, mounts
+}
+
+func GetContainerProperty[T any](rc *RunContext, defaultValue T, extract func(spec *model.ContainerSpec) T) T {
+	if run := rc.Run; run != nil {
+		if job := rc.Run.Job(); job != nil {
+			if jobContainer := job.Container(); jobContainer != nil {
+				return extract(jobContainer)
+			}
+		}
+	}
+
+	return defaultValue
 }
