@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync/atomic"
 
@@ -57,30 +58,27 @@ func CurrentSystemPlatform(ctx context.Context) (string, error) {
 func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		logger.Debugf("%sdocker pull %v", logPrefix, input.Image)
 
 		if input.Platform == "" {
 			return errors.New("docker pull input.Platform not specified")
 		}
 
 		if common.Dryrun(ctx) {
+			logger.Infof("%sdocker pull image=%s platform=%s username=%s forcePull=%t", logPrefix, input.Image,
+				input.Platform, input.Username, input.ForcePull)
 			return nil
 		}
 
-		pull := input.ForcePull
-		if !pull {
-			imageExists, err := ImageExistsLocally(ctx, input.Image, input.Platform)
-			logger.Debugf("Image exists? %v", imageExists)
-			if err != nil {
-				return fmt.Errorf("unable to determine if image already exists for image '%s' (%s): %w", input.Image, input.Platform, err)
-			}
-
-			if !imageExists {
-				pull = true
-			}
+		imageExists, err := ImageExistsLocally(ctx, input.Image, input.Platform)
+		logger.Debugf("Image exists? %v", imageExists)
+		if err != nil {
+			return fmt.Errorf("unable to determine if image already exists for image '%s' (%s): %w", input.Image, input.Platform, err)
 		}
 
-		if !pull {
+		if imageExists && isPinnedImage(input.Image) {
+			return nil
+		}
+		if imageExists && !input.ForcePull {
 			return nil
 		}
 
@@ -98,6 +96,9 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 			return err
 		}
 
+		logger.Infof("%sdocker pull image=%s platform=%s username=%s forcePull=%t", logPrefix, input.Image,
+			input.Platform, input.Username, input.ForcePull)
+
 		reader, err := cli.ImagePull(ctx, imageRef, imagePullOptions)
 
 		_ = logDockerResponse(logger, reader, err != nil)
@@ -108,6 +109,10 @@ func NewDockerPullExecutor(input NewDockerPullExecutorInput) common.Executor {
 				reader, err = cli.ImagePull(ctx, imageRef, imagePullOptions)
 
 				_ = logDockerResponse(logger, reader, err != nil)
+			} else if imageExists {
+				logger.Warnf("%sCould not update image %s, continuing with outdated local copy; error: %s",
+					logPrefix, input.Image, err)
+				return nil
 			}
 			return err
 		}
@@ -164,4 +169,10 @@ func cleanImage(ctx context.Context, image string) string {
 	}
 
 	return ref.String()
+}
+
+var pinnedImagePattern = regexp.MustCompile(`(?i)@sha256:[a-z0-9]{64}$`)
+
+func isPinnedImage(image string) bool {
+	return pinnedImagePattern.MatchString(image)
 }
