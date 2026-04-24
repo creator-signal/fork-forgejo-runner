@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver"
 	"github.com/avast/retry-go/v4"
@@ -31,9 +32,6 @@ import (
 	"github.com/docker/docker/api/types/system"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/go-git/go-billy/v5/helper/polyfill"
-	"github.com/go-git/go-billy/v5/osfs"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/gobwas/glob"
 	"github.com/joho/godotenv"
 	"github.com/kballard/go-shellquote"
@@ -990,7 +988,7 @@ func (cr *containerReference) copyDir(dstPath, srcPath string, useGitIgnore bool
 
 		var ignorer gitignore.Matcher
 		if useGitIgnore {
-			ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
+			ps, err := gitignore.ReadPatterns(srcPath)
 			if err != nil {
 				logger.Debugf("Error loading .gitignore: %v", err)
 			}
