@@ -1,0 +1,49 @@
+name: job-container-entrypoint
+on:
+  push:
+jobs:
+  runs-on-default:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify that the default image is not Alpine Linux
+        run: |
+          source /etc/os-release
+          echo "ID=$ID"
+          [ "$ID" = "debian" ] || exit 1
+  no-init:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/alpine:3.23
+    steps:
+      - name: Verify that container.image had an effect
+        run: |
+          source /etc/os-release
+          echo "ID=$ID"
+          [ "$ID" = "alpine" ] || exit 1
+      - name: Verify that init is not used
+        run: |
+          pid1=$(readlink -f /proc/1/exe)
+          echo "pid1=$pid1"
+          case "$pid1" in
+            *init*) exit 1;;
+            *) ;;
+          esac
+  init:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/alpine:3.23
+      init: true
+    steps:
+      - name: Verify that container.image had an effect
+        run: |
+          source /etc/os-release
+          echo "ID=$ID"
+          [ "$ID" = "alpine" ] || exit 1
+      - name: Verify that init is used
+        run: |
+          pid1=$(readlink -f /proc/1/exe)
+          echo "pid1=$pid1"
+          case "$pid1" in
+            *init*) ;;
+            *) exit 1 ;;
+          esac

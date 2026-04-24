@@ -1,0 +1,71 @@
+name: job-container-entrypoint
+on:
+  push:
+jobs:
+  runs-on-default:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify that the default image is not Alpine Linux
+        run: |
+          source /etc/os-release
+          echo "ID=$ID"
+          [ "$ID" = "debian" ] || exit 1
+  default:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/alpine:3.23
+    steps:
+      - name: Verify that container.image had an effect
+        run: |
+          source /etc/os-release
+          echo "ID=$ID"
+          [ "$ID" = "alpine" ] || exit 1
+      - name: Verify that the default entrypoint `tail -f /dev/null` is used
+        run: |
+          entrypoint=$(cat /proc/1/comm)
+          echo "entrypoint=$entrypoint"
+          case "$entrypoint" in
+            *tail*) ;;
+            *) exit 1 ;;
+          esac
+  empty:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/alpine:3.23
+      entrypoint: []
+      tty: true
+    steps:
+      - name: Verify that container.image had an effect
+        run: |
+          source /etc/os-release
+          echo "ID=$ID"
+          [ "$ID" = "alpine" ] || exit 1
+      - name: Verify that the image's entrypoint is used
+        run: |
+          entrypoint=$(cat /proc/1/comm)
+          echo "entrypoint=$entrypoint"
+          case "$entrypoint" in
+            *sh*) ;;
+            *tail*) exit 1 ;;
+            *) exit 1 ;;
+          esac
+  custom:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/alpine:3.23
+      entrypoint: ["/bin/sh", "-c", "sleep 1d"]
+    steps:
+      - name: Verify that container.image had an effect
+        run: |
+          source /etc/os-release
+          echo "ID=$ID"
+          [ "$ID" = "alpine" ] || exit 1
+      - name: Verify that the custom entrypoint is used
+        run: |
+          entrypoint=$(cat /proc/1/comm)
+          echo "entrypoint=$entrypoint"
+          case "$entrypoint" in
+            *sleep*) ;;
+            *) exit 1 ;;
+          esac
+

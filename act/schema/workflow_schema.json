@@ -2039,7 +2039,16 @@
             "type": "sequence-of-non-empty-string",
             "description": "Use `jobs.<job_id>.container.volumes` to set an array of volumes for the container to use. You can use volumes to share data between services or other steps in a job. You can specify named Docker volumes, anonymous Docker volumes, or bind mounts on the host."
           },
-          "credentials": "container-registry-credentials"
+          "credentials": "container-registry-credentials",
+          "entrypoint": {
+            "type": "sequence-of-non-empty-string"
+          },
+          "init": {
+            "type": "boolean-strategy-context"
+          },
+          "tty": {
+            "type": "boolean-strategy-context"
+          }
         }
       }
     },

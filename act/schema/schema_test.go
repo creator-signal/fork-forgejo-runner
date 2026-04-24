@@ -400,7 +400,10 @@ jobs:
         password: 'admin1234'
       env:
         SOME_VARIABLE: contents
+      entrypoint: ["/bin/sh", "-c", "sleep 1d"]      
+      init: true
       options: "--hostname alpine"
+      tty: false
       volumes:
         - /srv/example:/srv/example
     steps:
