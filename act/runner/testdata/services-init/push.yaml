@@ -1,0 +1,35 @@
+on:
+  push:
+jobs:
+  init-on:
+    runs-on: ubuntu-latest
+    services:
+      with-init:
+        image: data.forgejo.org/oci/debian:latest
+        entrypoint: []
+        init: true
+        tty: true
+        options: >-
+          --health-cmd '/bin/bash -c "[[ $(readlink -f /proc/1/exe) == *init* ]]"'
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - run: |
+          echo "OK"
+  init-off:
+    runs-on: ubuntu-latest
+    services:
+      without-init:
+        image: data.forgejo.org/oci/debian:latest
+        entrypoint: []
+        init: false
+        tty: true
+        options: >-
+          --health-cmd '/bin/bash -c "[[ $(readlink -f /proc/1/exe) != *init* ]]"'
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - run: |
+          echo "OK"

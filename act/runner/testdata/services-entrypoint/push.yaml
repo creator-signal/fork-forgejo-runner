@@ -1,0 +1,39 @@
+on:
+  push:
+jobs:
+  default-entrypoint:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/postgres:18
+      entrypoint: ["/usr/bin/sleep", "infinity"]
+    services:
+      default-entrypoint:
+        image: code.forgejo.org/oci/postgres:18
+        entrypoint: []
+        env:
+          POSTGRES_PASSWORD: mysecretpassword
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - run: |
+          echo "mysecretpassword" | psql --user postgres --host default-entrypoint -c "SELECT 1"
+  custom-entrypoint:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/postgres:18
+      entrypoint: ["/usr/bin/sleep", "infinity"]
+    services:
+      custom-entrypoint:
+        image: code.forgejo.org/oci/postgres:18
+        entrypoint: ["/bin/sh", "-c", "POSTGRES_PASSWORD=anothersecretpassword docker-entrypoint.sh postgres"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - run: |
+          echo "anothersecretpassword" | psql --user postgres --host custom-entrypoint -c "SELECT 1"

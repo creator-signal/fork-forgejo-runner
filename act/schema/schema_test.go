@@ -431,14 +431,17 @@ jobs:
         credentials:
           username: 'root'
           password: 'admin1234'
+        entrypoint: ["/usr/bin/sleep", "infinity"]
         env:
           POSTGRES_DB: test
           POSTGRES_PASSWORD: postgres
+        init: true
         ports:
           - 5432:5432
         options: "--hostname pgsql"
         cmd:
           - /some/command
+        tty: true
         volumes:
           - /srv/example:/srv/example
     steps:
