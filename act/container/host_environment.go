@@ -16,11 +16,9 @@ import (
 	"sync"
 	"time"
 
+	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
 	"github.com/djherbis/buffer"
 	"github.com/djherbis/nio/v3"
-	"github.com/go-git/go-billy/v5/helper/polyfill"
-	"github.com/go-git/go-billy/v5/osfs"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"golang.org/x/term"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
@@ -109,7 +107,7 @@ func (e *HostEnvironment) CopyDir(destPath, srcPath string, useGitIgnore bool) c
 		logger.Debugf("Stripping prefix:%s src:%s", srcPrefix, srcPath)
 		var ignorer gitignore.Matcher
 		if useGitIgnore {
-			ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(srcPath)), nil)
+			ps, err := gitignore.ReadPatterns(srcPath)
 			if err != nil {
 				logger.Debugf("Error loading .gitignore: %v", err)
 			}
