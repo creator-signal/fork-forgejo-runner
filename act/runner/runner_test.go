@@ -360,6 +360,8 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "mysql-service-container-with-health-check", "push", "", platforms, secrets},
 		{workdir, "service-container-premature-terminate", "push", "service [nginx]", platforms, secrets},
 		{workdir, "services-empty-image", "push", "", platforms, secrets},
+		{workdir, "services-entrypoint", "push", "", platforms, secrets},
+		{workdir, "services-init", "push", "", platforms, secrets},
 		{workdir, "services-options-group-add", "push", "", platforms, secrets},
 		{workdir, "services-options-user", "push", "", platforms, secrets},
 		{workdir, "services-context-expression", "push", "", platforms, secrets},

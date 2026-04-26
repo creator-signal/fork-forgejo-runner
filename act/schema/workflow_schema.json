@@ -2096,10 +2096,19 @@
             "type": "sequence-of-non-empty-string",
             "description": "List of commands to run instead of the default command."
           },
+          "entrypoint": {
+            "type": "sequence-of-non-empty-string"
+          },
           "env": "service-env",
+          "init": {
+            "type": "boolean-strategy-context"
+          },
           "ports": {
             "type": "sequence-of-non-empty-string",
             "description": "List of service container ports to expose in the format `HOST_PORT:CONTAINER_PORT`"
+          },
+          "tty": {
+            "type": "boolean-strategy-context"
           },
           "volumes": {
             "type": "sequence-of-non-empty-string",
