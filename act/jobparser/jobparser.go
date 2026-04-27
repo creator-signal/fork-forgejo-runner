@@ -36,6 +36,9 @@ type bothJobTypes struct {
 	workflowCallInputs         map[string]any
 	workflowCallID             string
 	workflowCallParent         string
+
+	workflowLevelEnv                 map[string]string
+	workflowLevelEnableOpenIDConnect *bool
 }
 
 func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWorkflow, error) {
@@ -118,9 +121,10 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 	preMatrixJobs := make([]*bothJobTypes, len(ids))
 	for i, jobName := range ids {
 		preMatrixJobs[i] = &bothJobTypes{
-			id:           jobName,
-			jobParserJob: jobParserJobs[i],
-			workflowJob:  origin.GetJob(jobName),
+			id:                               jobName,
+			jobParserJob:                     jobParserJobs[i],
+			workflowJob:                      origin.GetJob(jobName),
+			workflowLevelEnableOpenIDConnect: origin.EnableOpenIDConnect,
 		}
 	}
 
@@ -195,7 +199,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		swf := &SingleWorkflow{
 			Name:     workflow.Name,
 			RawOn:    workflow.RawOn,
-			Env:      workflow.Env,
+			Env:      bothJobs.workflowLevelEnv,
 			Defaults: workflow.Defaults,
 			Metadata: SingleWorkflowMetadata{
 				WorkflowCallInputs: bothJobs.workflowCallInputs,
@@ -278,7 +282,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			swf.Metadata.WorkflowCallParent = workflow.Metadata.WorkflowCallParent
 		}
 
-		swf.EnableOpenIDConnect = evaluateEnableOpenIDConnect(bothJobs, origin.EnableOpenIDConnect)
+		swf.EnableOpenIDConnect = evaluateEnableOpenIDConnect(bothJobs, bothJobs.workflowLevelEnableOpenIDConnect)
 
 		if err := swf.SetJob(id, job); err != nil {
 			return nil, fmt.Errorf("SetJob: %w", err)
@@ -384,6 +388,8 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 				matrix:           matrix,
 				jobNeeds:         jobNeeds,
 				overrideOnClause: bothJobs.overrideOnClause,
+
+				workflowLevelEnableOpenIDConnect: bothJobs.workflowLevelEnableOpenIDConnect,
 			})
 		}
 	}
@@ -391,7 +397,10 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 	return retval, nil
 }
 
-func expandReusableWorkflows(jobs []*bothJobTypes, validate bool, incompleteMatrix map[string]*exprparser.InvalidJobOutputReferencedError, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult) ([]*bothJobTypes, error) {
+func expandReusableWorkflows(jobs []*bothJobTypes, validate bool,
+	incompleteMatrix map[string]*exprparser.InvalidJobOutputReferencedError, options []ParseOption, pc *parseContext,
+	jobResults map[string]*JobResult,
+) ([]*bothJobTypes, error) {
 	retval := []*bothJobTypes{}
 	for _, bothJobs := range jobs {
 		if _, incomplete := incompleteMatrix[bothJobs.id]; incomplete {
@@ -506,7 +515,9 @@ func tryFetchReusableWorkflow(bothJobs *bothJobTypes, pc *parseContext) ([]byte,
 	return nil, nil
 }
 
-func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext, jobResults map[string]*JobResult, matrix map[string]any, callerJob *bothJobTypes) ([]*bothJobTypes, error) {
+func expandReusableWorkflow(contents []byte, validate bool, options []ParseOption, pc *parseContext,
+	jobResults map[string]*JobResult, matrix map[string]any, callerJob *bothJobTypes,
+) ([]*bothJobTypes, error) {
 	innerParseOptions := append([]ParseOption{}, options...) // copy original slice
 	innerParseOptions = append(innerParseOptions, withRecursionDepth(pc.recursionDepth+1))
 	innerParseOptions = append(innerParseOptions, withParentUniqueID(callerJob.workflowCallID))
@@ -515,6 +526,8 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	if err != nil {
 		return nil, fmt.Errorf("model.ReadWorkflow: %w", err)
 	}
+	workflowLevelEnv := workflow.Env
+	workflowLevelEnableOpenIDConnect := workflow.EnableOpenIDConnect
 
 	// Compute the inputs to the workflow call from `callerJob`'s `with` clause.  There are two outputs from this
 	// calculation; one is the raw inputs which are passed to the next jobparser to expand the reusable workflow,
@@ -580,6 +593,9 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			jobParserJob:     job,
 			workflowJob:      workflow.GetJob(id),
 			overrideOnClause: &swf.RawOn,
+
+			workflowLevelEnv:                 workflowLevelEnv,
+			workflowLevelEnableOpenIDConnect: workflowLevelEnableOpenIDConnect,
 
 			// Preserve metadata:
 			workflowCallParent: swf.Metadata.WorkflowCallParent,

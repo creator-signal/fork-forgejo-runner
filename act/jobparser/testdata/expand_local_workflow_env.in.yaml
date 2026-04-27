@@ -1,0 +1,7 @@
+name: test
+env:
+  abc: url is ${{ forgejo.server_url }}
+enable-openid-connect: false
+jobs:
+  reusable-1:
+    uses: ./.forgejo/workflows/expand_local_workflow_env_reusable-1.yml
