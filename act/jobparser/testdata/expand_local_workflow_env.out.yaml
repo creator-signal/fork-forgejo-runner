@@ -1,0 +1,56 @@
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1
+    needs:
+      - reusable-1.job1
+      - reusable-1.job2
+      - reusable-1.job3
+    runs-on: []
+    if: false
+__metadata:
+  workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+env:
+  reusable: reusable has url is ${{ forgejo.server_url }}
+jobs:
+  reusable-1.job1:
+    name: job1
+    runs-on: linux
+    steps:
+      - run: uname -a
+enable-openid-connect: true
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+env:
+  reusable: reusable has url is ${{ forgejo.server_url }}
+jobs:
+  reusable-1.job2:
+    name: job2
+    needs:
+      - reusable-1.job1
+    runs-on: linux
+    steps:
+      - run: uname -a
+enable-openid-connect: true
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+env:
+  reusable: reusable has url is ${{ forgejo.server_url }}
+jobs:
+  reusable-1.job3:
+    name: job3
+    needs:
+      - reusable-1.job1
+      - reusable-1.job2
+    runs-on: linux
+    steps:
+      - run: uname -a
+enable-openid-connect: true
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed

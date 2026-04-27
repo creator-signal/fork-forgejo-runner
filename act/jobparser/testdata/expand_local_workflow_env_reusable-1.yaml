@@ -1,0 +1,19 @@
+name: test
+env:
+  reusable: reusable has url is ${{ forgejo.server_url }}
+enable-openid-connect: true
+jobs:
+  job1:
+    runs-on: linux
+    steps:
+      - run: uname -a
+  job2:
+    runs-on: linux
+    steps:
+      - run: uname -a
+    needs: job1
+  job3:
+    runs-on: linux
+    steps:
+      - run: uname -a
+    needs: [job1, job2]
