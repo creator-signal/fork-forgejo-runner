@@ -115,7 +115,6 @@ func (e *HostEnvironment) CopyDir(destPath, srcPath string, useGitIgnore bool) c
 			ignorer = gitignore.NewMatcher(ps)
 		}
 		fc := &filecollector.FileCollector{
-			Fs:        &filecollector.DefaultFs{},
 			Ignorer:   ignorer,
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
@@ -145,7 +144,6 @@ func (e *HostEnvironment) GetContainerArchive(ctx context.Context, srcPath strin
 			srcPrefix += string(filepath.Separator)
 		}
 		fc := &filecollector.FileCollector{
-			Fs:        &filecollector.DefaultFs{},
 			SrcPath:   srcPath,
 			SrcPrefix: srcPrefix,
 			Handler:   tc,

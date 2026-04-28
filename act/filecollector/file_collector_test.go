@@ -49,7 +49,6 @@ func TestIgnoredTrackedfile(t *testing.T) {
 	ps, _ := gitignore.ReadPatterns(worktree, []string{})
 	ignorer := gitignore.NewMatcher(ps)
 	fc := &FileCollector{
-		Fs:        &DefaultFs{},
 		Ignorer:   ignorer,
 		SrcPath:   filepath.Join(tempDir, "mygitrepo"),
 		SrcPrefix: filepath.Join(tempDir, "mygitrepo") + string(filepath.Separator),
@@ -57,7 +56,7 @@ func TestIgnoredTrackedfile(t *testing.T) {
 			TarWriter: tw,
 		},
 	}
-	err := fc.Fs.Walk(filepath.Join(tempDir, "mygitrepo"), fc.CollectFiles(t.Context(), []string{}))
+	err := filepath.Walk(filepath.Join(tempDir, "mygitrepo"), fc.CollectFiles(t.Context(), []string{}))
 	require.NoError(t, err, "successfully collect files")
 	require.NoError(t, tw.Close())
 	_, _ = tmpTar.Seek(0, io.SeekStart)
@@ -104,7 +103,6 @@ func TestSymlinks(t *testing.T) {
 	require.NoError(t, err)
 
 	fc := &FileCollector{
-		Fs:        &DefaultFs{},
 		Ignorer:   gitignore.NewMatcher(ps),
 		SrcPath:   filepath.Join(tempDir, "mygitrepo"),
 		SrcPrefix: filepath.Join(tempDir, "mygitrepo") + string(filepath.Separator),
@@ -112,7 +110,7 @@ func TestSymlinks(t *testing.T) {
 			TarWriter: tw,
 		},
 	}
-	err = fc.Fs.Walk(filepath.Join(tempDir, "mygitrepo"), fc.CollectFiles(t.Context(), []string{}))
+	err = filepath.Walk(filepath.Join(tempDir, "mygitrepo"), fc.CollectFiles(t.Context(), []string{}))
 	require.NoError(t, err, "successfully collect files")
 	require.NoError(t, tw.Close())
 
@@ -144,7 +142,6 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 		dst := t.TempDir()
 
 		fc := &FileCollector{
-			Fs:        &DefaultFs{},
 			Ignorer:   nil,
 			SrcPath:   src,
 			SrcPrefix: src + string(filepath.Separator),
@@ -179,7 +176,6 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 		require.NoError(t, err)
 
 		fc := &FileCollector{
-			Fs:        &DefaultFs{},
 			Ignorer:   gitignore.NewMatcher(ps),
 			SrcPath:   src,
 			SrcPrefix: src + string(filepath.Separator),
@@ -217,7 +213,6 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 		require.NoError(t, err)
 
 		fc := &FileCollector{
-			Fs:        &DefaultFs{},
 			Ignorer:   gitignore.NewMatcher(ps),
 			SrcPath:   src,
 			SrcPrefix: src + string(filepath.Separator),
@@ -250,7 +245,6 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 		require.NoError(t, err)
 
 		fc := &FileCollector{
-			Fs:        &DefaultFs{},
 			Ignorer:   gitignore.NewMatcher(ps),
 			SrcPath:   src,
 			SrcPrefix: src + string(filepath.Separator),
@@ -279,7 +273,6 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 		dst := t.TempDir()
 
 		fc := &FileCollector{
-			Fs:        &DefaultFs{},
 			Ignorer:   nil,
 			SrcPath:   src,
 			SrcPrefix: src + string(filepath.Separator),
@@ -311,8 +304,8 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 
 		src := makeTestRepo(t)
 
-		require.NoError(t, gitCmd("-C", src, "-c", "protocol.file.allow=always", "submodule", "add", submoduleRepo, "test-submodule"))
-		require.NoError(t, os.WriteFile(filepath.Join(src, ".gitignore"), []byte("test-submodule\n**/two.txt\n"), 0o644))
+		require.NoError(t, gitCmd("-C", src, "-c", "protocol.file.allow=always", "submodule", "add", submoduleRepo, "test-submodule-\U0001fae3"))
+		require.NoError(t, os.WriteFile(filepath.Join(src, ".gitignore"), []byte("test-submodule-\U0001fae3\n**/two.txt\n"), 0o644))
 		require.NoError(t, gitCmd("-C", src, "add", "--all"))
 		require.NoError(t, gitCmd("-C", src, "commit", "-m", "Import"))
 
@@ -322,7 +315,6 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 		require.NoError(t, err)
 
 		fc := &FileCollector{
-			Fs:        &DefaultFs{},
 			Ignorer:   gitignore.NewMatcher(ps),
 			SrcPath:   src,
 			SrcPrefix: src + string(filepath.Separator),
@@ -335,12 +327,47 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.DirExists(t, filepath.Join(dst, ".git"))
-		assert.NoFileExists(t, filepath.Join(dst, "test-submodule", ".git"))
-		assert.NoDirExists(t, filepath.Join(dst, "test-submodule", ".git"))
+		assert.NoFileExists(t, filepath.Join(dst, "test-submodule-\U0001fae3", ".git"))
+		assert.NoDirExists(t, filepath.Join(dst, "test-submodule-\U0001fae3", ".git"))
 		assert.FileExists(t, filepath.Join(dst, ".gitignore"))
-		assert.FileExists(t, filepath.Join(dst, "test-submodule", "one.txt"))
-		assert.FileExists(t, filepath.Join(dst, "test-submodule", "a", "b", "two.txt"))
-		assert.FileExists(t, filepath.Join(dst, "test-submodule", "a", "b", "three.txt"))
+		assert.FileExists(t, filepath.Join(dst, "test-submodule-\U0001fae3", "one.txt"))
+		assert.FileExists(t, filepath.Join(dst, "test-submodule-\U0001fae3", "a", "b", "two.txt"))
+		assert.FileExists(t, filepath.Join(dst, "test-submodule-\U0001fae3", "a", "b", "three.txt"))
+	})
+
+	t.Run("Git repository with funky files and paths", func(t *testing.T) {
+		src := makeTestRepo(t)
+
+		// U+1fae3 is the "Face with Peeking Eye" emoji, U+1f600 is "Grinning Face".
+		require.NoError(t, os.Mkdir(filepath.Join(src, "å"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(src, "å", "\U0001fae3.txt"), []byte("1"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(src, "å", "\U0001f600.txt"), []byte("2"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(src, ".gitignore"), []byte("å/\U0001f600.txt\n"), 0o644))
+		require.NoError(t, gitCmd("-C", src, "add", "--all"))
+		require.NoError(t, gitCmd("-C", src, "commit", "-m", "Import"))
+
+		dst := t.TempDir()
+
+		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(src)), []string{})
+		require.NoError(t, err)
+
+		fc := &FileCollector{
+			Ignorer:   gitignore.NewMatcher(ps),
+			SrcPath:   src,
+			SrcPrefix: src + string(filepath.Separator),
+			Handler: &CopyCollector{
+				DstDir: dst,
+			},
+		}
+
+		err = filepath.Walk(src, fc.CollectFiles(t.Context(), []string{}))
+		assert.NoError(t, err)
+
+		assert.DirExists(t, filepath.Join(dst, ".git"))
+		assert.FileExists(t, filepath.Join(dst, "å", "\U0001fae3.txt"))
+		assert.FileExists(t, filepath.Join(src, "å", "\U0001f600.txt"))
+		assert.NoFileExists(t, filepath.Join(dst, "å", "\U0001f600.txt"))
+		assert.FileExists(t, filepath.Join(dst, ".gitignore"))
 	})
 }
 
