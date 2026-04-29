@@ -13,105 +13,81 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/go-git/go-billy/v5/helper/polyfill"
-	"github.com/go-git/go-billy/v5/osfs"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/cache"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	"github.com/go-git/go-git/v5/storage/filesystem"
+	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/skip"
 )
 
-func TestIgnoredTrackedfile(t *testing.T) {
+func TestUntrackedFileIgnored(t *testing.T) {
+	repoPath := makeTestRepo(t)
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".gitignore"), []byte(".*\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".env"), []byte("test=val1\n"), 0o644))
+	require.NoError(t, gitCmd("-C", repoPath, "add", "-f", ".gitignore"))
+
 	tempDir := t.TempDir()
 
-	fs := osfs.New(tempDir)
+	tmpTar, err := os.Create(filepath.Join(tempDir, "temp.tar"))
+	require.NoError(t, err)
 
-	require.NoError(t, fs.MkdirAll("mygitrepo/.git", 0o777))
-	dotgit, _ := fs.Chroot("mygitrepo/.git")
-	worktree, _ := fs.Chroot("mygitrepo")
-	repo, _ := git.Init(filesystem.NewStorage(dotgit, cache.NewObjectLRUDefault()), worktree)
-	f, _ := worktree.Create(".gitignore")
-	_, _ = f.Write([]byte(".*\n"))
-	require.NoError(t, f.Close())
-	// This file shouldn't be in the tar
-	f, _ = worktree.Create(".env")
-	_, _ = f.Write([]byte("test=val1\n"))
-	require.NoError(t, f.Close())
-	w, _ := repo.Worktree()
-	// .gitignore is in the tar after adding it to the index
-	_, _ = w.Add(".gitignore")
-
-	tmpTar, _ := fs.Create("temp.tar")
 	tw := tar.NewWriter(tmpTar)
-	ps, _ := gitignore.ReadPatterns(worktree, []string{})
-	ignorer := gitignore.NewMatcher(ps)
+
+	ps, err := gitignore.ReadPatterns(repoPath)
+	require.NoError(t, err)
+
 	fc := &FileCollector{
-		Ignorer:   ignorer,
-		SrcPath:   filepath.Join(tempDir, "mygitrepo"),
-		SrcPrefix: filepath.Join(tempDir, "mygitrepo") + string(filepath.Separator),
+		Ignorer:   gitignore.NewMatcher(ps),
+		SrcPath:   repoPath,
+		SrcPrefix: repoPath + string(filepath.Separator),
 		Handler: &TarCollector{
 			TarWriter: tw,
 		},
 	}
-	err := filepath.Walk(filepath.Join(tempDir, "mygitrepo"), fc.CollectFiles(t.Context(), []string{}))
+
+	err = filepath.Walk(repoPath, fc.CollectFiles(t.Context(), []string{}))
 	require.NoError(t, err, "successfully collect files")
 	require.NoError(t, tw.Close())
-	_, _ = tmpTar.Seek(0, io.SeekStart)
+
+	_, err = tmpTar.Seek(0, io.SeekStart)
+	require.NoError(t, err)
+
 	tr := tar.NewReader(tmpTar)
 	h, err := tr.Next()
 	require.NoError(t, err, "tar must not be empty")
 	assert.Equal(t, ".gitignore", h.Name)
 	_, err = tr.Next()
 	require.ErrorIs(t, err, io.EOF, "tar must only contain one element")
+
 	require.NoError(t, tmpTar.Close())
 }
 
 func TestSymlinks(t *testing.T) {
+	repoPath := makeTestRepo(t)
+	require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".env"), []byte("test=val1\n"), 0o644))
+	require.NoError(t, os.Symlink(".env", filepath.Join(repoPath, "test.env")))
+	require.NoError(t, gitCmd("-C", repoPath, "add", ".env", "test.env"))
+
 	tempDir := t.TempDir()
 
-	fs := osfs.New(tempDir)
-	require.NoError(t, fs.MkdirAll("mygitrepo/.git", 0o777))
-
-	dotgit, _ := fs.Chroot("mygitrepo/.git")
-	worktree, _ := fs.Chroot("mygitrepo")
-	repo, _ := git.Init(filesystem.NewStorage(dotgit, cache.NewObjectLRUDefault()), worktree)
-
-	// This file shouldn't be in the tar
-	f, err := worktree.Create(".env")
-	require.NoError(t, err)
-	_, err = f.Write([]byte("test=val1\n"))
-	require.NoError(t, err)
-	require.NoError(t, f.Close())
-	err = worktree.Symlink(".env", "test.env")
-	require.NoError(t, err)
-	w, err := repo.Worktree()
+	tmpTar, err := os.Create(filepath.Join(tempDir, "temp.tar"))
 	require.NoError(t, err)
 
-	// .gitignore is in the tar after adding it to the index
-	_, err = w.Add(".env")
-	require.NoError(t, err)
-	_, err = w.Add("test.env")
-	require.NoError(t, err)
-
-	tmpTar, _ := fs.Create("temp.tar")
 	tw := tar.NewWriter(tmpTar)
 
-	ps, err := gitignore.ReadPatterns(worktree, []string{})
+	ps, err := gitignore.ReadPatterns(repoPath)
 	require.NoError(t, err)
 
 	fc := &FileCollector{
 		Ignorer:   gitignore.NewMatcher(ps),
-		SrcPath:   filepath.Join(tempDir, "mygitrepo"),
-		SrcPrefix: filepath.Join(tempDir, "mygitrepo") + string(filepath.Separator),
+		SrcPath:   repoPath,
+		SrcPrefix: repoPath + string(filepath.Separator),
 		Handler: &TarCollector{
 			TarWriter: tw,
 		},
 	}
-	err = filepath.Walk(filepath.Join(tempDir, "mygitrepo"), fc.CollectFiles(t.Context(), []string{}))
+	err = filepath.Walk(repoPath, fc.CollectFiles(t.Context(), []string{}))
 	require.NoError(t, err, "successfully collect files")
+
 	require.NoError(t, tw.Close())
 
 	_, err = tmpTar.Seek(0, io.SeekStart)
@@ -129,6 +105,7 @@ func TestSymlinks(t *testing.T) {
 	assert.Equal(t, "test.env", files["test.env"].Name)
 	assert.Equal(t, ".env", files["test.env"].Linkname)
 	require.ErrorIs(t, err, io.EOF, "tar must be read cleanly to EOF")
+
 	require.NoError(t, tmpTar.Close())
 }
 
@@ -172,7 +149,7 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 
 		dst := t.TempDir()
 
-		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(src)), []string{})
+		ps, err := gitignore.ReadPatterns(src)
 		require.NoError(t, err)
 
 		fc := &FileCollector{
@@ -209,7 +186,7 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 
 		dst := t.TempDir()
 
-		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(src)), []string{})
+		ps, err := gitignore.ReadPatterns(src)
 		require.NoError(t, err)
 
 		fc := &FileCollector{
@@ -241,7 +218,7 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 
 		dst := t.TempDir()
 
-		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(src)), []string{})
+		ps, err := gitignore.ReadPatterns(src)
 		require.NoError(t, err)
 
 		fc := &FileCollector{
@@ -311,7 +288,7 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 
 		dst := t.TempDir()
 
-		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(src)), []string{})
+		ps, err := gitignore.ReadPatterns(src)
 		require.NoError(t, err)
 
 		fc := &FileCollector{
@@ -348,7 +325,7 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 
 		dst := t.TempDir()
 
-		ps, err := gitignore.ReadPatterns(polyfill.New(osfs.New(src)), []string{})
+		ps, err := gitignore.ReadPatterns(src)
 		require.NoError(t, err)
 
 		fc := &FileCollector{
