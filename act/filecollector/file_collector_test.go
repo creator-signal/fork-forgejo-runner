@@ -19,96 +19,6 @@ import (
 	"gotest.tools/v3/skip"
 )
 
-func TestUntrackedFileIgnored(t *testing.T) {
-	repoPath := makeTestRepo(t)
-	require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".gitignore"), []byte(".*\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".env"), []byte("test=val1\n"), 0o644))
-	require.NoError(t, gitCmd("-C", repoPath, "add", "-f", ".gitignore"))
-
-	tempDir := t.TempDir()
-
-	tmpTar, err := os.Create(filepath.Join(tempDir, "temp.tar"))
-	require.NoError(t, err)
-
-	tw := tar.NewWriter(tmpTar)
-
-	ps, err := gitignore.ReadPatterns(repoPath)
-	require.NoError(t, err)
-
-	fc := &FileCollector{
-		Ignorer:   gitignore.NewMatcher(ps),
-		SrcPath:   repoPath,
-		SrcPrefix: repoPath + string(filepath.Separator),
-		Handler: &TarCollector{
-			TarWriter: tw,
-		},
-	}
-
-	err = filepath.Walk(repoPath, fc.CollectFiles(t.Context(), []string{}))
-	require.NoError(t, err, "successfully collect files")
-	require.NoError(t, tw.Close())
-
-	_, err = tmpTar.Seek(0, io.SeekStart)
-	require.NoError(t, err)
-
-	tr := tar.NewReader(tmpTar)
-	h, err := tr.Next()
-	require.NoError(t, err, "tar must not be empty")
-	assert.Equal(t, ".gitignore", h.Name)
-	_, err = tr.Next()
-	require.ErrorIs(t, err, io.EOF, "tar must only contain one element")
-
-	require.NoError(t, tmpTar.Close())
-}
-
-func TestSymlinks(t *testing.T) {
-	repoPath := makeTestRepo(t)
-	require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".env"), []byte("test=val1\n"), 0o644))
-	require.NoError(t, os.Symlink(".env", filepath.Join(repoPath, "test.env")))
-	require.NoError(t, gitCmd("-C", repoPath, "add", ".env", "test.env"))
-
-	tempDir := t.TempDir()
-
-	tmpTar, err := os.Create(filepath.Join(tempDir, "temp.tar"))
-	require.NoError(t, err)
-
-	tw := tar.NewWriter(tmpTar)
-
-	ps, err := gitignore.ReadPatterns(repoPath)
-	require.NoError(t, err)
-
-	fc := &FileCollector{
-		Ignorer:   gitignore.NewMatcher(ps),
-		SrcPath:   repoPath,
-		SrcPrefix: repoPath + string(filepath.Separator),
-		Handler: &TarCollector{
-			TarWriter: tw,
-		},
-	}
-	err = filepath.Walk(repoPath, fc.CollectFiles(t.Context(), []string{}))
-	require.NoError(t, err, "successfully collect files")
-
-	require.NoError(t, tw.Close())
-
-	_, err = tmpTar.Seek(0, io.SeekStart)
-	require.NoError(t, err)
-
-	tr := tar.NewReader(tmpTar)
-	h, err := tr.Next()
-	files := map[string]tar.Header{}
-	for err == nil {
-		files[h.Name] = *h
-		h, err = tr.Next()
-	}
-
-	assert.Equal(t, ".env", files[".env"].Name)
-	assert.Equal(t, "test.env", files["test.env"].Name)
-	assert.Equal(t, ".env", files["test.env"].Linkname)
-	require.ErrorIs(t, err, io.EOF, "tar must be read cleanly to EOF")
-
-	require.NoError(t, tmpTar.Close())
-}
-
 func TestFileCollector_CollectFiles(t *testing.T) {
 	t.Run("with ignored gitignore", func(t *testing.T) {
 		src := t.TempDir()
@@ -345,6 +255,96 @@ func TestFileCollector_CollectFiles(t *testing.T) {
 		assert.FileExists(t, filepath.Join(src, "å", "\U0001f600.txt"))
 		assert.NoFileExists(t, filepath.Join(dst, "å", "\U0001f600.txt"))
 		assert.FileExists(t, filepath.Join(dst, ".gitignore"))
+	})
+
+	t.Run("Ignores untracked files", func(t *testing.T) {
+		repoPath := makeTestRepo(t)
+		require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".gitignore"), []byte(".*\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".env"), []byte("test=val1\n"), 0o644))
+		require.NoError(t, gitCmd("-C", repoPath, "add", "-f", ".gitignore"))
+
+		tempDir := t.TempDir()
+
+		tmpTar, err := os.Create(filepath.Join(tempDir, "temp.tar"))
+		require.NoError(t, err)
+
+		tw := tar.NewWriter(tmpTar)
+
+		ps, err := gitignore.ReadPatterns(repoPath)
+		require.NoError(t, err)
+
+		fc := &FileCollector{
+			Ignorer:   gitignore.NewMatcher(ps),
+			SrcPath:   repoPath,
+			SrcPrefix: repoPath + string(filepath.Separator),
+			Handler: &TarCollector{
+				TarWriter: tw,
+			},
+		}
+
+		err = filepath.Walk(repoPath, fc.CollectFiles(t.Context(), []string{}))
+		require.NoError(t, err, "successfully collect files")
+		require.NoError(t, tw.Close())
+
+		_, err = tmpTar.Seek(0, io.SeekStart)
+		require.NoError(t, err)
+
+		tr := tar.NewReader(tmpTar)
+		h, err := tr.Next()
+		require.NoError(t, err, "tar must not be empty")
+		assert.Equal(t, ".gitignore", h.Name)
+		_, err = tr.Next()
+		require.ErrorIs(t, err, io.EOF, "tar must only contain one element")
+
+		require.NoError(t, tmpTar.Close())
+	})
+
+	t.Run("Symlinks are retained", func(t *testing.T) {
+		repoPath := makeTestRepo(t)
+		require.NoError(t, os.WriteFile(filepath.Join(repoPath, ".env"), []byte("test=val1\n"), 0o644))
+		require.NoError(t, os.Symlink(".env", filepath.Join(repoPath, "test.env")))
+		require.NoError(t, gitCmd("-C", repoPath, "add", ".env", "test.env"))
+
+		tempDir := t.TempDir()
+
+		tmpTar, err := os.Create(filepath.Join(tempDir, "temp.tar"))
+		require.NoError(t, err)
+
+		tw := tar.NewWriter(tmpTar)
+
+		ps, err := gitignore.ReadPatterns(repoPath)
+		require.NoError(t, err)
+
+		fc := &FileCollector{
+			Ignorer:   gitignore.NewMatcher(ps),
+			SrcPath:   repoPath,
+			SrcPrefix: repoPath + string(filepath.Separator),
+			Handler: &TarCollector{
+				TarWriter: tw,
+			},
+		}
+		err = filepath.Walk(repoPath, fc.CollectFiles(t.Context(), []string{}))
+		require.NoError(t, err, "successfully collect files")
+
+		require.NoError(t, tw.Close())
+
+		_, err = tmpTar.Seek(0, io.SeekStart)
+		require.NoError(t, err)
+
+		tr := tar.NewReader(tmpTar)
+		h, err := tr.Next()
+		files := map[string]tar.Header{}
+		for err == nil {
+			files[h.Name] = *h
+			h, err = tr.Next()
+		}
+
+		assert.Equal(t, ".env", files[".env"].Name)
+		assert.Equal(t, "test.env", files["test.env"].Name)
+		assert.Equal(t, ".env", files["test.env"].Linkname)
+		require.ErrorIs(t, err, io.EOF, "tar must be read cleanly to EOF")
+
+		require.NoError(t, tmpTar.Close())
 	})
 }
 
