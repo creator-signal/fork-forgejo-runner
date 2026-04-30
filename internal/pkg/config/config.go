@@ -347,7 +347,7 @@ func (s *serializedCacheSettings) applyTo(config *Config) error {
 	} else {
 		resolvedSecret = s.Secret
 	}
-	config.Cache.Secret = resolvedSecret
+	config.Cache.Secret = strings.TrimSpace(resolvedSecret)
 
 	return nil
 }

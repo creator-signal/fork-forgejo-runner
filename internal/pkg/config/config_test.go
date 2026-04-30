@@ -958,6 +958,36 @@ func TestSerializedCacheSettings(t *testing.T) {
 		assert.Equal(t, "y114lUUM", config.Cache.Secret)
 	})
 
+	t.Run("trims whitespace around secret", func(t *testing.T) {
+		tempDir := t.TempDir()
+		secretPath := filepath.Join(tempDir, "secret.txt")
+
+		err := os.WriteFile(secretPath, []byte("y114lUUM\n\n"), 0o644)
+		require.NoError(t, err)
+
+		secretURL, err := fileuri.FromFilePath(secretPath)
+		require.NoError(t, err)
+
+		booleanTrue := true
+		settings := serializedCacheSettings{
+			Enabled:                 &booleanTrue,
+			Dir:                     "/path/to/cache",
+			Host:                    "cache.local",
+			Port:                    1234,
+			ProxyPort:               5678,
+			ExternalServer:          "external.local",
+			ActionsCacheURLOverride: "https://example.com/",
+			Secret:                  "",
+			SecretURL:               secretURL.String(),
+		}
+
+		config := Config{}
+		err = settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, "y114lUUM", config.Cache.Secret)
+	})
+
 	t.Run("rejects mutually exclusive secret and secret_url", func(t *testing.T) {
 		booleanFalse := true
 		settings := serializedCacheSettings{
