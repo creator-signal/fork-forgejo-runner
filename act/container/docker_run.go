@@ -79,25 +79,6 @@ func (cr *containerReference) platform(ctx context.Context) (string, error) {
 	return platform, nil
 }
 
-func (cr *containerReference) ConnectToNetwork(name string) common.Executor {
-	return common.
-		NewDebugExecutor("%sdocker network connect %s %s", logPrefix, name, cr.input.Name).
-		Then(
-			common.NewPipelineExecutor(
-				cr.connect(),
-				cr.connectToNetwork(name, cr.input.NetworkAliases),
-			).IfNot(common.Dryrun),
-		)
-}
-
-func (cr *containerReference) connectToNetwork(name string, aliases []string) common.Executor {
-	return func(ctx context.Context) error {
-		return cr.cli.NetworkConnect(ctx, name, cr.input.Name, &network.EndpointSettings{
-			Aliases: aliases,
-		})
-	}
-}
-
 // supportsContainerImagePlatform returns true if the underlying Docker server
 // API version is 1.41 and beyond
 func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) bool {
