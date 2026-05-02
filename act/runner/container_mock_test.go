@@ -6,13 +6,31 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/container"
+	"code.forgejo.org/forgejo/runner/v12/act/container/docker"
+	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/mock"
 )
+
+type fakeEndpoint struct{}
+
+func (fakeEndpoint) Client() client.APIClient      { return nil }
+func (fakeEndpoint) Close() error                  { return nil }
+func (fakeEndpoint) RunnerArch() string            { return "X64" }
+func (fakeEndpoint) CurrentSystemPlatform() string { return "linux/amd64" }
 
 type containerMock struct {
 	mock.Mock
 	container.Container
-	container.LinuxContainerEnvironmentExtensions
+	docker.LinuxContainerEnvironmentExtensions
+}
+
+func (cm *containerMock) GetRunnerContext(_ context.Context) map[string]any {
+	return map[string]any{
+		"os":         "Linux",
+		"arch":       "X64",
+		"temp":       "/tmp",
+		"tool_cache": "",
+	}
 }
 
 func (cm *containerMock) Create(capAdd, capDrop []string) common.Executor {
