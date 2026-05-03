@@ -171,10 +171,10 @@ func (h *Handler) ExternalURL() string {
 
 // Informs the proxy of a workflow run that can make cache requests.
 // The RunData contains the information about the repository.
-// The function returns the 32-bit random key which the run will use to identify itself.
+// The function returns the random key which the run will use to identify itself.
 func (h *Handler) AddRun(data artifactcache.RunData) (string, error) {
 	for range 3 {
-		key := common.MustRandName(4)
+		key := common.MustRandName(16)
 		_, loaded := h.runs.LoadOrStore(key, data)
 		if !loaded {
 			// The key was unique and added successfully
