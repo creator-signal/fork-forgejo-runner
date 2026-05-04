@@ -3,18 +3,18 @@ package filecollector
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/filemode"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	"github.com/go-git/go-git/v5/plumbing/format/index"
+	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
+	log "github.com/sirupsen/logrus"
 )
 
 type Handler interface {
@@ -86,45 +86,18 @@ type FileCollector struct {
 	Ignorer   gitignore.Matcher
 	SrcPath   string
 	SrcPrefix string
-	Fs        Fs
 	Handler   Handler
 }
 
-type Fs interface {
-	Walk(root string, fn filepath.WalkFunc) error
-	OpenGitIndex(path string) (*index.Index, error)
-	Open(path string) (io.ReadCloser, error)
-	Readlink(path string) (string, error)
-}
-
-type DefaultFs struct{}
-
-func (*DefaultFs) Walk(root string, fn filepath.WalkFunc) error {
-	return filepath.Walk(root, fn)
-}
-
-func (*DefaultFs) OpenGitIndex(path string) (*index.Index, error) {
-	r, err := git.PlainOpen(path)
-	if err != nil {
-		return nil, err
-	}
-	i, err := r.Storer.Index()
-	if err != nil {
-		return nil, err
-	}
-	return i, nil
-}
-
-func (*DefaultFs) Open(path string) (io.ReadCloser, error) {
-	return os.Open(path)
-}
-
-func (*DefaultFs) Readlink(path string) (string, error) {
-	return os.Readlink(path)
-}
-
 func (fc *FileCollector) CollectFiles(ctx context.Context, submodulePath []string) filepath.WalkFunc {
-	i, _ := fc.Fs.OpenGitIndex(path.Join(fc.SrcPath, path.Join(submodulePath...)))
+	// By only reading Git indices in the root directory, Git repositories in nested directories are ignored. It is
+	// unclear whether that's correct because that behaviour was inherited from act.
+	rootDirectory := filepath.Join(fc.SrcPath, filepath.Join(submodulePath...))
+	index, err := readGitIndex(ctx, rootDirectory)
+	if err != nil {
+		log.Debugf("An error occurred while reading the Git index of %q: %s", rootDirectory, err)
+	}
+
 	return func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -132,59 +105,51 @@ func (fc *FileCollector) CollectFiles(ctx context.Context, submodulePath []strin
 		if ctx != nil {
 			select {
 			case <-ctx.Done():
-				return fmt.Errorf("copy cancelled")
+				return errors.New("copying cancelled")
 			default:
 			}
 		}
 
-		sansPrefix := strings.TrimPrefix(file, fc.SrcPrefix)
-		split := strings.Split(sansPrefix, string(filepath.Separator))
-		// The root folders should be skipped, submodules only have the last path component set to "." by filepath.Walk
-		if fi.IsDir() && len(split) > 0 && split[len(split)-1] == "." {
-			return nil
-		}
-		var entry *index.Entry
-		if i != nil {
-			entry, err = i.Entry(strings.Join(split[len(submodulePath):], "/"))
-		} else {
-			err = index.ErrEntryNotFound
-		}
-		if err != nil && fc.Ignorer != nil && fc.Ignorer.Match(split, fi.IsDir()) {
-			if fi.IsDir() {
-				if i != nil {
-					ms, err := i.Glob(strings.Join(append(split[len(submodulePath):], "**"), "/"))
-					if err != nil || len(ms) == 0 {
-						return filepath.SkipDir
-					}
-				} else {
-					return filepath.SkipDir
-				}
-			} else {
-				return nil
-			}
-		}
-		if err == nil && entry.Mode == filemode.Submodule {
-			err = fc.Fs.Walk(file, fc.CollectFiles(ctx, split))
+		pathWithoutPrefix := strings.TrimPrefix(file, fc.SrcPrefix)
+		pathComponentsWithoutPrefix := strings.Split(pathWithoutPrefix, string(filepath.Separator))
+
+		// If a Git repository is stored in `/a/b` and file is `/a/b/c/hello.txt`, then we need `c/hello.txt` because
+		// that's the path stored in the Git index.
+		pathRelativeToRoot := strings.TrimPrefix(file, rootDirectory+string(filepath.Separator))
+
+		// The Git index always operates with forward slashes, even on Windows. Therefore, the backslashes used by
+		// Windows have to be converted to forward slashes.
+		objectMode, isTracked := index[filepath.ToSlash(pathRelativeToRoot)]
+		isSubmodule := objectMode == "160000"
+		if isTracked && isSubmodule {
+			// Recurse into Git submodules because the submodule has to be interpreted using its own Git index.
+			err = filepath.Walk(file, fc.CollectFiles(ctx, strings.Split(pathRelativeToRoot, string(filepath.Separator))))
 			if err != nil {
 				return err
 			}
 			return filepath.SkipDir
 		}
-		path := filepath.ToSlash(sansPrefix)
 
-		// return on non-regular files (thanks to [kumo](https://medium.com/@komuw/just-like-you-did-fbdd7df829d3) for this suggested update)
+		// Because this function is used to either collect files in normal directories or in Git repositories, it
+		// cannot rely on Git's interpretation of `.gitignore` alone. Therefore, if a file isn't tracked by Git, the
+		// externally supplied `gitignore.Matcher` is used to skip *untracked* files.
+		if !isTracked && fc.Ignorer != nil && fc.Ignorer.Match(pathComponentsWithoutPrefix, fi.IsDir()) {
+			return nil
+		}
+		targetPath := filepath.ToSlash(pathWithoutPrefix)
+
 		if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-			linkName, err := fc.Fs.Readlink(file)
+			linkName, err := os.Readlink(file)
 			if err != nil {
 				return fmt.Errorf("unable to readlink '%s': %w", file, err)
 			}
-			return fc.Handler.WriteFile(path, fi, linkName, nil)
+			return fc.Handler.WriteFile(targetPath, fi, linkName, nil)
 		} else if !fi.Mode().IsRegular() {
 			return nil
 		}
 
 		// open file
-		f, err := fc.Fs.Open(file)
+		f, err := os.Open(file)
 		if err != nil {
 			return err
 		}
@@ -203,6 +168,29 @@ func (fc *FileCollector) CollectFiles(ctx context.Context, submodulePath []strin
 			}()
 		}
 
-		return fc.Handler.WriteFile(path, fi, "", f)
+		return fc.Handler.WriteFile(targetPath, fi, "", f)
 	}
+}
+
+func readGitIndex(ctx context.Context, path string) (map[string]string, error) {
+	// 0x1f is the ASCII code for the Unit separator (https://www.lammertbies.nl/comm/info/ascii-characters#us)
+	cmd := exec.CommandContext(ctx, "git", "-C", path, "ls-files", "-z", "--format=%(objectmode)%x1f%(path)")
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("could not read index of Git repository %q: %w", path, err)
+	}
+
+	trimmedOutput := strings.TrimSpace(string(output))
+	indexLines := strings.Split(trimmedOutput, string(rune(0x00)))
+	index := make(map[string]string, len(indexLines))
+
+	for _, line := range indexLines {
+		mode, relativePath, found := strings.Cut(line, string(rune(0x1f)))
+		if !found {
+			continue
+		}
+		index[relativePath] = mode
+	}
+	return index, nil
 }
