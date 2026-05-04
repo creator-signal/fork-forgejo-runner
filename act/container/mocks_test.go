@@ -88,59 +88,6 @@ func (_c *MockContainer_Close_Call) RunAndReturn(run func() common.Executor) *Mo
 	return _c
 }
 
-// ConnectToNetwork provides a mock function for the type MockContainer
-func (_mock *MockContainer) ConnectToNetwork(name string) common.Executor {
-	ret := _mock.Called(name)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ConnectToNetwork")
-	}
-
-	var r0 common.Executor
-	if returnFunc, ok := ret.Get(0).(func(string) common.Executor); ok {
-		r0 = returnFunc(name)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Executor)
-		}
-	}
-	return r0
-}
-
-// MockContainer_ConnectToNetwork_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConnectToNetwork'
-type MockContainer_ConnectToNetwork_Call struct {
-	*mock.Call
-}
-
-// ConnectToNetwork is a helper method to define mock.On call
-//   - name string
-func (_e *MockContainer_Expecter) ConnectToNetwork(name interface{}) *MockContainer_ConnectToNetwork_Call {
-	return &MockContainer_ConnectToNetwork_Call{Call: _e.mock.On("ConnectToNetwork", name)}
-}
-
-func (_c *MockContainer_ConnectToNetwork_Call) Run(run func(name string)) *MockContainer_ConnectToNetwork_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockContainer_ConnectToNetwork_Call) Return(executor common.Executor) *MockContainer_ConnectToNetwork_Call {
-	_c.Call.Return(executor)
-	return _c
-}
-
-func (_c *MockContainer_ConnectToNetwork_Call) RunAndReturn(run func(name string) common.Executor) *MockContainer_ConnectToNetwork_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Copy provides a mock function for the type MockContainer
 func (_mock *MockContainer) Copy(destPath string, files ...*FileEntry) common.Executor {
 	var tmpRet mock.Arguments
