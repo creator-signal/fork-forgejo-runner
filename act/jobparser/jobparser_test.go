@@ -529,6 +529,16 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		{
+			name: "expand_reusable_caller_if",
+			options: []ParseOption{
+				WithGitContext(&model.GithubContext{Ref: "refs/heads/not-main"}),
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+					content := ReadTestdata(t, "expand_reusable_caller_if_reusable.yaml", true)
+					return content, nil
+				}),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

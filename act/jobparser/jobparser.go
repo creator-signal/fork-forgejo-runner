@@ -588,6 +588,16 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			}
 		}
 
+		if callerJob.workflowJob.RawIf.Value != "" {
+			// If the caller job had an `if:` clause on it, then place it onto the child job as well.  If the child job
+			// had an `if:` clause on it, then we combine the two conditions -- `{parent-if} && {child-if}`.
+			if job.If.Value != "" {
+				job.If.SetString(joinExprClausesWithAnd(callerJob.workflowJob.IfClause(), workflow.GetJob(id).IfClause()))
+			} else {
+				job.If = callerJob.workflowJob.RawIf
+			}
+		}
+
 		newEntry := &bothJobTypes{
 			id:               fmt.Sprintf("%s.%s", callerJob.id, id),
 			jobParserJob:     job,
@@ -999,4 +1009,17 @@ func getWorkflowCallInputDefaults(job *model.Workflow) map[string]any {
 		}
 	}
 	return overrideInputs
+}
+
+// Given two conditional expressions (from an `if` clause), merge them together with `&&` between them.
+func joinExprClausesWithAnd(c1, c2 string) string {
+	var retval strings.Builder
+	retval.WriteString("${{ ")
+	c1 = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(c1, "${{"), "}}"))
+	retval.WriteString(c1)
+	retval.WriteString(" && ")
+	c2 = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(c2, "${{"), "}}"))
+	retval.WriteString(c2)
+	retval.WriteString(" }}")
+	return retval.String()
 }

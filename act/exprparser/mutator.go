@@ -59,9 +59,13 @@ func Mutate(input string, mutations ...Mutation) (string, error) {
 // Where `Mutate` operates on a single expression string, `MutateYamlNode` will iterate through an entire yaml tree and
 // perform the mutations on all string values found within.
 func MutateYamlNode(node *yaml.Node, mutations ...Mutation) error {
+	return innerMutateYamlNode(node, false, mutations...)
+}
+
+func innerMutateYamlNode(node *yaml.Node, forceWrapScalar bool, mutations ...Mutation) error {
 	switch node.Kind {
 	case yaml.ScalarNode:
-		return mutateScalarYamlNode(node, mutations...)
+		return mutateScalarYamlNode(node, forceWrapScalar, mutations...)
 	case yaml.MappingNode:
 		return mutateMappingYamlNode(node, mutations...)
 	case yaml.SequenceNode:
@@ -71,7 +75,7 @@ func MutateYamlNode(node *yaml.Node, mutations ...Mutation) error {
 	}
 }
 
-func mutateScalarYamlNode(node *yaml.Node, mutations ...Mutation) error {
+func mutateScalarYamlNode(node *yaml.Node, forceWrapScalar bool, mutations ...Mutation) error {
 	if node.ShortTag() != "!!str" {
 		return nil
 	}
@@ -79,7 +83,10 @@ func mutateScalarYamlNode(node *yaml.Node, mutations ...Mutation) error {
 	if err := node.Decode(&in); err != nil {
 		return err
 	}
-	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
+	hasExpr := strings.Contains(in, "${{") && strings.Contains(in, "}}")
+	if forceWrapScalar && !hasExpr {
+		in = fmt.Sprintf("${{ %s }}", in)
+	} else if !hasExpr {
 		return nil
 	}
 	res, err := Mutate(in, mutations...)
@@ -91,9 +98,12 @@ func mutateScalarYamlNode(node *yaml.Node, mutations ...Mutation) error {
 
 func mutateMappingYamlNode(node *yaml.Node, mutations ...Mutation) error {
 	for i := 0; i < len(node.Content)/2; {
-		// k := node.Content[i*2]
+		k := node.Content[i*2]
+		// `jobs.<job_id>.if` and `jobs.<job_id>.steps[*].if` in workflows have a special behaviour -- the `${{ ... }}`
+		// wrapper can be omitted.  `MutateYamlNode` implements this by automatically wrapping nodes with a key `if`.
+		forceWrapScalar := k.Value == "if"
 		v := node.Content[i*2+1]
-		if err := MutateYamlNode(v, mutations...); err != nil {
+		if err := innerMutateYamlNode(v, forceWrapScalar, mutations...); err != nil {
 			return err
 		}
 		i++
