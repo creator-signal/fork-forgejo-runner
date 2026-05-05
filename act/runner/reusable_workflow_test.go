@@ -48,7 +48,8 @@ func TestFinalizeReusableWorkflow_PrintsBannerSuccess(t *testing.T) {
 	mockLogger := NewMockFieldLogger(t)
 
 	bannerCalled := false
-	mockLogger.On("WithFields",
+	mockLogger.On(
+		"WithFields",
 		mock.MatchedBy(func(fields logrus.Fields) bool {
 			result, ok := fields["jobResult"].(string)
 			if !ok || result != "success" {
@@ -84,7 +85,8 @@ func TestFinalizeReusableWorkflow_PrintsBannerFailure(t *testing.T) {
 	mockLogger := NewMockFieldLogger(t)
 
 	bannerCalled := false
-	mockLogger.On("WithFields",
+	mockLogger.On(
+		"WithFields",
 		mock.MatchedBy(func(fields logrus.Fields) bool {
 			result, ok := fields["jobResult"].(string)
 			return ok && result == "failure"

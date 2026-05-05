@@ -33,7 +33,8 @@ func TestNewWorkflow(t *testing.T) {
 		func(ctx context.Context) error {
 			runcount++
 			return nil
-		})
+		},
+	)
 	assert.Nil(successWorkflow(ctx))
 	assert.Equal(2, runcount)
 }

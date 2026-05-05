@@ -521,7 +521,8 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	job = wf.Jobs["strategy-all"]
 	matrixes, err = job.GetMatrixes()
 	assert.NoError(t, err)
-	assert.Equal(t, matrixes,
+	assert.Equal(
+		t, matrixes,
 		[]map[string]any{
 			{"datacenter": "site-c", "node-version": "14.x", "site": "staging"},
 			{"datacenter": "site-c", "node-version": "16.x", "site": "staging"},
@@ -531,7 +532,8 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 			{"datacenter": "site-b", "node-version": "12.x", "site": "dev"},
 		},
 	)
-	assert.Equal(t, job.Matrix(),
+	assert.Equal(
+		t, job.Matrix(),
 		map[string][]any{
 			"datacenter": {"site-c", "site-d"},
 			"exclude": {
@@ -555,7 +557,8 @@ func TestReadWorkflow_Strategy(t *testing.T) {
 	matrixes, err = job.GetMatrixes()
 	assert.NoError(t, err)
 	assert.Equal(t, []map[string]any{}, matrixes)
-	assert.Equal(t,
+	assert.Equal(
+		t,
 		map[string][]any{
 			"datacenter":   {},
 			"node-version": {"14.x", "16.x"},

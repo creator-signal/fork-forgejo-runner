@@ -238,7 +238,8 @@ func printList(plan *model.Plan) error {
 	wfNameMaxWidth += 2
 	wfFileMaxWidth += 2
 
-	fmt.Printf("%*s%*s%*s%*s%*s%*s\n",
+	fmt.Printf(
+		"%*s%*s%*s%*s%*s%*s\n",
 		-stageMaxWidth, header.stage,
 		-jobIDMaxWidth, header.jobID,
 		-jobNameMaxWidth, header.jobName,
@@ -247,7 +248,8 @@ func printList(plan *model.Plan) error {
 		-eventsMaxWidth, header.events,
 	)
 	for _, line := range lineInfos {
-		fmt.Printf("%*s%*s%*s%*s%*s%*s\n",
+		fmt.Printf(
+			"%*s%*s%*s%*s%*s%*s\n",
 			-stageMaxWidth, line.stage,
 			-jobIDMaxWidth, line.jobID,
 			-jobNameMaxWidth, line.jobName,
