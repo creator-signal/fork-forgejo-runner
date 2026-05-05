@@ -1,0 +1,21 @@
+name: test
+jobs:
+  job1:
+    runs-on: linux
+    steps:
+      - run: uname -a
+    # no "if" on the inner job
+  job2:
+    runs-on: linux
+    steps:
+      - run: uname -a
+    needs: job1
+    # job2 uses a ${{ ... }} delimited if...
+    if: ${{ needs.job1.result == 'success' }}
+  job3:
+    runs-on: linux
+    steps:
+      - run: uname -a
+    # job3 doesn't ${{ ... }} delimit
+    if: needs.job1.result == 'success'
+    needs: [job1, job2]

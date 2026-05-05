@@ -186,6 +186,16 @@ func TestMutateYamlNode(t *testing.T) {
 			input:  "key: hello ${{ var.world }}\n",
 			output: "key: ${{ format('hello {0}', rewritten-var['world']) }}\n",
 		},
+		// `jobs.<job_id>.if` and `jobs.<job_id>.steps[*].if` in workflows have a special behaviour -- the `${{ ... }}`
+		// wrapper can be omitted.  `MutateYamlNode` implements this by automatically wrapping nodes with a key `if`.
+		{
+			input:  "if: ${{ var.world }}\n",
+			output: "if: ${{ rewritten-var['world'] }}\n",
+		},
+		{
+			input:  "if: var.world\n",
+			output: "if: ${{ rewritten-var['world'] }}\n",
+		},
 	}
 
 	vam := &VariableAccessMutator{
