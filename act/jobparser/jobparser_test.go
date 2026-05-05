@@ -73,6 +73,10 @@ func TestParse(t *testing.T) {
 			options: nil,
 		},
 		{
+			name:    "workflow_example_expr",
+			options: nil,
+		},
+		{
 			name:    "runs_on_forge_variables",
 			options: []ParseOption{WithGitContext(&model.GithubContext{RunID: "18"})},
 		},

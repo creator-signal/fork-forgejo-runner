@@ -1,4 +1,6 @@
 name: test
+env:
+  abc: url is ${{ forgejo.server_url }}
 jobs:
   reusable-1:
     name: reusable-1
