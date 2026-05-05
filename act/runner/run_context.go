@@ -375,7 +375,8 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 				return err
 			}
 
-			executors = append(executors,
+			executors = append(
+				executors,
 				rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 					Name: "workflow/lxc-helpers-lib.sh",
 					Mode: 0o755,

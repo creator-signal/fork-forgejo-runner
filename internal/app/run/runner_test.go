@@ -298,7 +298,8 @@ func TestRunnerCacheConfiguration(t *testing.T) {
 		"runner-name",
 		[]*labels.Label{labels.MustParse("ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm")},
 		forgejoClient,
-		cacheProxy)
+		cacheProxy,
+	)
 	require.NotNil(t, runner)
 
 	// Must set up cache for our test
@@ -530,7 +531,8 @@ func TestRunnerCacheStartupFailure(t *testing.T) {
 				"runner-name",
 				[]*labels.Label{labels.MustParse("ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm")},
 				forgejoClient,
-				cacheProxy)
+				cacheProxy,
+			)
 			require.NotNil(t, runner)
 
 			// Ensure that cacheProxy failed to start
@@ -618,7 +620,8 @@ func TestRunnerLXC(t *testing.T) {
 		"runner-name",
 		[]*labels.Label{labels.MustParse("lxc:lxc://debian:bookworm")},
 		forgejoClient,
-		nil)
+		nil,
+	)
 	require.NotNil(t, runner)
 
 	runMaybeWorkflow := func(ctx context.Context, cancel context.CancelFunc, yamlContent, eventName, ref, description string, success bool) {
@@ -912,7 +915,8 @@ func TestRunnerResources(t *testing.T) {
 			"runner-name",
 			[]*labels.Label{labels.MustParse("ubuntu-latest:docker://code.forgejo.org/oci/node:20-bookworm")},
 			forgejoClient,
-			nil)
+			nil,
+		)
 		require.NotNil(t, runner)
 
 		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
@@ -1086,7 +1090,8 @@ func TestRunnerContextsPopulated(t *testing.T) {
 			"runner-name",
 			[]*labels.Label{labels.MustParse("docker:docker://code.forgejo.org/oci/node:20-bookworm")},
 			forgejoClient,
-			nil)
+			nil,
+		)
 		require.NotNil(t, runner)
 
 		reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})

@@ -81,7 +81,8 @@ func TestFromRegistration(t *testing.T) {
 				config.Runner.File = file
 				return nil
 			},
-			FromRegistration)
+			FromRegistration,
+		)
 		require.NoError(t, err)
 
 		require.Len(t, config.Server.Connections, 1)
@@ -105,7 +106,8 @@ func TestFromRegistration(t *testing.T) {
 				}
 				return nil
 			},
-			FromRegistration)
+			FromRegistration,
+		)
 		assert.ErrorContains(t, err, "server connection conflict")
 	})
 
@@ -115,7 +117,8 @@ func TestFromRegistration(t *testing.T) {
 				config.Runner.File = "/non-existent-file.runner"
 				return nil
 			},
-			FromRegistration)
+			FromRegistration,
+		)
 		require.NoError(t, err)
 		assert.Len(t, config.Server.Connections, 0)
 	})

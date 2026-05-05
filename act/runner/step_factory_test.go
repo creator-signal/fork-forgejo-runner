@@ -61,7 +61,7 @@ func TestStepFactoryNewStep(t *testing.T) {
 
 			step, err := sf.newStep(tt.model, &RunContext{})
 
-			assert.True(t, tt.check((step)))
+			assert.True(t, tt.check(step))
 			assert.Nil(t, err)
 		})
 	}

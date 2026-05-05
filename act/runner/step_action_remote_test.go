@@ -145,9 +145,9 @@ func TestStepActionRemoteOK(t *testing.T) {
 				clonedAction = true
 				return wt, nil
 			}
-			defer (func() {
+			defer func() {
 				stepActionRemoteGitClone = origStepAtionRemoteGitClone
-			})()
+			}()
 
 			sar := &stepActionRemote{
 				RunContext: &RunContext{
@@ -242,9 +242,9 @@ func TestStepActionRemotePre(t *testing.T) {
 				clonedAction = true
 				return &UselessWorktree{}, nil
 			}
-			defer (func() {
+			defer func() {
 				stepActionRemoteGitClone = origStepAtionRemoteGitClone
-			})()
+			}()
 
 			sar := &stepActionRemote{
 				Step: tt.stepModel,
@@ -303,9 +303,9 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 				}
 				return &UselessWorktree{}, nil
 			}
-			defer (func() {
+			defer func() {
 				stepActionRemoteGitClone = origStepAtionRemoteGitClone
-			})()
+			}()
 
 			sar := &stepActionRemote{
 				Step: tt.stepModel,

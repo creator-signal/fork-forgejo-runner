@@ -13,8 +13,9 @@ WINDOWS_ARCHS ?= windows/amd64
 GO_FMT_FILES := $(shell find . -type f -name "*.go" ! -name "generated.*")
 GOFILES := $(shell find . -type f -name "*.go" -o -name "go.mod" ! -name "generated.*")
 
-MOCKERY_PACKAGE ?= github.com/vektra/mockery/v3@v3.7.0 # renovate: datasource=go
+GOFUMPT_PACKAGE ?= mvdan.cc/gofumpt@v0.10.0 # renovate: datasource=go
 GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 # renovate: datasource=go
+MOCKERY_PACKAGE ?= github.com/vektra/mockery/v3@v3.7.0 # renovate: datasource=go
 
 DOCKER_IMAGE ?= gitea/act_runner
 DOCKER_TAG ?= nightly
@@ -78,9 +79,6 @@ lint:
 	$(GO) run $(GOLANGCI_LINT_PACKAGE) run $(GOLANGCI_LINT_ARGS) --fix
 
 fmt:
-	@hash gofumpt > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
-		$(GO) install mvdan.cc/gofumpt@latest; \
-	fi
 	$(GOFMT) -w $(GO_FMT_FILES)
 
 .PHONY: go-check
@@ -95,9 +93,6 @@ go-check:
 
 .PHONY: fmt-check
 fmt-check:
-	@hash gofumpt > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
-		$(GO) install mvdan.cc/gofumpt@latest; \
-	fi
 	@diff=$$($(GOFMT) -d $(GO_FMT_FILES)); \
 	if [ -n "$$diff" ]; then \
 		echo "Please run 'make fmt' and commit the result:"; \
@@ -132,6 +127,7 @@ $(EXECUTABLE): $(GOFILES) act/schema/action_schema.json act/schema/workflow_sche
 .PHONY: deps-tools
 deps-tools:
 	$(GO) install $(MOCKERY_PACKAGE)
+	$(GO) install $(GOFUMPT_PACKAGE)
 
 $(DIST_DIRS):
 	mkdir -p $(DIST_DIRS)

@@ -183,7 +183,8 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			Finally(info.interpolateOutputs()).
 			Finally(setJobResults).
 			Finally(cleanupJob).
-			Finally(info.closeContainer()))
+			Finally(info.closeContainer()),
+	)
 }
 
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {

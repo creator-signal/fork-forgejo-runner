@@ -240,9 +240,10 @@ func (c *cachesImpl) gcCache() {
 
 	// Remove the caches which are not completed for a while, they are most likely to be broken.
 	var caches []*Cache
-	if err := db.Find(&caches, bolthold.
-		Where("UsedAt").Lt(time.Now().Add(-keepTemp).Unix()).
-		And("Complete").Eq(false),
+	if err := db.Find(
+		&caches, bolthold.
+			Where("UsedAt").Lt(time.Now().Add(-keepTemp).Unix()).
+			And("Complete").Eq(false),
 	); err != nil {
 		fatal(c.logger, fmt.Errorf("gc caches not completed: %v", err))
 	} else {
@@ -258,8 +259,9 @@ func (c *cachesImpl) gcCache() {
 
 	// Remove the old caches which have not been used recently.
 	caches = caches[:0]
-	if err := db.Find(&caches, bolthold.
-		Where("UsedAt").Lt(time.Now().Add(-keepUnused).Unix()),
+	if err := db.Find(
+		&caches, bolthold.
+			Where("UsedAt").Lt(time.Now().Add(-keepUnused).Unix()),
 	); err != nil {
 		fatal(c.logger, fmt.Errorf("gc caches old not used: %v", err))
 	} else {
@@ -275,8 +277,9 @@ func (c *cachesImpl) gcCache() {
 
 	// Remove the old caches which are too old.
 	caches = caches[:0]
-	if err := db.Find(&caches, bolthold.
-		Where("CreatedAt").Lt(time.Now().Add(-keepUsed).Unix()),
+	if err := db.Find(
+		&caches, bolthold.
+			Where("CreatedAt").Lt(time.Now().Add(-keepUsed).Unix()),
 	); err != nil {
 		fatal(c.logger, fmt.Errorf("gc caches too old: %v", err))
 	} else {

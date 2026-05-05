@@ -130,7 +130,8 @@ func TestPoller_Runner(t *testing.T) {
 					Runner: configRunner,
 				},
 				[]client.Client{mockClient},
-				[]run.RunnerInterface{runner})
+				[]run.RunnerInterface{runner},
+			)
 			go p.Poll()
 			assert.Equal(t, "runner starts", <-runnerLog)
 			var ctx context.Context
