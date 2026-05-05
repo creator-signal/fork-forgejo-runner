@@ -125,6 +125,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			jobParserJob:                     jobParserJobs[i],
 			workflowJob:                      origin.GetJob(jobName),
 			workflowLevelEnableOpenIDConnect: origin.EnableOpenIDConnect,
+			workflowLevelEnv:                 workflow.Env,
 		}
 	}
 
@@ -389,6 +390,7 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 				jobNeeds:         jobNeeds,
 				overrideOnClause: bothJobs.overrideOnClause,
 
+				workflowLevelEnv:                 bothJobs.workflowLevelEnv,
 				workflowLevelEnableOpenIDConnect: bothJobs.workflowLevelEnableOpenIDConnect,
 			})
 		}
