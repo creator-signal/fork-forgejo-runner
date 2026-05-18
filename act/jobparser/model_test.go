@@ -249,6 +249,10 @@ func TestParseRawOn(t *testing.T) {
 			err:   "key \"schedule\"[0].\"timezone\" had unexpected type int; a string was expected but was 123",
 		},
 		{
+			input: "on:\n  schedule:\n    - { cron: '5 4 * * MON,???' }",
+			err:   `invalid cron expression "5 4 * * MON,???" in "schedule"[0]."cron":`,
+		},
+		{
 			input: `
 on:
   workflow_dispatch:

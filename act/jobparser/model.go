@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"github.com/gdgvda/cron"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -368,10 +369,16 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 						if !slices.Contains(allowedKeys, strings.ToLower(kk)) {
 							return nil, fmt.Errorf("key %q[%d] had unexpected key %q; one of %q was expected", k, i, kk, allowedKeys)
 						}
-						var ok bool
-						if schedules[i][kk], ok = vvv.(string); !ok {
+						value, ok := vvv.(string)
+						if !ok {
 							return nil, fmt.Errorf("key %q[%d].%q had unexpected type %[4]T; a string was expected but was %#[4]v", k, i, kk, vvv)
 						}
+						if kk == "cron" {
+							if err = validateCronSchedule(value); err != nil {
+								return nil, fmt.Errorf("invalid cron expression %q in %q[%d].%q: %w", value, k, i, kk, err)
+							}
+						}
+						schedules[i][kk] = value
 					}
 				}
 				res = append(res, &Event{
@@ -386,6 +393,16 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 	default:
 		return nil, fmt.Errorf("unexpected yaml node in `on`: %v", rawOn.Kind)
 	}
+}
+
+func validateCronSchedule(expr string) error {
+	parser, err := cron.NewDefaultParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	if err != nil {
+		return fmt.Errorf("unable to create cron parser: %w", err)
+	}
+
+	_, err = parser.Parse(expr)
+	return err
 }
 
 func isInvalidOnType(onType, subKey string) error {
