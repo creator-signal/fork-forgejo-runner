@@ -229,6 +229,10 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Update apt cache
+        run: |
+          apt-get update
+
       # The Debian container produced by lxc-helpers.sh does not match the images provided by the LXC project
       # (https://images.linuxcontainers.org/) and has some problems. systemd is degraded (see `systemctl --failed`) and
       # only systemd-journald.service is active. For running Podman with an unprivileged user, we need at least
