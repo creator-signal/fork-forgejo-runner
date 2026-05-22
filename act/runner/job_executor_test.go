@@ -2,10 +2,10 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
-	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/skip"
 )
 
@@ -112,6 +113,7 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 		steps         []*model.Step
 		preSteps      []bool
 		postSteps     []bool
+		failingStep   string
 		executedSteps []string
 		result        string
 		hasError      bool
@@ -148,8 +150,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			steps: []*model.Step{{
 				ID: "1",
 			}},
-			preSteps:  []bool{false},
-			postSteps: []bool{false},
+			preSteps:    []bool{false},
+			postSteps:   []bool{false},
+			failingStep: "step1",
 			executedSteps: []string{
 				"startContainer",
 				"step1",
@@ -159,7 +162,7 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				"closeContainer",
 			},
 			result:   "failure",
-			hasError: true,
+			hasError: false,
 		},
 		{
 			name: "stepWithPre",
@@ -250,10 +253,29 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			result:   "success",
 			hasError: false,
 		},
+		{
+			name: "failureInStartContainer",
+			steps: []*model.Step{{
+				ID: "1",
+			}},
+			preSteps:    []bool{false},
+			postSteps:   []bool{false},
+			failingStep: "startContainer",
+			executedSteps: []string{
+				"startContainer",
+				"stopContainer",
+				"closeContainer",
+			},
+			result:   "success",
+			hasError: true,
+		},
 	}
 
-	contains := func(needle string, haystack []string) bool {
-		return slices.Contains(haystack, needle)
+	injectError := func(stepName, failingStep string) error {
+		if stepName == failingStep {
+			return errors.New("injected error")
+		}
+		return nil
 	}
 
 	for _, tt := range table {
@@ -302,7 +324,7 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			if len(tt.steps) > 0 {
 				jim.On("startContainer").Return(func(ctx context.Context) error {
 					executorOrder = append(executorOrder, "startContainer")
-					return nil
+					return injectError("startContainer", tt.failingStep)
 				})
 			}
 
@@ -315,22 +337,19 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 					if tt.preSteps[i] {
 						executorOrder = append(executorOrder, "pre"+stepModel.ID)
 					}
-					return nil
+					return injectError("pre"+stepModel.ID, tt.failingStep)
 				})
 
 				sm.On("main").Return(func(ctx context.Context) error {
 					executorOrder = append(executorOrder, "step"+stepModel.ID)
-					if tt.hasError {
-						return fmt.Errorf("error")
-					}
-					return nil
+					return injectError("step"+stepModel.ID, tt.failingStep)
 				})
 
 				sm.On("post").Return(func(ctx context.Context) error {
 					if tt.postSteps[i] {
 						executorOrder = append(executorOrder, "post"+stepModel.ID)
 					}
-					return nil
+					return injectError("post"+stepModel.ID, tt.failingStep)
 				})
 
 				defer sm.AssertExpectations(t)
@@ -341,31 +360,34 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 
 				jim.On("interpolateOutputs").Return(func(ctx context.Context) error {
 					executorOrder = append(executorOrder, "interpolateOutputs")
-					return nil
+					return injectError("interpolateOutputs", tt.failingStep)
 				})
 
-				if contains("stopContainer", tt.executedSteps) {
-					jim.On("stopContainer").Return(func(ctx context.Context) error {
-						executorOrder = append(executorOrder, "stopContainer")
-						return nil
-					})
-				}
+				jim.On("stopContainer").Return(func(ctx context.Context) error {
+					executorOrder = append(executorOrder, "stopContainer")
+					return injectError("stopContainer", tt.failingStep)
+				})
 
 				jim.On("result", tt.result)
 
 				jim.On("closeContainer").Return(func(ctx context.Context) error {
 					executorOrder = append(executorOrder, "closeContainer")
-					return nil
+					return injectError("closeContainer", tt.failingStep)
 				})
 			}
 
 			executor := newJobExecutor(jim, sfm, rc)
 			err := executor(ctx)
-			assert.Nil(t, err)
-			assert.Equal(t, tt.executedSteps, executorOrder)
+			if tt.hasError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 
-			jim.AssertExpectations(t)
-			sfm.AssertExpectations(t)
+				jim.AssertExpectations(t)
+				sfm.AssertExpectations(t)
+			}
+
+			assert.Equal(t, tt.executedSteps, executorOrder)
 
 			fmt.Println("::endgroup::")
 		})

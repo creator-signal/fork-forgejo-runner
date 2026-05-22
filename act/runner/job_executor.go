@@ -166,10 +166,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 	pipeline = append(pipeline, preSteps...)
 	pipeline = append(pipeline, steps...)
 
-	return common.NewPipelineExecutor(
-		setupWorkflowLevelEnv, // allows workflow-level env to be used in the job container's definition
-		info.startContainer(),
-		common.NewPipelineExecutor(pipeline...).
+	return common.NewPipelineExecutor(setupWorkflowLevelEnv).
+		Then(info.startContainer()).
+		Then(common.NewPipelineExecutor(pipeline...).
 			Finally(func(ctx context.Context) error { //nolint:contextcheck
 				var cancel context.CancelFunc
 				if ctx.Err() == context.Canceled {
@@ -181,10 +180,9 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 				return postExecutor(ctx)
 			}).
 			Finally(info.interpolateOutputs()).
-			Finally(setJobResults).
-			Finally(cleanupJob).
-			Finally(info.closeContainer()),
-	)
+			Finally(setJobResults)).
+		Finally(cleanupJob).
+		Finally(info.closeContainer())
 }
 
 func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success bool) {
