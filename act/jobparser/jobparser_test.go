@@ -935,3 +935,82 @@ jobs:
 		}, workflowLevel))
 	})
 }
+
+func TestPermissions(t *testing.T) {
+	workflowWithoutPermission := `
+on:
+  pull_request:
+jobs:
+  job:
+    runs-on: ubuntu-oldest
+    steps: []
+`
+	workflowWithPermissionScalar := `
+on:
+  pull_request:
+permissions: read-all
+jobs:
+  job:
+    runs-on: ubuntu-oldest
+    steps: []
+`
+	workflowWithPermissionObject := `
+on:
+  pull_request:
+permissions:
+  actions: read
+jobs:
+  job:
+    runs-on: ubuntu-oldest
+    steps: []
+`
+	jobWithPermissionScalar := `
+on:
+  pull_request:
+jobs:
+  job:
+    permissions: read-all
+    runs-on: ubuntu-oldest
+    steps: []
+`
+	jobWithPermissionObject := `
+on:
+  pull_request:
+jobs:
+  job:
+    permissions:
+      actions: read
+    runs-on: ubuntu-oldest
+    steps: []
+`
+
+	swf, err := Parse([]byte(workflowWithoutPermission), true)
+	require.NoError(t, err)
+	require.NotNil(t, swf)
+	require.Len(t, swf, 1)
+	assert.False(t, swf[0].HasPermissions())
+
+	swf, err = Parse([]byte(workflowWithPermissionScalar), true)
+	require.NoError(t, err)
+	require.NotNil(t, swf)
+	require.Len(t, swf, 1)
+	assert.True(t, swf[0].HasPermissions())
+
+	swf, err = Parse([]byte(workflowWithPermissionObject), true)
+	require.NoError(t, err)
+	require.NotNil(t, swf)
+	require.Len(t, swf, 1)
+	assert.True(t, swf[0].HasPermissions())
+
+	swf, err = Parse([]byte(jobWithPermissionScalar), true)
+	require.NoError(t, err)
+	require.NotNil(t, swf)
+	require.Len(t, swf, 1)
+	assert.True(t, swf[0].HasPermissions())
+
+	swf, err = Parse([]byte(jobWithPermissionObject), true)
+	require.NoError(t, err)
+	require.NotNil(t, swf)
+	require.Len(t, swf, 1)
+	assert.True(t, swf[0].HasPermissions())
+}
