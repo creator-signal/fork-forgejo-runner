@@ -58,7 +58,7 @@ jobs:
       - uses: https://data.forgejo.org/docker/setup-qemu-action@v3
       - uses: https://data.forgejo.org/docker/setup-buildx-action@v3
         with:
-          version: v0.30.0 # renovate: datasource=github-releases depName=buildx packageName=docker/buildx
+          version: v0.34.1 # renovate: datasource=github-releases depName=buildx packageName=docker/buildx
           # insecure / http connections to the registry are allowed
           config-inline: |
             [registry."${{ steps.registry.outputs.host-port }}"]
