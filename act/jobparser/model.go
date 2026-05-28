@@ -19,6 +19,7 @@ type SingleWorkflow struct {
 	RawJobs             yaml.Node         `yaml:"jobs,omitempty"`
 	Defaults            Defaults          `yaml:"defaults,omitempty"`
 	EnableOpenIDConnect bool              `yaml:"enable-openid-connect,omitempty"`
+	Permissions         yaml.Node         `yaml:"permissions,omitempty"`
 
 	// IncompleteMatrix flag indicates that it wasn't possible to evaluate the `strategy.matrix` section of the job
 	// because it references a job output that is currently undefined.  The workflow that this job came from will need
@@ -121,6 +122,16 @@ func (w *SingleWorkflow) Marshal() ([]byte, error) {
 	return yaml.Marshal(w)
 }
 
+// Forgejo & Forgejo Runner don't support the `permissions:` tag in a workflow or job, but jobparser provides the
+// capability to detect its presence so that Forgejo users can be warned that it is ineffective to define it in Forgejo.
+func (w *SingleWorkflow) HasPermissions() bool {
+	if w.Permissions.Kind != 0 {
+		return true
+	}
+	_, j := w.Job()
+	return j.Permissions.Kind != 0
+}
+
 type Job struct {
 	Name           string                    `yaml:"name,omitempty"`
 	RawNeeds       yaml.Node                 `yaml:"needs,omitempty"`
@@ -138,6 +149,7 @@ type Job struct {
 	With           map[string]any            `yaml:"with,omitempty"`
 	RawSecrets     yaml.Node                 `yaml:"secrets,omitempty"`
 	RawConcurrency *model.RawConcurrency     `yaml:"concurrency,omitempty"`
+	Permissions    yaml.Node                 `yaml:"permissions,omitempty"`
 }
 
 func (j *Job) Clone() *Job {
@@ -161,6 +173,7 @@ func (j *Job) Clone() *Job {
 		With:           j.With,
 		RawSecrets:     j.RawSecrets,
 		RawConcurrency: j.RawConcurrency,
+		Permissions:    j.Permissions,
 	}
 }
 

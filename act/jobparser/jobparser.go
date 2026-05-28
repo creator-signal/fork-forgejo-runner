@@ -207,6 +207,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				WorkflowCallID:     bothJobs.workflowCallID,
 				WorkflowCallParent: bothJobs.workflowCallParent,
 			},
+			Permissions: workflow.Permissions,
 		}
 		if bothJobs.overrideOnClause != nil {
 			swf.RawOn = *bothJobs.overrideOnClause
