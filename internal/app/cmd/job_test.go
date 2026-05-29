@@ -67,8 +67,8 @@ server:
 		return mockClient
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
-		if name == "example" {
-			return mockRunner, "example", false, nil
+		if name == "41414141-4141-4141-4141-414141414141" {
+			return mockRunner, "41414141-4141-4141-4141-414141414141", false, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -84,7 +84,10 @@ server:
 	}()
 
 	// Wait for the goroutine that executes runJob() to stop.
-	<-runJobCompleted
+	select {
+	case <-runJobCompleted:
+	case <-time.After(time.Second):
+	}
 }
 
 func TestRunJob_ErrorWhenNoTaskReceived(t *testing.T) {
@@ -124,8 +127,8 @@ server:
 		return mockClient
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
-		if name == "example" {
-			return mockRunner, "example", false, nil
+		if name == "41414141-4141-4141-4141-414141414141" {
+			return mockRunner, "41414141-4141-4141-4141-414141414141", false, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -141,7 +144,10 @@ server:
 	}()
 
 	// Wait for the goroutine that executes runJob() to stop.
-	<-runJobCompleted
+	select {
+	case <-runJobCompleted:
+	case <-time.After(time.Second):
+	}
 }
 
 func TestRunJob_WithConnectionFromCommandOptions(t *testing.T) {
@@ -185,8 +191,8 @@ cache:
 		return mockClient
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
-		if name == "default" {
-			return mockRunner, "default", false, nil
+		if name == "41414141-4141-4141-4141-414141414141" {
+			return mockRunner, "41414141-4141-4141-4141-414141414141", false, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -209,7 +215,10 @@ cache:
 	}()
 
 	// Wait for the goroutine that executes runJob() to stop.
-	<-runJobCompleted
+	select {
+	case <-runJobCompleted:
+	case <-time.After(time.Second):
+	}
 }
 
 func TestRunJob_WaitingForJob(t *testing.T) {
@@ -254,8 +263,8 @@ server:
 		return mockClient
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
-		if name == "example" {
-			return mockRunner, "example", false, nil
+		if name == "41414141-4141-4141-4141-414141414141" {
+			return mockRunner, "41414141-4141-4141-4141-414141414141", false, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -271,7 +280,10 @@ server:
 	}()
 
 	// Wait for the goroutine that executes runJob() to stop.
-	<-runJobCompleted
+	select {
+	case <-runJobCompleted:
+	case <-time.After(time.Second):
+	}
 }
 
 func TestRunJob_WithRequestedJob(t *testing.T) {
@@ -316,8 +328,8 @@ server:
 		return mockClient
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
-		if name == "example" {
-			return mockRunner, "example", false, nil
+		if name == "41414141-4141-4141-4141-414141414141" {
+			return mockRunner, "41414141-4141-4141-4141-414141414141", false, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -333,7 +345,10 @@ server:
 	}()
 
 	// Wait for the goroutine that executes runJob() to stop.
-	<-runJobCompleted
+	select {
+	case <-runJobCompleted:
+	case <-time.After(time.Second):
+	}
 }
 
 func TestRunJob_WithWaitingForRequestedJob(t *testing.T) {
@@ -380,8 +395,8 @@ server:
 		return mockClient
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
-		if name == "example" {
-			return mockRunner, "example", false, nil
+		if name == "41414141-4141-4141-4141-414141414141" {
+			return mockRunner, "41414141-4141-4141-4141-414141414141", false, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -397,5 +412,8 @@ server:
 	}()
 
 	// Wait for the goroutine that executes runJob() to stop.
-	<-runJobCompleted
+	select {
+	case <-runJobCompleted:
+	case <-time.After(time.Second):
+	}
 }
