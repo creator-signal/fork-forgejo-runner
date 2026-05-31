@@ -6,7 +6,7 @@ toolchain go1.25.10
 
 require (
 	code.forgejo.org/forgejo/actions-proto v0.7.0
-	connectrpc.com/connect v1.19.2
+	connectrpc.com/connect v1.20.0
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver v1.5.0
 	github.com/avast/retry-go/v4 v4.7.0
