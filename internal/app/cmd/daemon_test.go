@@ -23,6 +23,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/powerman/fileuri"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -204,6 +205,9 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 	// - clients and runners are passed into `createPoller` with the right index-by-index association between the two
 	// objects
 
+	uuid1 := uuid.MustParse("57f13915-774d-4c85-9e81-64ffc931ce3f")
+	uuid2 := uuid.MustParse("da75e510-9011-494c-bae6-1cfb4f1936c4")
+
 	serverURL1, err := url.Parse("https://example.com/forgejo1")
 	require.NoError(t, err)
 	serverURL2, err := url.Parse("https://example.com/forgejo2")
@@ -227,10 +231,12 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 			Server: config.Server{
 				Connections: map[string]*config.Connection{
 					"forgejo1": {
-						URL: serverURL1,
+						URL:  serverURL1,
+						UUID: uuid1,
 					},
 					"forgejo2": {
-						URL: serverURL2,
+						URL:  serverURL2,
+						UUID: uuid2,
 					},
 				},
 			},
@@ -252,10 +258,10 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
 		switch name {
-		case "forgejo1":
-			return mockRunner1, "forgejo1", false, nil
-		case "forgejo2":
-			return mockRunner2, "forgejo2", false, nil
+		case uuid1.String():
+			return mockRunner1, uuid1.String(), false, nil
+		case uuid2.String():
+			return mockRunner2, uuid2.String(), false, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -298,7 +304,10 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 	}()
 
 	// Wait until runDaemon reaches poller.Poll(), and verify createPoller was run where our test assertions are.
-	<-pollBegunChannel
+	select {
+	case <-pollBegunChannel:
+	case <-time.After(time.Second):
+	}
 	require.True(t, createPollerInvoked)
 
 	// Shutdown the daemon by killing the signal context
@@ -309,6 +318,9 @@ func TestRunDaemon_MultipleServers(t *testing.T) {
 }
 
 func TestRunDaemon_MultipleServersQuitsIfOneIsEphemeral(t *testing.T) {
+	uuid1 := uuid.MustParse("a28d5df1-299e-439c-b992-2a7919b80350")
+	uuid2 := uuid.MustParse("4e2efda5-601e-4950-9fb8-005bb7fd251e")
+
 	serverURL1, err := url.Parse("https://example.com/forgejo1")
 	require.NoError(t, err)
 	serverURL2, err := url.Parse("https://example.com/forgejo2")
@@ -328,10 +340,12 @@ func TestRunDaemon_MultipleServersQuitsIfOneIsEphemeral(t *testing.T) {
 			Server: config.Server{
 				Connections: map[string]*config.Connection{
 					"forgejo1": {
-						URL: serverURL1,
+						URL:  serverURL1,
+						UUID: uuid1,
 					},
 					"forgejo2": {
-						URL: serverURL2,
+						URL:  serverURL2,
+						UUID: uuid2,
 					},
 				},
 			},
@@ -349,10 +363,10 @@ func TestRunDaemon_MultipleServersQuitsIfOneIsEphemeral(t *testing.T) {
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
 		switch name {
-		case "forgejo1":
-			return mockRunner1, "forgejo1", false, nil
-		case "forgejo2":
-			return mockRunner2, "forgejo2", true, nil
+		case uuid1.String():
+			return mockRunner1, uuid1.String(), false, nil
+		case uuid2.String():
+			return mockRunner2, uuid2.String(), true, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -393,8 +407,8 @@ func TestRunDaemon_WithConnectionFromCommandOptions(t *testing.T) {
 		return mockClient
 	})()
 	defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
-		if name == "default" {
-			return mockRunner, "default", false, nil
+		if name == "41414141-4141-4141-4141-414141414141" {
+			return mockRunner, "41414141-4141-4141-4141-414141414141", false, nil
 		}
 		t.Fatalf("unexpected connection name: %q", name)
 		return nil, "", false, nil
@@ -437,7 +451,10 @@ func TestRunDaemon_WithConnectionFromCommandOptions(t *testing.T) {
 	}()
 
 	// Wait until runDaemon reaches poller.Poll(), and verify createPoller was run where our test assertions are.
-	<-pollBegunChannel
+	select {
+	case <-pollBegunChannel:
+	case <-time.After(time.Second):
+	}
 	require.True(t, createPollerInvoked)
 
 	// Shutdown the daemon by killing the signal context.

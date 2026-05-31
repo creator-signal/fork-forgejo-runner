@@ -76,7 +76,7 @@ func runDaemon(signalContext context.Context, configFile *string, args *daemonAr
 		cli := createClient(cfg, conn)
 		clients = append(clients, cli)
 
-		runner, _, ephemeral, err := createRunner(ctx, name, cfg, cli, conn.Labels, cacheProxy)
+		runner, _, ephemeral, err := createRunner(ctx, conn.UUID.String(), cfg, cli, conn.Labels, cacheProxy)
 		if err != nil {
 			return err
 		}

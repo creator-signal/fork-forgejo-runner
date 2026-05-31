@@ -51,10 +51,8 @@ func runJob(ctx context.Context, configFile *string, args *runJobArgs) error {
 		return fmt.Errorf("one-job is only supported with a single connection, but %d connections are configured", len(cfg.Server.Connections))
 	}
 
-	var connName string
 	var conn *config.Connection
-	for name, c := range cfg.Server.Connections {
-		connName = name
+	for _, c := range cfg.Server.Connections {
 		conn = c
 
 		// We always take the first (and only) connection.
@@ -83,7 +81,7 @@ func runJob(ctx context.Context, configFile *string, args *runJobArgs) error {
 	}
 
 	client := createClient(cfg, conn)
-	runner, _, _, err := createRunner(ctx, connName, cfg, client, conn.Labels, cacheProxy)
+	runner, _, _, err := createRunner(ctx, conn.UUID.String(), cfg, client, conn.Labels, cacheProxy)
 	if err != nil {
 		return err
 	}
