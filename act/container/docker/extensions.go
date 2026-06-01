@@ -1,4 +1,4 @@
-package container
+package docker
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 type LinuxContainerEnvironmentExtensions struct {
 	toolCache string
+	endpoint  Endpoint
 }
 
 // Resolves the equivalent host path inside the container
@@ -87,7 +88,7 @@ func (*LinuxContainerEnvironmentExtensions) JoinPathVariable(paths ...string) st
 func (l *LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context) map[string]any {
 	return map[string]any{
 		"os":         "Linux",
-		"arch":       RunnerArch(ctx),
+		"arch":       l.endpoint.RunnerArch(),
 		"temp":       "/tmp",
 		"tool_cache": l.toolCache,
 	}

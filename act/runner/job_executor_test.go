@@ -12,6 +12,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/container"
+	"code.forgejo.org/forgejo/runner/v12/act/container/docker"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -91,11 +92,20 @@ func (jim *jobInfoMock) result(result string) {
 
 type jobContainerMock struct {
 	container.Container
-	container.LinuxContainerEnvironmentExtensions
+	docker.LinuxContainerEnvironmentExtensions
 }
 
 func (jcm *jobContainerMock) ReplaceLogWriter(_, _ io.Writer) (io.Writer, io.Writer) {
 	return nil, nil
+}
+
+func (jcm *jobContainerMock) GetRunnerContext(_ context.Context) map[string]any {
+	return map[string]any{
+		"os":         "Linux",
+		"arch":       "X64",
+		"temp":       "/tmp",
+		"tool_cache": "",
+	}
 }
 
 type stepFactoryMock struct {
