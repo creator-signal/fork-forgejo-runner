@@ -520,6 +520,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	xe := docker.NewExecutionEnvironment(ep)
 
 	username, password, err := rc.handleCredentials(ctx)
 	if err != nil {
@@ -631,7 +632,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 			return fmt.Errorf("unable to interpolate options: %w", err)
 		}
 
-		c := docker.NewContainer(ep, &container.NewContainerInput{
+		c := xe.NewContainer(&container.NewContainerInput{
 			Name:            createContainerName(rc.jobContainerName(), serviceID),
 			Image:           interpolatedImage,
 			Username:        username,
@@ -712,7 +713,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		return fmt.Errorf("could not determine path of tool cache: %w", err)
 	}
 
-	rc.JobContainer = docker.NewContainer(ep, &container.NewContainerInput{
+	rc.JobContainer = xe.NewContainer(&container.NewContainerInput{
 		Cmd:             nil,
 		Entrypoint:      entrypoint,
 		Init:            enableInit,

@@ -20,13 +20,13 @@ func TestStepDockerMain(t *testing.T) {
 	var input *container.NewContainerInput
 
 	// mock the new container call
-	origContainerNewContainer := ContainerNewContainer
-	ContainerNewContainer = func(_ docker.Endpoint, containerInput *container.NewContainerInput) container.ExecutionsEnvironment {
+	origNewContainer := docker.NewContainer
+	docker.NewContainer = func(_ docker.Endpoint, containerInput *container.NewContainerInput) container.ExecutionsEnvironment {
 		input = containerInput
 		return cm
 	}
 	defer func() {
-		ContainerNewContainer = origContainerNewContainer
+		docker.NewContainer = origNewContainer
 	}()
 
 	ctx := t.Context()
@@ -124,13 +124,13 @@ func TestStepDockerPrePost(t *testing.T) {
 func TestStepDockerNetworkConfiguration(t *testing.T) {
 	var input *container.NewContainerInput
 
-	origContainerNewContainer := ContainerNewContainer
-	ContainerNewContainer = func(_ docker.Endpoint, containerInput *container.NewContainerInput) container.ExecutionsEnvironment {
+	origNewContainer := docker.NewContainer
+	docker.NewContainer = func(_ docker.Endpoint, containerInput *container.NewContainerInput) container.ExecutionsEnvironment {
 		input = containerInput
 		return &containerMock{}
 	}
 	defer func() {
-		ContainerNewContainer = origContainerNewContainer
+		docker.NewContainer = origNewContainer
 	}()
 
 	ctx := t.Context()
@@ -160,7 +160,7 @@ func TestStepDockerNetworkConfiguration(t *testing.T) {
 	}
 
 	// Call newStepContainer directly to test network configuration
-	_, err := sd.newStepContainer(ctx, fakeEndpoint{}, "alpine:latest", nil, nil)
+	_, err := sd.newStepContainer(ctx, docker.NewExecutionEnvironment(fakeEndpoint{}), "alpine:latest", nil, nil)
 	require.NoError(t, err)
 
 	// Verify network configuration
