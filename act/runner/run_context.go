@@ -27,8 +27,8 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/container/docker"
 	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/client"
 	"github.com/opencontainers/selinux/go-selinux"
 )
 
@@ -690,7 +690,7 @@ func (rc *RunContext) startJobContainer() common.Executor {
 		if err != nil {
 			return err
 		}
-		networkConfig := network.CreateOptions{
+		networkConfig := client.NetworkCreateOptions{
 			Driver:     "bridge",
 			Scope:      "local",
 			EnableIPv6: &rc.Config.ContainerNetworkEnableIPv6,

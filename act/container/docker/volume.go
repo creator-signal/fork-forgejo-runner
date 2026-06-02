@@ -9,20 +9,19 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"github.com/avast/retry-go/v4"
 	cerrdefs "github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/volume"
+	"github.com/moby/moby/client"
 )
 
 func NewDockerVolumesRemoveExecutor(ep Endpoint, volumeNames []string) common.Executor {
 	return func(ctx context.Context) error {
 		cli := ep.Client()
 
-		list, err := cli.VolumeList(ctx, volume.ListOptions{Filters: filters.NewArgs()})
+		listResult, err := cli.VolumeList(ctx, client.VolumeListOptions{})
 		if err != nil {
 			return err
 		}
 
-		for _, vol := range list.Volumes {
+		for _, vol := range listResult.Items {
 			if slices.Contains(volumeNames, vol.Name) {
 				if err := removeExecutor(ep, vol.Name)(ctx); err != nil {
 					return err
@@ -45,11 +44,10 @@ func removeExecutor(ep Endpoint, volume string) common.Executor {
 
 		return retry.Do(
 			func() error {
-				force := false
-				err := ep.Client().VolumeRemove(ctx, volume, force)
-				if err != nil {
+				removeOpts := client.VolumeRemoveOptions{Force: false}
+				if _, err := ep.Client().VolumeRemove(ctx, volume, removeOpts); err != nil {
 					if cerrdefs.IsNotFound(err) {
-						logger.Debugf("volume %s not found, considering this as a success", volume)
+						logger.Debugf("volume %q not found, considering this as a success", volume)
 						return nil
 					}
 					return err
@@ -58,7 +56,7 @@ func removeExecutor(ep Endpoint, volume string) common.Executor {
 			},
 			retry.Context(ctx),
 			retry.OnRetry(func(n uint, err error) {
-				logger.Warnf("failed to remove docker volume %s (retry #%d): %s\n", volume, n, err)
+				logger.Warnf("failed to remove docker volume %q (retry #%d): %s\n", volume, n, err)
 			}),
 		)
 	}

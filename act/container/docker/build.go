@@ -8,12 +8,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/api/types/build"
+	"github.com/moby/moby/client"
 
 	"github.com/moby/go-archive"
 	"github.com/moby/go-archive/compression"
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 )
@@ -35,14 +36,21 @@ func NewDockerBuildExecutor(ep Endpoint, input NewDockerBuildExecutorInput) comm
 
 		logger.Debugf("Building image from '%v'", input.ContextDir)
 
-		tags := []string{input.ImageTag}
-		options := build.ImageBuildOptions{
-			Tags:        tags,
+		options := client.ImageBuildOptions{
+			Tags:        []string{input.ImageTag},
 			Remove:      true,
-			Platform:    input.Platform,
+			Platforms:   []ocispec.Platform{},
 			AuthConfigs: LoadDockerAuthConfigs(ctx),
 			Dockerfile:  input.Dockerfile,
 		}
+		if input.Platform != "" {
+			platSpec, err := parsePlatform(input.Platform)
+			if err != nil {
+				return err
+			}
+			options.Platforms = append(options.Platforms, platSpec)
+		}
+
 		var (
 			buildContext io.ReadCloser
 			err          error
@@ -58,7 +66,9 @@ func NewDockerBuildExecutor(ep Endpoint, input NewDockerBuildExecutorInput) comm
 
 		defer buildContext.Close()
 
-		logger.Debugf("Creating image from context dir '%s' with tag '%s' and platform '%s'", input.ContextDir, input.ImageTag, input.Platform)
+		logger.Debugf("Creating image from context dir %q with tag %q and platform %q",
+			input.ContextDir, input.ImageTag, input.Platform)
+
 		resp, err := cli.ImageBuild(ctx, buildContext, options)
 
 		err = logDockerResponse(logger, resp.Body, err != nil)

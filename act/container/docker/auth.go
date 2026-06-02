@@ -9,7 +9,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/credentials"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 )
 
 func LoadDockerAuthConfig(ctx context.Context, image string) (registry.AuthConfig, error) {

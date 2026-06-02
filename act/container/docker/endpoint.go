@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/docker/cli/cli/connhelper"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 )
 
 type endpoint struct {
@@ -36,15 +36,15 @@ func NewEndpoint(ctx context.Context, dockerHost string) (Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	info, err := cli.Info(ctx)
+	infoResult, err := cli.Info(ctx, client.InfoOptions{})
 	if err != nil {
 		_ = cli.Close()
 		return nil, fmt.Errorf("failed to query docker info: %w", err)
 	}
 	return &endpoint{
 		cli:    cli,
-		arch:   normalizeArch(info.Architecture),
-		osType: info.OSType,
+		arch:   normalizeArch(infoResult.Info.Architecture),
+		osType: infoResult.Info.OSType,
 	}, nil
 }
 
@@ -58,19 +58,18 @@ func dialDockerDaemon(ctx context.Context, dockerHost string) (client.APIClient,
 		if helperErr != nil {
 			return nil, helperErr
 		}
-		cli, err = client.NewClientWithOpts(
+		cli, err = client.New(
 			client.WithHost(helper.Host),
 			client.WithDialContext(helper.Dialer),
 		)
 	} else if dockerHost != "" {
-		cli, err = client.NewClientWithOpts(client.FromEnv, client.WithHost(dockerHost))
+		cli, err = client.New(client.FromEnv, client.WithHost(dockerHost))
 	} else {
-		cli, err = client.NewClientWithOpts(client.FromEnv)
+		cli, err = client.New(client.FromEnv)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to docker daemon: %w", err)
 	}
-	cli.NegotiateAPIVersion(ctx)
 	return cli, nil
 }
 

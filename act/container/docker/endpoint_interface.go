@@ -1,6 +1,6 @@
 package docker
 
-import "github.com/docker/docker/client"
+import "github.com/moby/moby/client"
 
 // Endpoint is a connection to a Docker daemon. It owns the API client and the
 // per-daemon facts that are invariant for the lifetime of the connection

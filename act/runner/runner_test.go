@@ -17,14 +17,13 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"code.forgejo.org/forgejo/runner/v12/testutils"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
 	"github.com/joho/godotenv"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
-	assert "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 )
@@ -735,17 +734,16 @@ func TestRunner_RunsOnMatrix(t *testing.T) {
 }
 
 func supportsMixedArchitecture(t *testing.T) bool {
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.New(client.FromEnv)
 	require.NoError(t, err)
-	cli.NegotiateAPIVersion(t.Context())
 
 	// Create minimal containers with linux/amd64 and linux/arm64 platforms, and check that both run.  If so, the test
 	// environment supports multiple architecture execution (using emulation).
 
 	testImage := "code.forgejo.org/oci/alpine:3.22"
 	for _, arch := range []string{"amd64", "aarch64"} {
-		reader, err := cli.ImagePull(t.Context(), testImage, image.PullOptions{
-			Platform: fmt.Sprintf("linux/%s", arch),
+		reader, err := cli.ImagePull(t.Context(), testImage, client.ImagePullOptions{
+			Platforms: []ocispec.Platform{{OS: "linux", Architecture: arch}},
 		})
 		require.NoError(t, err)
 		_, err = io.ReadAll(reader)
@@ -753,38 +751,38 @@ func supportsMixedArchitecture(t *testing.T) bool {
 		err = reader.Close()
 		require.NoError(t, err)
 
-		cr, err := cli.ContainerCreate(t.Context(),
-			&container.Config{
+		createOpts := client.ContainerCreateOptions{
+			Config: &container.Config{
 				Image: testImage,
 				Cmd:   []string{"uname", "-a"},
 			},
-			&container.HostConfig{},
-			&network.NetworkingConfig{},
-			&v1.Platform{
-				OS:           "linux",
-				Architecture: arch,
-			},
-			fmt.Sprintf("forgejo-runner-check-linux-%s", arch))
+			HostConfig:       &container.HostConfig{},
+			NetworkingConfig: &network.NetworkingConfig{},
+			Platform:         &ocispec.Platform{OS: "linux", Architecture: arch},
+			Name:             fmt.Sprintf("forgejo-runner-check-linux-%s", arch),
+		}
+		cr, err := cli.ContainerCreate(t.Context(), createOpts)
 		require.NoError(t, err)
+
 		defer func(containerID string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute) // not tied to t.Context() so it can do cleanup
 			defer cancel()
-			err := cli.ContainerRemove(ctx, cr.ID, container.RemoveOptions{Force: true})
-			if err != nil {
+			if _, err := cli.ContainerRemove(ctx, cr.ID, client.ContainerRemoveOptions{Force: true}); err != nil {
 				t.Logf("failed to remove container %s: %v", cr.ID, err)
 			}
 		}(cr.ID)
 
 		// Wait must be invoked before `start`, as we're using WaitConditionNextExit...
-		statusCh, errCh := cli.ContainerWait(t.Context(), cr.ID, container.WaitConditionNextExit)
+		waitOpts := client.ContainerWaitOptions{Condition: container.WaitConditionNextExit}
+		waitResult := cli.ContainerWait(t.Context(), cr.ID, waitOpts)
 
-		err = cli.ContainerStart(t.Context(), cr.ID, container.StartOptions{})
+		_, err = cli.ContainerStart(t.Context(), cr.ID, client.ContainerStartOptions{})
 		require.NoError(t, err)
 
 		select {
-		case err := <-errCh:
+		case err := <-waitResult.Error:
 			require.NoError(t, err)
-		case status := <-statusCh:
+		case status := <-waitResult.Result:
 			if status.StatusCode != 0 {
 				t.Logf("supportedMixedArchitecture[%s] -> false, status code %d", arch, status.StatusCode)
 				return false

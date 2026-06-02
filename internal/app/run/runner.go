@@ -24,7 +24,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"code.forgejo.org/forgejo/runner/v12/act/runner"
 	"connectrpc.com/connect"
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 	log "github.com/sirupsen/logrus"
 
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"

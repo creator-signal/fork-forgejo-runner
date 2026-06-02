@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,17 +25,16 @@ import (
 	"github.com/avast/retry-go/v4"
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/docker/cli/cli/compose/loader"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/go-connections/nat"
 	"github.com/gobwas/glob"
 	"github.com/joho/godotenv"
 	"github.com/kballard/go-shellquote"
-	specs "github.com/opencontainers/image-spec/specs-go/v1"
+	stdcopy2 "github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
@@ -79,11 +79,11 @@ func (cr *containerReference) platform(ctx context.Context) (string, error) {
 // supportsContainerImagePlatform returns true if the underlying Docker server
 // API version is 1.41 and beyond
 func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) bool {
-	ver, err := cli.ServerVersion(ctx)
+	result, err := cli.ServerVersion(ctx, client.ServerVersionOptions{})
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get Docker API Version: %s", err))
 	}
-	sv, err := semver.NewVersion(ver.APIVersion)
+	sv, err := semver.NewVersion(result.APIVersion)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to unmarshal Docker Version: %s", err))
 	}
@@ -94,11 +94,11 @@ func supportsContainerImagePlatform(ctx context.Context, cli client.APIClient) b
 // supportsImageInspectPlatform returns true if the underlying Docker server supports using
 // `client.ImageInspectWithPlatform`, which is API version 1.49 and beyond.
 func supportsImageInspectPlatform(ctx context.Context, cli client.APIClient) bool {
-	ver, err := cli.ServerVersion(ctx)
+	result, err := cli.ServerVersion(ctx, client.ServerVersionOptions{})
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get Docker API Version: %s", err))
 	}
-	sv, err := semver.NewVersion(ver.APIVersion)
+	sv, err := semver.NewVersion(result.APIVersion)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to unmarshal Docker Version: %s", err))
 	}
@@ -200,8 +200,11 @@ func (cr *containerReference) GetContainerArchive(ctx context.Context, srcPath s
 	if common.Dryrun(ctx) {
 		return nil, fmt.Errorf("DRYRUN is not supported in GetContainerArchive")
 	}
-	a, _, err := cr.cli.CopyFromContainer(ctx, cr.id, srcPath)
-	return a, err
+	result, err := cr.cli.CopyFromContainer(ctx, cr.id, client.CopyFromContainerOptions{SourcePath: srcPath})
+	if err != nil {
+		return nil, fmt.Errorf("unable to copy %q from container to host: %w", srcPath, err)
+	}
+	return result.Content, nil
 }
 
 func (cr *containerReference) UpdateFromEnv(srcPath string, env *map[string]string) common.Executor {
@@ -231,11 +234,11 @@ func (cr *containerReference) Remove() common.Executor {
 }
 
 func (cr *containerReference) inspect(ctx context.Context) (container.InspectResponse, error) {
-	resp, err := cr.cli.ContainerInspect(ctx, cr.id)
+	result, err := cr.cli.ContainerInspect(ctx, cr.id, client.ContainerInspectOptions{})
 	if err != nil {
-		err = fmt.Errorf("service %v: %s", cr.input.NetworkAliases, err)
+		err = fmt.Errorf("service %v: %w", cr.input.NetworkAliases, err)
 	}
-	return resp, err
+	return result.Container, err
 }
 
 func (cr *containerReference) IsHealthy(ctx context.Context) (time.Duration, error) {
@@ -312,14 +315,12 @@ func (cr *containerReference) find() common.Executor {
 		if cr.id != "" {
 			return nil
 		}
-		containers, err := cr.cli.ContainerList(ctx, container.ListOptions{
-			All: true,
-		})
+		listResult, err := cr.cli.ContainerList(ctx, client.ContainerListOptions{All: true})
 		if err != nil {
 			return fmt.Errorf("failed to list containers: %w", err)
 		}
 
-		for _, c := range containers {
+		for _, c := range listResult.Items {
 			for _, name := range c.Names {
 				if name[1:] == cr.input.Name {
 					cr.id = c.ID
@@ -346,11 +347,11 @@ func (cr *containerReference) remove() common.Executor {
 				// Podman's behaviour with Docker's. Podman is much more cautious and sends a SIGTERM first when
 				// `ContainerRemove` is invoked whereas Docker outright sends SIGKILL. The problem is that Podman waits
 				// usually 10 sec (configurable) for SIGTERM to succeed.
-				if err := cr.cli.ContainerKill(ctx, cr.id, ""); err != nil {
+				if _, err := cr.cli.ContainerKill(ctx, cr.id, client.ContainerKillOptions{Signal: "SIGKILL"}); err != nil {
 					// Only log the error. `ContainerRemove` might be able to fix the problem.
 					logger.Debugf("Container %s could not be killed: %v", cr.id, err)
 				}
-				if err := cr.cli.ContainerRemove(ctx, cr.id, container.RemoveOptions{RemoveVolumes: true, Force: true}); err != nil {
+				if _, err := cr.cli.ContainerRemove(ctx, cr.id, client.ContainerRemoveOptions{RemoveVolumes: true, Force: true}); err != nil {
 					if cerrdefs.IsNotFound(err) {
 						logger.Debugf("Container %s not found, considering this as a success", cr.id)
 						return nil
@@ -529,9 +530,13 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		input := cr.input
 
-		exposedPorts := nat.PortSet{}
+		exposedPorts := network.PortSet{}
 		for port := range input.ExposedPorts {
-			exposedPorts[nat.Port(port)] = struct{}{}
+			parsedPort, err := network.ParsePort(string(port))
+			if err != nil {
+				return fmt.Errorf("failed to parse exposed port %q: %w", port, err)
+			}
+			exposedPorts[parsedPort] = struct{}{}
 		}
 
 		config := &container.Config{
@@ -562,25 +567,35 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 
 		var platform string
 		var err error
-		var platSpecs *specs.Platform
+		var platSpec ocispec.Platform
 		if supportsContainerImagePlatform(ctx, cr.cli) {
 			platform, err = cr.platform(ctx)
 			if err != nil {
 				return err
 			}
-			platSpecs, err = parsePlatform(platform)
+			platSpec, err = parsePlatform(platform)
 			if err != nil {
 				return err
 			}
 		}
 
-		portBindings := nat.PortMap{}
+		portBindings := network.PortMap{}
 		for port, bindings := range input.PortBindings {
-			natBindings := make([]nat.PortBinding, len(bindings))
-			for i, b := range bindings {
-				natBindings[i] = nat.PortBinding{HostIP: b.HostIP, HostPort: b.HostPort}
+			parsedPort, err := network.ParsePort(string(port))
+			if err != nil {
+				return fmt.Errorf("failed to parse container port %q to bind to: %w", port, err)
 			}
-			portBindings[nat.Port(port)] = natBindings
+			natBindings := make([]network.PortBinding, len(bindings))
+			for i, b := range bindings {
+				var ip netip.Addr
+				if b.HostIP != "" {
+					if ip, err = netip.ParseAddr(b.HostIP); err != nil {
+						return fmt.Errorf("failed to parse host IP %q to bind container to: %w", b.HostIP, err)
+					}
+				}
+				natBindings[i] = network.PortBinding{HostIP: ip, HostPort: b.HostPort}
+			}
+			portBindings[parsedPort] = natBindings
 		}
 
 		hostConfig := &container.HostConfig{
@@ -621,9 +636,16 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			}
 		}
 
-		resp, err := cr.cli.ContainerCreate(ctx, config, hostConfig, networkingConfig, platSpecs, input.Name)
+		containerOpts := client.ContainerCreateOptions{
+			Name:             input.Name,
+			Config:           config,
+			HostConfig:       hostConfig,
+			NetworkingConfig: networkingConfig,
+			Platform:         &platSpec,
+		}
+		resp, err := cr.cli.ContainerCreate(ctx, containerOpts)
 		if err != nil {
-			return fmt.Errorf("failed to create container: '%w'", err)
+			return fmt.Errorf("failed to create container: %w", err)
 		}
 
 		logger.Debugf("Created container name=%s id=%v from image %v (platform: %s)", input.Name, resp.ID, input.Image, platform)
@@ -705,12 +727,12 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 		logger.Debugf("Working directory '%s'", wd)
 
-		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, container.ExecOptions{
+		createResult, err := cr.cli.ExecCreate(ctx, cr.id, client.ExecCreateOptions{
 			User:         user,
 			Cmd:          cmd,
 			WorkingDir:   wd,
 			Env:          envList,
-			Tty:          isTerminal,
+			TTY:          isTerminal,
 			AttachStderr: true,
 			AttachStdout: true,
 		})
@@ -720,11 +742,11 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			// current platform.  In order to help diagnose these problems, run a `docker logs ...` on the container and
 			// include it in the error output.
 			logContext := ""
-			reader, err2 := cr.cli.ContainerLogs(ctx, cr.id, container.LogsOptions{
+			reader, logsErr := cr.cli.ContainerLogs(ctx, cr.id, client.ContainerLogsOptions{
 				ShowStdout: true,
 				ShowStderr: true,
 			})
-			if err2 == nil {
+			if logsErr == nil {
 				output, err2 := io.ReadAll(reader)
 				if err2 == nil {
 					logContext = string(output)
@@ -732,43 +754,43 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 					logger.Warnf("unable to read container logs: %v", err2)
 				}
 			} else {
-				logger.Warnf("unable to fetch container logs: %v", err2)
+				logger.Warnf("unable to fetch container logs: %v", logsErr)
 			}
 			return fmt.Errorf("failed to create exec: %w; container logs: %q", err, logContext)
 		}
 
-		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, container.ExecAttachOptions{
-			Tty: isTerminal,
+		attachResult, err := cr.cli.ExecAttach(ctx, createResult.ID, client.ExecAttachOptions{
+			TTY: isTerminal,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to attach to exec: %w", err)
 		}
-		defer resp.Close()
+		defer attachResult.Close()
 
-		err = cr.waitForCommand(ctx, isTerminal, resp, idResp, user, workdir)
+		err = cr.waitForCommand(ctx, isTerminal, attachResult.HijackedResponse)
 		if err != nil {
 			return err
 		}
 
-		inspectResp, err := cr.cli.ContainerExecInspect(ctx, idResp.ID)
+		inspectResult, err := cr.cli.ExecInspect(ctx, createResult.ID, client.ExecInspectOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to inspect exec: %w", err)
 		}
 
-		switch inspectResp.ExitCode {
+		switch inspectResult.ExitCode {
 		case 0:
 			return nil
 		case 127:
-			return fmt.Errorf("exitcode '%d': command not found, please refer to https://github.com/nektos/act/issues/107 for more information", inspectResp.ExitCode)
+			return fmt.Errorf("exitcode '%d': command not found, please refer to https://github.com/nektos/act/issues/107 for more information", inspectResult.ExitCode)
 		default:
-			return fmt.Errorf("exitcode '%d': failure", inspectResp.ExitCode)
+			return fmt.Errorf("exitcode '%d': failure", inspectResult.ExitCode)
 		}
 	}
 }
 
 func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Executor {
 	return func(ctx context.Context) error {
-		idResp, err := cr.cli.ContainerExecCreate(ctx, cr.id, container.ExecOptions{
+		createResult, err := cr.cli.ExecCreate(ctx, cr.id, client.ExecCreateOptions{
 			Cmd:          []string{"id", opt},
 			AttachStdout: true,
 			AttachStderr: true,
@@ -777,7 +799,7 @@ func (cr *containerReference) tryReadID(opt string, cbk func(id int)) common.Exe
 			return nil
 		}
 
-		resp, err := cr.cli.ContainerExecAttach(ctx, idResp.ID, container.ExecAttachOptions{})
+		resp, err := cr.cli.ExecAttach(ctx, createResult.ID, client.ExecAttachOptions{})
 		if err != nil {
 			return nil
 		}
@@ -807,7 +829,7 @@ func (cr *containerReference) tryReadGID() common.Executor {
 	return cr.tryReadID("-g", func(id int) { cr.GID = id })
 }
 
-func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp types.HijackedResponse, _ container.ExecCreateResponse, _, _ string) error {
+func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp client.HijackedResponse) error {
 	logger := common.Logger(ctx)
 
 	cmdResponse := make(chan error)
@@ -825,7 +847,7 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 
 		var err error
 		if !isTerminal || os.Getenv("NORAW") != "" {
-			_, err = stdcopy.StdCopy(outWriter, errWriter, resp.Reader)
+			_, err = stdcopy2.StdCopy(outWriter, errWriter, resp.Reader)
 		} else {
 			_, err = io.Copy(outWriter, resp.Reader)
 		}
@@ -861,17 +883,19 @@ func (cr *containerReference) CopyTarStream(ctx context.Context, destPath string
 		Mode:     0o777,
 		Typeflag: tar.TypeDir,
 	})
-	tw.Close()
-	err := cr.cli.CopyToContainer(ctx, cr.id, "/", buf, container.CopyToContainerOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to mkdir to copy content to container: %w", err)
+	if err := tw.Close(); err != nil {
+		log.Debugf("Could not close tar writer for creating %q: %s", destPath, err)
+	}
+	copyOpts := client.CopyToContainerOptions{DestinationPath: "/", Content: buf}
+	if _, err := cr.cli.CopyToContainer(ctx, cr.id, copyOpts); err != nil {
+		return fmt.Errorf("failed to create destination %q for copying to container: %w", destPath, err)
 	}
 	// Copy Content
-	err = cr.cli.CopyToContainer(ctx, cr.id, destPath, tarStream, container.CopyToContainerOptions{})
-	if err != nil {
+	copyOpts = client.CopyToContainerOptions{DestinationPath: destPath, Content: tarStream}
+	if _, err := cr.cli.CopyToContainer(ctx, cr.id, copyOpts); err != nil {
 		return fmt.Errorf("copyTarStream: failed to copy content to container: %w", err)
 	}
-	// If this fails, then folders have wrong permissions on non root container
+	// If this fails, then folders have wrong permissions on non-root container
 	if cr.UID != 0 || cr.GID != 0 {
 		_ = cr.Exec([]string{"chown", "-R", fmt.Sprintf("%d:%d", cr.UID, cr.GID), destPath}, nil, "0", "")(ctx)
 	}
@@ -938,13 +962,12 @@ func (cr *containerReference) copyDir(dstPath, srcPath string, useGitIgnore bool
 		}
 
 		logger.Debugf("Extracting content from '%s' to '%s'", tarFile.Name(), dstPath)
-		_, err = tarFile.Seek(0, 0)
-		if err != nil {
+		if _, err := tarFile.Seek(0, 0); err != nil {
 			return fmt.Errorf("failed to seek tar archive: %w", err)
 		}
-		err = cr.cli.CopyToContainer(ctx, cr.id, "/", tarFile, container.CopyToContainerOptions{})
-		if err != nil {
-			return fmt.Errorf("copyDir: failed to copy content to container: %w", err)
+		copyOpts := client.CopyToContainerOptions{DestinationPath: "/", Content: tarFile}
+		if _, err := cr.cli.CopyToContainer(ctx, cr.id, copyOpts); err != nil {
+			return fmt.Errorf("failed to copy directory %q to container: %w", srcPath, err)
 		}
 		return nil
 	}
@@ -976,9 +999,9 @@ func (cr *containerReference) copyContent(dstPath string, files ...*actcontainer
 		}
 
 		logger.Debugf("Extracting content to '%s'", dstPath)
-		err := cr.cli.CopyToContainer(ctx, cr.id, dstPath, &buf, container.CopyToContainerOptions{})
-		if err != nil {
-			return fmt.Errorf("copyContent: failed to copy content to container: %w", err)
+		copyOpts := client.CopyToContainerOptions{DestinationPath: dstPath, Content: &buf}
+		if _, err := cr.cli.CopyToContainer(ctx, cr.id, copyOpts); err != nil {
+			return fmt.Errorf("failed to copy content to %q in container: %w", dstPath, err)
 		}
 		return nil
 	}
@@ -986,7 +1009,7 @@ func (cr *containerReference) copyContent(dstPath string, files ...*actcontainer
 
 func (cr *containerReference) attach() common.Executor {
 	return func(ctx context.Context) error {
-		out, err := cr.cli.ContainerAttach(ctx, cr.id, container.AttachOptions{
+		out, err := cr.cli.ContainerAttach(ctx, cr.id, client.ContainerAttachOptions{
 			Stream: true,
 			Stdout: true,
 			Stderr: true,
@@ -1007,7 +1030,7 @@ func (cr *containerReference) attach() common.Executor {
 		}
 		go func() {
 			if !isTerminal || os.Getenv("NORAW") != "" {
-				_, err = stdcopy.StdCopy(outWriter, errWriter, out.Reader)
+				_, err = stdcopy2.StdCopy(outWriter, errWriter, out.Reader)
 			} else {
 				_, err = io.Copy(outWriter, out.Reader)
 			}
@@ -1024,7 +1047,7 @@ func (cr *containerReference) start() common.Executor {
 		logger := common.Logger(ctx)
 		logger.Debugf("Starting container: %v", cr.id)
 
-		if err := cr.cli.ContainerStart(ctx, cr.id, container.StartOptions{}); err != nil {
+		if _, err := cr.cli.ContainerStart(ctx, cr.id, client.ContainerStartOptions{}); err != nil {
 			return fmt.Errorf("failed to start container: %w", err)
 		}
 
@@ -1036,14 +1059,16 @@ func (cr *containerReference) start() common.Executor {
 func (cr *containerReference) wait() common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
-		statusCh, errCh := cr.cli.ContainerWait(ctx, cr.id, container.WaitConditionNotRunning)
+
+		waitOpts := client.ContainerWaitOptions{Condition: container.WaitConditionNotRunning}
+		waitResult := cr.cli.ContainerWait(ctx, cr.id, waitOpts)
 		var statusCode int64
 		select {
-		case err := <-errCh:
+		case err := <-waitResult.Error:
 			if err != nil {
 				return fmt.Errorf("failed to wait for container: %w", err)
 			}
-		case status := <-statusCh:
+		case status := <-waitResult.Result:
 			statusCode = status.StatusCode
 		}
 
