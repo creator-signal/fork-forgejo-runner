@@ -62,7 +62,7 @@ jobs:
 
       - name: build without TOKEN
         if: ${{ secrets.TOKEN == '' }}
-        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.5.1
+        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@970e852f5ce41d5821b62b9137c4ff4966c9a3d1 # v5.7.0
         with:
           forgejo: "${{ env.FORGEJO_SERVER_URL }}"
           owner: "${{ env.FORGEJO_REPOSITORY_OWNER }}"
@@ -78,7 +78,7 @@ jobs:
 
       - name: build with TOKEN
         if: ${{ secrets.TOKEN != '' }}
-        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.5.1
+        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@970e852f5ce41d5821b62b9137c4ff4966c9a3d1 # v5.7.0
         with:
           forgejo: "${{ env.FORGEJO_SERVER_URL }}"
           owner: "${{ env.FORGEJO_REPOSITORY_OWNER }}"
