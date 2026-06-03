@@ -252,7 +252,6 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "shells/node", "push", "", platforms, secrets},
 		{workdir, "shells/python", "push", "", platforms, secrets},
 		{workdir, "shells/sh", "push", "", platforms, secrets},
-		{workdir, "shells/pwsh", "push", "", platforms, secrets},
 
 		// Local action
 		{workdir, "local-action-fails-schema-validation", "push", "Job 'test' failed", platforms, secrets},
@@ -365,6 +364,10 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "services-options-group-add", "push", "", platforms, secrets},
 		{workdir, "services-options-user", "push", "", platforms, secrets},
 		{workdir, "services-context-expression", "push", "", platforms, secrets},
+	}
+	if runtime.GOARCH != "arm64" {
+		// Not supported on arm64 due to no Powershell .deb package being distributed currently for arm64
+		tables = append(tables, TestJobFileInfo{workdir, "shells/pwsh", "push", "", platforms, secrets})
 	}
 
 	for _, table := range tables {
