@@ -105,7 +105,7 @@ test: lint-check fmt-check
 
 .PHONY: integration-test
 integration-test:
-	@$(GO) test -race -v -timeout 45m ./...
+	@$(GO) test -race -timeout 45m ./...
 
 .PHONY: vet
 vet:
