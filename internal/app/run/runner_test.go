@@ -618,7 +618,7 @@ func TestRunnerLXC(t *testing.T) {
 			},
 		},
 		"runner-name",
-		[]*labels.Label{labels.MustParse("lxc:lxc://debian:bookworm")},
+		[]*labels.Label{labels.MustParse("lxc:lxc://debian:bookworm:unprivileged")},
 		forgejoClient,
 		nil,
 	)
