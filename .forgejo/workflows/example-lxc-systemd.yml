@@ -21,7 +21,7 @@ jobs:
     if: vars.ROLE == 'forgejo-coding'
     runs-on: lxc-trixie
     steps:
-       - uses: https://data.forgejo.org/actions/checkout@v5
+       - uses: https://data.forgejo.org/actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
        - name: forgejo-runner-service.sh dependencies
          # run before setup-forgejo because it installs LXC and
@@ -54,7 +54,7 @@ jobs:
            done
 
        - id: forgejo
-         uses: https://data.forgejo.org/actions/setup-forgejo@v3.1.12
+         uses: https://data.forgejo.org/actions/setup-forgejo@650f7cf6349e074eac2c5b47d3fd23acba12fb54 # v3.1.12
          with:
            user: root
            password: admin1234
