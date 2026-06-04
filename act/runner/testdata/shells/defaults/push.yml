@@ -15,6 +15,7 @@ jobs:
       image: code.forgejo.org/oci/alpine:latest
     steps:
       - run: |
+          exit 1
           if [ -z "${BASH}" ]; then
             echo "I'm sh!"
           else
