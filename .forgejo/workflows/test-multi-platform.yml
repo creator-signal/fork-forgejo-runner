@@ -1,0 +1,45 @@
+
+name: test-multi-platform
+on:
+  schedule:
+    - cron: '0 12 * * 5' # run weekly on Friday
+  pull_request:
+    types:
+      - synchronize
+      - labeled
+      - closed
+
+enable-email-notifications: true
+
+jobs:
+  arm64:
+    # Purpose of this complex filter is primarily to check that, if we're running `on.pull_request`, we're only running
+    # this test when the PR is labeled with `run-multi-platform-tests`.  The filter is complicated just a little by the
+    # ability to also run `on.schedule`.
+    #
+    # Another complication is the bug (https://code.forgejo.org/forgejo/runner/issues/1496), which makes the
+    # `event_name` value into `workflow_call` within the inner jobs that this expands into.  The `if` block here is
+    # copied into those inner jobs and so this block needs to pass successfully both on inner jobs and the outer job.
+    # This filter works around that problem by (a) allowing `event_name` to be 'workflow_call`, and (b) performing
+    # additional filtering on `forgejo.event` which isn't changed by the bug.  If (b) wasn't present, then the
+    # event_name=='workflow_call' condition would always be true, and the jobs would always run on all PR sync.
+    if: >
+      vars.ROLE == 'forgejo-coding' &&
+      (
+        (
+          (forge.event_name == 'pull_request' || forge.event_name == 'workflow_call') &&
+          (
+            (forge.event.action == 'synchronized' && contains(forge.event.pull_request.labels.*.name, 'run-multi-platform-tests')) ||
+            (forge.event.action == 'label_updated' && forge.event.label.name == 'run-multi-platform-tests')
+          )
+        )
+        ||
+        (
+          (forge.event_name == 'schedule' || forge.event_name == 'workflow_call') &&
+          forge.event.action == 'schedule'
+        )
+      )
+
+    uses: ./.forgejo/workflows/test.yml
+    with:
+      runner_prefix: arm64-

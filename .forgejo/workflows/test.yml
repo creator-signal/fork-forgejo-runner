@@ -4,6 +4,15 @@ on:
     branches:
       - 'main'
   pull_request:
+  workflow_call:
+    inputs:
+      runner_prefix:
+        description: |
+          Prefix all runs-on definitions with this string, intended to target
+          Linux tests on an architecture other than the default amd64/x86-64.
+          In the future, may be adapted to an additional runner label, rather
+          than a prefix.
+        type: string
 
 enable-email-notifications: true
 
@@ -11,7 +20,7 @@ jobs:
   build:
     name: Build Forgejo Runner
     if: vars.ROLE == 'forgejo-coding'
-    runs-on: docker
+    runs-on: ${{ inputs.runner_prefix || '' }}docker
     container:
       image: 'data.forgejo.org/oci/ci:2'
     steps:
@@ -42,7 +51,7 @@ jobs:
 
   build-unsupported-platforms:
     name: Build unsupported platforms
-    if: vars.ROLE == 'forgejo-coding'
+    if: vars.ROLE == 'forgejo-coding' && inputs.runner_prefix == '' # doesn't need to run on multiplatform
     needs: [build]
     runs-on: docker
     container:
@@ -102,7 +111,7 @@ jobs:
   runner-exec-tests:
     name: runner exec tests
     if: vars.ROLE == 'forgejo-coding'
-    runs-on: lxc-bookworm
+    runs-on: ${{ inputs.runner_prefix || '' }}lxc-bookworm
     needs: [build]
     steps:
 
@@ -156,7 +165,7 @@ jobs:
   integration-tests-with-docker:
     name: Run integration tests with Docker (docker-${{ matrix.docker }})
     if: vars.ROLE == 'forgejo-coding'
-    runs-on: lxc-bookworm
+    runs-on: ${{ inputs.runner_prefix || '' }}lxc-bookworm
     needs: [build]
     strategy:
       matrix:
@@ -218,7 +227,7 @@ jobs:
   integration-tests-with-podman:
     name: Run integration tests with Podman
     if: vars.ROLE == 'forgejo-coding'
-    runs-on: lxc-trixie
+    runs-on: ${{ inputs.runner_prefix || '' }}lxc-trixie
     needs: [build]
     env:
       DEBIAN_FRONTEND: noninteractive
@@ -296,7 +305,7 @@ jobs:
 
   validate-mocks:
     name: validate mocks
-    if: vars.ROLE == 'forgejo-coding'
+    if: vars.ROLE == 'forgejo-coding' && inputs.runner_prefix == '' # doesn't need to run on multiplatform
     runs-on: docker
     container:
       image: 'data.forgejo.org/oci/ci:2'
@@ -325,7 +334,7 @@ jobs:
 
   validate-pre-commit:
     name: validate pre-commit-hooks file
-    if: vars.ROLE == 'forgejo-coding'
+    if: vars.ROLE == 'forgejo-coding' && inputs.runner_prefix == '' # doesn't need to run on multiplatform
     runs-on: docker
     container:
       image: 'data.forgejo.org/oci/ci:2'
