@@ -19,7 +19,7 @@ enable-email-notifications: true
 
 jobs:
   release:
-    runs-on: lxc-bookworm
+    runs-on: lxc-trixie
     # root is used for testing, allow it
     if: vars.ROLE == 'forgejo-integration' || forge.repository_owner == 'root'
     steps:

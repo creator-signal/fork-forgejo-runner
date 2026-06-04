@@ -28,7 +28,7 @@ env:
 jobs:
   docker-build-push-action-in-lxc:
     if: vars.ROLE == 'forgejo-coding'
-    runs-on: lxc-bookworm
+    runs-on: lxc-trixie
 
     steps:
 

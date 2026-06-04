@@ -24,7 +24,7 @@ enable-email-notifications: true
 
 jobs:
   publish:
-    runs-on: lxc-bookworm
+    runs-on: lxc-trixie
     if: vars.ROLE == 'forgejo-release'
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v5
