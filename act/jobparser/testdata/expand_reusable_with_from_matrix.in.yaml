@@ -1,0 +1,10 @@
+on:
+  push:
+jobs:
+  outer:
+    strategy:
+      matrix:
+        UPPER_CASE: ['a']
+    uses: ./.forgejo/workflows/expand_reusable_with_from_matrix_reusable.yaml
+    with:
+      argument: ${{ matrix.upper_case }}

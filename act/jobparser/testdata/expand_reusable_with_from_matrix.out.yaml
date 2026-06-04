@@ -1,0 +1,32 @@
+"on":
+  push:
+jobs:
+  outer:
+    name: outer (a)
+    needs:
+      - outer.test
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        UPPER_CASE:
+          - a
+__metadata:
+  workflow_call_inputs:
+    argument: a
+  workflow_call_id: 23a0df2b2d10ed28ba4916467ca65949c224cab86bf0f4d2ad0ff9840988cc7b
+---
+"on":
+  workflow_call:
+    inputs:
+      argument:
+        default: a
+        type: string
+jobs:
+  outer.test:
+    name: test
+    runs-on: debian
+    steps:
+      - run: echo '${{ toJSON(inputs) }}'
+__metadata:
+  workflow_call_parent: 23a0df2b2d10ed28ba4916467ca65949c224cab86bf0f4d2ad0ff9840988cc7b
