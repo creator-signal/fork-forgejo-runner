@@ -34,7 +34,7 @@ jobs:
 
       - name: install Forgejo so it can be used as a container registry
         id: registry
-        uses: https://data.forgejo.org/actions/setup-forgejo@v3.1.12
+        uses: https://data.forgejo.org/actions/setup-forgejo@650f7cf6349e074eac2c5b47d3fd23acba12fb54 # v3.1.12
         with:
           user: ${{ env.FORGEJO_USER }}
           password: ${{ env.FORGEJO_PASSWORD }}
@@ -55,8 +55,8 @@ jobs:
           EOF
           systemctl restart docker
 
-      - uses: https://data.forgejo.org/docker/setup-qemu-action@v3
-      - uses: https://data.forgejo.org/docker/setup-buildx-action@v3
+      - uses: https://data.forgejo.org/docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: https://data.forgejo.org/docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         with:
           version: v0.34.1 # renovate: datasource=github-releases depName=buildx packageName=docker/buildx
           # insecure / http connections to the registry are allowed
@@ -65,14 +65,14 @@ jobs:
               http = true
 
       - name: login to the Forgejo registry
-        uses: https://data.forgejo.org/docker/login-action@v3
+        uses: https://data.forgejo.org/docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ${{ steps.registry.outputs.host-port }}
           username: ${{ env.FORGEJO_USER }}
           password: ${{ env.FORGEJO_PASSWORD }}
 
       - name: build and push to the Forgejo registry
-        uses: https://data.forgejo.org/docker/build-push-action@v6
+        uses: https://data.forgejo.org/docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: examples/docker-build-push-action
           push: true

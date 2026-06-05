@@ -23,7 +23,7 @@ jobs:
     # root is used for testing, allow it
     if: vars.ROLE == 'forgejo-integration' || forge.repository_owner == 'root'
     steps:
-      - uses: https://data.forgejo.org/actions/checkout@v5
+      - uses: https://data.forgejo.org/actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: Increase the verbosity when there are no secrets
         id: verbose
@@ -62,7 +62,7 @@ jobs:
 
       - name: build without TOKEN
         if: ${{ secrets.TOKEN == '' }}
-        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.5.1
+        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@9bed8fe2ee0fe583aa375cc2cc3045babf06df8d # v5.5.1
         with:
           forgejo: "${{ env.FORGEJO_SERVER_URL }}"
           owner: "${{ env.FORGEJO_REPOSITORY_OWNER }}"
@@ -78,7 +78,7 @@ jobs:
 
       - name: build with TOKEN
         if: ${{ secrets.TOKEN != '' }}
-        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@v5.5.1
+        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/build@9bed8fe2ee0fe583aa375cc2cc3045babf06df8d # v5.5.1
         with:
           forgejo: "${{ env.FORGEJO_SERVER_URL }}"
           owner: "${{ env.FORGEJO_REPOSITORY_OWNER }}"
