@@ -338,19 +338,20 @@ func (impl *interperterImpl) drilldownSpecialObjectsObject(left any, property st
 	}
 
 	if matrixWrapper, ok := left.(*MatrixWrapper); ok {
+		value, err := impl.getPropertyValue(reflect.ValueOf(matrixWrapper.Matrix), property)
+		if err != nil {
+			return nil, true, fmt.Errorf("failed to obtain value of matrix property %q: %w", property, err)
+		}
+
 		if impl.env.ErrorMode&InvalidMatrixDimension == InvalidMatrixDimension {
-			if _, ok := matrixWrapper.Matrix[property]; !ok {
+			if value == nil {
 				return nil, true, &InvalidMatrixDimensionReferencedError{
 					Dimension: property,
 					String:    fmt.Sprintf("matrix dimension %q is not defined", property),
 				}
 			}
 		}
-		left = matrixWrapper.Matrix
-		value, err := impl.getPropertyValue(reflect.ValueOf(left), property)
-		if err != nil {
-			return nil, true, err
-		}
+
 		return value, true, nil
 	}
 

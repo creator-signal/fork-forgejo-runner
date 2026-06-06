@@ -1,0 +1,12 @@
+on:
+  workflow_call:
+    inputs:
+      argument:
+        required: true
+        type: string
+
+jobs:
+  test:
+    runs-on: debian
+    steps:
+      - run: echo '${{ toJSON(inputs) }}'
