@@ -1017,12 +1017,12 @@ func getWorkflowCallInputDefaults(job *model.Workflow) map[string]any {
 // Given two conditional expressions (from an `if` clause), merge them together with `&&` between them.
 func joinExprClausesWithAnd(c1, c2 string) string {
 	var retval strings.Builder
-	retval.WriteString("${{ ")
+	retval.WriteString("${{ (")
 	c1 = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(c1, "${{"), "}}"))
 	retval.WriteString(c1)
-	retval.WriteString(" && ")
+	retval.WriteString(") && (")
 	c2 = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(c2, "${{"), "}}"))
 	retval.WriteString(c2)
-	retval.WriteString(" }}")
+	retval.WriteString(") }}")
 	return retval.String()
 }
