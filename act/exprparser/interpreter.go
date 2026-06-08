@@ -37,6 +37,9 @@ type Config struct {
 	Run        *model.Run
 	WorkingDir string
 	Context    string
+
+	OverrideSuccess func() (bool, error)
+	OverrideFailure func() (bool, error)
 }
 
 type DefaultStatusCheck int
@@ -881,6 +884,9 @@ func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 	case "always":
 		return impl.always()
 	case "success":
+		if impl.config.OverrideSuccess != nil {
+			return impl.config.OverrideSuccess()
+		}
 		if impl.config.Context == "job" {
 			return impl.jobSuccess()
 		}
@@ -889,6 +895,9 @@ func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 		}
 		return nil, fmt.Errorf("Context '%s' must be one of 'job' or 'step'", impl.config.Context)
 	case "failure":
+		if impl.config.OverrideFailure != nil {
+			return impl.config.OverrideFailure()
+		}
 		if impl.config.Context == "job" {
 			return impl.jobFailure()
 		}
