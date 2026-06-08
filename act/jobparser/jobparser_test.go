@@ -1026,3 +1026,242 @@ jobs:
 	require.Len(t, swf, 1)
 	assert.True(t, swf[0].HasPermissions())
 }
+
+func TestEvaluateIf(t *testing.T) {
+	t.Run("No if", func(t *testing.T) {
+		basicWorkflow := `
+on:
+  pull_request:
+jobs:
+  job:
+    runs-on: ubuntu
+    steps: []
+`
+		workflows, err := Parse(
+			[]byte(basicWorkflow),
+			true,
+		)
+		require.NoError(t, err)
+		require.NotNil(t, workflows)
+		require.Len(t, workflows, 1)
+		wf := workflows[0]
+		_, job := wf.Job()
+		ifOutput, err := job.EvaluateIf()
+		require.NoError(t, err)
+		assert.True(t, ifOutput)
+	})
+
+	tests := []struct {
+		ifClause string
+		output   bool
+	}{
+		{
+			ifClause: "${{ 'abc' == '123' }}",
+			output:   false,
+		},
+		{
+			ifClause: "${{ 'abc' == 'abc' }}",
+			output:   true,
+		},
+		// Bare expressions are supported in `if`.  Here we need to choose expressions that won't be confused for YAML
+		// content -- usually these types of expressions will avoid this by referencing a variable (eg. `forgejo.ref ==
+		// `) which doesn't get confused with a YAML scalar, but we're not testing context access yet at this point:
+		{
+			ifClause: "contains('abc', '123')",
+			output:   false,
+		},
+		{
+			ifClause: "contains('abc', 'abc')",
+			output:   true,
+		},
+		// `forgejo` context:
+		{
+			ifClause: "forgejo.ref == 'refs/heads/main'",
+			output:   false,
+		},
+		{
+			ifClause: "forgejo.ref == 'refs/heads/not-main'",
+			output:   true,
+		},
+		// `inputs` context:
+		{
+			ifClause: "inputs.my-input == 'wrong-input-value'",
+			output:   false,
+		},
+		{
+			ifClause: "inputs.my-input == 'right-input-value'",
+			output:   true,
+		},
+		// `needs.x.outputs`:
+		{
+			ifClause: "needs.other-job.outputs.other-output == 'wrong-output-value'",
+			output:   false,
+		},
+		{
+			ifClause: "needs.other-job.outputs.other-output == 'right-output-value'",
+			output:   true,
+		},
+		// `needs.x.result`:
+		{
+			ifClause: "needs.other-job.result == 'cancelled'",
+			output:   false,
+		},
+		{
+			ifClause: "needs.other-job.result == 'success'",
+			output:   true,
+		},
+		// `vars` context:
+		{
+			ifClause: "vars.ROLE == 'wrong-role'",
+			output:   false,
+		},
+		{
+			ifClause: "vars.ROLE == 'right-role'",
+			output:   true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.ifClause, func(t *testing.T) {
+			basicWorkflow := fmt.Sprintf(`
+on:
+  pull_request:
+jobs:
+  job:
+    needs: [other-job]
+    runs-on: ubuntu
+    if: %s
+    steps: []
+`, tc.ifClause)
+			workflows, err := Parse(
+				[]byte(basicWorkflow),
+				true,
+				WithGitContext(&model.GithubContext{Ref: "refs/heads/not-main"}),
+				WithInputs(map[string]any{"my-input": "right-input-value"}),
+				WithJobOutputs(map[string]map[string]string{
+					"other-job": {"other-output": "right-output-value"},
+				}),
+				WithJobResults(map[string]string{"other-job": "success"}),
+				WithVars(map[string]string{"ROLE": "right-role"}),
+			)
+			require.NoError(t, err)
+			require.NotNil(t, workflows)
+			require.Len(t, workflows, 1)
+			wf := workflows[0]
+			_, job := wf.Job()
+			ifOutput, err := job.EvaluateIf()
+			require.NoError(t, err)
+			if tc.output {
+				assert.True(t, ifOutput)
+			} else {
+				assert.False(t, ifOutput)
+			}
+		})
+	}
+
+	t.Run("WorkflowNeeds", func(t *testing.T) {
+		basicWorkflow := `
+on:
+  pull_request:
+jobs:
+  job:
+    runs-on: ubuntu
+    if: needs.other-job.outputs.other-output == 'right-output-value'
+    steps: []
+`
+		workflows, err := Parse(
+			[]byte(basicWorkflow),
+			true,
+			WithJobOutputs(map[string]map[string]string{
+				"other-job": {"other-output": "right-output-value"},
+			}),
+			WithJobResults(map[string]string{"other-job": "success"}),
+			// Define `needs` externally from the job, for situations where we're reparsing the job after Forgejo has
+			// already separated the job from its original workflow
+			WithWorkflowNeeds([]string{"other-job"}),
+		)
+		require.NoError(t, err)
+		require.NotNil(t, workflows)
+		require.Len(t, workflows, 1)
+		wf := workflows[0]
+		_, job := wf.Job()
+		ifOutput, err := job.EvaluateIf()
+		require.NoError(t, err)
+		assert.True(t, ifOutput)
+	})
+
+	t.Run("state conditionals", func(t *testing.T) {
+		test := func(cond, otherJobState string, expectedOutcome bool) {
+			basicWorkflow := fmt.Sprintf(`
+on:
+  pull_request:
+jobs:
+  job:
+    needs: [other-job]
+    runs-on: ubuntu
+    if: %s()
+    steps: []
+`, cond)
+			workflows, err := Parse(
+				[]byte(basicWorkflow),
+				true,
+				WithJobResults(map[string]string{"other-job": otherJobState}),
+			)
+			require.NoError(t, err)
+			require.NotNil(t, workflows)
+			require.Len(t, workflows, 1)
+			wf := workflows[0]
+			_, job := wf.Job()
+			ifOutput, err := job.EvaluateIf()
+			require.NoError(t, err)
+			if expectedOutcome {
+				assert.True(t, ifOutput)
+			} else {
+				assert.False(t, ifOutput)
+			}
+		}
+		test("success", "success", true)
+		test("success", "failure", false)
+		test("failure", "success", false)
+		test("failure", "failure", true)
+		test("always", "success", true)
+		test("always", "failure", true)
+	})
+
+	t.Run("unsupported server-side access", func(t *testing.T) {
+		basicWorkflow := `
+on:
+  pull_request:
+jobs:
+  job:
+    runs-on: ubuntu
+    if: env.PATH
+    steps: []
+`
+		workflows, err := Parse([]byte(basicWorkflow), true)
+		require.NoError(t, err)
+		require.NotNil(t, workflows)
+		require.Len(t, workflows, 1)
+		wf := workflows[0]
+		_, job := wf.Job()
+		_, err = job.EvaluateIf()
+		require.ErrorContains(t, err, "cannot evaluate in job parser: env value \"path\" referenced")
+
+		basicWorkflow = `
+on:
+  pull_request:
+jobs:
+  job:
+    runs-on: ubuntu
+    if: secrets.SOMETHING
+    steps: []
+`
+		workflows, err = Parse([]byte(basicWorkflow), true)
+		require.NoError(t, err)
+		require.NotNil(t, workflows)
+		require.Len(t, workflows, 1)
+		wf = workflows[0]
+		_, job = wf.Job()
+		_, err = job.EvaluateIf()
+		require.ErrorContains(t, err, "cannot evaluate in job parser: secrets value \"something\" referenced")
+	})
+}

@@ -148,6 +148,62 @@ func newWorkflowCallOutputsInterpreter(
 	return exprparser.NewInterpreter(ee, config)
 }
 
+// Returns an interpreter used in the server in job-level 'if' templates. Needs github, inputs, needs, vars contexts.
+// Accessing the `secrets` and `env` contexts automatically causes an error, indicating that the 'if' template cannot be
+// evaluated server-side. Accessing job-success checks like 'if: failure()' will evaluate based upon the status of
+// `needs` and `results`.
+func newJobIfInterpreter(
+	gitCtx *model.GithubContext,
+	vars map[string]string,
+	results map[string]*JobResult,
+	needs []string,
+	inputs map[string]any,
+) exprparser.Interpreter {
+	using := map[string]exprparser.Needs{}
+	neededJobsSucceeded := true
+	for _, jobID := range needs {
+		v, ok := results[jobID]
+		if ok {
+			using[jobID] = exprparser.Needs{
+				Outputs: v.Outputs,
+				Result:  v.Result,
+			}
+			if v.Result != "success" {
+				neededJobsSucceeded = false
+			}
+		}
+	}
+
+	ee := &exprparser.EvaluationEnvironment{
+		Github:    gitCtx,
+		Env:       nil,
+		Job:       nil,
+		Steps:     nil,
+		Runner:    nil,
+		Secrets:   nil,
+		Strategy:  nil,
+		Matrix:    nil,
+		Inputs:    inputs,
+		Needs:     using,
+		Vars:      vars,
+		ErrorMode: exprparser.BlockEnv | exprparser.BlockSecrets,
+	}
+
+	config := exprparser.Config{
+		Run:        nil,
+		WorkingDir: "", // WorkingDir is used for the function hashFiles, but it's not needed in the server
+		Context:    "job",
+		OverrideSuccess: func() (bool, error) {
+			return neededJobsSucceeded, nil
+		},
+		OverrideFailure: func() (bool, error) {
+			return !neededJobsSucceeded, nil
+		},
+	}
+
+	return exprparser.NewInterpreter(ee, config)
+}
+
 // JobResult is the minimum requirement of job results for Interpreter
 type JobResult struct {
 	Needs   []string
