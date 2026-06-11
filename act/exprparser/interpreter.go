@@ -11,14 +11,19 @@ import (
 	"github.com/rhysd/actionlint"
 )
 
+type (
+	Secret              string
+	EnvironmentVariable string
+)
+
 type EvaluationEnvironment struct {
 	Github    *model.GithubContext
-	Env       map[string]string
+	Env       map[string]EnvironmentVariable
 	Job       *model.JobContext
 	Jobs      *map[string]*model.WorkflowCallResult
 	Steps     map[string]*model.StepResult
 	Runner    map[string]any
-	Secrets   map[string]string
+	Secrets   map[string]Secret
 	Vars      map[string]string
 	Strategy  map[string]any
 	Matrix    map[string]any
@@ -175,7 +180,7 @@ func (impl *interpreterImpl) evaluateVariable(variableNode *actionlint.VariableN
 	case "forgejo":
 		return impl.env.Github, nil
 	case "env":
-		return &EnvWrapper{Env: impl.env.Env}, nil
+		return impl.env.Env, nil
 	case "job":
 		return impl.env.Job, nil
 	case "jobs":
@@ -188,7 +193,7 @@ func (impl *interpreterImpl) evaluateVariable(variableNode *actionlint.VariableN
 	case "runner":
 		return impl.env.Runner, nil
 	case "secrets":
-		return &SecretsWrapper{Secrets: impl.env.Secrets}, nil
+		return impl.env.Secrets, nil
 	case "vars":
 		return impl.env.Vars, nil
 	case "strategy":
@@ -281,10 +286,6 @@ func (e *InvalidMatrixDimensionReferencedError) Error() string {
 	return e.String
 }
 
-type EnvWrapper struct {
-	Env map[string]string
-}
-
 type EnvReferencedError struct {
 	Key    string
 	String string
@@ -297,10 +298,6 @@ func (e *EnvReferencedError) Error() string {
 func (e *EnvReferencedError) Is(target error) bool {
 	_, ok := target.(*EnvReferencedError)
 	return ok
-}
-
-type SecretsWrapper struct {
-	Secrets map[string]string
 }
 
 type SecretsReferencedError struct {
@@ -396,30 +393,39 @@ func (impl *interpreterImpl) drilldownSpecialObjectsObject(left any, property st
 		return value, true, nil
 	}
 
-	if envWrapper, ok := left.(*EnvWrapper); ok {
+	if envMap, ok := left.(map[string]EnvironmentVariable); ok {
 		if impl.env.ErrorMode&BlockEnv == BlockEnv {
 			return nil, true, &EnvReferencedError{
 				Key:    property,
 				String: fmt.Sprintf("env value %q referenced", property),
 			}
 		}
-		value, err := impl.getPropertyValue(reflect.ValueOf(envWrapper.Env), property)
+		value, err := impl.getPropertyValue(reflect.ValueOf(envMap), property)
 		if err != nil {
 			return nil, true, fmt.Errorf("failed to obtain value of env property %q: %w", property, err)
+		}
+		// Remove the wrapping `EnvironmentVariable` type so that it doesn't leak outside of the exprparser to the
+		// evaluation.
+		if s, ok := value.(EnvironmentVariable); ok {
+			value = string(s)
 		}
 		return value, true, nil
 	}
 
-	if secretsWrapper, ok := left.(*SecretsWrapper); ok {
+	if secretsMap, ok := left.(map[string]Secret); ok {
 		if impl.env.ErrorMode&BlockSecrets == BlockSecrets {
 			return nil, true, &SecretsReferencedError{
 				Key:    property,
 				String: fmt.Sprintf("secrets value %q referenced", property),
 			}
 		}
-		value, err := impl.getPropertyValue(reflect.ValueOf(secretsWrapper.Secrets), property)
+		value, err := impl.getPropertyValue(reflect.ValueOf(secretsMap), property)
 		if err != nil {
 			return nil, true, fmt.Errorf("failed to obtain value of secrets property %q: %w", property, err)
+		}
+		// Remove the wrapping `Secret` type so that it doesn't leak outside of the exprparser to the evaluation.
+		if s, ok := value.(Secret); ok {
+			value = string(s)
 		}
 		return value, true, nil
 	}
@@ -446,9 +452,30 @@ func (impl *interpreterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.Array
 			return needsWrapper.Outputs, nil
 		}
 	}
-	// MatrixWrapper has to be part of the the expression tree regardless of whether the related error mode is used
+	// Types which are used internally just for identification of the types need to be unwrapped when deref'd so that
+	// the marking types don't leak out into evaluation.
 	if matrixWrapper, ok := left.(*MatrixWrapper); ok {
 		return matrixWrapper.Matrix, nil
+	}
+	if envMap, ok := left.(map[string]EnvironmentVariable); ok {
+		if impl.env.ErrorMode&BlockEnv == BlockEnv {
+			return nil, &EnvReferencedError{String: "env dereferenced via 'env.*'"}
+		}
+		strippedMap := make(map[string]string, len(envMap))
+		for k, v := range envMap {
+			strippedMap[k] = string(v)
+		}
+		return strippedMap, nil
+	}
+	if secretMap, ok := left.(map[string]Secret); ok {
+		if impl.env.ErrorMode&BlockSecrets == BlockSecrets {
+			return nil, &SecretsReferencedError{String: "secrets dereferenced via 'secrets.*'"}
+		}
+		strippedMap := make(map[string]string, len(secretMap))
+		for k, v := range secretMap {
+			strippedMap[k] = string(v)
+		}
+		return strippedMap, nil
 	}
 
 	return impl.getSafeValue(reflect.ValueOf(left)), nil

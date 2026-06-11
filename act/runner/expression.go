@@ -20,6 +20,14 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+func convertMap[V1, V2 ~string](m map[string]V1) map[string]V2 {
+	result := make(map[string]V2, len(m))
+	for k, v := range m {
+		result[k] = V2(v)
+	}
+	return result
+}
+
 // ExpressionEvaluator is the interface for evaluating expressions
 type ExpressionEvaluator interface {
 	evaluate(context.Context, string, exprparser.DefaultStatusCheck) (any, error)
@@ -76,13 +84,13 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 
 	ee := &exprparser.EvaluationEnvironment{
 		Github: ghc,
-		Env:    env,
+		Env:    convertMap[string, exprparser.EnvironmentVariable](env),
 		Job:    rc.getJobContext(),
 		Jobs:   &workflowCallResult,
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
 		Steps:     rc.getStepsContext(),
-		Secrets:   getWorkflowSecrets(ctx, rc),
+		Secrets:   convertMap[string, exprparser.Secret](getWorkflowSecrets(ctx, rc)),
 		Vars:      getWorkflowVars(ctx, rc),
 		Strategy:  strategy,
 		Matrix:    rc.Matrix,
@@ -141,10 +149,10 @@ func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step,
 
 	ee := &exprparser.EvaluationEnvironment{
 		Github:   step.getGithubContext(ctx),
-		Env:      *step.getEnv(),
+		Env:      convertMap[string, exprparser.EnvironmentVariable](*step.getEnv()),
 		Job:      rc.getJobContext(),
 		Steps:    rc.getStepsContext(),
-		Secrets:  getWorkflowSecrets(ctx, rc),
+		Secrets:  convertMap[string, exprparser.Secret](getWorkflowSecrets(ctx, rc)),
 		Vars:     getWorkflowVars(ctx, rc),
 		Strategy: strategy,
 		Matrix:   rc.Matrix,

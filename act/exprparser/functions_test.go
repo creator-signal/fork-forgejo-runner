@@ -163,7 +163,7 @@ func TestFunctionToJSON(t *testing.T) {
 	}
 
 	env := &EvaluationEnvironment{
-		Env: map[string]string{
+		Env: map[string]EnvironmentVariable{
 			"key": "value",
 		},
 	}

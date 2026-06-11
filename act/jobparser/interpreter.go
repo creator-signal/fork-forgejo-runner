@@ -6,6 +6,14 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+func convertMap[V1, V2 ~string](m map[string]V1) map[string]V2 {
+	result := make(map[string]V2, len(m))
+	for k, v := range m {
+		result[k] = V2(v)
+	}
+	return result
+}
+
 func newInterpreter(
 	jobID string,
 	job *model.Job,
@@ -57,7 +65,7 @@ func newInterpreter(
 		Job:       nil,
 		Steps:     nil,
 		Runner:    nil,
-		Secrets:   secrets,
+		Secrets:   convertMap[string, exprparser.Secret](secrets),
 		Strategy:  strategy,
 		Matrix:    matrix,
 		Needs:     using,
