@@ -156,7 +156,14 @@ func (impl *interperterImpl) toJSON(value reflect.Value) (string, error) {
 		return "null", nil
 	}
 
-	json, err := json.MarshalIndent(value.Interface(), "", "  ")
+	iface := value.Interface()
+	if envWrapper, ok := value.Interface().(*EnvWrapper); ok {
+		iface = envWrapper.Env
+	} else if secretsWrapper, ok := value.Interface().(*SecretsWrapper); ok {
+		iface = secretsWrapper.Secrets
+	}
+
+	json, err := json.MarshalIndent(iface, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("Cannot convert value to JSON. Cause: %v", err)
 	}

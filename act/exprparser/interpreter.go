@@ -37,6 +37,9 @@ type Config struct {
 	Run        *model.Run
 	WorkingDir string
 	Context    string
+
+	OverrideSuccess func() (bool, error)
+	OverrideFailure func() (bool, error)
 }
 
 type DefaultStatusCheck int
@@ -54,6 +57,8 @@ type ErrorMode int
 const (
 	InvalidJobOutput ErrorMode = 1 << iota
 	InvalidMatrixDimension
+	BlockEnv
+	BlockSecrets
 	// Future: add flags enums for other error modes
 )
 
@@ -170,7 +175,7 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 	case "forgejo":
 		return impl.env.Github, nil
 	case "env":
-		return impl.env.Env, nil
+		return &EnvWrapper{Env: impl.env.Env}, nil
 	case "job":
 		return impl.env.Job, nil
 	case "jobs":
@@ -183,7 +188,7 @@ func (impl *interperterImpl) evaluateVariable(variableNode *actionlint.VariableN
 	case "runner":
 		return impl.env.Runner, nil
 	case "secrets":
-		return impl.env.Secrets, nil
+		return &SecretsWrapper{Secrets: impl.env.Secrets}, nil
 	case "vars":
 		return impl.env.Vars, nil
 	case "strategy":
@@ -276,6 +281,42 @@ func (e *InvalidMatrixDimensionReferencedError) Error() string {
 	return e.String
 }
 
+type EnvWrapper struct {
+	Env map[string]string
+}
+
+type EnvReferencedError struct {
+	Key    string
+	String string
+}
+
+func (e *EnvReferencedError) Error() string {
+	return e.String
+}
+
+func (e *EnvReferencedError) Is(target error) bool {
+	_, ok := target.(*EnvReferencedError)
+	return ok
+}
+
+type SecretsWrapper struct {
+	Secrets map[string]string
+}
+
+type SecretsReferencedError struct {
+	Key    string
+	String string
+}
+
+func (e *SecretsReferencedError) Error() string {
+	return e.String
+}
+
+func (e *SecretsReferencedError) Is(target error) bool {
+	_, ok := target.(*SecretsReferencedError)
+	return ok
+}
+
 func (impl *interperterImpl) evaluateObjectDeref(objectDerefNode *actionlint.ObjectDerefNode) (any, error) {
 	left, err := impl.evaluateNode(objectDerefNode.Receiver)
 	if err != nil {
@@ -352,6 +393,34 @@ func (impl *interperterImpl) drilldownSpecialObjectsObject(left any, property st
 			}
 		}
 
+		return value, true, nil
+	}
+
+	if envWrapper, ok := left.(*EnvWrapper); ok {
+		if impl.env.ErrorMode&BlockEnv == BlockEnv {
+			return nil, true, &EnvReferencedError{
+				Key:    property,
+				String: fmt.Sprintf("env value %q referenced", property),
+			}
+		}
+		value, err := impl.getPropertyValue(reflect.ValueOf(envWrapper.Env), property)
+		if err != nil {
+			return nil, true, fmt.Errorf("failed to obtain value of env property %q: %w", property, err)
+		}
+		return value, true, nil
+	}
+
+	if secretsWrapper, ok := left.(*SecretsWrapper); ok {
+		if impl.env.ErrorMode&BlockSecrets == BlockSecrets {
+			return nil, true, &SecretsReferencedError{
+				Key:    property,
+				String: fmt.Sprintf("secrets value %q referenced", property),
+			}
+		}
+		value, err := impl.getPropertyValue(reflect.ValueOf(secretsWrapper.Secrets), property)
+		if err != nil {
+			return nil, true, fmt.Errorf("failed to obtain value of secrets property %q: %w", property, err)
+		}
 		return value, true, nil
 	}
 
@@ -815,6 +884,9 @@ func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 	case "always":
 		return impl.always()
 	case "success":
+		if impl.config.OverrideSuccess != nil {
+			return impl.config.OverrideSuccess()
+		}
 		if impl.config.Context == "job" {
 			return impl.jobSuccess()
 		}
@@ -823,6 +895,9 @@ func (impl *interperterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 		}
 		return nil, fmt.Errorf("Context '%s' must be one of 'job' or 'step'", impl.config.Context)
 	case "failure":
+		if impl.config.OverrideFailure != nil {
+			return impl.config.OverrideFailure()
+		}
 		if impl.config.Context == "job" {
 			return impl.jobFailure()
 		}

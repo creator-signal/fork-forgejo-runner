@@ -2,14 +2,20 @@ package jobparser
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
+	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"github.com/gdgvda/cron"
 	"go.yaml.in/yaml/v3"
 )
+
+// The requested information can't be evaluated in the job parser, and must be dispatched to a runner for a full
+// execution environment.
+var ErrCannotEvaluateInJobParser = errors.New("cannot evaluate in job parser")
 
 // SingleWorkflow is a workflow with single job and single matrix
 type SingleWorkflow struct {
@@ -44,6 +50,8 @@ type SingleWorkflow struct {
 	// schema validation as it isn't user-entered.  Unlike the `Incomplete...` fields, these fields will not be
 	// removed/resolved before transmission to a runner.
 	Metadata SingleWorkflowMetadata `yaml:"__metadata,omitempty"`
+
+	parseContext *parseContext `yaml:"-"`
 }
 
 type SingleWorkflowMetadata struct {
@@ -87,6 +95,7 @@ func (w *SingleWorkflow) jobs() ([]string, []*Job, error) {
 	}
 
 	for _, job := range jobs {
+		job.workflow = w
 		steps := make([]*Step, 0, len(job.Steps))
 		for _, s := range job.Steps {
 			if s != nil {
@@ -150,6 +159,8 @@ type Job struct {
 	RawSecrets     yaml.Node                 `yaml:"secrets,omitempty"`
 	RawConcurrency *model.RawConcurrency     `yaml:"concurrency,omitempty"`
 	Permissions    yaml.Node                 `yaml:"permissions,omitempty"`
+
+	workflow *SingleWorkflow `yaml:"-"`
 }
 
 func (j *Job) Clone() *Job {
@@ -192,6 +203,38 @@ func (j *Job) RunsOn() []string {
 
 func (j *Job) InheritSecrets() bool {
 	return (&model.Job{RawSecrets: j.RawSecrets}).InheritSecrets()
+}
+
+func (j *Job) EvaluateIf() (bool, error) {
+	if j.workflow == nil || j.workflow.parseContext == nil {
+		// If SingleWorkflow or Job are marshaled then unmarshalled, we no longer have access to active parse context
+		// required to perform evaluation of the `if` clause -- no context variables are available at this time, and no
+		// idea of the state of dependent jobs.  This workflow needs to be reparsed with jobparser.Parse with
+		// appropriate parsing options, like `WithGitContext(...)`.
+		return false, errors.New("failure in EvaluateIf: invoked on an object that lost its parse context")
+	}
+	pc := j.workflow.parseContext
+
+	needs := pc.workflowNeeds
+	if needs == nil {
+		needs = j.Needs()
+	}
+	results := map[string]*JobResult{}
+	for _, id := range needs {
+		results[id] = &JobResult{
+			Result:  pc.jobResults[id],
+			Outputs: pc.jobOutputs[id],
+		}
+	}
+
+	evaluator := newExpressionEvaluator(newJobIfInterpreter(pc.gitContext, pc.vars, results, needs, pc.inputs))
+	res, err := evaluator.evaluate(j.If.Value, exprparser.DefaultStatusCheckAlways)
+	if errors.Is(err, &exprparser.EnvReferencedError{}) || errors.Is(err, &exprparser.SecretsReferencedError{}) {
+		return false, fmt.Errorf("%w: %w", ErrCannotEvaluateInJobParser, err)
+	} else if err != nil {
+		return false, err
+	}
+	return exprparser.IsTruthy(res), nil
 }
 
 type Step struct {
