@@ -605,7 +605,7 @@ func TestContexts(t *testing.T) {
 		Strategy: map[string]any{
 			"fail-fast": true,
 		},
-		Matrix: map[string]any{
+		Matrix: map[string]MatrixDimensionValue{
 			"os": "Linux",
 		},
 		Needs: map[string]Needs{
@@ -874,7 +874,7 @@ func TestErrorModes(t *testing.T) {
 		Inputs: map[string]any{
 			"name": "value",
 		},
-		Matrix: map[string]any{
+		Matrix: map[string]MatrixDimensionValue{
 			"os": "nixos",
 		},
 		Env: map[string]EnvironmentVariable{

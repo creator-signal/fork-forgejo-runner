@@ -12,8 +12,9 @@ import (
 )
 
 type (
-	Secret              string
-	EnvironmentVariable string
+	Secret               string
+	EnvironmentVariable  string
+	MatrixDimensionValue any // value at ${{ matrix.dimension }}, typically a string but can be a structure
 )
 
 type EvaluationEnvironment struct {
@@ -26,7 +27,7 @@ type EvaluationEnvironment struct {
 	Secrets   map[string]Secret
 	Vars      map[string]string
 	Strategy  map[string]any
-	Matrix    map[string]any
+	Matrix    map[string]MatrixDimensionValue
 	Needs     map[string]Needs
 	Inputs    map[string]any
 	HashFiles func([]reflect.Value) (any, error)
@@ -199,7 +200,7 @@ func (impl *interpreterImpl) evaluateVariable(variableNode *actionlint.VariableN
 	case "strategy":
 		return impl.env.Strategy, nil
 	case "matrix":
-		return &MatrixWrapper{Matrix: impl.env.Matrix}, nil
+		return impl.env.Matrix, nil
 	case "needs":
 		return impl.env.Needs, nil
 	case "inputs":
@@ -271,10 +272,6 @@ type InvalidJobOutputReferencedError struct {
 
 func (e *InvalidJobOutputReferencedError) Error() string {
 	return e.String
-}
-
-type MatrixWrapper struct {
-	Matrix map[string]any
 }
 
 type InvalidMatrixDimensionReferencedError struct {
@@ -375,8 +372,8 @@ func (impl *interpreterImpl) drilldownSpecialObjectsObject(left any, property st
 		}
 	}
 
-	if matrixWrapper, ok := left.(*MatrixWrapper); ok {
-		value, err := impl.getPropertyValue(reflect.ValueOf(matrixWrapper.Matrix), property)
+	if matrixMap, ok := left.(map[string]MatrixDimensionValue); ok {
+		value, err := impl.getPropertyValue(reflect.ValueOf(matrixMap), property)
 		if err != nil {
 			return nil, true, fmt.Errorf("failed to obtain value of matrix property %q: %w", property, err)
 		}
@@ -390,6 +387,11 @@ func (impl *interpreterImpl) drilldownSpecialObjectsObject(left any, property st
 			}
 		}
 
+		// Remove the wrapping `MatrixDimensionValue` type so that it doesn't leak outside of the exprparser to the
+		// evaluation.
+		if s, ok := value.(MatrixDimensionValue); ok {
+			value = any(s)
+		}
 		return value, true, nil
 	}
 
@@ -454,8 +456,12 @@ func (impl *interpreterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.Array
 	}
 	// Types which are used internally just for identification of the types need to be unwrapped when deref'd so that
 	// the marking types don't leak out into evaluation.
-	if matrixWrapper, ok := left.(*MatrixWrapper); ok {
-		return matrixWrapper.Matrix, nil
+	if matrixMap, ok := left.(map[string]MatrixDimensionValue); ok {
+		strippedMap := make(map[string]any, len(matrixMap))
+		for k, v := range matrixMap {
+			strippedMap[k] = any(v)
+		}
+		return strippedMap, nil
 	}
 	if envMap, ok := left.(map[string]EnvironmentVariable); ok {
 		if impl.env.ErrorMode&BlockEnv == BlockEnv {

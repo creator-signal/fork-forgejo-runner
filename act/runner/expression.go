@@ -28,6 +28,14 @@ func convertMap[V1, V2 ~string](m map[string]V1) map[string]V2 {
 	return result
 }
 
+func convertMatrixMap(m map[string]any) map[string]exprparser.MatrixDimensionValue {
+	result := make(map[string]exprparser.MatrixDimensionValue, len(m))
+	for k, v := range m {
+		result[k] = exprparser.MatrixDimensionValue(v)
+	}
+	return result
+}
+
 // ExpressionEvaluator is the interface for evaluating expressions
 type ExpressionEvaluator interface {
 	evaluate(context.Context, string, exprparser.DefaultStatusCheck) (any, error)
@@ -93,7 +101,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		Secrets:   convertMap[string, exprparser.Secret](getWorkflowSecrets(ctx, rc)),
 		Vars:      getWorkflowVars(ctx, rc),
 		Strategy:  strategy,
-		Matrix:    rc.Matrix,
+		Matrix:    convertMatrixMap(rc.Matrix),
 		Needs:     using,
 		Inputs:    inputs,
 		HashFiles: getHashFilesFunction(ctx, rc),
@@ -155,7 +163,7 @@ func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step,
 		Secrets:  convertMap[string, exprparser.Secret](getWorkflowSecrets(ctx, rc)),
 		Vars:     getWorkflowVars(ctx, rc),
 		Strategy: strategy,
-		Matrix:   rc.Matrix,
+		Matrix:   convertMatrixMap(rc.Matrix),
 		Needs:    using,
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the inputs in actions/composite
