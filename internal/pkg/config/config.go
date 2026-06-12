@@ -192,7 +192,7 @@ type serializedRunnerSettings struct {
 	FetchTimeout    time.Duration                 `yaml:"fetch_timeout"`    // FetchTimeout specifies the timeout duration for fetching resources.
 	FetchInterval   time.Duration                 `yaml:"fetch_interval"`   // FetchInterval specifies the interval duration for fetching resources.  Operates as a default for all connections, if not provided by a specific connection.
 	ReportInterval  time.Duration                 `yaml:"report_interval"`  // ReportInterval specifies the interval duration for reporting status and logs of a running job.
-	Labels          []string                      `yaml:"labels"`           // Labels specify the labels of the runner. Labels are declared on each startup.
+	Labels          labelList                     `yaml:"labels"`           // Labels specify the labels of the runner. Labels are declared on each startup.
 	ReportRetry     serializedReportRetrySettings `yaml:"report_retry"`     // ReportRetry defines whether sending logs to the remote should be retried after a job has completed.
 }
 
@@ -432,7 +432,7 @@ type serializedConnectionSettings struct {
 	UUID          string        `yaml:"uuid"`           // UUID of the runner. Mandatory value.
 	Token         string        `yaml:"token"`          // Token of the runner. Token and TokenURL are mutually exclusive.
 	TokenURL      string        `yaml:"token_url"`      // TokenURL defines a URL where the runner token can be loaded from. Token and TokenURL are mutually exclusive.
-	Labels        []string      `yaml:"labels"`         // Labels of the runner. If not present, runner.labels will be used instead.
+	Labels        labelList     `yaml:"labels"`         // Labels of the runner. If not present, runner.labels will be used instead.
 	FetchInterval time.Duration `yaml:"fetch_interval"` // FetchInterval specifies the interval duration for fetching resources.
 }
 

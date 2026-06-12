@@ -139,7 +139,7 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, 
 		Stderr:          logWriter,
 		Privileged:      rc.Config.Privileged,
 		UsernsMode:      rc.Config.UsernsMode,
-		DefaultPlatform: rc.Config.ContainerArchitecture,
+		DefaultPlatform: rc.dockerImagePlatform(ctx),
 		ValidVolumes:    validVolumes,
 	})
 	return stepContainer

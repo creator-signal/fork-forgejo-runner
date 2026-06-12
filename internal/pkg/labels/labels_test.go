@@ -72,6 +72,41 @@ func TestLabel_Parse(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			args: "label1:docker://node:18?platform=linux/amd64",
+			want: &Label{
+				Name:    "label1",
+				Schema:  SchemeDocker,
+				Arg:     "//node:18",
+				Options: map[string]string{OptionPlatform: "linux/amd64"},
+			},
+			wantErr: false,
+		},
+		{
+			args: "label1:docker?platform=freebsd/amd64",
+			want: &Label{
+				Name:    "label1",
+				Schema:  SchemeDocker,
+				Arg:     ArgDocker,
+				Options: map[string]string{OptionPlatform: "freebsd/amd64"},
+			},
+			wantErr: false,
+		},
+		{
+			args:    "label1:host?platform=linux/amd64",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			args:    "label1:lxc://debian:buster?platform=linux/amd64",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			args:    "label1:docker://node:18?unknown=x",
+			want:    nil,
+			wantErr: true,
+		},
+		{
 			args:    "label1:host:something",
 			want:    nil,
 			wantErr: true,
@@ -133,18 +168,23 @@ func TestLabel_String(t *testing.T) {
 	}{
 		{
 			name:     "Name only",
-			label:    &Label{"label-1", "", ""},
+			label:    &Label{Name: "label-1"},
 			expected: "label-1",
 		},
 		{
 			name:     "Name and scheme",
-			label:    &Label{"label-2", "host", ""},
+			label:    &Label{Name: "label-2", Schema: "host"},
 			expected: "label-2:host",
 		},
 		{
 			name:     "Name and scheme and arg",
-			label:    &Label{"label-3", "docker", "//node:lts"},
+			label:    &Label{Name: "label-3", Schema: "docker", Arg: "//node:lts"},
 			expected: "label-3:docker://node:lts",
+		},
+		{
+			name:     "Name and scheme and arg and platform option",
+			label:    &Label{Name: "label-4", Schema: "docker", Arg: "//node:lts", Options: map[string]string{OptionPlatform: "linux/amd64"}},
+			expected: "label-4:docker://node:lts?platform=linux%2Famd64",
 		},
 	}
 
@@ -155,6 +195,35 @@ func TestLabel_String(t *testing.T) {
 	}
 }
 
+func TestLabel_StringParseRoundTrip(t *testing.T) {
+	for _, str := range []string{
+		"label-2:host",
+		"label-3:docker://node:lts",
+		"label-4:docker://node:lts?platform=linux%2Famd64",
+	} {
+		t.Run(str, func(t *testing.T) {
+			label, err := Parse(str)
+			require.NoError(t, err)
+			assert.Equal(t, str, label.String())
+		})
+	}
+}
+
+func TestLabels_PickDockerImagePlatform(t *testing.T) {
+	ls := Labels{
+		MustParse("ubuntu-latest:docker://node:20-bookworm?platform=linux/amd64"),
+		MustParse("freebsd-15:docker://ghcr.io/freebsd/freebsd-runtime:15.0?platform=freebsd/amd64"),
+		MustParse("plain:docker://node:lts"),
+		MustParse("native:host"),
+	}
+
+	assert.Equal(t, "linux/amd64", ls.PickDockerImagePlatform([]string{"ubuntu-latest"}))
+	assert.Equal(t, "freebsd/amd64", ls.PickDockerImagePlatform([]string{"freebsd-15"}))
+	assert.Empty(t, ls.PickDockerImagePlatform([]string{"plain"}))
+	assert.Empty(t, ls.PickDockerImagePlatform([]string{"native"}))
+	assert.Empty(t, ls.PickDockerImagePlatform([]string{"unknown"}))
+}
+
 func TestLabels_Strings(t *testing.T) {
 	expected := []string{
 		"label-1",
@@ -163,9 +232,9 @@ func TestLabels_Strings(t *testing.T) {
 	}
 
 	labels := Labels{
-		&Label{"label-1", "", ""},
-		&Label{"label-2", "host", ""},
-		&Label{"label-3", "docker", "//node:lts"},
+		&Label{Name: "label-1"},
+		&Label{Name: "label-2", Schema: "host"},
+		&Label{Name: "label-3", Schema: "docker", Arg: "//node:lts"},
 	}
 
 	assert.Equal(t, expected, labels.Strings())

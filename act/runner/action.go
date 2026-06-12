@@ -293,7 +293,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 		return err
 	}
 
-	targetPlatform := rc.Config.ContainerArchitecture
+	targetPlatform := rc.dockerImagePlatform(ctx)
 	if targetPlatform == "" {
 		targetPlatform = ep.CurrentSystemPlatform()
 	}

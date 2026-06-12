@@ -1031,6 +1031,71 @@ jobs:
 	})
 }
 
+func TestRunnerPlatform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	skip.If(t, runtime.GOOS != "linux")   // linux containers can only run on linux
+	skip.If(t, runtime.GOARCH != "amd64") // linux/386 images run natively on amd64, no emulation needed
+
+	forgejoClient := &forgejoClientMock{}
+	forgejoClient.On("Address").Return("https://127.0.0.1:8080") // not expected to be used in this test
+	forgejoClient.On("UpdateLog", mock.Anything, mock.Anything).Return(nil, nil)
+	forgejoClient.On("UpdateTask", mock.Anything, mock.Anything).
+		Return(connect.NewResponse(&runnerv1.UpdateTaskResponse{}), nil)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	// The host is amd64, so dpkg can only report i386 if the per-label platform forced a
+	// linux/386 pull. The step's exit status carries the assertion.
+	workflow := `
+on:
+  push:
+jobs:
+  job:
+    runs-on: debian-386
+    steps:
+      - run: |
+          echo "architecture: $(dpkg --print-architecture)"
+          [ "$(dpkg --print-architecture)" = "i386" ]
+`
+
+	task := &runnerv1.Task{
+		WorkflowPayload: []byte(workflow),
+		Context: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"token":                       structpb.NewStringValue("some token here"),
+				"forgejo_default_actions_url": structpb.NewStringValue("https://data.forgejo.org"),
+				"repository":                  structpb.NewStringValue("runner"),
+				"event_name":                  structpb.NewStringValue("push"),
+				"ref":                         structpb.NewStringValue("refs/heads/main"),
+			},
+		},
+	}
+
+	runner := NewRunner(
+		&config.Config{
+			Host: config.Host{WorkdirParent: t.TempDir()},
+			Container: config.Container{
+				DockerHost: os.Getenv("DOCKER_HOST"),
+				// Force a pull so a cached debian:trixie for another platform cannot mask the result.
+				ForcePull: true,
+			},
+		},
+		"runner-name",
+		[]*labels.Label{labels.MustParse("debian-386:docker://code.forgejo.org/oci/debian:trixie?platform=linux/386")},
+		forgejoClient,
+		nil,
+	)
+	require.NotNil(t, runner)
+
+	reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
+	err := runner.run(ctx, task, reporter)
+	reporter.Close(nil)
+	require.NoError(t, err)
+}
+
 func TestRunnerContextsPopulated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
