@@ -63,7 +63,7 @@ func dialDockerDaemon(ctx context.Context, dockerHost string) (client.APIClient,
 			client.WithDialContext(helper.Dialer),
 		)
 	} else if dockerHost != "" {
-		cli, err = client.NewClientWithOpts(client.WithHost(dockerHost))
+		cli, err = client.NewClientWithOpts(client.FromEnv, client.WithHost(dockerHost))
 	} else {
 		cli, err = client.NewClientWithOpts(client.FromEnv)
 	}
