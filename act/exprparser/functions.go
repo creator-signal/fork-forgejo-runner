@@ -161,6 +161,8 @@ func (impl *interpreterImpl) toJSON(value reflect.Value) (string, error) {
 		iface = envWrapper.Env
 	} else if secretsWrapper, ok := value.Interface().(*SecretsWrapper); ok {
 		iface = secretsWrapper.Secrets
+	} else if matrixWrapper, ok := value.Interface().(*MatrixWrapper); ok {
+		iface = matrixWrapper.Matrix
 	}
 
 	json, err := json.MarshalIndent(iface, "", "  ")

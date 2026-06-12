@@ -158,13 +158,39 @@ func TestFunctionToJSON(t *testing.T) {
 		expected any
 		name     string
 	}{
-		{"toJSON(env) }}", "{\n  \"key\": \"value\"\n}", "toJSON"},
-		{"toJSON(null)", "null", "toJSON-null"},
+		{"toJSON(null)", "null", "null"},
+		// Test all the types that we do internal mutations to, primarily to support `ErrorMode`:
+		{"toJSON(env) }}", "{\n  \"key\": \"value\"\n}", "env"},
+		{"toJSON(secrets) }}", "{\n  \"password\": \"Password?\"\n}", "secrets"},
+		{"toJSON(matrix) }}", "{\n  \"dim1\": 123\n}", "matrix"},
+		{"toJSON(needs.job-id.outputs) }}", "{\n  \"output-name\": \"value\"\n}", "needs.x.outputs"},
+		{"toJSON(needs.job-id) }}", "{\n  \"outputs\": {\n    \"output-name\": \"value\"\n  },\n  \"result\": \"success\"\n}", "needs.x"},
+		{"toJSON(needs) }}", "{\n  \"another-job-id\": {\n    \"outputs\": {\n      \"output-name\": \"value\"\n    },\n    \"result\": \"success\"\n  },\n  \"job-id\": {\n    \"outputs\": {\n      \"output-name\": \"value\"\n    },\n    \"result\": \"success\"\n  }\n}", "needs"},
 	}
 
 	env := &EvaluationEnvironment{
 		Env: map[string]string{
 			"key": "value",
+		},
+		Secrets: map[string]string{
+			"password": "Password?",
+		},
+		Matrix: map[string]any{
+			"dim1": 123,
+		},
+		Needs: map[string]Needs{
+			"job-id": {
+				Outputs: map[string]string{
+					"output-name": "value",
+				},
+				Result: "success",
+			},
+			"another-job-id": {
+				Outputs: map[string]string{
+					"output-name": "value",
+				},
+				Result: "success",
+			},
 		},
 	}
 
