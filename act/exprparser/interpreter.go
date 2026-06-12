@@ -450,6 +450,18 @@ func (impl *interpreterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.Array
 	if matrixWrapper, ok := left.(*MatrixWrapper); ok {
 		return matrixWrapper.Matrix, nil
 	}
+	if envWrapper, ok := left.(*EnvWrapper); ok {
+		if impl.env.ErrorMode&BlockEnv == BlockEnv {
+			return nil, &EnvReferencedError{String: "env dereferenced via 'env.*'"}
+		}
+		return envWrapper.Env, nil
+	}
+	if secretWrapper, ok := left.(*SecretsWrapper); ok {
+		if impl.env.ErrorMode&BlockSecrets == BlockSecrets {
+			return nil, &SecretsReferencedError{String: "secrets dereferenced via 'secrets.*'"}
+		}
+		return secretWrapper.Secrets, nil
+	}
 
 	return impl.getSafeValue(reflect.ValueOf(left)), nil
 }

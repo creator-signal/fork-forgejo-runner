@@ -8,6 +8,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLiterals(t *testing.T) {
@@ -102,10 +103,10 @@ func TestOperators(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
 			if tt.error != "" {
-				assert.NotNil(t, err)
+				require.Error(t, err)
 				assert.Equal(t, tt.error, err.Error())
 			} else {
-				assert.Nil(t, err)
+				require.NoError(t, err)
 			}
 
 			assert.Equal(t, tt.expected, output)
@@ -789,6 +790,70 @@ func TestErrorModes(t *testing.T) {
 				String:    "matrix dimension \"platform\" is not defined",
 			},
 		},
+		{
+			name:      "env-blockenv",
+			input:     "env.PATH",
+			errorMode: BlockEnv,
+			expectedErr: &EnvReferencedError{
+				Key:    "path",
+				String: "env value \"path\" referenced",
+			},
+		},
+		{
+			name:      "env-blockenv-index",
+			input:     "env['PATH']",
+			errorMode: BlockEnv,
+			expectedErr: &EnvReferencedError{
+				Key:    "PATH",
+				String: "env value \"PATH\" referenced",
+			},
+		},
+		{
+			name:      "env-blockenv-deref",
+			input:     "env.*",
+			errorMode: BlockEnv,
+			expectedErr: &EnvReferencedError{
+				String: "env dereferenced via 'env.*'",
+			},
+		},
+		{
+			name:      "env-defaulterrmode-present-deref",
+			input:     "env.*",
+			expected:  map[string]string{"PATH": "/usr/bin"},
+			errorMode: 0,
+		},
+		{
+			name:      "secrets-blockenv",
+			input:     "secrets.PATH",
+			errorMode: BlockSecrets,
+			expectedErr: &SecretsReferencedError{
+				Key:    "path",
+				String: "secrets value \"path\" referenced",
+			},
+		},
+		{
+			name:      "secrets-blockenv-index",
+			input:     "secrets['PATH']",
+			errorMode: BlockSecrets,
+			expectedErr: &SecretsReferencedError{
+				Key:    "PATH",
+				String: "secrets value \"PATH\" referenced",
+			},
+		},
+		{
+			name:      "secrets-blockenv-deref",
+			input:     "secrets.*",
+			errorMode: BlockSecrets,
+			expectedErr: &SecretsReferencedError{
+				String: "secrets dereferenced via 'secrets.*'",
+			},
+		},
+		{
+			name:      "secrets-defaulterrmode-present-deref",
+			input:     "secrets.*",
+			expected:  map[string]string{"password": "Password?"},
+			errorMode: 0,
+		},
 	}
 
 	env := &EvaluationEnvironment{
@@ -812,12 +877,18 @@ func TestErrorModes(t *testing.T) {
 		Matrix: map[string]any{
 			"os": "nixos",
 		},
+		Env: map[string]string{
+			"PATH": "/usr/bin",
+		},
+		Secrets: map[string]string{
+			"password": "Password?",
+		},
 	}
 
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.testWithAllErrorModes {
-				for _, errorMode := range []ErrorMode{0, InvalidJobOutput, InvalidMatrixDimension, InvalidJobOutput | InvalidMatrixDimension} {
+				for _, errorMode := range []ErrorMode{0, InvalidJobOutput, InvalidMatrixDimension, InvalidJobOutput | InvalidMatrixDimension, BlockEnv, BlockSecrets, BlockEnv | BlockSecrets} {
 					t.Run(fmt.Sprintf("ErrorMode=%v", errorMode), func(t *testing.T) {
 						env.ErrorMode = errorMode
 						output, err := NewInterpreter(env, Config{}).Evaluate(tt.input, DefaultStatusCheckNone)
