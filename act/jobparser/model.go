@@ -198,6 +198,7 @@ type Step struct {
 	ID               string            `yaml:"id,omitempty"`
 	If               yaml.Node         `yaml:"if,omitempty"`
 	Name             string            `yaml:"name,omitempty"`
+	Builtin          string            `yaml:"builtin,omitempty"`
 	Uses             string            `yaml:"uses,omitempty"`
 	Run              string            `yaml:"run,omitempty"`
 	WorkingDirectory string            `yaml:"working-directory,omitempty"`
@@ -214,10 +215,11 @@ func (s *Step) String() string {
 		return ""
 	}
 	return (&model.Step{
-		ID:   s.ID,
-		Name: s.Name,
-		Uses: s.Uses,
-		Run:  s.Run,
+		ID:      s.ID,
+		Name:    s.Name,
+		Builtin: s.Builtin,
+		Uses:    s.Uses,
+		Run:     s.Run,
 	}).String()
 }
 

@@ -672,6 +672,7 @@ type Step struct {
 	If                 yaml.Node         `yaml:"if"`
 	Name               string            `yaml:"name"`
 	Uses               string            `yaml:"uses"`
+	Builtin            string            `yaml:"builtin"`
 	Run                string            `yaml:"run"`
 	WorkingDirectory   string            `yaml:"working-directory"`
 	RawShell           string            `yaml:"shell"`
@@ -687,6 +688,8 @@ func (s *Step) String() string {
 		return s.Name
 	} else if s.Uses != "" {
 		return s.Uses
+	} else if s.Builtin != "" {
+		return s.Builtin
 	} else if s.Run != "" {
 		return s.Run
 	}
@@ -734,6 +737,9 @@ const (
 
 	// StepTypeInvalid is for steps that have invalid step action
 	StepTypeInvalid
+
+	// StepTypeBuiltin is for steps use functionality provided by the runner.
+	StepTypeBuiltin
 )
 
 func (s StepType) String() string {
@@ -752,13 +758,15 @@ func (s StepType) String() string {
 		return "local-reusable-workflow"
 	case StepTypeReusableWorkflowRemote:
 		return "remote-reusable-workflow"
+	case StepTypeBuiltin:
+		return "builtin"
 	}
 	return "unknown"
 }
 
 // Type returns the type of the step
 func (s *Step) Type() StepType {
-	if s.Run == "" && s.Uses == "" {
+	if s.Run == "" && s.Uses == "" && s.Builtin == "" {
 		return StepTypeInvalid
 	}
 
@@ -766,8 +774,20 @@ func (s *Step) Type() StepType {
 		if s.Uses != "" {
 			return StepTypeInvalid
 		}
+		if s.Builtin != "" {
+			return StepTypeInvalid
+		}
 		return StepTypeRun
-	} else if strings.HasPrefix(s.Uses, "docker://") {
+	}
+
+	if s.Builtin != "" {
+		if s.Uses != "" {
+			return StepTypeInvalid
+		}
+		return StepTypeBuiltin
+	}
+
+	if strings.HasPrefix(s.Uses, "docker://") {
 		return StepTypeUsesDockerURL
 	} else if strings.HasPrefix(s.Uses, "./.github/workflows") && (strings.HasSuffix(s.Uses, ".yml") || strings.HasSuffix(s.Uses, ".yaml")) {
 		return StepTypeReusableWorkflowLocal

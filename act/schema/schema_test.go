@@ -571,3 +571,77 @@ jobs:
 		})
 	}
 }
+
+func TestSchema_Builtins(t *testing.T) {
+	testCases := []struct {
+		name            string
+		workflowContent string
+		expectedError   string
+	}{
+		{
+			// Allow arbitrary names. That enabled adding new built-ins without having to update Forgejo.
+			name: "arbitrarily named built-in",
+			workflowContent: `
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - builtin: does-not-exist
+`,
+		},
+		{
+			name: "built-in with all supported properties",
+			workflowContent: `
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - id: builtin-test
+        name: Test builtins
+        if: ${{ always() }}
+        builtin: authorized-integration@v1
+        with:
+          argument-one: value
+          argument-two: 123
+`,
+		},
+		{
+			name: "unknown property",
+			workflowContent: `
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - builtin: authorized-integration@v1
+        unknown:
+`,
+			expectedError: "Unknown Property unknown",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var node yaml.Node
+			err := yaml.Unmarshal([]byte(testCase.workflowContent), &node)
+			require.NoError(t, err)
+
+			n := &Node{
+				Definition: "workflow-root",
+				Schema:     GetWorkflowSchema(),
+			}
+
+			err = n.UnmarshalYAML(&node)
+
+			if testCase.expectedError == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, testCase.expectedError)
+			}
+		})
+	}
+}

@@ -1777,7 +1777,7 @@
       }
     },
     "steps-item": {
-      "one-of": ["run-step", "regular-step"]
+      "one-of": ["run-step", "regular-step", "builtin-step"]
     },
     "run-step": {
       "mapping": {
@@ -1812,6 +1812,20 @@
           },
           "with": "step-with",
           "env": "step-env"
+        }
+      }
+    },
+    "builtin-step": {
+      "mapping": {
+        "properties": {
+          "name": "step-name",
+          "id": "step-id",
+          "if": "step-if",
+          "builtin": {
+            "type": "step-builtin",
+            "required": true
+          },
+          "with": "step-with"
         }
       }
     },
@@ -2016,6 +2030,28 @@
       "mapping": {
         "loose-key-type": "non-empty-string",
         "loose-value-type": "string"
+      }
+    },
+    "step-builtin": {
+      "context": [
+        "forge",
+        "forgejo",
+        "github",
+        "inputs",
+        "vars",
+        "needs",
+        "strategy",
+        "matrix",
+        "secrets",
+        "steps",
+        "job",
+        "runner",
+        "env",
+        "hashFiles(1,255)"
+      ],
+      "description": "Selects a builtin to run as part of a step in your job. An builtin is functionality provided by Forgejo Runner.",
+      "string": {
+        "require-non-empty": true
       }
     },
     "container": {

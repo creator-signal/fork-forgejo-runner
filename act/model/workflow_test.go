@@ -94,6 +94,30 @@ jobs:
 	assert.Len(t, newSchedules, 0)
 }
 
+func TestReadWorkflow_Builtin(t *testing.T) {
+	workflowDefinition := `
+on:
+  push:
+jobs:
+  test:
+    runs-on: debian
+    steps:
+      - builtin: does-not-exist@v1
+        with:
+          some-argument: value
+          another-argument: 123
+`
+
+	workflow, err := ReadWorkflow(strings.NewReader(workflowDefinition), false)
+	assert.NoError(t, err)
+
+	testJob := workflow.Jobs["test"]
+
+	assert.Equal(t, StepTypeBuiltin, testJob.Steps[0].Type())
+	assert.Equal(t, map[string]string{"some-argument": "value", "another-argument": "123"}, testJob.Steps[0].With)
+	assert.Equal(t, "does-not-exist@v1", testJob.Steps[0].Builtin)
+}
+
 func TestReadWorkflow_StringEvent(t *testing.T) {
 	yaml := `
 name: local-action-docker-url

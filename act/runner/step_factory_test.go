@@ -53,6 +53,16 @@ func TestStepFactoryNewStep(t *testing.T) {
 				return ok
 			},
 		},
+		{
+			name: "StepBuiltinAuthorizedIntegration",
+			model: &model.Step{
+				Builtin: "authorized-integration@v1",
+			},
+			check: func(s step) bool {
+				_, ok := s.(*stepAuthorizedIntegration)
+				return ok
+			},
+		},
 	}
 
 	for _, tt := range table {

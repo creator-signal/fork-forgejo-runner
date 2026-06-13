@@ -40,6 +40,12 @@ func (sf *stepFactoryImpl) newStep(stepModel *model.Step, rc *RunContext) (step,
 			Step:       stepModel,
 			RunContext: rc,
 		}, nil
+	case model.StepTypeBuiltin:
+		switch stepModel.Builtin {
+		case "authorized-integration@v1":
+			return &stepAuthorizedIntegration{Step: stepModel, RunContext: rc}, nil
+		}
+		return nil, fmt.Errorf("unknown builtin: %q", stepModel.Builtin)
 	}
 
 	return nil, fmt.Errorf("Unable to determine how to run job:%s step:%+v", rc.Run, stepModel)
