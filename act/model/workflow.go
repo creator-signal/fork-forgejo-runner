@@ -22,6 +22,7 @@ import (
 type Workflow struct {
 	File     string
 	Name     string            `yaml:"name"`
+	RunName  string            `yaml:"run-name"`
 	RawOn    yaml.Node         `yaml:"on"`
 	Env      map[string]string `yaml:"env"`
 	Jobs     map[string]*Job   `yaml:"jobs"`

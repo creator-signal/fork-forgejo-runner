@@ -335,6 +335,14 @@ func EvaluateWorkflowConcurrency(rc *model.RawConcurrency, gitCtx *model.GithubC
 	return evaluated.Group, &cancelInProgress, nil
 }
 
+// Interpolates the `run-name` field of a workflow.
+// Supported contexts: github/forgejo, inputs, vars.
+// Returns "" if runName is empty. The caller should fall back to the default workflow name.
+func EvaluateWorkflowRunName(runName string, gitCtx *model.GithubContext, vars map[string]string, inputs map[string]any) string {
+	evaluator := newExpressionEvaluator(newWorkflowInterpreter(gitCtx, vars, inputs))
+	return evaluator.Interpolate(runName)
+}
+
 func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 	switch rawOn.Kind {
 	case yaml.ScalarNode:

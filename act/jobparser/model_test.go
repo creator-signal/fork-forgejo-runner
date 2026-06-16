@@ -552,6 +552,82 @@ func TestEvaluateConcurrency(t *testing.T) {
 	}
 }
 
+func TestEvaluateWorkflowRunName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "plain-string",
+			input:    "deploy to production",
+			expected: "deploy to production",
+		},
+		{
+			name:     "github-context",
+			input:    "${{ github.workflow }} on ${{ github.ref }}",
+			expected: "test_workflow on main",
+		},
+		{
+			name:     "actor",
+			input:    "deploy by ${{ github.actor }}",
+			expected: "deploy by someone",
+		},
+		{
+			name:     "vars",
+			input:    "run ${{ vars.eval_arbitrary_var }}",
+			expected: "run 123",
+		},
+		{
+			name:     "inputs",
+			input:    "run ${{ inputs.eval_arbitrary_input }}",
+			expected: "run 456",
+		},
+		{
+			name:     "event-evaluation",
+			input:    "commit by ${{ github.event.commits[0].author.username }}",
+			expected: "commit by someone",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runName := EvaluateWorkflowRunName(
+				test.input,
+				// gitCtx
+				&model.GithubContext{
+					Workflow: "test_workflow",
+					Ref:      "main",
+					Actor:    "someone",
+					Event: map[string]any{
+						"commits": []any{
+							map[string]any{
+								"author": map[string]any{
+									"username": "someone",
+								},
+							},
+						},
+					},
+				},
+				// vars
+				map[string]string{
+					"eval_arbitrary_var": "123",
+				},
+				// inputs
+				map[string]any{
+					"eval_arbitrary_input": "456",
+				},
+			)
+			assert.EqualValues(t, test.expected, runName)
+		})
+	}
+}
+
 func TestEvaluateWorkflowCallOutputs(t *testing.T) {
 	tests := []struct {
 		name           string
