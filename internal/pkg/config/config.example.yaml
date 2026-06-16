@@ -56,6 +56,20 @@ runner:
   #   initial_delay: 100ms
   #   # Maximum delay between retries, defaults to 0, 0 is treated as no maximum.
   #   max_delay: 0
+  # Retry the initial connection to the Forgejo instance at startup instead of
+  # exiting when it is unreachable.  This is useful when the runner and the
+  # instance are started together (for example in docker compose) or when the
+  # instance may be temporarily unavailable, avoiding the need to manually
+  # restart the runner.
+  # startup_retry:
+  #   # Whether to retry the initial connection. Defaults to false (exit immediately).
+  #   enabled: false
+  #   # Maximum number of retry attempts. 0 (the default) retries indefinitely.
+  #   max_retries: 0
+  #   # Initial delay between retries.  Delay between retries doubles up to `max_delay`.
+  #   initial_delay: 5s
+  #   # Maximum delay between retries.
+  #   max_delay: 60s
   # The labels of a runner are used to determine which jobs the runner can run and how to run them.
   # Like: ["macos-arm64:host", "ubuntu-latest:docker://node:20-bookworm", "ubuntu-22.04:docker://node:20-bookworm"]
   # If it's empty when registering, it will ask for inputting labels.

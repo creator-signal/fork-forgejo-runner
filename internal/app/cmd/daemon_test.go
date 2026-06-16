@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -192,6 +193,100 @@ func TestCreateRunner_PopulatesEphemeralFromClientResponse(t *testing.T) {
 	assert.Equal(t, expectedEphemeral, ephemeral, "Ephemeral should be populated from the Declare response")
 
 	mockClient.AssertCalled(t, "Declare", mock.Anything, mock.Anything)
+}
+
+func TestCreateRunnerWithRetry(t *testing.T) {
+	noRetryRunner := func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+		return nil, "", false, errors.New("dial tcp: connection refused")
+	}
+
+	enabledConfig := func(maxRetries uint) *config.Config {
+		return &config.Config{
+			Runner: config.Runner{
+				StartupRetry: config.StartupRetry{
+					Enabled:      true,
+					MaxRetries:   maxRetries,
+					InitialDelay: time.Millisecond,
+					MaxDelay:     2 * time.Millisecond,
+				},
+			},
+		}
+	}
+
+	t.Run("returns the first error when retry is disabled", func(t *testing.T) {
+		cfg := &config.Config{Runner: config.Runner{StartupRetry: config.StartupRetry{Enabled: false}}}
+		calls := 0
+		defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+			calls++
+			return noRetryRunner(ctx, name, cfg, cli, ls, cacheProxy)
+		})()
+
+		_, _, _, err := createRunnerWithRetry(t.Context(), "test", cfg, nil, labels.Labels{}, nil)
+		require.Error(t, err)
+		assert.Equal(t, 1, calls, "createRunner should be called exactly once when retry is disabled")
+	})
+
+	t.Run("retries until the connection succeeds", func(t *testing.T) {
+		mockRunner := mock_runner.NewMockRunner(t)
+		calls := 0
+		defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+			calls++
+			if calls < 3 {
+				return nil, "", false, errors.New("dial tcp: connection refused")
+			}
+			return mockRunner, "test", false, nil
+		})()
+
+		runner, _, _, err := createRunnerWithRetry(t.Context(), "test", enabledConfig(0), nil, labels.Labels{}, nil)
+		require.NoError(t, err)
+		assert.Equal(t, mockRunner, runner)
+		assert.Equal(t, 3, calls)
+	})
+
+	t.Run("gives up after max_retries attempts", func(t *testing.T) {
+		calls := 0
+		defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+			calls++
+			return noRetryRunner(ctx, name, cfg, cli, ls, cacheProxy)
+		})()
+
+		_, _, _, err := createRunnerWithRetry(t.Context(), "test", enabledConfig(3), nil, labels.Labels{}, nil)
+		require.Error(t, err)
+		assert.Equal(t, 3, calls)
+	})
+
+	t.Run("does not retry authentication errors", func(t *testing.T) {
+		calls := 0
+		defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+			calls++
+			return nil, "", false, connect.NewError(connect.CodeUnauthenticated, errors.New("invalid token"))
+		})()
+
+		_, _, _, err := createRunnerWithRetry(t.Context(), "test", enabledConfig(0), nil, labels.Labels{}, nil)
+		require.Error(t, err)
+		assert.Equal(t, 1, calls, "authentication errors should not be retried")
+	})
+
+	t.Run("stops retrying when the context is canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		calls := 0
+		defer testutils.MockVariable(&createRunner, func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+			calls++
+			return noRetryRunner(ctx, name, cfg, cli, ls, cacheProxy)
+		})()
+
+		_, _, _, err := createRunnerWithRetry(ctx, "test", enabledConfig(0), nil, labels.Labels{}, nil)
+		require.ErrorIs(t, err, context.Canceled)
+		assert.Equal(t, 1, calls)
+	})
+}
+
+func TestIsRetryableStartupError(t *testing.T) {
+	assert.True(t, isRetryableStartupError(errors.New("dial tcp: connection refused")))
+	assert.True(t, isRetryableStartupError(connect.NewError(connect.CodeUnavailable, errors.New("unavailable"))))
+	assert.False(t, isRetryableStartupError(connect.NewError(connect.CodeUnauthenticated, errors.New("invalid token"))))
+	assert.False(t, isRetryableStartupError(connect.NewError(connect.CodePermissionDenied, errors.New("forbidden"))))
 }
 
 func TestRunDaemon_MultipleServers(t *testing.T) {

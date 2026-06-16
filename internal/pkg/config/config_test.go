@@ -53,7 +53,7 @@ func TestNew(t *testing.T) {
 
 		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
-		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
+		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
@@ -75,6 +75,10 @@ func TestNew(t *testing.T) {
 		assert.Equal(t, uint(10), config.Runner.ReportRetry.MaxRetries)
 		assert.Equal(t, 100*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
 		assert.Zero(t, config.Runner.ReportRetry.MaxDelay)
+		assert.False(t, config.Runner.StartupRetry.Enabled)
+		assert.Zero(t, config.Runner.StartupRetry.MaxRetries)
+		assert.Equal(t, 5*time.Second, config.Runner.StartupRetry.InitialDelay)
+		assert.Equal(t, 60*time.Second, config.Runner.StartupRetry.MaxDelay)
 
 		assert.True(t, config.Cache.Enabled)
 		assert.Equal(t, filepath.Join(home, ".cache", "actcache"), config.Cache.Dir)
@@ -117,7 +121,7 @@ func TestNew(t *testing.T) {
 
 		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
-		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
+		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
@@ -139,6 +143,10 @@ func TestNew(t *testing.T) {
 		assert.Equal(t, uint(10), config.Runner.ReportRetry.MaxRetries)
 		assert.Equal(t, 100*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
 		assert.Zero(t, config.Runner.ReportRetry.MaxDelay)
+		assert.False(t, config.Runner.StartupRetry.Enabled)
+		assert.Zero(t, config.Runner.StartupRetry.MaxRetries)
+		assert.Equal(t, 5*time.Second, config.Runner.StartupRetry.InitialDelay)
+		assert.Equal(t, 60*time.Second, config.Runner.StartupRetry.MaxDelay)
 
 		assert.True(t, config.Cache.Enabled)
 		assert.Equal(t, filepath.Join(home, ".cache", "actcache"), config.Cache.Dir)
@@ -253,6 +261,11 @@ runner:
     max_retries: 26
     initial_delay: 600ms
     max_delay: 975s
+  startup_retry:
+    enabled: true
+    max_retries: 7
+    initial_delay: 3s
+    max_delay: 45s
 cache:
   enabled: false
   dir: some/directory
@@ -303,7 +316,7 @@ server:
 
 		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
-		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
+		assert.Equal(t, 12, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
@@ -342,6 +355,14 @@ server:
 		assert.Equal(t, 600*time.Millisecond, config.Runner.ReportRetry.InitialDelay)
 		assert.NotEqual(t, defaultConfig.Runner.ReportRetry.MaxDelay, config.Runner.ReportRetry.MaxDelay)
 		assert.Equal(t, 975*time.Second, config.Runner.ReportRetry.MaxDelay)
+		assert.NotEqual(t, defaultConfig.Runner.StartupRetry.Enabled, config.Runner.StartupRetry.Enabled)
+		assert.True(t, config.Runner.StartupRetry.Enabled)
+		assert.NotEqual(t, defaultConfig.Runner.StartupRetry.MaxRetries, config.Runner.StartupRetry.MaxRetries)
+		assert.Equal(t, uint(7), config.Runner.StartupRetry.MaxRetries)
+		assert.NotEqual(t, defaultConfig.Runner.StartupRetry.InitialDelay, config.Runner.StartupRetry.InitialDelay)
+		assert.Equal(t, 3*time.Second, config.Runner.StartupRetry.InitialDelay)
+		assert.NotEqual(t, defaultConfig.Runner.StartupRetry.MaxDelay, config.Runner.StartupRetry.MaxDelay)
+		assert.Equal(t, 45*time.Second, config.Runner.StartupRetry.MaxDelay)
 
 		assert.NotEqual(t, defaultConfig.Cache.Enabled, config.Cache.Enabled)
 		assert.False(t, config.Cache.Enabled)
@@ -893,6 +914,72 @@ func TestSerializedReportRetrySettings_applyTo(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, 0*time.Second, config.Runner.ReportRetry.MaxDelay)
+	})
+}
+
+func TestSerializedStartupRetrySettings_applyTo(t *testing.T) {
+	t.Run("accepts valid settings", func(t *testing.T) {
+		expected := StartupRetry{
+			Enabled:      true,
+			MaxRetries:   7,
+			InitialDelay: 3 * time.Second,
+			MaxDelay:     45 * time.Second,
+		}
+
+		enabled := true
+		maxRetries := uint(7)
+		initialDelay := 3 * time.Second
+		maxDelay := 45 * time.Second
+		settings := serializedStartupRetrySettings{
+			Enabled:      &enabled,
+			MaxRetries:   &maxRetries,
+			InitialDelay: &initialDelay,
+			MaxDelay:     &maxDelay,
+		}
+
+		config := Config{}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, expected, config.Runner.StartupRetry)
+	})
+	t.Run("accepts max_retries of zero as infinite", func(t *testing.T) {
+		enabled := true
+		maxRetries := uint(0)
+		settings := serializedStartupRetrySettings{
+			Enabled:    &enabled,
+			MaxRetries: &maxRetries,
+		}
+
+		config := Config{Runner: Runner{StartupRetry: StartupRetry{MaxRetries: 5}}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Zero(t, config.Runner.StartupRetry.MaxRetries)
+	})
+	t.Run("ignores invalid initial_delay", func(t *testing.T) {
+		initialDelay := 0 * time.Second
+		settings := serializedStartupRetrySettings{
+			InitialDelay: &initialDelay,
+		}
+
+		config := Config{Runner: Runner{StartupRetry: StartupRetry{InitialDelay: 5 * time.Second}}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 5*time.Second, config.Runner.StartupRetry.InitialDelay)
+	})
+	t.Run("ignores invalid max_delay", func(t *testing.T) {
+		maxDelay := -1 * time.Second
+		settings := serializedStartupRetrySettings{
+			MaxDelay: &maxDelay,
+		}
+
+		config := Config{Runner: Runner{StartupRetry: StartupRetry{MaxDelay: 60 * time.Second}}}
+		err := settings.applyTo(&config)
+		require.NoError(t, err)
+
+		assert.Equal(t, 60*time.Second, config.Runner.StartupRetry.MaxDelay)
 	})
 }
 

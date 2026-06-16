@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
 	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
@@ -76,7 +77,7 @@ func runDaemon(signalContext context.Context, configFile *string, args *daemonAr
 		cli := createClient(cfg, conn)
 		clients = append(clients, cli)
 
-		runner, _, ephemeral, err := createRunner(ctx, conn.UUID.String(), cfg, cli, conn.Labels, cacheProxy)
+		runner, _, ephemeral, err := createRunnerWithRetry(ctx, conn.UUID.String(), cfg, cli, conn.Labels, cacheProxy)
 		if err != nil {
 			return err
 		}
@@ -216,6 +217,52 @@ var createRunner = func(ctx context.Context, name string, cfg *config.Config, cl
 	log.Infof("runner: %s, with version: %s, with labels: %v, ephemeral: %v, declared successfully",
 		resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetVersion(), resp.Msg.GetRunner().GetLabels(), resp.Msg.GetRunner().GetEphemeral())
 	return runner, resp.Msg.GetRunner().GetName(), resp.Msg.GetRunner().GetEphemeral(), nil
+}
+
+// createRunnerWithRetry wraps createRunner so that, when `runner.startup_retry` is enabled, an unreachable Forgejo
+// instance at startup no longer terminates the daemon.  Instead the initial connection is retried with exponential
+// backoff until it succeeds, the configured maximum number of attempts is reached, or the daemon is shutting down.
+// When startup retry is disabled (the default) the behaviour is unchanged: the first error is returned immediately.
+var createRunnerWithRetry = func(ctx context.Context, name string, cfg *config.Config, cli client.Client, ls labels.Labels, cacheProxy *cacheproxy.Handler) (run.RunnerInterface, string, bool, error) {
+	retry := cfg.Runner.StartupRetry
+	delay := retry.InitialDelay
+	var attempt uint
+	for {
+		runner, runnerName, ephemeral, err := createRunner(ctx, name, cfg, cli, ls, cacheProxy)
+		if err == nil {
+			return runner, runnerName, ephemeral, nil
+		}
+		if !retry.Enabled || !isRetryableStartupError(err) {
+			return nil, "", false, err
+		}
+		attempt++
+		if retry.MaxRetries > 0 && attempt >= retry.MaxRetries {
+			return nil, "", false, fmt.Errorf("could not connect to the Forgejo instance after %d attempts: %w", attempt, err)
+		}
+
+		log.WithError(err).Warnf("could not connect to the Forgejo instance (attempt %d), retrying in %s", attempt, delay)
+		select {
+		case <-ctx.Done():
+			return nil, "", false, ctx.Err()
+		case <-time.After(delay):
+		}
+
+		delay *= 2
+		if retry.MaxDelay > 0 && delay > retry.MaxDelay {
+			delay = retry.MaxDelay
+		}
+	}
+}
+
+// isRetryableStartupError reports whether an error returned while establishing the initial connection to Forgejo is
+// worth retrying.  Connection-level failures (the instance is down, unreachable, or not resolvable yet) are retryable,
+// whereas authentication or authorization errors indicate a misconfiguration that retrying cannot fix.
+func isRetryableStartupError(err error) bool {
+	switch connect.CodeOf(err) {
+	case connect.CodeUnauthenticated, connect.CodePermissionDenied:
+		return false
+	}
+	return true
 }
 
 // func(ctx context.Context, cfg *config.Config, cli client.Client, runner run.RunnerInterface) poll.Poller

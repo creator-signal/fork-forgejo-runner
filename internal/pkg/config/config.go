@@ -41,6 +41,7 @@ type Runner struct {
 	ReportInterval  time.Duration     // ReportInterval specifies the interval duration for reporting status and logs of a running job.
 	DefaultLabels   []string          // Default labels for a runner, if not configured at server connection.
 	ReportRetry     Retry             // At the end of a job, configures retrying sending logs to remote.
+	StartupRetry    StartupRetry      // At startup, configures retrying the initial connection to Forgejo.
 }
 
 // Retry defines the retry behaviour of Runner when sending logs to Forgejo.
@@ -48,6 +49,19 @@ type Retry struct {
 	MaxRetries   uint          // Maximum number of retry attempts, defaults to 10.
 	InitialDelay time.Duration // Initial delay between retries, defaults to 100ms.  Delay between retries doubles up to `max_delay`.
 	MaxDelay     time.Duration // Maximum delay between retries, defaults to 0, 0 is treated as no maximum.
+}
+
+// StartupRetry defines whether Runner retries the initial connection to Forgejo
+// when starting in daemon mode. When disabled (the default), the runner exits
+// immediately if the instance is unreachable at startup. When enabled, it waits
+// and retries until the instance becomes available, which avoids manual
+// intervention when the runner and the instance start together (for example in
+// docker compose) or when the instance is temporarily down.
+type StartupRetry struct {
+	Enabled      bool          // Enabled indicates whether the initial connection is retried. Defaults to false.
+	MaxRetries   uint          // Maximum number of retry attempts. 0 (the default) means retry indefinitely.
+	InitialDelay time.Duration // Initial delay between retries. Delay between retries doubles up to `max_delay`.
+	MaxDelay     time.Duration // Maximum delay between retries.
 }
 
 // Cache represents the configuration for caching.
@@ -182,18 +196,19 @@ func (s *serializedLogSettings) applyTo(config *Config) error {
 
 // serializedRunnerSettings defines the on-disk format for configuring the runner's behaviour.
 type serializedRunnerSettings struct {
-	File            string                        `yaml:"file"`             // File specifies the path where `.runner` can be found.
-	Capacity        int                           `yaml:"capacity"`         // Capacity specifies the maximum number of jobs that the runner executes concurrently.
-	Envs            map[string]string             `yaml:"envs"`             // Envs stores environment variables for the runner.
-	EnvFile         string                        `yaml:"env_file"`         // EnvFile specifies the path to the file containing environment variables for the runner.
-	Timeout         time.Duration                 `yaml:"timeout"`          // Timeout specifies the duration for runner timeout.
-	ShutdownTimeout time.Duration                 `yaml:"shutdown_timeout"` // ShutdownTimeout specifies the duration to wait for running jobs to complete during a shutdown of the runner.
-	Insecure        bool                          `yaml:"insecure"`         // Insecure indicates whether the runner operates in an insecure mode.
-	FetchTimeout    time.Duration                 `yaml:"fetch_timeout"`    // FetchTimeout specifies the timeout duration for fetching resources.
-	FetchInterval   time.Duration                 `yaml:"fetch_interval"`   // FetchInterval specifies the interval duration for fetching resources.  Operates as a default for all connections, if not provided by a specific connection.
-	ReportInterval  time.Duration                 `yaml:"report_interval"`  // ReportInterval specifies the interval duration for reporting status and logs of a running job.
-	Labels          []string                      `yaml:"labels"`           // Labels specify the labels of the runner. Labels are declared on each startup.
-	ReportRetry     serializedReportRetrySettings `yaml:"report_retry"`     // ReportRetry defines whether sending logs to the remote should be retried after a job has completed.
+	File            string                         `yaml:"file"`             // File specifies the path where `.runner` can be found.
+	Capacity        int                            `yaml:"capacity"`         // Capacity specifies the maximum number of jobs that the runner executes concurrently.
+	Envs            map[string]string              `yaml:"envs"`             // Envs stores environment variables for the runner.
+	EnvFile         string                         `yaml:"env_file"`         // EnvFile specifies the path to the file containing environment variables for the runner.
+	Timeout         time.Duration                  `yaml:"timeout"`          // Timeout specifies the duration for runner timeout.
+	ShutdownTimeout time.Duration                  `yaml:"shutdown_timeout"` // ShutdownTimeout specifies the duration to wait for running jobs to complete during a shutdown of the runner.
+	Insecure        bool                           `yaml:"insecure"`         // Insecure indicates whether the runner operates in an insecure mode.
+	FetchTimeout    time.Duration                  `yaml:"fetch_timeout"`    // FetchTimeout specifies the timeout duration for fetching resources.
+	FetchInterval   time.Duration                  `yaml:"fetch_interval"`   // FetchInterval specifies the interval duration for fetching resources.  Operates as a default for all connections, if not provided by a specific connection.
+	ReportInterval  time.Duration                  `yaml:"report_interval"`  // ReportInterval specifies the interval duration for reporting status and logs of a running job.
+	Labels          []string                       `yaml:"labels"`           // Labels specify the labels of the runner. Labels are declared on each startup.
+	ReportRetry     serializedReportRetrySettings  `yaml:"report_retry"`     // ReportRetry defines whether sending logs to the remote should be retried after a job has completed.
+	StartupRetry    serializedStartupRetrySettings `yaml:"startup_retry"`    // StartupRetry defines whether the initial connection to Forgejo should be retried at startup.
 }
 
 func (s *serializedRunnerSettings) applyTo(config *Config) error {
@@ -260,6 +275,9 @@ func (s *serializedRunnerSettings) applyTo(config *Config) error {
 	if err := s.ReportRetry.applyTo(config); err != nil {
 		return fmt.Errorf("invalid `report_retry`: %w", err)
 	}
+	if err := s.StartupRetry.applyTo(config); err != nil {
+		return fmt.Errorf("invalid `startup_retry`: %w", err)
+	}
 	return nil
 }
 
@@ -304,6 +322,38 @@ func (s *serializedReportRetrySettings) applyTo(config *Config) error {
 		log.Warnf("Ignoring invalid `runner.report_retry.max_delay`: %q", s.MaxDelay)
 	} else {
 		config.Runner.ReportRetry.MaxDelay = s.MaxDelay
+	}
+	return nil
+}
+
+// serializedStartupRetrySettings adjusts Runner's retry behaviour for the initial connection to Forgejo.
+type serializedStartupRetrySettings struct {
+	Enabled      *bool          `yaml:"enabled"`       // Whether the initial connection is retried, defaults to false.
+	MaxRetries   *uint          `yaml:"max_retries"`   // Maximum number of retry attempts, defaults to 0 which retries indefinitely.
+	InitialDelay *time.Duration `yaml:"initial_delay"` // Initial delay between retries, defaults to 5s.  Delay between retries doubles up to `max_delay`.
+	MaxDelay     *time.Duration `yaml:"max_delay"`     // Maximum delay between retries, defaults to 60s.
+}
+
+func (s *serializedStartupRetrySettings) applyTo(config *Config) error {
+	if s.Enabled != nil {
+		config.Runner.StartupRetry.Enabled = *s.Enabled
+	}
+	if s.MaxRetries != nil {
+		config.Runner.StartupRetry.MaxRetries = *s.MaxRetries
+	}
+	if s.InitialDelay != nil {
+		if *s.InitialDelay <= 0 {
+			log.Warnf("Ignoring invalid `runner.startup_retry.initial_delay`: %q", *s.InitialDelay)
+		} else {
+			config.Runner.StartupRetry.InitialDelay = *s.InitialDelay
+		}
+	}
+	if s.MaxDelay != nil {
+		if *s.MaxDelay <= 0 {
+			log.Warnf("Ignoring invalid `runner.startup_retry.max_delay`: %q", *s.MaxDelay)
+		} else {
+			config.Runner.StartupRetry.MaxDelay = *s.MaxDelay
+		}
 	}
 	return nil
 }
@@ -516,6 +566,12 @@ func New(opts ...Option) (*Config, error) {
 				MaxRetries:   10,
 				InitialDelay: 100 * time.Millisecond,
 				MaxDelay:     0,
+			},
+			StartupRetry: StartupRetry{
+				Enabled:      false,
+				MaxRetries:   0,
+				InitialDelay: 5 * time.Second,
+				MaxDelay:     60 * time.Second,
 			},
 			DefaultLabels: []string{},
 		},
