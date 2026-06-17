@@ -392,6 +392,7 @@ func runExec(ctx context.Context, execArgs *executeArgs) error {
 		Vars:                  execArgs.LoadVars(),
 		Secrets:               execArgs.LoadSecrets(),
 		InsecureSecrets:       execArgs.insecureSecrets,
+		EventName:             eventName,
 		Privileged:            execArgs.privileged,
 		UsernsMode:            execArgs.usernsMode,
 		ContainerArchitecture: execArgs.containerArchitecture,
