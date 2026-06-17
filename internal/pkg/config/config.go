@@ -51,12 +51,7 @@ type Retry struct {
 	MaxDelay     time.Duration // Maximum delay between retries, defaults to 0, 0 is treated as no maximum.
 }
 
-// StartupRetry defines whether Runner retries the initial connection to Forgejo
-// when starting in daemon mode. When disabled (the default), the runner exits
-// immediately if the instance is unreachable at startup. When enabled, it waits
-// and retries until the instance becomes available, which avoids manual
-// intervention when the runner and the instance start together (for example in
-// docker compose) or when the instance is temporarily down.
+// Retry defines the retry behaviour of Runner when starting a connection to Forgejo.
 type StartupRetry struct {
 	Enabled      bool          // Enabled indicates whether the initial connection is retried. Defaults to false.
 	MaxRetries   uint          // Maximum number of retry attempts. 0 (the default) means retry indefinitely.
