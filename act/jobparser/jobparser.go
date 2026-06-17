@@ -199,6 +199,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 		job.RawRunsOn = encodeRunsOn(runsOn)
 		swf := &SingleWorkflow{
 			Name:     workflow.Name,
+			RunName:  workflow.RunName,
 			RawOn:    workflow.RawOn,
 			Env:      bothJobs.workflowLevelEnv,
 			Defaults: workflow.Defaults,

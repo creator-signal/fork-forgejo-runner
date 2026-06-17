@@ -20,6 +20,7 @@ var ErrCannotEvaluateInJobParser = errors.New("cannot evaluate in job parser")
 // SingleWorkflow is a workflow with single job and single matrix
 type SingleWorkflow struct {
 	Name                string            `yaml:"name,omitempty"`
+	RunName             string            `yaml:"run-name,omitempty"`
 	RawOn               yaml.Node         `yaml:"on,omitempty"`
 	Env                 map[string]string `yaml:"env,omitempty"`
 	RawJobs             yaml.Node         `yaml:"jobs,omitempty"`
@@ -338,9 +339,14 @@ func EvaluateWorkflowConcurrency(rc *model.RawConcurrency, gitCtx *model.GithubC
 // Interpolates the `run-name` field of a workflow.
 // Supported contexts: github/forgejo, inputs, vars.
 // Returns "" if runName is empty. The caller should fall back to the default workflow name.
-func EvaluateWorkflowRunName(runName string, gitCtx *model.GithubContext, vars map[string]string, inputs map[string]any) string {
-	evaluator := newExpressionEvaluator(newWorkflowInterpreter(gitCtx, vars, inputs))
-	return evaluator.Interpolate(runName)
+func (w *SingleWorkflow) EvaluateRunName() (string, error) {
+	if w.parseContext == nil {
+		// parse context is lost across a marshal/unmarshal.
+		return "", errors.New("failure in EvaluateRunName: invoked on an object that lost its parse context")
+	}
+	pc := w.parseContext
+	evaluator := newExpressionEvaluator(newWorkflowInterpreter(pc.gitContext, pc.vars, pc.inputs))
+	return evaluator.Interpolate(w.RunName), nil
 }
 
 func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {

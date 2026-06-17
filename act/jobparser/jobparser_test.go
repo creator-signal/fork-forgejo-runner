@@ -1265,3 +1265,102 @@ jobs:
 		require.ErrorContains(t, err, "cannot evaluate in job parser: secrets value \"something\" referenced")
 	})
 }
+
+func TestEvaluateRunName(t *testing.T) {
+	tests := []struct {
+		name     string
+		runName  string
+		expected string
+	}{
+		{
+			name:     "absent",
+			runName:  "",
+			expected: "",
+		},
+		{
+			name:     "plain-string",
+			runName:  "deploy to production",
+			expected: "deploy to production",
+		},
+		{
+			name:     "github-context",
+			runName:  "${{ github.workflow }} on ${{ github.ref }}",
+			expected: "test_workflow on main",
+		},
+		{
+			name:     "actor",
+			runName:  "deploy by ${{ github.actor }}",
+			expected: "deploy by someone",
+		},
+		{
+			name:     "vars",
+			runName:  "run ${{ vars.eval_arbitrary_var }}",
+			expected: "run 123",
+		},
+		{
+			name:     "inputs",
+			runName:  "run ${{ inputs.eval_arbitrary_input }}",
+			expected: "run 456",
+		},
+		{
+			name:     "event-evaluation",
+			runName:  "commit by ${{ github.event.commits[0].author.username }}",
+			expected: "commit by someone",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			runNameLine := ""
+			if test.runName != "" {
+				runNameLine = "run-name: " + test.runName
+			}
+			content := fmt.Sprintf(`
+name: test_workflow
+%s
+on: push
+jobs:
+  job:
+    runs-on: ubuntu
+    steps: []
+`, runNameLine)
+
+			workflows, err := Parse(
+				[]byte(content),
+				true,
+				WithGitContext(&model.GithubContext{
+					Workflow: "test_workflow",
+					Ref:      "main",
+					Actor:    "someone",
+					Event: map[string]any{
+						"commits": []any{
+							map[string]any{
+								"author": map[string]any{
+									"username": "someone",
+								},
+							},
+						},
+					},
+				}),
+				WithVars(map[string]string{
+					"eval_arbitrary_var": "123",
+				}),
+				WithInputs(map[string]any{
+					"eval_arbitrary_input": "456",
+				}),
+			)
+			require.NoError(t, err)
+			require.Len(t, workflows, 1)
+
+			runName, err := workflows[0].EvaluateRunName()
+			require.NoError(t, err)
+			assert.EqualValues(t, test.expected, runName)
+		})
+	}
+}
+
+func TestEvaluateRunName_LostParseContext(t *testing.T) {
+	wf := &SingleWorkflow{RunName: "anything"}
+	_, err := wf.EvaluateRunName()
+	require.Error(t, err)
+}
