@@ -113,6 +113,48 @@ jobs:
 	assert.Contains(t, workflow.On(), "push")
 }
 
+func TestReadWorkflow_RunName(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		snippet  string
+		expected string
+	}{
+		{
+			name:     "absent",
+			snippet:  "# nothing",
+			expected: "",
+		},
+		{
+			name:     "plain-string",
+			snippet:  "run-name: deploy to production",
+			expected: "deploy to production",
+		},
+		{
+			name:     "expression",
+			snippet:  "run-name: deploy by ${{ github.actor }}",
+			expected: "deploy by ${{ github.actor }}",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			yaml := fmt.Sprintf(`
+name: workflow-with-run-name
+%s
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - run: true
+`, testCase.snippet)
+
+			workflow, err := ReadWorkflow(strings.NewReader(yaml), true)
+			assert.NoError(t, err, "read workflow should succeed")
+			assert.Equal(t, testCase.expected, workflow.RunName)
+		})
+	}
+}
+
 func TestReadWorkflow_Notifications(t *testing.T) {
 	for _, testCase := range []struct {
 		expected bool
