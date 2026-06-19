@@ -7,3 +7,9 @@ jobs:
       - run: |
           echo "forgejo.ref=${{ forgejo.ref }}"
           [[ "${{ forgejo.ref }}" =~ ^refs/(heads|remotes|rewritten|tags)/.+$ ]] || exit 1
+          [ '${{ github.event_name }}' = 'push' ] || exit 2
+          [ '${{ forgejo.event_name }}' = 'push' ] || exit 3
+          [ '${{ env.FORGEJO_EVENT_NAME }}' = 'push' ] || exit 4
+          [ '${{ env.GITHUB_EVENT_NAME }}' = 'push' ] || exit 5
+          [ "${GITHUB_EVENT_NAME}" = 'push' ] || exit 6
+          [ "${FORGEJO_EVENT_NAME}" = 'push' ] || exit 7
