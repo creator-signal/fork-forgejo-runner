@@ -594,7 +594,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 			Stderr:          logWriter,
 			Privileged:      rc.Config.Privileged,
 			UsernsMode:      rc.Config.UsernsMode,
-			DefaultPlatform: rc.Config.ContainerArchitecture,
+			DefaultPlatform: rc.dockerImagePlatform(ctx),
 			NetworkMode:     rc.getNetworkName(ctx),
 			NetworkAliases:  []string{sanitizeNetworkAlias(ctx, serviceID)},
 			ExposedPorts:    exposedPorts,
@@ -668,7 +668,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		Stderr:          logWriter,
 		Privileged:      rc.Config.Privileged,
 		UsernsMode:      rc.Config.UsernsMode,
-		DefaultPlatform: rc.Config.ContainerArchitecture,
+		DefaultPlatform: rc.dockerImagePlatform(ctx),
 		ValidVolumes:    validVolumes,
 
 		JobOptions:    rc.options(ctx),
@@ -1070,6 +1070,17 @@ func (rc *RunContext) runsOnImage(ctx context.Context) string {
 	}
 
 	return ""
+}
+
+// dockerImagePlatform returns the Docker image platform (e.g. "linux/amd64") to use for the job's
+// containers. A per-label platform takes precedence over the runner-wide ContainerArchitecture.
+func (rc *RunContext) dockerImagePlatform(ctx context.Context) string {
+	if pick := rc.Config.DockerImagePlatformPicker; pick != nil {
+		if platform := pick(rc.runsOnPlatformNames(ctx)); platform != "" {
+			return platform
+		}
+	}
+	return rc.Config.ContainerArchitecture
 }
 
 func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {

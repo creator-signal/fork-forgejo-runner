@@ -1646,3 +1646,92 @@ func TestResolveFileSecret(t *testing.T) {
 		assert.Equal(t, "", secret)
 	})
 }
+
+func TestConfig_Labels(t *testing.T) {
+	t.Run("string form with platform option", func(t *testing.T) {
+		rawConfig := `
+runner:
+  labels:
+    - ubuntu-latest:docker://node:20-bookworm?platform=linux/amd64
+`
+		config := configFromYAML(t, rawConfig)
+		require.Equal(t, []string{"ubuntu-latest:docker://node:20-bookworm?platform=linux/amd64"}, config.Runner.DefaultLabels)
+	})
+
+	t.Run("mapping form", func(t *testing.T) {
+		rawConfig := `
+runner:
+  labels:
+    freebsd-15:
+      backend: docker
+      backend-options:
+        image: ghcr.io/freebsd/freebsd-runtime:15.0
+        platform: freebsd/amd64
+    native:
+      backend: host
+`
+		config := configFromYAML(t, rawConfig)
+		assert.ElementsMatch(t, []string{
+			"freebsd-15:docker://ghcr.io/freebsd/freebsd-runtime:15.0?platform=freebsd%2Famd64",
+			"native:host",
+		}, config.Runner.DefaultLabels)
+	})
+
+	t.Run("mapping form on a connection", func(t *testing.T) {
+		rawConfig := `
+server:
+  connections:
+    example:
+      url: https://example.com/
+      uuid: 7f7695df-a064-4c70-a597-56714e851e2c
+      token: LxV7RrjXd
+      labels:
+        ubuntu-latest:
+          backend-options:
+            image: node:20-bookworm
+            platform: linux/amd64
+`
+		config := configFromYAML(t, rawConfig)
+		conn := config.Server.Connections["example"]
+		require.Len(t, conn.Labels, 1)
+		assert.Equal(t, "ubuntu-latest", conn.Labels[0].Name)
+		assert.Equal(t, "linux/amd64", conn.Labels[0].Platform())
+	})
+
+	t.Run("error on unknown option", func(t *testing.T) {
+		rawConfig := `
+runner:
+  labels:
+    - ubuntu-latest:docker://node:20-bookworm?bogus=1
+`
+		_, err := New(FromFile(writeConfig(t, rawConfig)))
+		require.Error(t, err)
+	})
+
+	t.Run("error on platform with non-docker backend", func(t *testing.T) {
+		rawConfig := `
+runner:
+  labels:
+    native:
+      backend: host
+      backend-options:
+        platform: linux/amd64
+`
+		_, err := New(FromFile(writeConfig(t, rawConfig)))
+		require.Error(t, err)
+	})
+}
+
+func writeConfig(t *testing.T, rawConfig string) string {
+	t.Helper()
+	configPath := filepath.Join(t.TempDir(), "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte(rawConfig), 0o644))
+	return configPath
+}
+
+func configFromYAML(t *testing.T, rawConfig string) *Config {
+	t.Helper()
+	config, err := New(FromFile(writeConfig(t, rawConfig)))
+	require.NoError(t, err)
+	return config
+}

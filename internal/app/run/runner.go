@@ -374,6 +374,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		Privileged:                 r.cfg.Container.Privileged,
 		DefaultActionInstance:      defaultActionURL,
 		PlatformPicker:             r.labels.PickPlatform,
+		DockerImagePlatformPicker:  r.labels.PickDockerImagePlatform,
 		Vars:                       task.Vars,
 		ValidVolumes:               r.cfg.Container.ValidVolumes,
 		InsecureSkipTLS:            r.cfg.Runner.Insecure,

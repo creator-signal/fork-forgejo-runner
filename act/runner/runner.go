@@ -62,15 +62,16 @@ type Config struct {
 	Matrix                             map[string]map[string]bool   // Matrix config to run
 	ContainerNetworkMode               docker_container.NetworkMode // the network mode of job containers (the value of --network)
 
-	PresetGitHubContext   *model.GithubContext         // the preset github context, overrides some fields like DefaultBranch, Env, Secrets etc.
-	EventJSON             string                       // the content of JSON file to use for event.json in containers, overrides EventPath
-	ContainerNamePrefix   string                       // the prefix of container name
-	ContainerMaxLifetime  time.Duration                // the max lifetime of job containers
-	DefaultActionInstance string                       // the default actions web site
-	PlatformPicker        func(labels []string) string // platform picker, it will take precedence over Platforms if isn't nil
-	JobLoggerLevel        *log.Level                   // the level of job logger
-	ValidVolumes          []string                     // only volumes (and bind mounts) in this slice can be mounted on the job container or service containers
-	InsecureSkipTLS       bool                         // whether to skip verifying TLS certificate of the Gitea instance
+	PresetGitHubContext       *model.GithubContext         // the preset github context, overrides some fields like DefaultBranch, Env, Secrets etc.
+	EventJSON                 string                       // the content of JSON file to use for event.json in containers, overrides EventPath
+	ContainerNamePrefix       string                       // the prefix of container name
+	ContainerMaxLifetime      time.Duration                // the max lifetime of job containers
+	DefaultActionInstance     string                       // the default actions web site
+	PlatformPicker            func(labels []string) string // platform picker, it will take precedence over Platforms if isn't nil
+	DockerImagePlatformPicker func(labels []string) string // per-label Docker image platform picker (e.g. linux/amd64), overrides ContainerArchitecture when non-empty
+	JobLoggerLevel            *log.Level                   // the level of job logger
+	ValidVolumes              []string                     // only volumes (and bind mounts) in this slice can be mounted on the job container or service containers
+	InsecureSkipTLS           bool                         // whether to skip verifying TLS certificate of the Gitea instance
 
 	ContainerNetworkEnableIPv6 bool   // create the network with IPv6 support enabled
 	ServerVersion              string // Git forge server version
