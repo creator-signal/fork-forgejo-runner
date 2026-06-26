@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"code.forgejo.org/forgejo/runner/v13/act/container"
 	pluginv1alpha "code.forgejo.org/forgejo/runner/v13/act/plugin/proto/v1alpha"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -204,6 +205,19 @@ func validateCapabilities(caps *pluginv1alpha.CapabilitiesResponse) error {
 
 func (c *Client) Capabilities() *pluginv1alpha.CapabilitiesResponse {
 	return c.caps
+}
+
+func (c *Client) NewEnvironment(input *container.NewContainerInput, backendOpts map[string]string, labelArg string, timeout time.Duration) container.ExecutionsEnvironment {
+	return &pluginEnvironment{
+		client:      c.rpc,
+		caps:        c.caps,
+		backendOpts: backendOpts,
+		labelArg:    labelArg,
+		timeout:     timeout,
+		input:       input,
+		stdout:      input.Stdout,
+		stderr:      input.Stderr,
+	}
 }
 
 func (c *Client) Close() error {
