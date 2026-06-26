@@ -51,7 +51,7 @@ func TestNew(t *testing.T) {
 		home, err := os.UserHomeDir()
 		require.NoError(t, err)
 
-		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 7, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
@@ -115,7 +115,7 @@ func TestNew(t *testing.T) {
 		home, err := os.UserHomeDir()
 		require.NoError(t, err)
 
-		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 7, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
@@ -301,7 +301,7 @@ server:
 		config, err := New(FromFile(configPath))
 		require.NoError(t, err)
 
-		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 7, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
@@ -527,6 +527,18 @@ runner:
 		require.Len(t, c.Labels, 1)
 		assert.Equal(t, c.Labels[0].String(), "docker:docker://node:current-bookworm")
 	})
+}
+
+func TestValidateLabelScheme(t *testing.T) {
+	c := &Config{Plugins: map[string]Plugin{"myplugin": {}}}
+
+	for _, l := range []string{"a:host", "b:docker://node", "c:lxc://debian", "d:myplugin://cfg"} {
+		require.NoError(t, c.validateLabelScheme(labels.MustParse(l)))
+	}
+
+	err := c.validateLabelScheme(labels.MustParse("e:dcoker://node"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown scheme")
 }
 
 func TestSerializedLogSettings_applyTo(t *testing.T) {
