@@ -116,6 +116,16 @@ vet:
 generate:
 	mockery
 
+# proto regenerates the plugin gRPC bindings from plugin.proto. Requires protoc
+# with protoc-gen-go and protoc-gen-go-grpc on PATH. Run after editing the proto;
+# the generated *.pb.go are committed.
+.PHONY: proto
+proto:
+	protoc -I act/plugin/proto/v1alpha \
+		--go_out=paths=source_relative:act/plugin/proto/v1alpha \
+		--go-grpc_out=paths=source_relative:act/plugin/proto/v1alpha \
+		act/plugin/proto/v1alpha/plugin.proto
+
 install: $(GOFILES)
 	$(GO) install -v -tags '$(TAGS)' -ldflags '$(EXTLDFLAGS)-s -w $(LDFLAGS)'
 
