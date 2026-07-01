@@ -91,10 +91,12 @@ func (e *endpoint) RunnerArch() string {
 		return "X64"
 	case "386":
 		return "X86"
+	case "arm":
+		return "ARM"
 	case "arm64":
 		return "ARM64"
 	}
-	return e.arch
+	return "undefined"
 }
 
 // CurrentSystemPlatform returns the daemon's platform as "os/arch", normalised
