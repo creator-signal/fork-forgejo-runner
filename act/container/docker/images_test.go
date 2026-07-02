@@ -3,15 +3,14 @@ package docker
 import (
 	"io"
 	"os"
-	"runtime"
 	"testing"
 
+	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"github.com/docker/docker/api/types/image"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/v3/skip"
 )
 
 func init() {
@@ -19,7 +18,7 @@ func init() {
 }
 
 func TestImageExistsLocally(t *testing.T) {
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}

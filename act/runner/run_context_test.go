@@ -729,7 +729,8 @@ func TestRunContext_SanitizeNetworkAlias(t *testing.T) {
 }
 
 func TestRunContext_PrepareJobContainer(t *testing.T) {
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
+
 	yaml := `
 on:
   push:

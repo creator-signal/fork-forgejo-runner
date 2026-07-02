@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -14,11 +13,11 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/container"
 	"code.forgejo.org/forgejo/runner/v12/act/container/docker"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/v3/skip"
 )
 
 func TestJobExecutor(t *testing.T) {
@@ -26,7 +25,7 @@ func TestJobExecutor(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 	tables := []TestJobFileInfo{
 		{workdir, "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, secrets},
 		{workdir, "uses-github-empty", "push", "job:test step:empty", platforms, secrets},
