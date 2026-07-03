@@ -31,7 +31,7 @@ Work may be in progress for other architectures and you can browse the correspon
 - [linux-riscv64](https://code.forgejo.org/forgejo/runner/issues?labels=970)
 - [Windows](https://code.forgejo.org/forgejo/runner/issues?labels=365)
 
-## Hacking
+## Development
 
 The Forgejo runner is a dependency of the [setup-forgejo action](https://code.forgejo.org/actions/setup-forgejo). See [the full dependency graph](https://code.forgejo.org/actions/cascading-pr/#forgejo-dependencies) for a global view.
 
@@ -47,37 +47,69 @@ The Forgejo runner is a dependency of the [setup-forgejo action](https://code.fo
 
 ### Testing
 
-The [workflow](.forgejo/workflows/test.yml) that runs in the CI uses similar commands.
+There are three kinds of tests for Forgejo Runner:
 
-#### Without a Forgejo instance
+* Unit tests
+* Integration tests
+* [End-to-end tests](https://code.forgejo.org/forgejo/end-to-end/) that involve a running Forgejo instance
 
-- Install [Docker](https://docs.docker.com/engine/install/)
-- `make test integration-test`
+Unit and integration tests are included in this repository, whereas [end-to-end tests](https://code.forgejo.org/forgejo/end-to-end/) are maintained separately.
 
-The `TestRunner_RunEvent` test suite contains most integration tests
-with real-world workflows and is time-consuming to run. During
-development, it is helpful to run a specific test through a targeted
-command such as this:
+Tests can either be run using predefined GNU Make targets or `go test`. 
 
-- `go test -count=1 -run='TestRunner_RunEvent$/local-action-dockerfile$' ./act/runner`
+#### Running Tests
 
-#### With a Forgejo instance
+To run all unit tests with GNU Make, run:
 
-- Run a Forgejo instance locally (for instance at http://0.0.0.0:8080) and create as shared secret
-```sh
-export FORGEJO_RUNNER_SECRET='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-export FORGEJO_URL=http://0.0.0.0:8080
-forgejo forgejo-cli actions register --labels docker --name therunner --secret $FORGEJO_RUNNER_SECRET
+```shell
+$ make test
 ```
-- `make test integration-test` # which will run addional tests because FORGEJO_URL is set
 
-#### end-to-end
+Or with `go test`, run:
 
-- Follow the instructions from the end-to-end tests to [run actions tests locally](https://code.forgejo.org/forgejo/end-to-end#running-from-locally-built-binary).
-- `./end-to-end.sh actions_teardown` # stop the Forgejo and runner daemons running in the end-to-end environment
-- `( cd ~/clone-of-the-runner-repo ; make build ; cp forgejo-runner /tmp/forgejo-end-to-end/forgejo-runner )` # install the runner built from sources
-- `./end-to-end.sh actions_setup 13.0` # start Forgejo v13.0 and the runner daemon in the end-to-end environment
-- `./end-to-end.sh actions_verify_example echo` # run the [echo workflow](https://code.forgejo.org/forgejo/end-to-end/src/branch/main/actions/example-echo/.forgejo/workflows/test.yml)
-- `xdg-open http://127.0.0.1:3000/root/example-echo/actions/runs/1` # see the logs workflow
-- `less /tmp/forgejo-end-to-end/forgejo-runner.log` # analyze the runner logs
-- `less /tmp/forgejo-end-to-end/forgejo-work-path/log/forgejo.log` # analyze the Forgejo logs
+```shell
+$ go test -short ./...
+```
+
+To run all integration tests with GNU Make, run:
+
+```shell
+$ make integration-test
+```
+
+Or with `go test`, run:
+
+```shell
+$ go test ./...
+```
+
+#### Toggling Tests by Feature
+
+Forgejo Runner integrates with various technologies like [Docker](https://docker.com/) and [LXC](https://linuxcontainers.org/). They are not available on all platforms that Forgejo Runner can run on. The related tests take a long time to execute, too. It is possible to enable or disable the tests with the help of the test argument `-features`. **All feature-related tests are enabled by default**.
+
+`-features` takes a list of comma-separated feature names. For example, to run all tests including those related to `docker` and `lxc`, invoke:
+
+```shell
+$ go test ./... -args -features "docker,lxc"
+```
+
+If all feature-related tests should be skipped, run:
+
+```shell
+$ go test ./... -args -features "-"
+```
+
+If `-features` is not present, all feature-related tests will be enabled.
+
+List of all feature toggles:
+
+| Key      | Purpose                                                                                   |
+|----------|-------------------------------------------------------------------------------------------|
+| `docker` | Toggles tests that require [Docker](https://docker.com/) or [Podman](https://podman.io/). |
+| `lxc`    | Toggles tests that require [LXC](https://linuxcontainers.org/).                           |
+
+#### Running End-to-End Tests
+
+For running end-to-end tests during development, please see the instructions in the respective [repository where the end-to-end tests are maintained](https://code.forgejo.org/forgejo/end-to-end/).
+
+During CI, the end-to-end tests can be triggered for a particular pull request by attaching the label [`run-end-to-end-tests`](https://code.forgejo.org/forgejo/runner/pulls?labels=1032).
