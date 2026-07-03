@@ -1,7 +1,5 @@
 package container
 
-import "context"
-
 type ExecutionsEnvironment interface {
 	Container
 	ToContainerPath(string) string
@@ -26,10 +24,8 @@ type ExecutionsEnvironment interface {
 	GetPathVariableName() string
 	DefaultPathVariable() string
 	JoinPathVariable(...string) string
-	GetRunnerContext(ctx context.Context) map[string]any
-	// GetPlatformInfo reports the default platform and every platform this
-	// back-end can provide.
-	GetPlatformInfo() PlatformInfo
+	GetToolCache() string
+	GetTempDir() string
 	// On windows PATH and Path are the same key
 	IsEnvironmentCaseInsensitive() bool
 }

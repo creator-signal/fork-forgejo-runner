@@ -453,57 +453,12 @@ func (*HostEnvironment) JoinPathVariable(paths ...string) string {
 	return strings.Join(paths, string(filepath.ListSeparator))
 }
 
-// determineGitHubArch returns the architecture name used by GitHub that corresponds to the given value of
-// [runtime.GOARCH]. Returns the literal string "undefined" (without quotes) if GitHub has not yet defined a
-// corresponding architecture name.
-func determineGitHubArch(goarch string) string {
-	// For a list of possible runner.arch values, see
-	// https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context. It is wrong to return any other
-	// than the values sanctioned by GitHub because they are used to build the `runner` context. Matching GitHub's
-	// behaviour is required to retain compatibility. If additional architectures should be supported, define a separate
-	// context.
-	switch goarch {
-	case "386":
-		return "X86"
-	case "amd64":
-		return "X64"
-	case "arm":
-		return "ARM"
-	case "arm64":
-		return "ARM64"
-	default:
-		return "undefined"
-	}
+func (e *HostEnvironment) GetToolCache() string {
+	return e.ToolCache
 }
 
-// determineGitHubOS returns the operating system name used by GitHub that corresponds to the given value of
-// [runtime.GOOS]. Returns the literal string "undefined" (without quotes) if GitHub has not yet defined a
-// corresponding operating system name.
-func determineGitHubOS(goos string) string {
-	// For a list of possible runner.os values, see
-	// https://docs.github.com/en/actions/learn-github-actions/contexts#runner-context. It is wrong to return any other
-	// than the values sanctioned by GitHub because they are used to build the `runner` context. Matching GitHub's
-	// behaviour is required to retain compatibility. If additional operating systems should be supported, define a
-	// separate context.
-	switch goos {
-	case "linux":
-		return "Linux"
-	case "windows":
-		return "Windows"
-	case "darwin":
-		return "macOS"
-	default:
-		return "undefined"
-	}
-}
-
-func (e *HostEnvironment) GetRunnerContext(_ context.Context) map[string]any {
-	return map[string]any{
-		"os":         determineGitHubOS(runtime.GOOS),
-		"arch":       determineGitHubArch(runtime.GOARCH),
-		"tool_cache": e.ToolCache,
-		"temp":       e.TmpDir,
-	}
+func (e *HostEnvironment) GetTempDir() string {
+	return e.TmpDir
 }
 
 func (e *HostEnvironment) GetPlatform() Platform {

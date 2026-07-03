@@ -11,7 +11,6 @@ import (
 type Endpoint interface {
 	Client() client.APIClient
 	Close() error
-	RunnerArch() string
 	CurrentSystemPlatform() string
 	Platform() actcontainer.Platform
 }

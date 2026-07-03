@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"context"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -86,13 +85,12 @@ func (*LinuxContainerEnvironmentExtensions) JoinPathVariable(paths ...string) st
 	return strings.Join(paths, ":")
 }
 
-func (l *LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Context) map[string]any {
-	return map[string]any{
-		"os":         "Linux",
-		"arch":       l.endpoint.RunnerArch(),
-		"temp":       "/tmp",
-		"tool_cache": l.toolCache,
-	}
+func (l *LinuxContainerEnvironmentExtensions) GetToolCache() string {
+	return l.toolCache
+}
+
+func (*LinuxContainerEnvironmentExtensions) GetTempDir() string {
+	return "/tmp"
 }
 
 func (l *LinuxContainerEnvironmentExtensions) GetPlatform() actcontainer.Platform {

@@ -84,22 +84,6 @@ func (e *endpoint) Close() error {
 	return e.cli.Close()
 }
 
-// RunnerArch translates the daemon's architecture to the value expected for
-// RUNNER_ARCH.
-func (e *endpoint) RunnerArch() string {
-	switch e.arch {
-	case "amd64":
-		return "X64"
-	case "386":
-		return "X86"
-	case "arm":
-		return "ARM"
-	case "arm64":
-		return "ARM64"
-	}
-	return "undefined"
-}
-
 // CurrentSystemPlatform returns the daemon's platform as "os/arch", normalised
 // to the values used for image tagging (docker info reports the kernel arch).
 func (e *endpoint) CurrentSystemPlatform() string {

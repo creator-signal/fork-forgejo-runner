@@ -103,15 +103,6 @@ func (jcm *jobContainerMock) ReplaceLogWriter(_, _ io.Writer) (io.Writer, io.Wri
 	return nil, nil
 }
 
-func (jcm *jobContainerMock) GetRunnerContext(_ context.Context) map[string]any {
-	return map[string]any{
-		"os":         "Linux",
-		"arch":       "X64",
-		"temp":       "/tmp",
-		"tool_cache": "",
-	}
-}
-
 type stepFactoryMock struct {
 	mock.Mock
 }
