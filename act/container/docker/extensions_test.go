@@ -75,6 +75,10 @@ type typeAssertMockContainer struct {
 	LinuxContainerEnvironmentExtensions
 }
 
+func (*typeAssertMockContainer) GetPlatform() container.Platform {
+	return container.Platform{}
+}
+
 // Type assert Container + LinuxContainerEnvironmentExtensions implements ExecutionsEnvironment
 var _ container.ExecutionsEnvironment = &typeAssertMockContainer{}
 

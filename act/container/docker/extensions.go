@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	actcontainer "code.forgejo.org/forgejo/runner/v12/act/container"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -92,6 +93,10 @@ func (l *LinuxContainerEnvironmentExtensions) GetRunnerContext(ctx context.Conte
 		"temp":       "/tmp",
 		"tool_cache": l.toolCache,
 	}
+}
+
+func (l *LinuxContainerEnvironmentExtensions) GetPlatform() actcontainer.Platform {
+	return l.endpoint.Platform()
 }
 
 func (*LinuxContainerEnvironmentExtensions) IsEnvironmentCaseInsensitive() bool {

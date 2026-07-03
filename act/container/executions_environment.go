@@ -27,6 +27,9 @@ type ExecutionsEnvironment interface {
 	DefaultPathVariable() string
 	JoinPathVariable(...string) string
 	GetRunnerContext(ctx context.Context) map[string]any
+	// GetPlatformInfo reports the default platform and every platform this
+	// back-end can provide.
+	GetPlatformInfo() PlatformInfo
 	// On windows PATH and Path are the same key
 	IsEnvironmentCaseInsensitive() bool
 }

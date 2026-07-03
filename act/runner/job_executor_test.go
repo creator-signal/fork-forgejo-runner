@@ -95,6 +95,10 @@ type jobContainerMock struct {
 	docker.LinuxContainerEnvironmentExtensions
 }
 
+func (jcm *jobContainerMock) GetPlatform() container.Platform {
+	return container.Platform{OS: "linux", Architecture: "amd64"}
+}
+
 func (jcm *jobContainerMock) ReplaceLogWriter(_, _ io.Writer) (io.Writer, io.Writer) {
 	return nil, nil
 }

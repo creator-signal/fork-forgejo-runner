@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	actcontainer "code.forgejo.org/forgejo/runner/v12/act/container"
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/client"
 )
@@ -103,4 +104,8 @@ func (e *endpoint) RunnerArch() string {
 // to the values used for image tagging (docker info reports the kernel arch).
 func (e *endpoint) CurrentSystemPlatform() string {
 	return fmt.Sprintf("%s/%s", e.osType, e.arch)
+}
+
+func (e *endpoint) Platform() actcontainer.Platform {
+	return actcontainer.Platform{OS: e.osType, Architecture: e.arch}
 }

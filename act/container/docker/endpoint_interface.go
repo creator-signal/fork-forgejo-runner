@@ -1,6 +1,9 @@
 package docker
 
-import "github.com/docker/docker/client"
+import (
+	actcontainer "code.forgejo.org/forgejo/runner/v12/act/container"
+	"github.com/docker/docker/client"
+)
 
 // Endpoint is a connection to a Docker daemon. It owns the API client and the
 // per-daemon facts that are invariant for the lifetime of the connection
@@ -10,4 +13,5 @@ type Endpoint interface {
 	Close() error
 	RunnerArch() string
 	CurrentSystemPlatform() string
+	Platform() actcontainer.Platform
 }

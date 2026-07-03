@@ -895,6 +895,10 @@ type waitForServiceContainerMock struct {
 	docker.LinuxContainerEnvironmentExtensions
 }
 
+func (o *waitForServiceContainerMock) GetPlatform() container.Platform {
+	return container.Platform{OS: "linux", Architecture: "amd64"}
+}
+
 func (o *waitForServiceContainerMock) IsHealthy(ctx context.Context) (time.Duration, error) {
 	args := o.Called(ctx)
 	return args.Get(0).(time.Duration), args.Error(1)

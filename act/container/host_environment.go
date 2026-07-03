@@ -506,6 +506,10 @@ func (e *HostEnvironment) GetRunnerContext(_ context.Context) map[string]any {
 	}
 }
 
+func (e *HostEnvironment) GetPlatform() Platform {
+	return Platform{OS: runtime.GOOS, Architecture: runtime.GOARCH}
+}
+
 func (e *HostEnvironment) IsHealthy(ctx context.Context) (time.Duration, error) {
 	return 0, nil
 }

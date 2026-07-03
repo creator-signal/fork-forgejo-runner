@@ -17,6 +17,9 @@ func (fakeEndpoint) Client() client.APIClient      { return nil }
 func (fakeEndpoint) Close() error                  { return nil }
 func (fakeEndpoint) RunnerArch() string            { return "X64" }
 func (fakeEndpoint) CurrentSystemPlatform() string { return "linux/amd64" }
+func (fakeEndpoint) Platform() container.Platform {
+	return container.Platform{OS: "linux", Architecture: "amd64"}
+}
 
 type containerMock struct {
 	mock.Mock
@@ -31,6 +34,10 @@ func (cm *containerMock) GetRunnerContext(_ context.Context) map[string]any {
 		"temp":       "/tmp",
 		"tool_cache": "",
 	}
+}
+
+func (cm *containerMock) GetPlatform() container.Platform {
+	return container.Platform{OS: "linux", Architecture: "amd64"}
 }
 
 func (cm *containerMock) Create(capAdd, capDrop []string) common.Executor {

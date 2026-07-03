@@ -482,6 +482,50 @@ func (_c *MockContainer_GetContainerArchive_Call) RunAndReturn(run func(ctx cont
 	return _c
 }
 
+// GetPlatform provides a mock function for the type MockContainer
+func (_mock *MockContainer) GetPlatform() Platform {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPlatform")
+	}
+
+	var r0 Platform
+	if returnFunc, ok := ret.Get(0).(func() Platform); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(Platform)
+	}
+	return r0
+}
+
+// MockContainer_GetPlatform_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPlatform'
+type MockContainer_GetPlatform_Call struct {
+	*mock.Call
+}
+
+// GetPlatform is a helper method to define mock.On call
+func (_e *MockContainer_Expecter) GetPlatform() *MockContainer_GetPlatform_Call {
+	return &MockContainer_GetPlatform_Call{Call: _e.mock.On("GetPlatform")}
+}
+
+func (_c *MockContainer_GetPlatform_Call) Run(run func()) *MockContainer_GetPlatform_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockContainer_GetPlatform_Call) Return(platform Platform) *MockContainer_GetPlatform_Call {
+	_c.Call.Return(platform)
+	return _c
+}
+
+func (_c *MockContainer_GetPlatform_Call) RunAndReturn(run func() Platform) *MockContainer_GetPlatform_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsHealthy provides a mock function for the type MockContainer
 func (_mock *MockContainer) IsHealthy(ctx context.Context) (time.Duration, error) {
 	ret := _mock.Called(ctx)
