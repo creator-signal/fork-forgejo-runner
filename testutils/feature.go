@@ -10,8 +10,11 @@ import (
 type TestFeature string
 
 const (
-	// TestFeatureDocker enables tests that require Docker or Podman.
+	// TestFeatureDocker enables tests that exercise functionality that requires Docker or Podman.
 	TestFeatureDocker TestFeature = "docker"
+
+	// TestFeatureLXC enables tests that exercise functionality that requires LXC.
+	TestFeatureLXC TestFeature = "lxc"
 )
 
 var enabledTestFeatures = map[TestFeature]struct{}{}
@@ -23,12 +26,15 @@ func init() {
 	if !exists {
 		enabledTestFeatures = map[TestFeature]struct{}{
 			TestFeatureDocker: {},
+			TestFeatureLXC:    {},
 		}
 	} else if testFeaturesToEnable != "" && testFeaturesToEnable != "-" {
 		for _, feature := range strings.Split(testFeaturesToEnable, ",") {
 			switch feature {
-			case "docker":
+			case string(TestFeatureDocker):
 				enabledTestFeatures[TestFeatureDocker] = struct{}{}
+			case string(TestFeatureLXC):
+				enabledTestFeatures[TestFeatureLXC] = struct{}{}
 			default:
 				log.Panicf("Unknown test feature: %q", feature)
 			}

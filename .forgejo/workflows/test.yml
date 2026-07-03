@@ -299,6 +299,8 @@ jobs:
           chown --recursive forgejo:forgejo /home/forgejo/runner
 
       - name: Run all tests
+        env:
+          TEST_FEATURES: "docker"
         run: |
           run0 -u forgejo --chdir=/home/forgejo/runner \
               bash --login -c 'make integration-test'
