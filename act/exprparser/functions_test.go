@@ -260,7 +260,7 @@ func TestFunctionHashFiles(t *testing.T) {
 	env := &EvaluationEnvironment{}
 
 	for _, tt := range table {
-		skip.If(t, runtime.GOOS != "windows" && strings.HasPrefix(tt.name, "dos")) // Windows and macOS cannot run linux docker container natively
+		skip.If(t, runtime.GOOS != "windows" && strings.HasPrefix(tt.name, "dos"))
 		t.Run(tt.name, func(t *testing.T) {
 			workdir, err := filepath.Abs("testdata")
 			assert.Nil(t, err)

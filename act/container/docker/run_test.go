@@ -8,15 +8,13 @@ import (
 	"io"
 	"net"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	actcontainer "code.forgejo.org/forgejo/runner/v12/act/container"
-	"gotest.tools/v3/skip"
-
+	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -27,7 +25,7 @@ import (
 )
 
 func TestDocker(t *testing.T) {
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot natively run Linux containers
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}

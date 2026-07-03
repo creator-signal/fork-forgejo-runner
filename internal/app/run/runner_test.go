@@ -19,6 +19,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v12/internal/pkg/report"
+	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"connectrpc.com/connect"
 	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -258,7 +259,7 @@ func TestRunnerCacheConfiguration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 
 	forgejoClient := &forgejoClientMock{}
 
@@ -476,7 +477,7 @@ func TestRunnerCacheStartupFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 
 	testCases := []struct {
 		desc   string
@@ -874,7 +875,7 @@ func TestRunnerResources(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 
 	forgejoClient := &forgejoClientMock{}
 
@@ -952,7 +953,8 @@ jobs:
 	})
 
 	t.Run("config.yaml --memory set and within limits", func(t *testing.T) {
-		skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+		testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
+
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
@@ -1011,7 +1013,8 @@ jobs:
 	})
 
 	t.Run("container --memory set and within limits", func(t *testing.T) {
-		skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+		testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
+
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
@@ -1035,7 +1038,7 @@ func TestRunnerPlatform(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	skip.If(t, runtime.GOOS != "linux")   // linux containers can only run on linux
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 	skip.If(t, runtime.GOARCH != "amd64") // linux/386 images run natively on amd64, no emulation needed
 
 	forgejoClient := &forgejoClientMock{}
@@ -1100,7 +1103,7 @@ func TestRunnerContextsPopulated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	skip.If(t, runtime.GOOS != "linux") // Windows and macOS cannot run linux docker container natively
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 
 	forgejoClient := &forgejoClientMock{}
 

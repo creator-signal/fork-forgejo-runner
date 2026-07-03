@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"slices"
 	"testing"
 
+	"code.forgejo.org/forgejo/runner/v12/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/v3/skip"
 )
 
 func TestRunExec(t *testing.T) {
@@ -21,7 +19,7 @@ func TestRunExec(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	skip.If(t, !slices.Contains([]string{"darwin", "linux", "windows"}, runtime.GOOS), "OS without supported container runtime")
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
 
 	testCases := []struct {
 		name          string
