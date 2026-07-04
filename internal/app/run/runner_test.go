@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"runtime"
 	"slices"
 	"strconv"
@@ -582,8 +581,7 @@ func TestRunnerLXC(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	_, err := exec.LookPath("lxc-create")
-	skip.If(t, err != nil, "lxc-create is not on PATH")
+	testutils.RequireTestFeatures(t, testutils.TestFeatureLXC)
 
 	forgejoClient := &forgejoClientMock{}
 
