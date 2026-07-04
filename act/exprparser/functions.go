@@ -301,3 +301,24 @@ func (impl *interpreterImpl) stepFailure() (bool, error) {
 func (impl *interpreterImpl) cancelled() (bool, error) {
 	return impl.env.Job.Status == "cancelled", nil
 }
+
+func (impl *interpreterImpl) caseStatement(args ...reflect.Value) (any, error) {
+	defaultValue := args[len(args)-1]
+
+	i := 0
+	lengthOfRealArguments := len(args) - 1
+	for ; i < lengthOfRealArguments; i++ {
+		arg := args[i]
+		i++
+
+		if arg.Kind() != reflect.Bool {
+			return nil, fmt.Errorf("'case' expected predicate '%s' to be boolean", impl.coerceToString(arg).String())
+		}
+
+		if arg.Bool() {
+			return impl.coerceToString(args[i]).String(), nil
+		}
+	}
+
+	return defaultValue.String(), nil
+}

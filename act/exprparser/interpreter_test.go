@@ -77,6 +77,26 @@ func TestOperators(t *testing.T) {
 		{"github.event.commits[0].author.username != github.event.commits[1].author.username1", true, "property-comparison3", ""},
 		{"github.event.commits[0].author.username1 != github.event.commits[1].author.username2", true, "property-comparison4", ""},
 		{"secrets != env", nil, "property-comparison5", "Compare not implemented for types: left: ptr, right: ptr"},
+		{"case(true,'correct',false,'incorrect','nochance')", "correct", "case-bool1", ""},
+		{"case(false,'incorrect',true,'correct','nochance')", "correct", "case-bool2", ""},
+		{"case(false,'incorrect','correct')", "correct", "case-bool3", ""},
+		{"case(true,'correct','incorrect')", "correct", "case-bool4", ""},
+		{"case(1 == 1,'correct',1 == 2,'incorrect','nochance')", "correct", "case-expression1", ""},
+		{"case(1 == 2,'incorrect',1 == 1,'correct','nochance')", "correct", "case-expression2", ""},
+		{"case(1 == 2,'incorrect',2 == 1,'nochance','correct')", "correct", "case-expression3", ""},
+		{"case()", nil, "case-empty", "'case' expected at least 3 arguments but got 0 instead"},
+		{"case('incorrect')", nil, "case-missing-arguments1", "'case' expected at least 3 arguments but got 1 instead"},
+		{"case(true,'incorrect')", nil, "case-missing-arguments2", "'case' expected at least 3 arguments but got 2 instead"},
+		{"case(1 == 2,'incorrect',2 == 1,'nochance')", nil, "case-missing-arguments3", "'case' expected odd number of arguments"},
+		{"case('string','incorrect',2 == 1,'nochance','false')", nil, "case-incorrect-argument1", "'case' expected predicate 'string' to be boolean"},
+		{"case(1,'incorrect',2 == 1,'nochance','false')", nil, "case-incorrect-argument2", "'case' expected predicate '1' to be boolean"},
+		{"case(1,'incorrect',2 == 1,'nochance','false')", nil, "case-incorrect-argument2", "'case' expected predicate '1' to be boolean"},
+		{"case(1.1,'incorrect',2 == 1,'nochance','false')", nil, "case-incorrect-argument2", "'case' expected predicate '1.1' to be boolean"},
+		{"case(true,'correct','string','nochance','false')", "correct", "case-incorrect-argument3", ""}, // predicates are evaluated lazily
+		{"case(true,true,false,'nochance','incorrect')", "true", "case-bool-return", ""},
+		{"case(true,1,'incorrect')", "1", "case-integer-return", ""},
+		{"case(true,1,'incorrect')", "1", "case-float-return1", ""},
+		{"case(true,1.1,'incorrect')", "1.1", "case-float-return2", ""},
 	}
 
 	env := &EvaluationEnvironment{
