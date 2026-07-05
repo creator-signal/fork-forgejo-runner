@@ -298,10 +298,10 @@ jobs:
           cp --recursive .* * /home/forgejo/runner
           chown --recursive forgejo:forgejo /home/forgejo/runner
 
-      - name: Run all tests
+      - name: Run tests
         run: |
           run0 -u forgejo --chdir=/home/forgejo/runner \
-              bash --login -c 'make integration-test'
+              bash --login -c 'go test -race -v -timeout 30m ./... -args -features docker'
 
   validate-mocks:
     name: validate mocks
