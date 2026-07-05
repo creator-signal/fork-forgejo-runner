@@ -303,20 +303,28 @@ func (impl *interpreterImpl) cancelled() (bool, error) {
 }
 
 func (impl *interpreterImpl) caseStatement(args ...reflect.Value) (any, error) {
-	defaultValue := args[len(args)-1]
-
-	i := 0
 	lengthOfRealArguments := len(args) - 1
-	for ; i < lengthOfRealArguments; i++ {
-		arg := args[i]
-		i++
+	defaultValue := args[lengthOfRealArguments]
 
-		if arg.Kind() != reflect.Bool {
-			return nil, fmt.Errorf("'case' expected predicate '%s' to be boolean", impl.coerceToString(arg).String())
+	if len(args) < 3 {
+		return nil, fmt.Errorf("'case' expected at least three arguments")
+	}
+
+	if len(args)%2 != 1 {
+		return nil, fmt.Errorf("'case' expected odd number of arguments")
+	}
+
+	for i := 0; i < lengthOfRealArguments; i++ {
+		predicate := args[i]
+		i++
+		value := args[i]
+
+		if predicate.Kind() != reflect.Bool {
+			return nil, fmt.Errorf("'case' expected predicate '%s' to be boolean", impl.coerceToString(predicate).String())
 		}
 
-		if arg.Bool() {
-			return impl.coerceToString(args[i]).String(), nil
+		if predicate.Bool() {
+			return impl.coerceToString(value).String(), nil
 		}
 	}
 

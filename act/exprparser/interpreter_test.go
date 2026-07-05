@@ -92,7 +92,7 @@ func TestOperators(t *testing.T) {
 		{"case(1,'incorrect',2 == 1,'nochance','false')", nil, "case-incorrect-argument2", "'case' expected predicate '1' to be boolean"},
 		{"case(1,'incorrect',2 == 1,'nochance','false')", nil, "case-incorrect-argument2", "'case' expected predicate '1' to be boolean"},
 		{"case(1.1,'incorrect',2 == 1,'nochance','false')", nil, "case-incorrect-argument2", "'case' expected predicate '1.1' to be boolean"},
-		{"case(true,'correct','string','nochance','false')", "correct", "case-incorrect-argument3", ""}, // predicates are evaluated lazily
+		{"case(true,'correct','string','nochance','false')", "correct", "case-incorrect-type-after-selected-branch-passes", ""}, // predicates are evaluated lazily
 		{"case(true,true,false,'nochance','incorrect')", "true", "case-bool-return", ""},
 		{"case(true,1,'incorrect')", "1", "case-integer-return", ""},
 		{"case(true,1,'incorrect')", "1", "case-float-return1", ""},

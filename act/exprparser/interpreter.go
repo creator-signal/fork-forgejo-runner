@@ -923,11 +923,6 @@ func (impl *interpreterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 		if err := argAtLeastCheck(3); err != nil {
 			return nil, err
 		}
-
-		if len(args)%2 != 1 {
-			return nil, fmt.Errorf("'case' expected odd number of arguments")
-		}
-
 		return impl.caseStatement(args...)
 	default:
 		return nil, fmt.Errorf("TODO: '%s' not implemented", funcCallNode.Callee)
