@@ -71,7 +71,7 @@ jobs:
           sha: "${{ forge.sha }}"
           release-version: "${{ steps.tag-version.outputs.value }}"
           token: ${{ steps.token.outputs.value }}
-          platforms: linux/amd64,linux/arm64
+          platforms: darwin/arm64,freebsd/amd64,linux/amd64,linux/arm64,linux/loong64,linux/ppc64le,linux/riscv64,linux/s390x,netbsd/amd64,openbsd/amd64,windows/amd64
           binary-name: forgejo-runner
           binary-path: /bin/forgejo-runner
           verbose: ${{ steps.verbose.outputs.value }}
@@ -87,7 +87,7 @@ jobs:
           sha: "${{ forge.sha }}"
           release-version: "${{ steps.tag-version.outputs.value }}"
           token: "${{ secrets.TOKEN }}"
-          platforms: linux/amd64,linux/arm64
+          platforms: darwin/arm64,freebsd/amd64,linux/amd64,linux/arm64,linux/loong64,linux/ppc64le,linux/riscv64,linux/s390x,netbsd/amd64,openbsd/amd64,windows/amd64
           binary-name: forgejo-runner
           binary-path: /bin/forgejo-runner
           verbose: ${{ steps.verbose.outputs.value }}

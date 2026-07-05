@@ -41,6 +41,8 @@ jobs:
             - [User guide](https://forgejo.org/docs/next/user/actions/overview/)
             - [Administrator guide](https://forgejo.org/docs/next/admin/actions/)
             - [Container images](https://code.forgejo.org/forgejo/-/packages/container/runner/versions)
+            
+            **Forgejo Runner is only validated and supported on linux/amd64 and linux/arm64.** Builds for other platforms are offered for convenience only.
 
             Release Notes
 

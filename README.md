@@ -20,16 +20,18 @@ Please report security-related issues to [security@forgejo.org](mailto:security@
 
 See the [contribution guide](CONTRIBUTING.md).
 
-## Architectures & OS
+## Platform Support
 
-The Forgejo runner is supported and tested on `amd64` and `arm64` ([binaries](https://code.forgejo.org/forgejo/runner/releases) and [containers](https://code.forgejo.org/forgejo/-/packages/container/runner/versions)) on Operating Systems based on the Linux kernel.
+Forgejo Runner is only validated and supported on the following platforms:
 
-Work may be in progress for other architectures and you can browse the corresponding issues to figure out how they make progress. If you are interested in helping them move forward, open an issue. The most challenging part is to setup and maintain a native runner long term. Once it is supported by Forgejo, the runner is expected to be available 24/7 which can be challenging. Otherwise debugging any architecture specific problem won't be possible.
+* linux/amd64
+* linux/arm64
 
-- [linux-s390x](https://code.forgejo.org/forgejo/runner/issues?labels=969)
-- [linux-powerpc64le](https://code.forgejo.org/forgejo/runner/issues?labels=968)
-- [linux-riscv64](https://code.forgejo.org/forgejo/runner/issues?labels=970)
-- [Windows](https://code.forgejo.org/forgejo/runner/issues?labels=365)
+On all other platforms, Forgejo Runner is unsupported. That means that the project accepts issues, but it is up to the community to provide patches. As an experimental offering, the Forgejo project provides prebuilt untested binaries for certain platforms as a convenience.
+
+Downstream projects that validate Forgejo Runner on additional platforms are appreciated. Existing downstream projects:
+
+* [Windows](https://github.com/Crown0815/Forgejo-runner-windows-builder)
 
 ## Hacking
 
