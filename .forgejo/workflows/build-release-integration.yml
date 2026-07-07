@@ -19,7 +19,7 @@ on:
 enable-email-notifications: true
 
 env:
-  FORGEJO_VERSION: 11.0.14 # renovate: datasource=docker depName=data.forgejo.org/forgejo/forgejo
+  FORGEJO_VERSION: 11.0.15 # renovate: datasource=docker depName=data.forgejo.org/forgejo/forgejo
 
 jobs:
   release-simulation:
