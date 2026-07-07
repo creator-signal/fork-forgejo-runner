@@ -919,6 +919,11 @@ func (impl *interpreterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 		return nil, fmt.Errorf("Context '%s' must be one of 'job' or 'step'", impl.config.Context)
 	case "cancelled":
 		return impl.cancelled()
+	case "case":
+		if err := argAtLeastCheck(3); err != nil {
+			return nil, err
+		}
+		return impl.caseStatement(args...)
 	default:
 		return nil, fmt.Errorf("TODO: '%s' not implemented", funcCallNode.Callee)
 	}
