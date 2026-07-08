@@ -124,7 +124,7 @@ type MockClient_Declare_Call struct {
 // Declare is a helper method to define mock.On call
 //   - context1 context.Context
 //   - request *connect.Request[runnerv1.DeclareRequest]
-func (_e *MockClient_Expecter) Declare(context1 interface{}, request interface{}) *MockClient_Declare_Call {
+func (_e *MockClient_Expecter) Declare(context1 any, request any) *MockClient_Declare_Call {
 	return &MockClient_Declare_Call{Call: _e.mock.On("Declare", context1, request)}
 }
 
@@ -236,7 +236,7 @@ type MockClient_FetchSingleTask_Call struct {
 // FetchSingleTask is a helper method to define mock.On call
 //   - context1 context.Context
 //   - request *connect.Request[runnerv1.FetchSingleTaskRequest]
-func (_e *MockClient_Expecter) FetchSingleTask(context1 interface{}, request interface{}) *MockClient_FetchSingleTask_Call {
+func (_e *MockClient_Expecter) FetchSingleTask(context1 any, request any) *MockClient_FetchSingleTask_Call {
 	return &MockClient_FetchSingleTask_Call{Call: _e.mock.On("FetchSingleTask", context1, request)}
 }
 
@@ -304,7 +304,7 @@ type MockClient_FetchTask_Call struct {
 // FetchTask is a helper method to define mock.On call
 //   - context1 context.Context
 //   - request *connect.Request[runnerv1.FetchTaskRequest]
-func (_e *MockClient_Expecter) FetchTask(context1 interface{}, request interface{}) *MockClient_FetchTask_Call {
+func (_e *MockClient_Expecter) FetchTask(context1 any, request any) *MockClient_FetchTask_Call {
 	return &MockClient_FetchTask_Call{Call: _e.mock.On("FetchTask", context1, request)}
 }
 
@@ -416,7 +416,7 @@ type MockClient_Ping_Call struct {
 // Ping is a helper method to define mock.On call
 //   - context1 context.Context
 //   - request *connect.Request[pingv1.PingRequest]
-func (_e *MockClient_Expecter) Ping(context1 interface{}, request interface{}) *MockClient_Ping_Call {
+func (_e *MockClient_Expecter) Ping(context1 any, request any) *MockClient_Ping_Call {
 	return &MockClient_Ping_Call{Call: _e.mock.On("Ping", context1, request)}
 }
 
@@ -484,7 +484,7 @@ type MockClient_Register_Call struct {
 // Register is a helper method to define mock.On call
 //   - context1 context.Context
 //   - request *connect.Request[runnerv1.RegisterRequest]
-func (_e *MockClient_Expecter) Register(context1 interface{}, request interface{}) *MockClient_Register_Call {
+func (_e *MockClient_Expecter) Register(context1 any, request any) *MockClient_Register_Call {
 	return &MockClient_Register_Call{Call: _e.mock.On("Register", context1, request)}
 }
 
@@ -542,7 +542,7 @@ type MockClient_SetRequestKey_Call struct {
 
 // SetRequestKey is a helper method to define mock.On call
 //   - uUID uuid.UUID
-func (_e *MockClient_Expecter) SetRequestKey(uUID interface{}) *MockClient_SetRequestKey_Call {
+func (_e *MockClient_Expecter) SetRequestKey(uUID any) *MockClient_SetRequestKey_Call {
 	return &MockClient_SetRequestKey_Call{Call: _e.mock.On("SetRequestKey", uUID)}
 }
 
@@ -605,7 +605,7 @@ type MockClient_UpdateLog_Call struct {
 // UpdateLog is a helper method to define mock.On call
 //   - context1 context.Context
 //   - request *connect.Request[runnerv1.UpdateLogRequest]
-func (_e *MockClient_Expecter) UpdateLog(context1 interface{}, request interface{}) *MockClient_UpdateLog_Call {
+func (_e *MockClient_Expecter) UpdateLog(context1 any, request any) *MockClient_UpdateLog_Call {
 	return &MockClient_UpdateLog_Call{Call: _e.mock.On("UpdateLog", context1, request)}
 }
 
@@ -673,7 +673,7 @@ type MockClient_UpdateTask_Call struct {
 // UpdateTask is a helper method to define mock.On call
 //   - context1 context.Context
 //   - request *connect.Request[runnerv1.UpdateTaskRequest]
-func (_e *MockClient_Expecter) UpdateTask(context1 interface{}, request interface{}) *MockClient_UpdateTask_Call {
+func (_e *MockClient_Expecter) UpdateTask(context1 any, request any) *MockClient_UpdateTask_Call {
 	return &MockClient_UpdateTask_Call{Call: _e.mock.On("UpdateTask", context1, request)}
 }
 

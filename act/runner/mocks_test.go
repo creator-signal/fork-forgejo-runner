@@ -55,9 +55,9 @@ type MockFieldLogger_Debug_Call struct {
 
 // Debug is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Debug(args ...interface{}) *MockFieldLogger_Debug_Call {
+func (_e *MockFieldLogger_Expecter) Debug(args ...any) *MockFieldLogger_Debug_Call {
 	return &MockFieldLogger_Debug_Call{Call: _e.mock.On("Debug",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Debug_Call) Run(run func(args ...interface{})) *MockFieldLogger_Debug_Call {
@@ -104,9 +104,9 @@ type MockFieldLogger_Debugf_Call struct {
 // Debugf is a helper method to define mock.On call
 //   - format string
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Debugf(format interface{}, args ...interface{}) *MockFieldLogger_Debugf_Call {
+func (_e *MockFieldLogger_Expecter) Debugf(format any, args ...any) *MockFieldLogger_Debugf_Call {
 	return &MockFieldLogger_Debugf_Call{Call: _e.mock.On("Debugf",
-		append([]interface{}{format}, args...)...)}
+		append([]any{format}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Debugf_Call) Run(run func(format string, args ...interface{})) *MockFieldLogger_Debugf_Call {
@@ -157,9 +157,9 @@ type MockFieldLogger_Debugln_Call struct {
 
 // Debugln is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Debugln(args ...interface{}) *MockFieldLogger_Debugln_Call {
+func (_e *MockFieldLogger_Expecter) Debugln(args ...any) *MockFieldLogger_Debugln_Call {
 	return &MockFieldLogger_Debugln_Call{Call: _e.mock.On("Debugln",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Debugln_Call) Run(run func(args ...interface{})) *MockFieldLogger_Debugln_Call {
@@ -205,9 +205,9 @@ type MockFieldLogger_Error_Call struct {
 
 // Error is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Error(args ...interface{}) *MockFieldLogger_Error_Call {
+func (_e *MockFieldLogger_Expecter) Error(args ...any) *MockFieldLogger_Error_Call {
 	return &MockFieldLogger_Error_Call{Call: _e.mock.On("Error",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Error_Call) Run(run func(args ...interface{})) *MockFieldLogger_Error_Call {
@@ -254,9 +254,9 @@ type MockFieldLogger_Errorf_Call struct {
 // Errorf is a helper method to define mock.On call
 //   - format string
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Errorf(format interface{}, args ...interface{}) *MockFieldLogger_Errorf_Call {
+func (_e *MockFieldLogger_Expecter) Errorf(format any, args ...any) *MockFieldLogger_Errorf_Call {
 	return &MockFieldLogger_Errorf_Call{Call: _e.mock.On("Errorf",
-		append([]interface{}{format}, args...)...)}
+		append([]any{format}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Errorf_Call) Run(run func(format string, args ...interface{})) *MockFieldLogger_Errorf_Call {
@@ -307,9 +307,9 @@ type MockFieldLogger_Errorln_Call struct {
 
 // Errorln is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Errorln(args ...interface{}) *MockFieldLogger_Errorln_Call {
+func (_e *MockFieldLogger_Expecter) Errorln(args ...any) *MockFieldLogger_Errorln_Call {
 	return &MockFieldLogger_Errorln_Call{Call: _e.mock.On("Errorln",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Errorln_Call) Run(run func(args ...interface{})) *MockFieldLogger_Errorln_Call {
@@ -355,9 +355,9 @@ type MockFieldLogger_Fatal_Call struct {
 
 // Fatal is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Fatal(args ...interface{}) *MockFieldLogger_Fatal_Call {
+func (_e *MockFieldLogger_Expecter) Fatal(args ...any) *MockFieldLogger_Fatal_Call {
 	return &MockFieldLogger_Fatal_Call{Call: _e.mock.On("Fatal",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Fatal_Call) Run(run func(args ...interface{})) *MockFieldLogger_Fatal_Call {
@@ -404,9 +404,9 @@ type MockFieldLogger_Fatalf_Call struct {
 // Fatalf is a helper method to define mock.On call
 //   - format string
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Fatalf(format interface{}, args ...interface{}) *MockFieldLogger_Fatalf_Call {
+func (_e *MockFieldLogger_Expecter) Fatalf(format any, args ...any) *MockFieldLogger_Fatalf_Call {
 	return &MockFieldLogger_Fatalf_Call{Call: _e.mock.On("Fatalf",
-		append([]interface{}{format}, args...)...)}
+		append([]any{format}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Fatalf_Call) Run(run func(format string, args ...interface{})) *MockFieldLogger_Fatalf_Call {
@@ -457,9 +457,9 @@ type MockFieldLogger_Fatalln_Call struct {
 
 // Fatalln is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Fatalln(args ...interface{}) *MockFieldLogger_Fatalln_Call {
+func (_e *MockFieldLogger_Expecter) Fatalln(args ...any) *MockFieldLogger_Fatalln_Call {
 	return &MockFieldLogger_Fatalln_Call{Call: _e.mock.On("Fatalln",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Fatalln_Call) Run(run func(args ...interface{})) *MockFieldLogger_Fatalln_Call {
@@ -505,9 +505,9 @@ type MockFieldLogger_Info_Call struct {
 
 // Info is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Info(args ...interface{}) *MockFieldLogger_Info_Call {
+func (_e *MockFieldLogger_Expecter) Info(args ...any) *MockFieldLogger_Info_Call {
 	return &MockFieldLogger_Info_Call{Call: _e.mock.On("Info",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Info_Call) Run(run func(args ...interface{})) *MockFieldLogger_Info_Call {
@@ -554,9 +554,9 @@ type MockFieldLogger_Infof_Call struct {
 // Infof is a helper method to define mock.On call
 //   - format string
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Infof(format interface{}, args ...interface{}) *MockFieldLogger_Infof_Call {
+func (_e *MockFieldLogger_Expecter) Infof(format any, args ...any) *MockFieldLogger_Infof_Call {
 	return &MockFieldLogger_Infof_Call{Call: _e.mock.On("Infof",
-		append([]interface{}{format}, args...)...)}
+		append([]any{format}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Infof_Call) Run(run func(format string, args ...interface{})) *MockFieldLogger_Infof_Call {
@@ -607,9 +607,9 @@ type MockFieldLogger_Infoln_Call struct {
 
 // Infoln is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Infoln(args ...interface{}) *MockFieldLogger_Infoln_Call {
+func (_e *MockFieldLogger_Expecter) Infoln(args ...any) *MockFieldLogger_Infoln_Call {
 	return &MockFieldLogger_Infoln_Call{Call: _e.mock.On("Infoln",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Infoln_Call) Run(run func(args ...interface{})) *MockFieldLogger_Infoln_Call {
@@ -655,9 +655,9 @@ type MockFieldLogger_Panic_Call struct {
 
 // Panic is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Panic(args ...interface{}) *MockFieldLogger_Panic_Call {
+func (_e *MockFieldLogger_Expecter) Panic(args ...any) *MockFieldLogger_Panic_Call {
 	return &MockFieldLogger_Panic_Call{Call: _e.mock.On("Panic",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Panic_Call) Run(run func(args ...interface{})) *MockFieldLogger_Panic_Call {
@@ -704,9 +704,9 @@ type MockFieldLogger_Panicf_Call struct {
 // Panicf is a helper method to define mock.On call
 //   - format string
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Panicf(format interface{}, args ...interface{}) *MockFieldLogger_Panicf_Call {
+func (_e *MockFieldLogger_Expecter) Panicf(format any, args ...any) *MockFieldLogger_Panicf_Call {
 	return &MockFieldLogger_Panicf_Call{Call: _e.mock.On("Panicf",
-		append([]interface{}{format}, args...)...)}
+		append([]any{format}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Panicf_Call) Run(run func(format string, args ...interface{})) *MockFieldLogger_Panicf_Call {
@@ -757,9 +757,9 @@ type MockFieldLogger_Panicln_Call struct {
 
 // Panicln is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Panicln(args ...interface{}) *MockFieldLogger_Panicln_Call {
+func (_e *MockFieldLogger_Expecter) Panicln(args ...any) *MockFieldLogger_Panicln_Call {
 	return &MockFieldLogger_Panicln_Call{Call: _e.mock.On("Panicln",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Panicln_Call) Run(run func(args ...interface{})) *MockFieldLogger_Panicln_Call {
@@ -805,9 +805,9 @@ type MockFieldLogger_Print_Call struct {
 
 // Print is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Print(args ...interface{}) *MockFieldLogger_Print_Call {
+func (_e *MockFieldLogger_Expecter) Print(args ...any) *MockFieldLogger_Print_Call {
 	return &MockFieldLogger_Print_Call{Call: _e.mock.On("Print",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Print_Call) Run(run func(args ...interface{})) *MockFieldLogger_Print_Call {
@@ -854,9 +854,9 @@ type MockFieldLogger_Printf_Call struct {
 // Printf is a helper method to define mock.On call
 //   - format string
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Printf(format interface{}, args ...interface{}) *MockFieldLogger_Printf_Call {
+func (_e *MockFieldLogger_Expecter) Printf(format any, args ...any) *MockFieldLogger_Printf_Call {
 	return &MockFieldLogger_Printf_Call{Call: _e.mock.On("Printf",
-		append([]interface{}{format}, args...)...)}
+		append([]any{format}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Printf_Call) Run(run func(format string, args ...interface{})) *MockFieldLogger_Printf_Call {
@@ -907,9 +907,9 @@ type MockFieldLogger_Println_Call struct {
 
 // Println is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Println(args ...interface{}) *MockFieldLogger_Println_Call {
+func (_e *MockFieldLogger_Expecter) Println(args ...any) *MockFieldLogger_Println_Call {
 	return &MockFieldLogger_Println_Call{Call: _e.mock.On("Println",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Println_Call) Run(run func(args ...interface{})) *MockFieldLogger_Println_Call {
@@ -955,9 +955,9 @@ type MockFieldLogger_Warn_Call struct {
 
 // Warn is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Warn(args ...interface{}) *MockFieldLogger_Warn_Call {
+func (_e *MockFieldLogger_Expecter) Warn(args ...any) *MockFieldLogger_Warn_Call {
 	return &MockFieldLogger_Warn_Call{Call: _e.mock.On("Warn",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Warn_Call) Run(run func(args ...interface{})) *MockFieldLogger_Warn_Call {
@@ -1004,9 +1004,9 @@ type MockFieldLogger_Warnf_Call struct {
 // Warnf is a helper method to define mock.On call
 //   - format string
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Warnf(format interface{}, args ...interface{}) *MockFieldLogger_Warnf_Call {
+func (_e *MockFieldLogger_Expecter) Warnf(format any, args ...any) *MockFieldLogger_Warnf_Call {
 	return &MockFieldLogger_Warnf_Call{Call: _e.mock.On("Warnf",
-		append([]interface{}{format}, args...)...)}
+		append([]any{format}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Warnf_Call) Run(run func(format string, args ...interface{})) *MockFieldLogger_Warnf_Call {
@@ -1057,9 +1057,9 @@ type MockFieldLogger_Warning_Call struct {
 
 // Warning is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Warning(args ...interface{}) *MockFieldLogger_Warning_Call {
+func (_e *MockFieldLogger_Expecter) Warning(args ...any) *MockFieldLogger_Warning_Call {
 	return &MockFieldLogger_Warning_Call{Call: _e.mock.On("Warning",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Warning_Call) Run(run func(args ...interface{})) *MockFieldLogger_Warning_Call {
@@ -1106,9 +1106,9 @@ type MockFieldLogger_Warningf_Call struct {
 // Warningf is a helper method to define mock.On call
 //   - format string
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Warningf(format interface{}, args ...interface{}) *MockFieldLogger_Warningf_Call {
+func (_e *MockFieldLogger_Expecter) Warningf(format any, args ...any) *MockFieldLogger_Warningf_Call {
 	return &MockFieldLogger_Warningf_Call{Call: _e.mock.On("Warningf",
-		append([]interface{}{format}, args...)...)}
+		append([]any{format}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Warningf_Call) Run(run func(format string, args ...interface{})) *MockFieldLogger_Warningf_Call {
@@ -1159,9 +1159,9 @@ type MockFieldLogger_Warningln_Call struct {
 
 // Warningln is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Warningln(args ...interface{}) *MockFieldLogger_Warningln_Call {
+func (_e *MockFieldLogger_Expecter) Warningln(args ...any) *MockFieldLogger_Warningln_Call {
 	return &MockFieldLogger_Warningln_Call{Call: _e.mock.On("Warningln",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Warningln_Call) Run(run func(args ...interface{})) *MockFieldLogger_Warningln_Call {
@@ -1207,9 +1207,9 @@ type MockFieldLogger_Warnln_Call struct {
 
 // Warnln is a helper method to define mock.On call
 //   - args ...interface{}
-func (_e *MockFieldLogger_Expecter) Warnln(args ...interface{}) *MockFieldLogger_Warnln_Call {
+func (_e *MockFieldLogger_Expecter) Warnln(args ...any) *MockFieldLogger_Warnln_Call {
 	return &MockFieldLogger_Warnln_Call{Call: _e.mock.On("Warnln",
-		append([]interface{}{}, args...)...)}
+		append([]any{}, args...)...)}
 }
 
 func (_c *MockFieldLogger_Warnln_Call) Run(run func(args ...interface{})) *MockFieldLogger_Warnln_Call {
@@ -1263,7 +1263,7 @@ type MockFieldLogger_WithError_Call struct {
 
 // WithError is a helper method to define mock.On call
 //   - err error
-func (_e *MockFieldLogger_Expecter) WithError(err interface{}) *MockFieldLogger_WithError_Call {
+func (_e *MockFieldLogger_Expecter) WithError(err any) *MockFieldLogger_WithError_Call {
 	return &MockFieldLogger_WithError_Call{Call: _e.mock.On("WithError", err)}
 }
 
@@ -1317,7 +1317,7 @@ type MockFieldLogger_WithField_Call struct {
 // WithField is a helper method to define mock.On call
 //   - key string
 //   - value interface{}
-func (_e *MockFieldLogger_Expecter) WithField(key interface{}, value interface{}) *MockFieldLogger_WithField_Call {
+func (_e *MockFieldLogger_Expecter) WithField(key any, value any) *MockFieldLogger_WithField_Call {
 	return &MockFieldLogger_WithField_Call{Call: _e.mock.On("WithField", key, value)}
 }
 
@@ -1375,7 +1375,7 @@ type MockFieldLogger_WithFields_Call struct {
 
 // WithFields is a helper method to define mock.On call
 //   - fields logrus.Fields
-func (_e *MockFieldLogger_Expecter) WithFields(fields interface{}) *MockFieldLogger_WithFields_Call {
+func (_e *MockFieldLogger_Expecter) WithFields(fields any) *MockFieldLogger_WithFields_Call {
 	return &MockFieldLogger_WithFields_Call{Call: _e.mock.On("WithFields", fields)}
 }
 
