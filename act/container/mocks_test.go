@@ -121,9 +121,9 @@ type MockContainer_Copy_Call struct {
 // Copy is a helper method to define mock.On call
 //   - destPath string
 //   - files ...*FileEntry
-func (_e *MockContainer_Expecter) Copy(destPath interface{}, files ...interface{}) *MockContainer_Copy_Call {
+func (_e *MockContainer_Expecter) Copy(destPath any, files ...any) *MockContainer_Copy_Call {
 	return &MockContainer_Copy_Call{Call: _e.mock.On("Copy",
-		append([]interface{}{destPath}, files...)...)}
+		append([]any{destPath}, files...)...)}
 }
 
 func (_c *MockContainer_Copy_Call) Run(run func(destPath string, files ...*FileEntry)) *MockContainer_Copy_Call {
@@ -184,7 +184,7 @@ type MockContainer_CopyDir_Call struct {
 //   - destPath string
 //   - srcPath string
 //   - useGitIgnore bool
-func (_e *MockContainer_Expecter) CopyDir(destPath interface{}, srcPath interface{}, useGitIgnore interface{}) *MockContainer_CopyDir_Call {
+func (_e *MockContainer_Expecter) CopyDir(destPath any, srcPath any, useGitIgnore any) *MockContainer_CopyDir_Call {
 	return &MockContainer_CopyDir_Call{Call: _e.mock.On("CopyDir", destPath, srcPath, useGitIgnore)}
 }
 
@@ -247,7 +247,7 @@ type MockContainer_CopyTarStream_Call struct {
 //   - ctx context.Context
 //   - destPath string
 //   - tarStream io.Reader
-func (_e *MockContainer_Expecter) CopyTarStream(ctx interface{}, destPath interface{}, tarStream interface{}) *MockContainer_CopyTarStream_Call {
+func (_e *MockContainer_Expecter) CopyTarStream(ctx any, destPath any, tarStream any) *MockContainer_CopyTarStream_Call {
 	return &MockContainer_CopyTarStream_Call{Call: _e.mock.On("CopyTarStream", ctx, destPath, tarStream)}
 }
 
@@ -311,7 +311,7 @@ type MockContainer_Create_Call struct {
 // Create is a helper method to define mock.On call
 //   - capAdd []string
 //   - capDrop []string
-func (_e *MockContainer_Expecter) Create(capAdd interface{}, capDrop interface{}) *MockContainer_Create_Call {
+func (_e *MockContainer_Expecter) Create(capAdd any, capDrop any) *MockContainer_Create_Call {
 	return &MockContainer_Create_Call{Call: _e.mock.On("Create", capAdd, capDrop)}
 }
 
@@ -372,7 +372,7 @@ type MockContainer_Exec_Call struct {
 //   - env map[string]string
 //   - user string
 //   - workdir string
-func (_e *MockContainer_Expecter) Exec(command interface{}, env interface{}, user interface{}, workdir interface{}) *MockContainer_Exec_Call {
+func (_e *MockContainer_Expecter) Exec(command any, env any, user any, workdir any) *MockContainer_Exec_Call {
 	return &MockContainer_Exec_Call{Call: _e.mock.On("Exec", command, env, user, workdir)}
 }
 
@@ -450,7 +450,7 @@ type MockContainer_GetContainerArchive_Call struct {
 // GetContainerArchive is a helper method to define mock.On call
 //   - ctx context.Context
 //   - srcPath string
-func (_e *MockContainer_Expecter) GetContainerArchive(ctx interface{}, srcPath interface{}) *MockContainer_GetContainerArchive_Call {
+func (_e *MockContainer_Expecter) GetContainerArchive(ctx any, srcPath any) *MockContainer_GetContainerArchive_Call {
 	return &MockContainer_GetContainerArchive_Call{Call: _e.mock.On("GetContainerArchive", ctx, srcPath)}
 }
 
@@ -515,7 +515,7 @@ type MockContainer_IsHealthy_Call struct {
 
 // IsHealthy is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockContainer_Expecter) IsHealthy(ctx interface{}) *MockContainer_IsHealthy_Call {
+func (_e *MockContainer_Expecter) IsHealthy(ctx any) *MockContainer_IsHealthy_Call {
 	return &MockContainer_IsHealthy_Call{Call: _e.mock.On("IsHealthy", ctx)}
 }
 
@@ -568,7 +568,7 @@ type MockContainer_Pull_Call struct {
 
 // Pull is a helper method to define mock.On call
 //   - forcePull bool
-func (_e *MockContainer_Expecter) Pull(forcePull interface{}) *MockContainer_Pull_Call {
+func (_e *MockContainer_Expecter) Pull(forcePull any) *MockContainer_Pull_Call {
 	return &MockContainer_Pull_Call{Call: _e.mock.On("Pull", forcePull)}
 }
 
@@ -679,7 +679,7 @@ type MockContainer_ReplaceLogWriter_Call struct {
 // ReplaceLogWriter is a helper method to define mock.On call
 //   - writer io.Writer
 //   - writer1 io.Writer
-func (_e *MockContainer_Expecter) ReplaceLogWriter(writer interface{}, writer1 interface{}) *MockContainer_ReplaceLogWriter_Call {
+func (_e *MockContainer_Expecter) ReplaceLogWriter(writer any, writer1 any) *MockContainer_ReplaceLogWriter_Call {
 	return &MockContainer_ReplaceLogWriter_Call{Call: _e.mock.On("ReplaceLogWriter", writer, writer1)}
 }
 
@@ -737,7 +737,7 @@ type MockContainer_Start_Call struct {
 
 // Start is a helper method to define mock.On call
 //   - attach bool
-func (_e *MockContainer_Expecter) Start(attach interface{}) *MockContainer_Start_Call {
+func (_e *MockContainer_Expecter) Start(attach any) *MockContainer_Start_Call {
 	return &MockContainer_Start_Call{Call: _e.mock.On("Start", attach)}
 }
 
@@ -791,7 +791,7 @@ type MockContainer_UpdateFromEnv_Call struct {
 // UpdateFromEnv is a helper method to define mock.On call
 //   - srcPath string
 //   - env *map[string]string
-func (_e *MockContainer_Expecter) UpdateFromEnv(srcPath interface{}, env interface{}) *MockContainer_UpdateFromEnv_Call {
+func (_e *MockContainer_Expecter) UpdateFromEnv(srcPath any, env any) *MockContainer_UpdateFromEnv_Call {
 	return &MockContainer_UpdateFromEnv_Call{Call: _e.mock.On("UpdateFromEnv", srcPath, env)}
 }
 
@@ -849,7 +849,7 @@ type MockContainer_UpdateFromImageEnv_Call struct {
 
 // UpdateFromImageEnv is a helper method to define mock.On call
 //   - env *map[string]string
-func (_e *MockContainer_Expecter) UpdateFromImageEnv(env interface{}) *MockContainer_UpdateFromImageEnv_Call {
+func (_e *MockContainer_Expecter) UpdateFromImageEnv(env any) *MockContainer_UpdateFromImageEnv_Call {
 	return &MockContainer_UpdateFromImageEnv_Call{Call: _e.mock.On("UpdateFromImageEnv", env)}
 }
 

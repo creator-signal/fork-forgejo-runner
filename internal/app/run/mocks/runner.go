@@ -54,7 +54,7 @@ type MockRunner_Run_Call struct {
 // Run is a helper method to define mock.On call
 //   - ctx context.Context
 //   - task *runnerv1.Task
-func (_e *MockRunner_Expecter) Run(ctx interface{}, task interface{}) *MockRunner_Run_Call {
+func (_e *MockRunner_Expecter) Run(ctx any, task any) *MockRunner_Run_Call {
 	return &MockRunner_Run_Call{Call: _e.mock.On("Run", ctx, task)}
 }
 

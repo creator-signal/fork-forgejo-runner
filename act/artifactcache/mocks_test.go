@@ -108,7 +108,7 @@ type mockcaches_commit_Call struct {
 // commit is a helper method to define mock.On call
 //   - id uint64
 //   - size int64
-func (_e *mockcaches_Expecter) commit(id interface{}, size interface{}) *mockcaches_commit_Call {
+func (_e *mockcaches_Expecter) commit(id any, size any) *mockcaches_commit_Call {
 	return &mockcaches_commit_Call{Call: _e.mock.On("commit", id, size)}
 }
 
@@ -173,7 +173,7 @@ type mockcaches_exist_Call struct {
 
 // exist is a helper method to define mock.On call
 //   - id uint64
-func (_e *mockcaches_Expecter) exist(id interface{}) *mockcaches_exist_Call {
+func (_e *mockcaches_Expecter) exist(id any) *mockcaches_exist_Call {
 	return &mockcaches_exist_Call{Call: _e.mock.On("exist", id)}
 }
 
@@ -315,7 +315,7 @@ type mockcaches_readCache_Call struct {
 // readCache is a helper method to define mock.On call
 //   - id uint64
 //   - repo string
-func (_e *mockcaches_Expecter) readCache(id interface{}, repo interface{}) *mockcaches_readCache_Call {
+func (_e *mockcaches_Expecter) readCache(id any, repo any) *mockcaches_readCache_Call {
 	return &mockcaches_readCache_Call{Call: _e.mock.On("readCache", id, repo)}
 }
 
@@ -362,7 +362,7 @@ type mockcaches_serve_Call struct {
 //   - w http.ResponseWriter
 //   - r *http.Request
 //   - id uint64
-func (_e *mockcaches_Expecter) serve(w interface{}, r interface{}, id interface{}) *mockcaches_serve_Call {
+func (_e *mockcaches_Expecter) serve(w any, r any, id any) *mockcaches_serve_Call {
 	return &mockcaches_serve_Call{Call: _e.mock.On("serve", w, r, id)}
 }
 
@@ -412,7 +412,7 @@ type mockcaches_setgcAt_Call struct {
 
 // setgcAt is a helper method to define mock.On call
 //   - at time.Time
-func (_e *mockcaches_Expecter) setgcAt(at interface{}) *mockcaches_setgcAt_Call {
+func (_e *mockcaches_Expecter) setgcAt(at any) *mockcaches_setgcAt_Call {
 	return &mockcaches_setgcAt_Call{Call: _e.mock.On("setgcAt", at)}
 }
 
@@ -463,7 +463,7 @@ type mockcaches_useCache_Call struct {
 
 // useCache is a helper method to define mock.On call
 //   - id uint64
-func (_e *mockcaches_Expecter) useCache(id interface{}) *mockcaches_useCache_Call {
+func (_e *mockcaches_Expecter) useCache(id any) *mockcaches_useCache_Call {
 	return &mockcaches_useCache_Call{Call: _e.mock.On("useCache", id)}
 }
 
@@ -523,7 +523,7 @@ type mockcaches_validateMac_Call struct {
 
 // validateMac is a helper method to define mock.On call
 //   - rundata RunData
-func (_e *mockcaches_Expecter) validateMac(rundata interface{}) *mockcaches_validateMac_Call {
+func (_e *mockcaches_Expecter) validateMac(rundata any) *mockcaches_validateMac_Call {
 	return &mockcaches_validateMac_Call{Call: _e.mock.On("validateMac", rundata)}
 }
 
@@ -576,7 +576,7 @@ type mockcaches_write_Call struct {
 //   - id uint64
 //   - offset uint64
 //   - reader io.Reader
-func (_e *mockcaches_Expecter) write(id interface{}, offset interface{}, reader interface{}) *mockcaches_write_Call {
+func (_e *mockcaches_Expecter) write(id any, offset any, reader any) *mockcaches_write_Call {
 	return &mockcaches_write_Call{Call: _e.mock.On("write", id, offset, reader)}
 }
 
