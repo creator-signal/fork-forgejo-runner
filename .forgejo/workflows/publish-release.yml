@@ -30,7 +30,7 @@ jobs:
       - uses: https://data.forgejo.org/actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: copy & sign
-        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/publish@c52f72f4738c131b40f5242148b565262b71cb73 # v5.7.2
+        uses: https://data.forgejo.org/forgejo/forgejo-build-publish/publish@c219f52c4d9a15f8f9f979111b1b79801f6857f3 # v5.7.3
         with:
           from-forgejo: ${{ vars.FORGEJO }}
           to-forgejo: ${{ vars.FORGEJO }}
