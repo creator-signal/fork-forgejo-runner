@@ -531,8 +531,6 @@ func New(opts ...Option) (*Config, error) {
 		}
 	}
 
-	compatibleWithOldEnvs(len(opts) > 0, config)
-
 	// Ensure WorkdirParent is an absolute path so that operations in `act/common/git` work consistently.
 	absWorkdirParent, err := filepath.Abs(config.Host.WorkdirParent)
 	if err != nil {
