@@ -420,8 +420,6 @@ func runExec(ctx context.Context, execArgs *executeArgs) error {
 
 	if t := config.Secrets["FORGEJO_TOKEN"]; t != "" {
 		config.Token = t
-	} else if t := config.Secrets["GITEA_TOKEN"]; t != "" {
-		config.Token = t
 	} else if t := config.Secrets["GITHUB_TOKEN"]; t != "" {
 		config.Token = t
 	}

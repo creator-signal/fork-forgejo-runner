@@ -12,14 +12,14 @@ import (
 )
 
 func TestConfig_GetToken(t *testing.T) {
-	t.Run("returns GITEA_TOKEN when both GITEA_TOKEN and GITHUB_TOKEN present", func(t *testing.T) {
+	t.Run("returns FORGEJO_TOKEN when both FORGEJO_TOKEN and GITHUB_TOKEN present", func(t *testing.T) {
 		c := &Config{
 			Secrets: map[string]string{
-				"GITHUB_TOKEN": "github-token",
-				"GITEA_TOKEN":  "gitea-token",
+				"GITHUB_TOKEN":  "github-token",
+				"FORGEJO_TOKEN": "forgejo-token",
 			},
 		}
-		assert.Equal(t, "gitea-token", c.GetToken())
+		assert.Equal(t, "forgejo-token", c.GetToken())
 	})
 
 	t.Run("returns GITHUB_TOKEN when only GITHUB_TOKEN present", func(t *testing.T) {

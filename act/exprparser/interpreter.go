@@ -168,8 +168,6 @@ func (impl *interpreterImpl) evaluateVariable(variableNode *actionlint.VariableN
 	switch strings.ToLower(variableNode.Name) {
 	case "github":
 		return impl.env.Github, nil
-	case "gitea": // compatible with Gitea
-		return impl.env.Github, nil
 	case "forge":
 		return impl.env.Github, nil
 	case "forgejo":
