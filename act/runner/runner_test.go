@@ -44,6 +44,7 @@ func init() {
 
 	platforms = map[string]string{
 		"ubuntu-latest": baseImage,
+		"self-hosted":   "-self-hosted",
 	}
 
 	if l := os.Getenv("ACT_TEST_LOG_LEVEL"); l != "" {
@@ -261,6 +262,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "local-action-via-composite-dockerfile", "push", "", platforms, secrets},
 		{workdir, "local-action-js", "push", "", platforms, secrets},
 		{workdir, "local-action-docker-input-precedence", "workflow_dispatch", "", platforms, secrets},
+		{workdir, "local-action-docker-hostexecutor", "push", "", platforms, secrets},
 
 		// Uses
 		{workdir, "uses-composite", "push", "", platforms, secrets},

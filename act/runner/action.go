@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	"github.com/opencontainers/selinux/go-selinux"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/container"
@@ -418,6 +419,7 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 }
 
 func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image string, cmd, entrypoint []string, targetPlatform string) container.Container {
+	ext := docker.LinuxContainerEnvironmentExtensions{}
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 	rawLogger := common.Logger(ctx).WithField("raw_output", true)
@@ -431,6 +433,10 @@ func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image 
 	})
 	envList := make([]string, 0, len(*step.getEnv()))
 	for k, v := range *step.getEnv() {
+		// PATH should not be overridden in containers that run actions. Otherwise, actions might not find their tools.
+		if k == "PATH" {
+			continue
+		}
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
 
@@ -444,10 +450,28 @@ func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image 
 	if rc.JobContainer.ManagesOwnNetworking() {
 		networkMode = "default"
 	}
+
+	if hostEnv, ok := rc.JobContainer.(*container.HostEnvironment); ok {
+		bindModifiers := ""
+		if selinux.GetEnabled() {
+			bindModifiers = ":z"
+		}
+
+		actPathOnHost := hostEnv.GetActPath()
+		workdirOnHost := hostEnv.ToContainerPath(rc.Config.Workdir)
+
+		mounts = map[string]string{}
+		binds = []string{
+			actPathOnHost + ":" + ext.GetActPath() + bindModifiers,
+			workdirOnHost + ":" + ext.ToContainerPath(rc.Config.Workdir) + bindModifiers,
+		}
+		validVolumes = []string{actPathOnHost, workdirOnHost}
+	}
+
 	stepContainer := docker.NewContainer(ep, &container.NewContainerInput{
 		Cmd:             cmd,
 		Entrypoint:      entrypoint,
-		WorkingDir:      rc.JobContainer.ToContainerPath(rc.Config.Workdir),
+		WorkingDir:      ext.ToContainerPath(rc.Config.Workdir),
 		Image:           image,
 		Name:            createSimpleContainerName(rc.jobContainerName(), "STEP-"+stepModel.ID),
 		Env:             envList,

@@ -1,0 +1,11 @@
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout action
+        uses: actions/checkout@v7
+
+      - uses: ./actions/docker-hostexecutor
