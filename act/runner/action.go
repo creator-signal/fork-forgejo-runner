@@ -449,8 +449,6 @@ func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image 
 		Entrypoint:      entrypoint,
 		WorkingDir:      rc.JobContainer.ToContainerPath(rc.Config.Workdir),
 		Image:           image,
-		Username:        rc.Config.Secrets["DOCKER_USERNAME"],
-		Password:        rc.Config.Secrets["DOCKER_PASSWORD"],
 		Name:            createSimpleContainerName(rc.jobContainerName(), "STEP-"+stepModel.ID),
 		Env:             envList,
 		ToolCache:       rc.getToolCache(ctx),
