@@ -1024,39 +1024,6 @@ func TestSerializedContainerSettings(t *testing.T) {
 
 		settings := serializedContainerSettings{
 			Network:       "host",
-			NetworkMode:   "",
-			EnableIPv6:    true,
-			Privileged:    true,
-			Options:       "--init",
-			WorkdirParent: "/path/to/parent",
-			ValidVolumes:  []string{"/tmp"},
-			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
-			ForcePull:     true,
-			ForceRebuild:  true,
-		}
-
-		config := Config{}
-		err := settings.applyTo(&config)
-		require.NoError(t, err)
-
-		assert.Equal(t, expected, config.Container)
-	})
-	t.Run("translates network_mode bridge to empty network", func(t *testing.T) {
-		expected := Container{
-			Network:       "",
-			EnableIPv6:    true,
-			Privileged:    true,
-			Options:       "--init",
-			WorkdirParent: "/path/to/parent",
-			ValidVolumes:  []string{"/tmp"},
-			DockerHost:    "unix:///run/user/1000/podman/podman.sock",
-			ForcePull:     true,
-			ForceRebuild:  true,
-		}
-
-		settings := serializedContainerSettings{
-			Network:       "",
-			NetworkMode:   "bridge",
 			EnableIPv6:    true,
 			Privileged:    true,
 			Options:       "--init",
@@ -1088,7 +1055,6 @@ func TestSerializedContainerSettings(t *testing.T) {
 
 		settings := serializedContainerSettings{
 			Network:       "host",
-			NetworkMode:   "bridge",
 			EnableIPv6:    true,
 			Privileged:    true,
 			Options:       "--init",
@@ -1120,7 +1086,6 @@ func TestSerializedContainerSettings(t *testing.T) {
 
 		settings := serializedContainerSettings{
 			Network:       "host",
-			NetworkMode:   "bridge",
 			EnableIPv6:    true,
 			Privileged:    true,
 			Options:       "--init",

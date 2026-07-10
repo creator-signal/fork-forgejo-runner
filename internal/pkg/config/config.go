@@ -355,7 +355,6 @@ func (s *serializedCacheSettings) applyTo(config *Config) error {
 // serializedContainerSettings is the on-disk format of settings that configure the job containers' behaviour.
 type serializedContainerSettings struct {
 	Network       string   `yaml:"network"`        // Network specifies the network for the container.
-	NetworkMode   string   `yaml:"network_mode"`   // Deprecated: use Network instead. Could be removed after Gitea 1.20
 	EnableIPv6    bool     `yaml:"enable_ipv6"`    // EnableIPv6 indicates whether the network is created with IPv6 enabled.
 	Privileged    bool     `yaml:"privileged"`     // Privileged indicates whether the container runs in privileged mode.
 	Options       string   `yaml:"options"`        // Options specifies additional options for the container.
@@ -368,16 +367,6 @@ type serializedContainerSettings struct {
 
 func (s *serializedContainerSettings) applyTo(config *Config) error {
 	config.Container.Network = s.Network
-	if s.NetworkMode != "" && s.Network == "" {
-		log.Warn("`container.network_mode` is deprecated, use `container.network` instead.")
-		if s.NetworkMode == "bridge" {
-			// `bridge` means to create a new network for a job. This translates to an empty network name with the new
-			// setting.
-			config.Container.Network = ""
-		} else {
-			config.Container.Network = s.NetworkMode
-		}
-	}
 	config.Container.EnableIPv6 = s.EnableIPv6
 	config.Container.Privileged = s.Privileged
 	config.Container.Options = s.Options
