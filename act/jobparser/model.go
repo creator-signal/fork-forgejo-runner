@@ -436,7 +436,7 @@ func ParseRawOn(rawOn *yaml.Node) ([]*Event, error) {
 					}
 					schedules[i] = make(map[string]string, len(vv))
 					for kk, vvv := range vv {
-						if !slices.Contains(allowedKeys, strings.ToLower(kk)) {
+						if !slices.Contains(allowedKeys, kk) {
 							return nil, fmt.Errorf("key %q[%d] had unexpected key %q; one of %q was expected", k, i, kk, allowedKeys)
 						}
 						value, ok := vvv.(string)
