@@ -468,7 +468,7 @@ func (impl *interpreterImpl) evaluateArrayDeref(arrayDerefNode *actionlint.Array
 
 func (impl *interpreterImpl) getPropertyValue(left reflect.Value, property string) (value any, err error) {
 	switch left.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return impl.getPropertyValue(left.Elem(), property)
 
 	case reflect.Struct:
@@ -553,7 +553,7 @@ func (impl *interpreterImpl) getPropertyValueDereferenced(left reflect.Value, pr
 		}
 
 		return values, nil
-	case reflect.Ptr, reflect.Struct, reflect.Slice:
+	case reflect.Pointer, reflect.Struct, reflect.Slice:
 		return impl.getPropertyValue(left, property)
 	}
 
@@ -561,7 +561,7 @@ func (impl *interpreterImpl) getPropertyValueDereferenced(left reflect.Value, pr
 }
 
 func (impl *interpreterImpl) getMapValue(value reflect.Value) (any, error) {
-	if value.Kind() == reflect.Ptr {
+	if value.Kind() == reflect.Pointer {
 		return impl.getMapValue(value.Elem())
 	}
 
