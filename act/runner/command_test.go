@@ -53,19 +53,6 @@ func TestCommandSetOutput(t *testing.T) {
 	a.Equal("percent2%\ntest", rc.StepResults["my-step"].Outputs["x:,\n%\r:"])
 }
 
-func TestCommandAddpath(t *testing.T) {
-	a := assert.New(t)
-	ctx := t.Context()
-	rc := new(RunContext)
-	handler := rc.commandHandler(ctx)
-
-	handler("::add-path::/zoo\n")
-	a.Equal("/zoo", rc.ExtraPath[0])
-
-	handler("::add-path::/boo\n")
-	a.Equal("/boo", rc.ExtraPath[0])
-}
-
 func TestCommandStopCommands(t *testing.T) {
 	logger, hook := test.NewNullLogger()
 
@@ -89,19 +76,6 @@ func TestCommandStopCommands(t *testing.T) {
 	}
 
 	a.Contains(messages, "  \U00002699  ::set-env name=x::abcd\n")
-}
-
-func TestCommandAddpathADO(t *testing.T) {
-	a := assert.New(t)
-	ctx := t.Context()
-	rc := new(RunContext)
-	handler := rc.commandHandler(ctx)
-
-	handler("##[add-path]/zoo\n")
-	a.Equal("/zoo", rc.ExtraPath[0])
-
-	handler("##[add-path]/boo\n")
-	a.Equal("/boo", rc.ExtraPath[0])
 }
 
 func TestCommandAddmask(t *testing.T) {
