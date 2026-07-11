@@ -60,7 +60,7 @@ func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client
 	if v := task.Context.Fields["token"].GetStringValue(); v != "" {
 		masker.add(v)
 	}
-	if v := client.BackwardCompatibleContext(task, "runtime_token"); v != "" {
+	if v := task.Context.Fields["forgejo_runtime_token"].GetStringValue(); v != "" {
 		masker.add(v)
 	}
 	if v := task.Context.Fields["forgejo_actions_id_token_request_token"].GetStringValue(); v != "" {
