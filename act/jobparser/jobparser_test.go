@@ -1039,6 +1039,11 @@ jobs:
 		require.Len(t, swf, 1)
 		assert.True(t, swf[0].HasPermissions())
 	})
+
+	t.Run("workflow without jobs", func(t *testing.T) {
+		swf := SingleWorkflow{}
+		assert.False(t, swf.HasPermissions())
+	})
 }
 
 func TestEvaluateIf(t *testing.T) {
