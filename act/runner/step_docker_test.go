@@ -48,7 +48,8 @@ func TestStepDockerMain(t *testing.T) {
 					},
 				},
 			},
-			JobContainer: cm,
+			JobContainer:   cm,
+			dockerEndpoint: fakeEndpoint{},
 		},
 		Step: &model.Step{
 			ID:               "1",

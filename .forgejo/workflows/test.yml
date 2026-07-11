@@ -108,6 +108,12 @@ jobs:
           make clean
           GOARCH="amd64" GOOS=windows make build
 
+      # Helps to identify tests that should be skipped but are not.
+      - name: Run tests that do not require any features
+        run: |
+          make clean
+          go test ./... -args -features "-"
+
   runner-exec-tests:
     name: runner exec tests
     if: vars.ROLE == 'forgejo-coding'

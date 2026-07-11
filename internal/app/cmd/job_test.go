@@ -186,7 +186,7 @@ cache:
 		assert.Equal(t, "https://example.com/forgejo", conn.URL.String())
 		assert.Equal(t, "41414141-4141-4141-4141-414141414141", conn.UUID.String())
 		assert.Equal(t, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", conn.Token)
-		assert.Equal(t, labels.Labels{labels.MustParse("some-label")}, conn.Labels)
+		assert.Equal(t, labels.Labels{labels.MustParse("some-label:host")}, conn.Labels)
 
 		return mockClient
 	})()
@@ -204,7 +204,7 @@ cache:
 			url:      "https://example.com/forgejo",
 			uuid:     "41414141-4141-4141-4141-414141414141",
 			tokenURL: tokenURL.String(),
-			labels:   []string{"some-label"},
+			labels:   []string{"some-label:host"},
 		}
 
 		err := runJob(t.Context(), &configPath, &runJobArgs{connection: conn})
