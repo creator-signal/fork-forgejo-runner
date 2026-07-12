@@ -335,6 +335,8 @@ func TestCheckVolumes(t *testing.T) {
 }
 
 func TestMergeJobOptions(t *testing.T) {
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
+
 	for _, testCase := range []struct {
 		name       string
 		options    string
