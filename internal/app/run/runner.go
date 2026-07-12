@@ -256,7 +256,10 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 
 	defaultActionURL := taskContext["forgejo_default_actions_url"].GetStringValue()
 	if defaultActionURL == "" {
-		return fmt.Errorf("task %v context does not contain a forgejo_default_actions_url key", task.Id)
+		defaultActionURL = taskContext["gitea_default_actions_url"].GetStringValue()
+	}
+	if defaultActionURL == "" {
+		return fmt.Errorf("task %d context lacks a forgejo_default_actions_url or gitea_default_actions_url", task.Id)
 	}
 
 	serverVersion := taskContext["forgejo_server_version"].GetStringValue()
