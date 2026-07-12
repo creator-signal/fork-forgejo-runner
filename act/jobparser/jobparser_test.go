@@ -949,7 +949,8 @@ jobs:
 }
 
 func TestPermissions(t *testing.T) {
-	workflowWithoutPermission := `
+	t.Run("workflow without permissions", func(t *testing.T) {
+		workflowWithoutPermission := `
 on:
   pull_request:
 jobs:
@@ -957,7 +958,16 @@ jobs:
     runs-on: ubuntu-oldest
     steps: []
 `
-	workflowWithPermissionScalar := `
+
+		swf, err := Parse([]byte(workflowWithoutPermission), true)
+		require.NoError(t, err)
+		require.NotNil(t, swf)
+		require.Len(t, swf, 1)
+		assert.False(t, swf[0].HasPermissions())
+	})
+
+	t.Run("workflow with scalar permissions", func(t *testing.T) {
+		workflowWithPermissionScalar := `
 on:
   pull_request:
 permissions: read-all
@@ -966,7 +976,16 @@ jobs:
     runs-on: ubuntu-oldest
     steps: []
 `
-	workflowWithPermissionObject := `
+
+		swf, err := Parse([]byte(workflowWithPermissionScalar), true)
+		require.NoError(t, err)
+		require.NotNil(t, swf)
+		require.Len(t, swf, 1)
+		assert.True(t, swf[0].HasPermissions())
+	})
+
+	t.Run("workflow with permissions object", func(t *testing.T) {
+		workflowWithPermissionObject := `
 on:
   pull_request:
 permissions:
@@ -976,7 +995,16 @@ jobs:
     runs-on: ubuntu-oldest
     steps: []
 `
-	jobWithPermissionScalar := `
+
+		swf, err := Parse([]byte(workflowWithPermissionObject), true)
+		require.NoError(t, err)
+		require.NotNil(t, swf)
+		require.Len(t, swf, 1)
+		assert.True(t, swf[0].HasPermissions())
+	})
+
+	t.Run("job with scalar permissions", func(t *testing.T) {
+		jobWithPermissionScalar := `
 on:
   pull_request:
 jobs:
@@ -985,7 +1013,16 @@ jobs:
     runs-on: ubuntu-oldest
     steps: []
 `
-	jobWithPermissionObject := `
+
+		swf, err := Parse([]byte(jobWithPermissionScalar), true)
+		require.NoError(t, err)
+		require.NotNil(t, swf)
+		require.Len(t, swf, 1)
+		assert.True(t, swf[0].HasPermissions())
+	})
+
+	t.Run("job with permissions objects", func(t *testing.T) {
+		jobWithPermissionObject := `
 on:
   pull_request:
 jobs:
@@ -996,35 +1033,17 @@ jobs:
     steps: []
 `
 
-	swf, err := Parse([]byte(workflowWithoutPermission), true)
-	require.NoError(t, err)
-	require.NotNil(t, swf)
-	require.Len(t, swf, 1)
-	assert.False(t, swf[0].HasPermissions())
+		swf, err := Parse([]byte(jobWithPermissionObject), true)
+		require.NoError(t, err)
+		require.NotNil(t, swf)
+		require.Len(t, swf, 1)
+		assert.True(t, swf[0].HasPermissions())
+	})
 
-	swf, err = Parse([]byte(workflowWithPermissionScalar), true)
-	require.NoError(t, err)
-	require.NotNil(t, swf)
-	require.Len(t, swf, 1)
-	assert.True(t, swf[0].HasPermissions())
-
-	swf, err = Parse([]byte(workflowWithPermissionObject), true)
-	require.NoError(t, err)
-	require.NotNil(t, swf)
-	require.Len(t, swf, 1)
-	assert.True(t, swf[0].HasPermissions())
-
-	swf, err = Parse([]byte(jobWithPermissionScalar), true)
-	require.NoError(t, err)
-	require.NotNil(t, swf)
-	require.Len(t, swf, 1)
-	assert.True(t, swf[0].HasPermissions())
-
-	swf, err = Parse([]byte(jobWithPermissionObject), true)
-	require.NoError(t, err)
-	require.NotNil(t, swf)
-	require.Len(t, swf, 1)
-	assert.True(t, swf[0].HasPermissions())
+	t.Run("workflow without jobs", func(t *testing.T) {
+		swf := SingleWorkflow{}
+		assert.False(t, swf.HasPermissions())
+	})
 }
 
 func TestEvaluateIf(t *testing.T) {

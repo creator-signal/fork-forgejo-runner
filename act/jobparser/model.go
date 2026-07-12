@@ -139,7 +139,7 @@ func (w *SingleWorkflow) HasPermissions() bool {
 		return true
 	}
 	_, j := w.Job()
-	return j.Permissions.Kind != 0
+	return j != nil && j.Permissions.Kind != 0
 }
 
 type Job struct {
