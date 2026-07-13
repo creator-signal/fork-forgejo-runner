@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"code.forgejo.org/forgejo/runner/v12/act/common/git"
 	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
 	log "github.com/sirupsen/logrus"
 )
@@ -176,7 +177,7 @@ func readGitIndex(ctx context.Context, path string) (map[string]string, error) {
 	// 0x1f is the ASCII code for the Unit separator (https://www.lammertbies.nl/comm/info/ascii-characters#us)
 	cmd := exec.CommandContext(ctx, "git", "-C", path, "ls-files", "-z", "--format=%(objectmode)%x1f%(path)")
 
-	output, err := cmd.Output()
+	output, err := git.RunWithOutput(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("could not read index of Git repository %q: %w", path, err)
 	}
