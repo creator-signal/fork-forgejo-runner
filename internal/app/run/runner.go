@@ -254,12 +254,12 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 
 	taskContext := task.Context.Fields
 
-	defaultActionURL := taskContext["forgejo_default_actions_url"].GetStringValue()
+	defaultActionURL := client.BackwardCompatibleContext(task, "default_actions_url")
 	if defaultActionURL == "" {
-		return fmt.Errorf("task %v context does not contain a forgejo_default_actions_url key", task.Id)
+		return fmt.Errorf("task %v context does not contain a {forgejo,gitea}_default_actions_url key", task.Id)
 	}
 
-	serverVersion := taskContext["forgejo_server_version"].GetStringValue()
+	serverVersion := client.BackwardCompatibleContext(task, "server_version")
 	log.Debugf("Forgejo server version '%s'", serverVersion)
 
 	log.Infof("task %v repo is %v %v %v", task.Id, taskContext["repository"].GetStringValue(),
@@ -298,7 +298,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	runEnvs := make(map[string]string)
 	maps.Copy(runEnvs, r.envs)
 
-	runtimeToken := taskContext["forgejo_runtime_token"].GetStringValue()
+	runtimeToken := client.BackwardCompatibleContext(task, "runtime_token")
 	if runtimeToken == "" {
 		// use task token to action api token for previous Gitea Server Versions
 		runtimeToken = preset.Token
