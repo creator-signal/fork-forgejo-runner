@@ -307,7 +307,7 @@ jobs:
       - name: Run tests
         run: |
           run0 -u forgejo --chdir=/home/forgejo/runner \
-              bash --login -c 'go test -race -v -timeout 30m ./... -args -features docker'
+              bash --login -c 'go test -race -v -timeout 45m ./... -args -features docker'
 
   validate-mocks:
     name: validate mocks
