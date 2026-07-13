@@ -210,7 +210,7 @@ func lookupPathHost(cmd string, env map[string]string, writer io.Writer) (string
 }
 
 func setupPty(cmd *exec.Cmd) (*os.File, *os.File, error) {
-	master, slave, err := openPty()
+	master, slave, err := common.OpenPty()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -348,7 +348,7 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 
 	// Don't immediately return error if the command fails -- closing the pty and ensuring all data is flushed through
 	// to the logs needs to occur in the command error case.
-	runCmdErr := runCmdInGroup(cmd, cmdline, master != nil)
+	runCmdErr := common.RunCmdInGroup(cmd, cmdline, master != nil)
 
 	if slave != nil {
 		_ = slave.Close()

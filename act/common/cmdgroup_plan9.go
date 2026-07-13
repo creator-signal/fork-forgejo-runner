@@ -1,18 +1,19 @@
-package container
+package common
 
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"syscall"
 )
 
-func runCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
+func RunCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Rfork: syscall.RFNOTEG,
 	}
 	return cmd.Run()
 }
 
-func openPty() (*os.File, *os.File, error) {
+func OpenPty() (*os.File, *os.File, error) {
 	return nil, nil, errors.New("Unsupported")
 }

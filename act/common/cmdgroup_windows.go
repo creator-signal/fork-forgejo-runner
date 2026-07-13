@@ -1,4 +1,4 @@
-package container
+package common
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	syscall "golang.org/x/sys/windows"
 )
 
-func runCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
+func RunCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		CmdLine: cmdline,
 		// We pass `CREATE_SUSPENDED` here to avoid a race condition: we want to assign
@@ -97,6 +97,6 @@ func runCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
 	return cmd.Wait()
 }
 
-func openPty() (*os.File, *os.File, error) {
+func OpenPty() (*os.File, *os.File, error) {
 	return nil, nil, errors.New("Unsupported")
 }

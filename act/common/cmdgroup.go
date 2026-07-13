@@ -1,6 +1,6 @@
 //go:build (!windows && !plan9 && !openbsd) || (!windows && !plan9 && !mips64)
 
-package container
+package common
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 )
 
 // Execute `cmd` in such a way that `cmd.Cancel` will kill `cmd` and all of its children.
-func runCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
+func RunCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
 	if tty {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setsid:  true,
@@ -31,6 +31,6 @@ func runCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
 	return cmd.Run()
 }
 
-func openPty() (*os.File, *os.File, error) {
+func OpenPty() (*os.File, *os.File, error) {
 	return pty.Open()
 }
