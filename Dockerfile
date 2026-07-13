@@ -21,7 +21,7 @@ RUN make clean && make build
 
 FROM data.forgejo.org/oci/alpine:3.23
 ARG RELEASE_VERSION
-RUN apk add --no-cache git bash
+RUN apk add --no-cache git bash dumb-init
 
 COPY --from=build-env /srv/forgejo-runner /bin/forgejo-runner
 
@@ -44,4 +44,9 @@ WORKDIR /data
 
 VOLUME ["/data"]
 
+# Run under dumb-init so that processes reparented to PID 1 are reaped instead of accumulating as zombies.  This is a
+# risk when runner executes subcommands in the host-based runner that may escape their process group and not be
+# `wait()'d` by their parents, or when subprocesses like `git` could be terminated during job cancellation and may leave
+# grandchild processes that aren't reaped.
+ENTRYPOINT ["/usr/bin/dumb-init"]
 CMD ["/bin/forgejo-runner"]
