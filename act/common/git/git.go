@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -483,8 +484,32 @@ func git(ctx context.Context, options *gitOptions, args ...string) (string, erro
 		cmd.Env = append(os.Environ(), "GIT_AUTH_HEADER="+authHeader)
 	}
 
-	output, err := cmd.Output()
+	output, err := RunWithOutput(cmd)
 	trimmedOutput := strings.TrimSpace(string(output))
 
 	return trimmedOutput, err
+}
+
+// Clone of `func (c *Cmd) Output() ([]byte, error)` from the Go standard library, but replacing `.Run` with our
+// `runCmdInGroup` utility function.
+func RunWithOutput(cmd *exec.Cmd) ([]byte, error) {
+	if cmd.Stdout != nil {
+		return nil, errors.New("exec: Stdout already set")
+	}
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	captureErr := cmd.Stderr == nil
+	if captureErr {
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+	}
+
+	err := common.RunCmdInGroup(cmd, "", false)
+	if err != nil && captureErr {
+		if ee, ok := err.(*exec.ExitError); ok {
+			ee.Stderr = cmd.Stderr.(*bytes.Buffer).Bytes()
+		}
+	}
+	return stdout.Bytes(), err
 }

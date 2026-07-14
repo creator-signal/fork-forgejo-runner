@@ -3,6 +3,7 @@ package git
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -10,10 +11,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
 	"testing"
+	"time"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	log "github.com/sirupsen/logrus"
@@ -1119,4 +1122,77 @@ func TestObjectExists(t *testing.T) {
 	// Malformed object names should result in an error.
 	_, err = objectExists(t.Context(), cacheDir, "malformed-name")
 	assert.ErrorContains(t, err, "could not determine whether malformed-name exists")
+}
+
+// Clone of `TestCancelLongRunningCommand` which verifies that git processes, when their contexts are cancelled, are
+// fully killed and all their child/grandchild processes are killed as well.
+func TestGitContextCancelKillsSubprocesses(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// TestCancelLongRunningCommand contains Windows-specific tests for `common.RunCmdInGroup`, which is the
+		// underlying mechanism in-use in this test.  That test doesn't need to be repeated here, as the only important
+		// thing to assert is that `common.RunCmdInGroup` is being used in the git mechanisms -- if it's being used in
+		// Linux/other it will be used in Windows.
+		t.Skip()
+	}
+
+	gitCloneDir := t.TempDir()
+	remoteDir := makeTestRepo(t)
+	makeTestCommit(t, remoteDir, "initial commit")
+	err := gitCmd("clone", remoteDir, gitCloneDir)
+	require.NoError(t, err)
+
+	scriptDir := t.TempDir()
+	checkFilePath := filepath.Join(scriptDir, "check_file")
+	endlessScriptPath := filepath.Join(scriptDir, "evil.sh")
+	contents := fmt.Sprintf(`#!/bin/sh
+(
+	nohup sh <<-EOF >/dev/null 2>/dev/null &
+		while true; do
+			touch %s
+			sleep 0.1
+		done
+	EOF
+	while true; do sleep 1; done
+)`, checkFilePath)
+	_ = os.WriteFile(endlessScriptPath, []byte(contents), 0o700)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	execTime := time.Now()
+	execResult := make(chan error)
+	go func() {
+		output, err := git(
+			ctx, &gitOptions{},
+			"-c", fmt.Sprintf("alias.my-fake-command=!%s", endlessScriptPath),
+			"-C", gitCloneDir,
+			"my-fake-command",
+		)
+		t.Logf("my-fake-command had output: %q", output)
+		t.Logf("my-fake-command had err: %q", err.Error())
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Logf("my-fake-command had stderr = %q", string(ee.Stderr))
+		}
+		execResult <- err
+	}()
+
+	// Verify that the check_file exists...
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.FileExists(c, checkFilePath)
+	}, 10*time.Second, 100*time.Millisecond)
+
+	// Terminate the subcommand by terminating the git command's context, triggering `common.RunCmdInGroup'`s subprocess
+	// handling:
+	cancel()
+	runTime := time.Since(execTime)
+
+	err = <-execResult
+	require.ErrorContains(t, err, "signal: killed")
+
+	// The child has been killed, so if we delete 'check_file', it should never return.
+	_ = os.Remove(checkFilePath)
+	// On a system under heavy load, using `runTime` here is a good heuristic for how long we might have to wait before
+	// the child gets another chance to write the file.
+	time.Sleep(runTime)
+	assert.NoFileExists(t, checkFilePath)
 }
