@@ -173,6 +173,34 @@ func (r *Runner) Run(ctx context.Context, task *runnerv1.Task) {
 	}()
 	reporter.RunDaemon()
 	runErr = r.run(ctx, task, reporter)
+	r.uploadJobSummary(task, reporter)
+}
+
+func taskToken(task *runnerv1.Task) string {
+	for _, name := range []string{"FORGEJO_TOKEN", "GITEA_TOKEN", "GITHUB_TOKEN"} {
+		if t := task.Secrets[name]; t != "" {
+			return t
+		}
+	}
+	return task.Context.Fields["token"].GetStringValue()
+}
+
+func runtimeTokenForTask(task *runnerv1.Task) string {
+	if t := client.BackwardCompatibleContext(task, "runtime_token"); t != "" {
+		return t
+	}
+	return taskToken(task)
+}
+
+func (r *Runner) uploadJobSummary(task *runnerv1.Task, reporter *report.Reporter) {
+	summary := reporter.JobSummary()
+	if summary == "" {
+		return
+	}
+	runID := task.Context.Fields["run_id"].GetStringValue()
+	if err := client.UploadJobSummary(context.Background(), r.client.Address(), r.cfg.Runner.Insecure, runID, runtimeTokenForTask(task), summary); err != nil {
+		log.Warnf("failed to upload the job summary: %v", err)
+	}
 }
 
 func logAndReport(reporter *report.Reporter, message string, args ...any) {
@@ -283,11 +311,12 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		RefType:         taskContext["ref_type"].GetStringValue(),
 		HeadRef:         taskContext["head_ref"].GetStringValue(),
 		BaseRef:         taskContext["base_ref"].GetStringValue(),
-		Token:           taskContext["token"].GetStringValue(),
+		Token:           taskToken(task),
 		RepositoryOwner: taskContext["repository_owner"].GetStringValue(),
 		RetentionDays:   taskContext["retention_days"].GetStringValue(),
 		WorkflowRef:     taskContext["workflow_ref"].GetStringValue(),
 	}
+
 	if t := task.Secrets["FORGEJO_TOKEN"]; t != "" {
 		preset.Token = t
 	} else if t := task.Secrets["GITHUB_TOKEN"]; t != "" {
@@ -298,13 +327,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 	runEnvs := make(map[string]string)
 	maps.Copy(runEnvs, r.envs)
 
-	runtimeToken := client.BackwardCompatibleContext(task, "runtime_token")
-	if runtimeToken == "" {
-		// use task token to action api token for previous Gitea Server Versions
-		runtimeToken = preset.Token
-	}
-	runEnvs["ACTIONS_RUNTIME_TOKEN"] = runtimeToken
-
+	runEnvs["ACTIONS_RUNTIME_TOKEN"] = runtimeTokenForTask(task)
 	runEnvs["ACTIONS_ID_TOKEN_REQUEST_TOKEN"] = taskContext["forgejo_actions_id_token_request_token"].GetStringValue()
 	runEnvs["ACTIONS_ID_TOKEN_REQUEST_URL"] = taskContext["forgejo_actions_id_token_request_url"].GetStringValue()
 

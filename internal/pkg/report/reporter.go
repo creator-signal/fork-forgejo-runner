@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	"code.forgejo.org/forgejo/runner/v13/act/runner"
@@ -28,6 +29,7 @@ import (
 var (
 	outputKeyMaxLength   = 255
 	outputValueMaxLength = 1024 * 1024
+	maxJobSummarySize    = 1024 * 1024
 )
 
 type Reporter struct {
@@ -51,6 +53,8 @@ type Reporter struct {
 	stopCommandEndToken string
 	issuedLocalCancel   bool
 	retry               *config.Retry
+
+	jobSummary strings.Builder
 
 	log *logrus.Entry
 }
@@ -121,6 +125,13 @@ func (r *Reporter) Fire(entry *logrus.Entry) error {
 	defer r.stateMu.Unlock()
 
 	r.log.WithFields(entry.Data).Trace(entry.Message)
+
+	if cmd, ok := entry.Data["command"].(string); ok && cmd == "summary" {
+		if content, ok := entry.Data["content"].(string); ok {
+			r.safeAppendJobSummary(content)
+		}
+		return nil
+	}
 
 	timestamp := entry.Time
 	if r.state.StartedAt == nil {
@@ -197,6 +208,34 @@ func (r *Reporter) Fire(entry *logrus.Entry) error {
 	}
 
 	return nil
+}
+
+func (r *Reporter) safeAppendJobSummary(content string) {
+	remaining := maxJobSummarySize - r.jobSummary.Len()
+	// Summary beyond the api limit is truncated
+	if remaining <= 0 {
+		return
+	}
+	content = r.masker.getReplacer().Replace(content)
+	if len(content) > remaining {
+		content = content[:remaining]
+		// avoid writing a partial UTF-8 rune at the truncation point to not invalidate the UTF-8
+		for len(content) > 0 {
+			if r, size := utf8.DecodeLastRuneInString(content); r == utf8.RuneError && size <= 1 {
+				content = content[:len(content)-1]
+			} else {
+				break
+			}
+		}
+	}
+	r.jobSummary.WriteString(content)
+}
+
+// JobSummary returns the accumulated GITHUB_STEP_SUMMARY content of all steps in the job.
+func (r *Reporter) JobSummary() string {
+	r.stateMu.RLock()
+	defer r.stateMu.RUnlock()
+	return r.jobSummary.String()
 }
 
 func (r *Reporter) RunDaemon() {

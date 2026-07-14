@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	connect_go "connectrpc.com/connect"
@@ -323,6 +324,68 @@ func TestReporter_Fire(t *testing.T) {
 		assert.NoError(t, reporter.Fire(&log.Entry{Message: "skipped!", Data: dataStep0}))
 
 		assert.EqualValues(t, runnerv1.Result_RESULT_SKIPPED, reporter.state.Result)
+	})
+}
+
+func TestReporter_BuildJobSummary(t *testing.T) {
+	t.Run("accumulates summary content across steps and is not logged", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		reporter.ResetSteps(2)
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "  ⚙  Summary - ## first",
+			Data:    map[string]any{"command": "summary", "content": "## first\n"},
+		}))
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "  ⚙  Summary - ## second",
+			Data:    map[string]any{"command": "summary", "content": "## second\n"},
+		}))
+
+		assert.Equal(t, "## first\n## second\n", reporter.JobSummary())
+		assert.Empty(t, reporter.logRows)
+	})
+
+	t.Run("truncates summary at the size limit", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		orig := maxJobSummarySize
+		maxJobSummarySize = 10
+		defer func() { maxJobSummarySize = orig }()
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": strings.Repeat("x", 50)},
+		}))
+		assert.Len(t, reporter.JobSummary(), 10)
+	})
+
+	t.Run("truncates to valid UTF-8 for stuff like diacritics", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		orig := maxJobSummarySize
+		maxJobSummarySize = 5
+		defer func() { maxJobSummarySize = orig }()
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "ééé"},
+		}))
+		summary := reporter.JobSummary()
+		assert.True(t, utf8.ValidString(summary))
+		assert.Equal(t, "éé", summary)
+	})
+
+	t.Run("masks secrets in summary", func(t *testing.T) {
+		taskCtx, err := structpb.NewStruct(map[string]any{})
+		require.NoError(t, err)
+		reporter, _, _ := mockReporterWithTask(t, &runnerv1.Task{
+			Context: taskCtx,
+			Secrets: map[string]string{"DOCKER_PASSWORD": "leaked_again"},
+		})
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "logged in with docker:leaked_again\n"},
+		}))
+		assert.Equal(t, "logged in with docker:***\n", reporter.JobSummary())
 	})
 }
 
