@@ -14,13 +14,12 @@ import (
 )
 
 func TestCommandSetEnv(t *testing.T) {
-	a := assert.New(t)
-	ctx := t.Context()
 	rc := new(RunContext)
-	handler := rc.commandHandler(ctx)
+	handler := rc.commandHandler(t.Context())
 
+	// set-env has been removed. Verify it has no effect.
 	handler("::set-env name=x::valz\n")
-	a.Equal("valz", rc.Env["x"])
+	assert.NotContains(t, rc.Env, "x")
 }
 
 func TestCommandSetOutput(t *testing.T) {
@@ -61,21 +60,23 @@ func TestCommandStopCommands(t *testing.T) {
 	rc := new(RunContext)
 	handler := rc.commandHandler(ctx)
 
-	handler("::set-env name=x::valz\n")
-	a.Equal("valz", rc.Env["x"])
+	handler("::add-mask::one\n")
+	assert.Contains(t, rc.Masks, "one")
 	handler("::stop-commands::my-end-token\n")
-	handler("::set-env name=x::abcd\n")
-	a.Equal("valz", rc.Env["x"])
+	handler("::add-mask::two\n")
+	assert.NotContains(t, rc.Masks, "two")
 	handler("::my-end-token::\n")
-	handler("::set-env name=x::abcd\n")
-	a.Equal("abcd", rc.Env["x"])
+	handler("::add-mask::three\n")
+	assert.Contains(t, rc.Masks, "three")
 
 	messages := make([]string, 0, len(hook.AllEntries()))
 	for _, entry := range hook.AllEntries() {
 		messages = append(messages, entry.Message)
 	}
 
-	a.Contains(messages, "  \U00002699  ::set-env name=x::abcd\n")
+	a.NotContains(messages, "  \U00002699  ::add-mask::one\n")
+	a.Contains(messages, "  \U00002699  ::add-mask::two\n")
+	a.NotContains(messages, "  \U00002699  ::add-mask::three\n")
 }
 
 func TestCommandAddmask(t *testing.T) {
