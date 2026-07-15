@@ -191,6 +191,7 @@ jobs:
         # gcc is required for `go test -race`.
         # qemu-user-static and binfmt-support are required for mixed architecture testing.
         run: |
+          apt-get update
           apt-get install -y -qq \
             make \
             gcc \
