@@ -129,7 +129,7 @@ func TestCommandAddmaskUsemask(t *testing.T) {
 	})
 
 	assert.NotContains(t, re, "secret")
-	assert.Equal(t, "[testjob]   \U00002699  ***\n[testjob]   \U00002699  ::set-output:: token=***\n", re)
+	assert.Equal(t, "[testjob]   \U00002699  ***\n[testjob]   \U00002699  Setting output token=***\n", re)
 }
 
 func TestCommandSaveState(t *testing.T) {

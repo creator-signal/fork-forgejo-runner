@@ -55,7 +55,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		case "set-env":
 			defCommandLogger.Warn("  \U0001F6A7  set-env is unsupported and will be ignored")
 		case "set-output":
-			rc.setOutput(ctx, kvPairs, arg)
+			defCommandLogger.Warn("  \U0001F6A7  set-output is unsupported and will be ignored")
 		case "add-path":
 			defCommandLogger.Warn("  \U0001F6A7  add-path is unsupported and will be ignored")
 		case "debug":
@@ -122,7 +122,7 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 		return
 	}
 
-	logger.WithFields(logrus.Fields{"command": "set-output", "name": outputName, "arg": arg}).Infof("  \U00002699  ::set-output:: %s=%s", outputName, arg)
+	logger.Infof("  \U00002699  Setting output %s=%s", outputName, arg)
 	result.Outputs[outputName] = arg
 }
 
