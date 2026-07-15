@@ -57,7 +57,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		case "set-output":
 			rc.setOutput(ctx, kvPairs, arg)
 		case "add-path":
-			rc.addPath(ctx, arg)
+			defCommandLogger.Warn("  \U0001F6A7  add-path is unsupported and will be ignored")
 		case "debug":
 			defCommandLogger.Debugf("  \U0001F4AC  %s", line)
 		case "warning":
@@ -127,7 +127,7 @@ func (rc *RunContext) setOutput(ctx context.Context, kvPairs map[string]string, 
 }
 
 func (rc *RunContext) addPath(ctx context.Context, arg string) {
-	common.Logger(ctx).WithFields(logrus.Fields{"command": "add-path", "arg": arg}).Infof("  \U00002699  ::add-path:: %s", arg)
+	common.Logger(ctx).Infof("  \U00002699  Add %q to PATH", arg)
 	extraPath := []string{arg}
 	for _, v := range rc.ExtraPath {
 		if v != arg {
