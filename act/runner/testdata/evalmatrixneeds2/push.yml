@@ -4,7 +4,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - run: |
-        echo '::set-output name=matrix::["a", "b"]'
+        echo 'matrix=["a", "b"]' >> "$FORGEJO_OUTPUT"
       id: r1
     outputs:
       matrix: ${{steps.r1.outputs.matrix}}

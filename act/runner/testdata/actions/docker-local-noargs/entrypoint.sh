@@ -2,7 +2,7 @@
 
 echo "Hello $1"
 time=$(date)
-echo ::set-output name=time::$time
-echo ::set-output name=whoami::$WHOAMI
+echo "time=$time" >> "$FORGEJO_OUTPUT"
+echo "whoami=$WHOAMI" >> "$FORGEJO_OUTPUT"
 
 echo "SOMEVAR=$1" >>$GITHUB_ENV

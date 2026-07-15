@@ -30,7 +30,7 @@ jobs:
       - id: boolean-test
         name: run on boolean input
         if: ${{ inputs.boolean == true }}
-        run: echo "::set-output name=value::executed"
+        run: echo "value=executed" >> "$FORGEJO_OUTPUT"
       - name: has boolean test?
         run: |
           [[ "${{ steps.boolean-test.outputs.value }}" = "executed" ]] || exit 1

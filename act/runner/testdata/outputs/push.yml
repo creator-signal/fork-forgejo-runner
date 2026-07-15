@@ -7,14 +7,14 @@ jobs:
     steps:
     - id: set_1
       run: |
-        echo "::set-output name=var_1::$(echo var1)"
-        echo "::set-output name=var_2::$(echo var2)"
+        echo "var_1=$(echo var1)" >> "$FORGEJO_OUTPUT"
+        echo "var_2=$(echo var2)" >> "$FORGEJO_OUTPUT"
     - id: set_2
       run: |
-        echo "::set-output name=var_3::$(echo var3)"
+        echo "var_3=$(echo var3)" >> "$FORGEJO_OUTPUT"
     - id: set_3
       run: |
-        echo "::set-output name=var_4::$(echo var4)"
+        echo "var_4=$(echo var4)" >> "$FORGEJO_OUTPUT"
     outputs:
       variable_1: ${{ steps.set_1.outputs.var_1 }}
       variable_2: ${{ steps.set_1.outputs.var_2 }}

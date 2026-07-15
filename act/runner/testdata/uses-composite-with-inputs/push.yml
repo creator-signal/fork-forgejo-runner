@@ -6,7 +6,7 @@ jobs:
     steps:
     - uses: https://data.forgejo.org/actions/checkout@v2
     - id: set-output
-      run: echo "::set-output name=var::value"
+      run: echo "var=value" >> "$FORGEJO_OUTPUT"
     - name: use simple composite action
       uses: ./uses-composite-with-inputs/action
       with:

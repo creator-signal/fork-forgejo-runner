@@ -30,7 +30,7 @@ jobs:
       env:
         MATRIX: ${{toJSON(matrix)}}
     - run: |
-        echo "::set-output name=result::success"
+        echo "result=success" >> "$FORGEJO_OUTPUT"
       id: result
     outputs:
       result: ${{ steps.result.outputs.result }}
@@ -64,7 +64,7 @@ jobs:
       env:
         MATRIX: ${{toJSON(matrix)}}
     - run: |
-        echo "::set-output name=result::success"
+        echo "result=success" >> "$FORGEJO_OUTPUT"
       id: result
     outputs:
       result: ${{ steps.result.outputs.result }}

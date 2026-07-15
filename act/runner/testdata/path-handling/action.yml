@@ -17,5 +17,5 @@ runs:
     - name: run step
       id: gen-out
       run: |
-        echo "::set-output name=step-output::"
+        echo "step-output=" >> "$FORGEJO_OUTPUT"
       shell: bash

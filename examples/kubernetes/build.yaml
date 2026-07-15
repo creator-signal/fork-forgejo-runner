@@ -15,17 +15,17 @@ jobs:
 
       - name: Extract the current airflow version from the Dockerfile and set it in a variable name airflow_version
         id: extract_airflow_version
-        run: echo "::set-output name=airflow_version::$(grep -oP '(?<=FROM apache/airflow:)[0-9]+\.[0-9]+\.[0-9]+' airflow/Dockerfile)"
+        run: echo "airflow_version=$(grep -oP '(?<=FROM apache/airflow:)[0-9]+\.[0-9]+\.[0-9]+' airflow/Dockerfile)" >> "$FORGEJO_OUTPUT"
 
       - name: Add variables
         id: add-vars
         run: |
-          echo "::set-output name=registry::${GITHUB_SERVER_URL#*//}"  # built-in env variable
-          echo "::set-output name=repository::${GITHUB_REPOSITORY}"    # built-in env variable
-          echo "::set-output name=app::airflow"
-          echo "::set-output name=context::airflow"                    # Dockerfile is in airflow folder, so context is airflow folder not .
-          echo "::set-output name=dockerfile::airflow/Dockerfile"      # Dockerfile path
-          echo "::set-output name=tag::${{ steps.extract_airflow_version.outputs.airflow_version }}-${{ github.sha}}"
+          echo "registry=${GITHUB_SERVER_URL#*//}" >> "$FORGEJO_OUTPUT"  # built-in env variable
+          echo "repository=${GITHUB_REPOSITORY}" >> "$FORGEJO_OUTPUT"    # built-in env variable
+          echo "app=airflow" >> "$FORGEJO_OUTPUT"
+          echo "context=airflow" >> "$FORGEJO_OUTPUT"                    # Dockerfile is in airflow folder, so context is airflow folder not .
+          echo "dockerfile=airflow/Dockerfile" >> "$FORGEJO_OUTPUT"      # Dockerfile path
+          echo "tag=${{ steps.extract_airflow_version.outputs.airflow_version }}-${{ github.sha}}" >> "$FORGEJO_OUTPUT"
 
       - name: Docker CLI installation
         run: |
