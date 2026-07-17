@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: TEST set-env
-        run: echo "::set-env name=foo::bar"
+        run: echo "foo=bar" >> "$FORGEJO_ENV"
       - name: TEST set-env (cont.)
         run: echo $foo | grep bar
 
@@ -16,7 +16,7 @@ jobs:
 
       - name: TEST conditional
         if: steps.set_output.outputs.zoo
-        run: echo "::set-env name=cond_env::foo"
+        run: echo "cond_env=foo" >> "$FORGEJO_ENV"
       - name: TEST conditional (cont.)
         run: echo $cond_env | grep foo
 
@@ -29,9 +29,9 @@ jobs:
       - name: TEST stop-commands
         run: |
           echo "::stop-commands::my-end-token" 
-          echo "::set-env name=foo::baz"
+          echo "foo=baz" >> "$FORGEJO_ENV"
           echo $foo | grep bar
           echo "::my-end-token::"
-          echo "::set-env name=foo::baz"
+          echo "foo=baz" >> "$FORGEJO_ENV"
       - name: TEST stop-commands (cont.)
         run: echo $foo | grep baz

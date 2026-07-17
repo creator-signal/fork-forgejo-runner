@@ -53,7 +53,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 		defCommandLogger := logger.WithFields(logrus.Fields{"command": command, "kvPairs": kvPairs, "arg": arg, "raw": line})
 		switch command {
 		case "set-env":
-			rc.setEnv(ctx, kvPairs, arg)
+			defCommandLogger.Warn("  \U0001F6A7  set-env is unsupported and will be ignored")
 		case "set-output":
 			rc.setOutput(ctx, kvPairs, arg)
 		case "add-path":
@@ -89,7 +89,7 @@ func (rc *RunContext) commandHandler(ctx context.Context) common.LineHandler {
 
 func (rc *RunContext) setEnv(ctx context.Context, kvPairs map[string]string, arg string) {
 	name := kvPairs["name"]
-	common.Logger(ctx).WithFields(logrus.Fields{"command": "set-env", "name": name, "arg": arg}).Infof("  \U00002699  ::set-env:: %s=%s", name, arg)
+	common.Logger(ctx).Infof("  \U00002699  Injecting variable into environment: %s=%s", name, arg)
 	if rc.Env == nil {
 		rc.Env = make(map[string]string)
 	}
