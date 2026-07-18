@@ -357,7 +357,9 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 	}
 	if len(cmd) == 0 {
 		cmd = action.Runs.Args
-		evalDockerArgs(ctx, step, action, &cmd)
+		if err := evalDockerArgs(ctx, step, action, &cmd); err != nil {
+			return fmt.Errorf("could not evaluate arguments: %w", err)
+		}
 	}
 	interpolatedEntrypoint, err := eval.Interpolate(ctx, step.getStepModel().With[entrypointType])
 	if err != nil {
@@ -397,7 +399,7 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 	).Finally(stepContainer.Close())(ctx)
 }
 
-func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[]string) {
+func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[]string) error {
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 
@@ -405,25 +407,39 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 	eval := rc.NewExpressionEvaluator(ctx)
 	// Set Defaults
 	for k, input := range action.Inputs {
-		inputs[k], _ = eval.Interpolate(ctx, input.Default)
+		var err error
+		if inputs[k], err = eval.Interpolate(ctx, input.Default); err != nil {
+			return fmt.Errorf("could not interpolate default value for %q: %w", k, err)
+		}
 	}
 	if stepModel.With != nil {
 		for k, v := range stepModel.With {
-			inputs[k], _ = eval.Interpolate(ctx, v)
+			var err error
+			if inputs[k], err = eval.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("could not interpolate with %q: %w", k, err)
+			}
 		}
 	}
 	mergeIntoMap(step, step.getEnv(), inputs)
 
 	stepEE := rc.NewStepExpressionEvaluator(ctx, step)
 	for i, v := range *cmd {
-		(*cmd)[i], _ = stepEE.Interpolate(ctx, v)
+		var err error
+		if (*cmd)[i], err = stepEE.Interpolate(ctx, v); err != nil {
+			return fmt.Errorf("could not interpolate cmd: %w", err)
+		}
 	}
 	mergeIntoMap(step, step.getEnv(), action.Runs.Env)
 
 	ee := rc.NewStepExpressionEvaluator(ctx, step)
 	for k, v := range *step.getEnv() {
-		(*step.getEnv())[k], _ = ee.Interpolate(ctx, v)
+		var err error
+		if (*step.getEnv())[k], err = ee.Interpolate(ctx, v); err != nil {
+			return fmt.Errorf("could not interpolate env %q: %w", k, err)
+		}
 	}
+
+	return nil
 }
 
 func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image string, cmd, entrypoint []string, targetPlatform string) container.Container {
