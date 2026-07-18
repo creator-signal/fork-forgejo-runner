@@ -216,13 +216,17 @@ func (sar *stepActionRemote) getActionModel() *model.Action {
 	return sar.action
 }
 
-func (sar *stepActionRemote) getCompositeRunContext(ctx context.Context) *RunContext {
+func (sar *stepActionRemote) getCompositeRunContext(ctx context.Context) (*RunContext, error) {
 	if sar.compositeRunContext == nil {
 		actionDir := sar.workTree.WorktreeDir()
 		actionLocation := path.Join(actionDir, sar.remoteAction.Path)
 		_, containerActionDir := getContainerActionPaths(sar.getStepModel(), actionLocation, sar.RunContext)
 
-		sar.compositeRunContext = newCompositeRunContext(ctx, sar.RunContext, sar, containerActionDir)
+		var err error
+		sar.compositeRunContext, err = newCompositeRunContext(ctx, sar.RunContext, sar, containerActionDir)
+		if err != nil {
+			return nil, fmt.Errorf("could not generate composite run context: %w", err)
+		}
 		sar.compositeSteps = sar.compositeRunContext.compositeExecutor(sar.action)
 	} else {
 		// Re-evaluate environment here. For remote actions the environment
@@ -231,11 +235,14 @@ func (sar *stepActionRemote) getCompositeRunContext(ctx context.Context) *RunCon
 		// stages are executed. (e.g. the output of another action is the
 		// input for this action during the main stage, but the env
 		// was already created during the pre stage)
-		env := evaluateCompositeInputAndEnv(ctx, sar.RunContext, sar)
+		env, err := evaluateCompositeInputAndEnv(ctx, sar.RunContext, sar)
+		if err != nil {
+			return nil, err
+		}
 		sar.compositeRunContext.Env = env
 		sar.compositeRunContext.ExtraPath = sar.RunContext.ExtraPath
 	}
-	return sar.compositeRunContext
+	return sar.compositeRunContext, nil
 }
 
 func (sar *stepActionRemote) getCompositeSteps() *compositeSteps {

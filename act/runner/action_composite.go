@@ -10,7 +10,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 )
 
-func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step actionStep) map[string]string {
+func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step actionStep) (map[string]string, error) {
 	env := make(map[string]string)
 	stepEnv := *step.getEnv()
 	for k, v := range stepEnv {
@@ -34,18 +34,24 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 			env[envKey] = value
 		} else {
 			// defaults could contain expressions
-			env[envKey], _ = ee.Interpolate(ctx, input.Default)
+			var err error
+			if env[envKey], err = ee.Interpolate(ctx, input.Default); err != nil {
+				return make(map[string]string), fmt.Errorf("unable to interpolate default value: %w", err)
+			}
 		}
 	}
 	gh := step.getGithubContext(ctx)
 	env["GITHUB_ACTION_REPOSITORY"] = gh.ActionRepository
 	env["GITHUB_ACTION_REF"] = gh.ActionRef
 
-	return env
+	return env, nil
 }
 
-func newCompositeRunContext(ctx context.Context, parent *RunContext, step actionStep, actionPath string) *RunContext {
-	env := evaluateCompositeInputAndEnv(ctx, parent, step)
+func newCompositeRunContext(ctx context.Context, parent *RunContext, step actionStep, actionPath string) (*RunContext, error) {
+	env, err := evaluateCompositeInputAndEnv(ctx, parent, step)
+	if err != nil {
+		return nil, err
+	}
 
 	// run with the global config but without secrets
 	configCopy := *parent.Config
@@ -77,7 +83,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 	}
 	compositerc.ExprEval = compositerc.NewExpressionEvaluator(ctx)
 
-	return compositerc
+	return compositerc, nil
 }
 
 func execAsComposite(step actionStep) common.Executor {
@@ -85,7 +91,10 @@ func execAsComposite(step actionStep) common.Executor {
 	action := step.getActionModel()
 
 	return func(ctx context.Context) error {
-		compositeRC := step.getCompositeRunContext(ctx)
+		compositeRC, err := step.getCompositeRunContext(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to generate composite run context: %w", err)
+		}
 
 		steps := step.getCompositeSteps()
 
@@ -95,14 +104,15 @@ func execAsComposite(step actionStep) common.Executor {
 
 		ctx = WithCompositeLogger(ctx, &compositeRC.Masks)
 
-		err := steps.main(ctx)
+		// It is expected that outputs, even in case of an execution error, are propagated.
+		err = steps.main(ctx)
 
 		// Map outputs from composite RunContext to job RunContext
 		eval := compositeRC.NewExpressionEvaluator(ctx)
 		for outputName, output := range action.Outputs {
-			interpolatedOutput, err := eval.Interpolate(ctx, output.Value)
-			if err != nil {
-				return fmt.Errorf("unable to interpolate output %q: %w", outputName, err)
+			interpolatedOutput, err2 := eval.Interpolate(ctx, output.Value)
+			if err2 != nil && err == nil {
+				err = fmt.Errorf("unable to interpolate output %q: %w", outputName, err2)
 			}
 			rc.setOutput(ctx, map[string]string{"name": outputName}, interpolatedOutput)
 		}

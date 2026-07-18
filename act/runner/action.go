@@ -27,7 +27,7 @@ type actionStep interface {
 	step
 
 	getActionModel() *model.Action
-	getCompositeRunContext(context.Context) *RunContext
+	getCompositeRunContext(context.Context) (*RunContext, error)
 	getCompositeSteps() *compositeSteps
 }
 
@@ -632,7 +632,9 @@ func runPreStep(step actionStep) common.Executor {
 
 		case model.ActionRunsUsingComposite:
 			if step.getCompositeSteps() == nil {
-				step.getCompositeRunContext(ctx)
+				if _, err := step.getCompositeRunContext(ctx); err != nil {
+					return fmt.Errorf("could not generate composite run context: %w", err)
+				}
 			}
 
 			if steps := step.getCompositeSteps(); steps != nil && steps.pre != nil {

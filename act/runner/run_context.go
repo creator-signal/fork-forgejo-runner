@@ -1068,7 +1068,6 @@ func (rc *RunContext) containerImage(ctx context.Context) string {
 
 	imageName, _ := rc.ExprEval.Interpolate(ctx, c.Image)
 	return imageName
-
 }
 
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
