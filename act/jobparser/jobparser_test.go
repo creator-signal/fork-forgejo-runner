@@ -1225,6 +1225,8 @@ jobs:
 		test("failure", "failure", true)
 		test("always", "success", true)
 		test("always", "failure", true)
+		test("cancelled", "success", false)
+		test("cancelled", "failure", false)
 	})
 
 	t.Run("unsupported server-side access", func(t *testing.T) {
