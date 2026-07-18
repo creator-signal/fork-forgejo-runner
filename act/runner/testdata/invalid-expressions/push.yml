@@ -4,7 +4,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - name: Should fail
+        run: |
           echo "${{ format('Hello {0} {1}') }}"
       - name: Should be skipped
         run: |

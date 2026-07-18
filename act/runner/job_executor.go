@@ -226,7 +226,14 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		ee := rc.NewExpressionEvaluator(ctx)
 		if wfcc := rc.Run.Workflow.WorkflowCallConfig(); wfcc != nil {
 			for k, v := range wfcc.Outputs {
-				jobOutputs[k], _ = ee.Interpolate(ctx, v.Value)
+				var err error
+				if jobOutputs[k], err = ee.Interpolate(ctx, v.Value); err != nil {
+					// We're already past the point where we could change the outcome of the job. So, we can only log
+					// any errors.
+					logger.
+						WithField("raw_output", true).
+						Errorf("%s %v", runnerLogPrefix, err)
+				}
 			}
 		}
 		rc.caller.runContext.Run.Job().Outputs = jobOutputs
@@ -253,8 +260,11 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
-		interpolate, _ := rc.ExprEval.Interpolate(ctx, stepModel.String())
-		ctx = withStepLogger(ctx, stepModel.Number, stepModel.ID, interpolate, stage.String())
+		interpolatedStepName, err := rc.ExprEval.Interpolate(ctx, stepModel.String())
+		if err != nil {
+			return fmt.Errorf("unable to interpolate step name: %w", err)
+		}
+		ctx = withStepLogger(ctx, stepModel.Number, stepModel.ID, interpolatedStepName, stage.String())
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {

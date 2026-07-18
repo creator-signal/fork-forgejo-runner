@@ -1005,6 +1005,6 @@ func TestRunner_InvalidExpressionsFailTheWorkflow(t *testing.T) {
 
 	output := logger.Output.String()
 
-	assert.Contains(t, output, "unable to interpolate step name: unable to interpolate expression")
+	assert.Contains(t, output, "unable to interpolate run command: unable to interpolate expression")
 	assert.Contains(t, output, "Skipping step 'Should be skipped'")
 }
