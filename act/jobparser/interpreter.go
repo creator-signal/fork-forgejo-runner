@@ -199,6 +199,16 @@ func newJobIfInterpreter(
 		OverrideFailure: func() (bool, error) {
 			return !neededJobsSucceeded, nil
 		},
+		OverrideCancelled: func() (bool, error) {
+			// Implementation of `if: ${{ cancelled() }}` at a job-level.  Forgejo doesn't attempt to evaluate the `if`
+			// blocks of jobs when the workflow has been cancelled; it just marks all jobs as cancelled.  Until this
+			// behaviour is changed (if ever), `cancelled()` -> `false`, because we'd never be checking it otherwise.
+			//
+			// Changing this behaviour would require that Forgejo pass the workflow-level state of cancellation into the
+			// jobparser.  It can't be inferred by the data we have available today, which is just the status of
+			// dependent jobs; not all jobs, and not the workflow itself.
+			return false, nil
+		},
 	}
 
 	return exprparser.NewInterpreter(ee, config)

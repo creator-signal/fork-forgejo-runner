@@ -38,8 +38,9 @@ type Config struct {
 	WorkingDir string
 	Context    string
 
-	OverrideSuccess func() (bool, error)
-	OverrideFailure func() (bool, error)
+	OverrideSuccess   func() (bool, error)
+	OverrideFailure   func() (bool, error)
+	OverrideCancelled func() (bool, error)
 }
 
 type DefaultStatusCheck int
@@ -916,6 +917,9 @@ func (impl *interpreterImpl) evaluateFuncCall(funcCallNode *actionlint.FuncCallN
 		}
 		return nil, fmt.Errorf("Context '%s' must be one of 'job' or 'step'", impl.config.Context)
 	case "cancelled":
+		if impl.config.OverrideCancelled != nil {
+			return impl.config.OverrideCancelled()
+		}
 		return impl.cancelled()
 	case "case":
 		if err := argAtLeastCheck(3); err != nil {
