@@ -493,8 +493,8 @@ jobs:
     steps:
       - id: test1_1
         run: |
-          echo "::set-output name=a_key::some-a_value"
-          echo "::set-output name=b-key::some-b-value"
+          echo "a_key=some-a_value" >> "$FORGEJO_OUTPUT"
+          echo "b-key=some-b-value" >> "$FORGEJO_OUTPUT"
     outputs:
       some_a_key: ${{ steps.test1_1.outputs.a_key }}
       some-b-key: ${{ steps.test1_1.outputs.b-key }}

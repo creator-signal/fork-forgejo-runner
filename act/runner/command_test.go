@@ -23,33 +23,18 @@ func TestCommandSetEnv(t *testing.T) {
 }
 
 func TestCommandSetOutput(t *testing.T) {
-	a := assert.New(t)
-	ctx := t.Context()
 	rc := new(RunContext)
 	rc.StepResults = make(map[string]*model.StepResult)
-	handler := rc.commandHandler(ctx)
+	handler := rc.commandHandler(t.Context())
 
 	rc.CurrentStep = "my-step"
 	rc.StepResults[rc.CurrentStep] = &model.StepResult{
 		Outputs: make(map[string]string),
 	}
+
+	// set-output has been removed. Verify it has no effect.
 	handler("::set-output name=x::valz\n")
-	a.Equal("valz", rc.StepResults["my-step"].Outputs["x"])
-
-	handler("::set-output name=x::percent2%25\n")
-	a.Equal("percent2%", rc.StepResults["my-step"].Outputs["x"])
-
-	handler("::set-output name=x::percent2%25%0Atest\n")
-	a.Equal("percent2%\ntest", rc.StepResults["my-step"].Outputs["x"])
-
-	handler("::set-output name=x::percent2%25%0Atest another3%25test\n")
-	a.Equal("percent2%\ntest another3%test", rc.StepResults["my-step"].Outputs["x"])
-
-	handler("::set-output name=x%3A::percent2%25%0Atest\n")
-	a.Equal("percent2%\ntest", rc.StepResults["my-step"].Outputs["x:"])
-
-	handler("::set-output name=x%3A%2C%0A%25%0D%3A::percent2%25%0Atest\n")
-	a.Equal("percent2%\ntest", rc.StepResults["my-step"].Outputs["x:,\n%\r:"])
+	assert.NotContains(t, rc.StepResults["my-step"].Outputs, "x")
 }
 
 func TestCommandStopCommands(t *testing.T) {
@@ -129,8 +114,6 @@ func TestCommandAddmaskUsemask(t *testing.T) {
 		Outputs: make(map[string]string),
 	}
 
-	a := assert.New(t)
-
 	config := &Config{
 		Secrets:         map[string]string{},
 		InsecureSecrets: false,
@@ -142,10 +125,11 @@ func TestCommandAddmaskUsemask(t *testing.T) {
 
 		handler := rc.commandHandler(ctx)
 		handler("::add-mask::secret\n")
-		handler("::set-output:: token=secret\n")
+		rc.setOutput(ctx, map[string]string{"name": "token"}, "secret")
 	})
 
-	a.Equal("[testjob]   \U00002699  ***\n[testjob]   \U00002699  ::set-output:: = token=***\n", re)
+	assert.NotContains(t, re, "secret")
+	assert.Equal(t, "[testjob]   \U00002699  ***\n[testjob]   \U00002699  Setting output token=***\n", re)
 }
 
 func TestCommandSaveState(t *testing.T) {

@@ -5,7 +5,7 @@ runs:
   using: composite
   steps:
   - name: Set selected color
-    run: echo '::set-output name=SELECTED_COLOR::green'
+    run: echo 'SELECTED_COLOR=green' >> "$FORGEJO_OUTPUT"
     id: random-color-generator
     shell: bash
   - name: fail

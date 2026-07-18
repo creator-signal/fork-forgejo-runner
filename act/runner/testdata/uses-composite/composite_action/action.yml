@@ -89,7 +89,7 @@ runs:
       shell: bash
 
     # Let's send up an output to test
-    - run: echo "::set-output name=test_output::test_output_value"
+    - run: echo "test_output=test_output_value" >> "$FORGEJO_OUTPUT"
       id: output
       shell: bash
     - run: echo "COMPOSITE_ACTION_ENV_OUTPUT=my test value" >> $GITHUB_ENV

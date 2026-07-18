@@ -1,3 +1,3 @@
 #!/bin/sh
 
-echo ::set-output "name=whoami::example2 $WHOAMI"
+echo "whoami=example2 $WHOAMI" >> "$FORGEJO_OUTPUT"
