@@ -347,7 +347,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "job-container-env", "push", "", platforms, secrets},
 		{workdir, "job-container-image", "push", "", platforms, map[string]string{"ALPINE_TAG": "3.22"}},
 		{workdir, "job-container-init", "push", "", platforms, secrets},
-		{workdir, "job-container-invalid-credentials", "push", "failed to handle credentials: failed to interpolate container.credentials.password", platforms, secrets},
+		{workdir, "job-container-invalid-credentials", "push", "failed to handle credentials: password is empty", platforms, secrets},
 		{workdir, "job-container-non-root", "push", "", platforms, secrets},
 		{workdir, "job-container-options", "push", "", platforms, secrets},
 		{workdir, "job-container-options-group-add", "push", "", platforms, secrets},
@@ -983,4 +983,28 @@ func TestRunner_HostNetworkServices(t *testing.T) {
 		ContainerNetworkMode: "host",
 	}
 	jobFile.runTest(t.Context(), t, config)
+}
+
+func TestRunner_InvalidExpressionsFailTheWorkflow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
+
+	tjfi := TestJobFileInfo{
+		workdir:      workdir,
+		workflowPath: "invalid-expressions",
+		eventName:    "push",
+		errorMessage: "Job 'test' failed",
+		platforms:    platforms,
+	}
+
+	logger := &maskJobLoggerFactory{}
+
+	tjfi.runTest(WithJobLoggerFactory(common.WithLogger(t.Context(), logger.WithJobLogger()), logger), t, &Config{})
+
+	output := logger.Output.String()
+
+	assert.Contains(t, output, "unable to interpolate step name: unable to interpolate expression")
+	assert.Contains(t, output, "Skipping step 'Should be skipped'")
 }

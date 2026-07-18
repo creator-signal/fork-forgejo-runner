@@ -62,18 +62,24 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 
 	return func(ctx context.Context) error {
 		if !rc.JobContainer.SupportsDockerContainerActions() {
-			return fmt.Errorf("Docker container actions are not supported by the back-end %s", rc.JobContainer.BackendID())
+			return fmt.Errorf("docker container actions are not supported by the back-end %s", rc.JobContainer.BackendID())
 		}
 
 		image := strings.TrimPrefix(step.Uses, "docker://")
 		eval := rc.NewExpressionEvaluator(ctx)
-		cmd, err := shellquote.Split(eval.Interpolate(ctx, step.With["args"]))
+		interpolatedArgs, err := eval.Interpolate(ctx, step.With["args"])
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to interpolate args: %w", err)
+		}
+		cmd, err := shellquote.Split(interpolatedArgs)
+		if err != nil {
+			return fmt.Errorf("unable to process args: %w", err)
 		}
 
 		var entrypoint []string
-		if entry := eval.Interpolate(ctx, step.With["entrypoint"]); entry != "" {
+		if entry, err := eval.Interpolate(ctx, step.With["entrypoint"]); err != nil {
+			return fmt.Errorf("unable to interpolate entrypoint: %w", err)
+		} else if entry != "" {
 			entrypoint = []string{entry}
 		}
 

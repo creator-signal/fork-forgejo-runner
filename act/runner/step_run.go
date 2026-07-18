@@ -128,7 +128,10 @@ func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, 
 
 	step := sr.Step
 
-	script = sr.RunContext.NewStepExpressionEvaluator(ctx, sr).Interpolate(ctx, step.Run)
+	script, err = sr.RunContext.NewStepExpressionEvaluator(ctx, sr).Interpolate(ctx, step.Run)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to interpolate run command: %w", err)
+	}
 
 	shellCommand := shellCommand(shell)
 	name = getScriptName(sr.RunContext, step)
@@ -193,7 +196,7 @@ func (sr *stepRun) interpretShell(ctx context.Context) string {
 		shell = rc.Run.Job().Defaults.Run.Shell
 	}
 
-	shell = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, shell)
+	shell, _ = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, shell)
 
 	if shell == "" {
 		shell = rc.Run.Workflow.Defaults.Run.Shell
@@ -246,7 +249,7 @@ func (sr *stepRun) setupWorkingDirectory(ctx context.Context) {
 	}
 
 	// jobs can receive context values, so we interpolate
-	workingdirectory = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, workingdirectory)
+	workingdirectory, _ = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, workingdirectory)
 
 	// but top level keys in workflow file like `defaults` or `env` can't
 	if workingdirectory == "" {

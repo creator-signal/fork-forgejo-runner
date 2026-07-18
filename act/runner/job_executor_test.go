@@ -29,7 +29,7 @@ func TestJobExecutor(t *testing.T) {
 	tables := []TestJobFileInfo{
 		{workdir, "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, secrets},
 		{workdir, "uses-github-empty", "push", "job:test step:empty", platforms, secrets},
-		{workdir, "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms, secrets},
+		{workdir, "uses-github-noref", "push", "expected format {org}/{repo}[/path]@ref", platforms, secrets},
 		{workdir, "uses-github-root", "push", "", platforms, secrets},
 		{workdir, "uses-github-path", "push", "", platforms, secrets},
 		{workdir, "uses-docker-url", "push", "", platforms, secrets},

@@ -34,7 +34,7 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 			env[envKey] = value
 		} else {
 			// defaults could contain expressions
-			env[envKey] = ee.Interpolate(ctx, input.Default)
+			env[envKey], _ = ee.Interpolate(ctx, input.Default)
 		}
 	}
 	gh := step.getGithubContext(ctx)
@@ -100,9 +100,11 @@ func execAsComposite(step actionStep) common.Executor {
 		// Map outputs from composite RunContext to job RunContext
 		eval := compositeRC.NewExpressionEvaluator(ctx)
 		for outputName, output := range action.Outputs {
-			rc.setOutput(ctx, map[string]string{
-				"name": outputName,
-			}, eval.Interpolate(ctx, output.Value))
+			interpolatedOutput, err := eval.Interpolate(ctx, output.Value)
+			if err != nil {
+				return fmt.Errorf("unable to interpolate output %q: %w", outputName, err)
+			}
+			rc.setOutput(ctx, map[string]string{"name": outputName}, interpolatedOutput)
 		}
 
 		rc.Masks = append(rc.Masks, compositeRC.Masks...)

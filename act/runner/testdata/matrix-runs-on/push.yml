@@ -11,4 +11,3 @@ jobs:
     steps:
       - run: |
           echo TESTOUTPUT: matrix.os == ${{ matrix.os }}
-          echo TESTOUTPUT: runs-on == ${{ jobs.matrix-runs-on.runs-on }}

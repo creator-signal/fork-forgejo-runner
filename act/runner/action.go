@@ -347,15 +347,23 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 		}
 	}
 	eval := rc.NewStepExpressionEvaluator(ctx, step)
-	cmd, err := shellquote.Split(eval.Interpolate(ctx, step.getStepModel().With["args"]))
+	interpolatedArgs, err := eval.Interpolate(ctx, step.getStepModel().With["args"])
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to interpolate args: %w", err)
+	}
+	cmd, err := shellquote.Split(interpolatedArgs)
+	if err != nil {
+		return fmt.Errorf("unable to process args: %w", err)
 	}
 	if len(cmd) == 0 {
 		cmd = action.Runs.Args
 		evalDockerArgs(ctx, step, action, &cmd)
 	}
-	entrypoint := strings.Fields(eval.Interpolate(ctx, step.getStepModel().With[entrypointType]))
+	interpolatedEntrypoint, err := eval.Interpolate(ctx, step.getStepModel().With[entrypointType])
+	if err != nil {
+		return fmt.Errorf("unable to interpolate entrypoint: %w", err)
+	}
+	entrypoint := strings.Fields(interpolatedEntrypoint)
 	if len(entrypoint) == 0 {
 		var entrypointValue string
 
@@ -397,24 +405,24 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 	eval := rc.NewExpressionEvaluator(ctx)
 	// Set Defaults
 	for k, input := range action.Inputs {
-		inputs[k] = eval.Interpolate(ctx, input.Default)
+		inputs[k], _ = eval.Interpolate(ctx, input.Default)
 	}
 	if stepModel.With != nil {
 		for k, v := range stepModel.With {
-			inputs[k] = eval.Interpolate(ctx, v)
+			inputs[k], _ = eval.Interpolate(ctx, v)
 		}
 	}
 	mergeIntoMap(step, step.getEnv(), inputs)
 
 	stepEE := rc.NewStepExpressionEvaluator(ctx, step)
 	for i, v := range *cmd {
-		(*cmd)[i] = stepEE.Interpolate(ctx, v)
+		(*cmd)[i], _ = stepEE.Interpolate(ctx, v)
 	}
 	mergeIntoMap(step, step.getEnv(), action.Runs.Env)
 
 	ee := rc.NewStepExpressionEvaluator(ctx, step)
 	for k, v := range *step.getEnv() {
-		(*step.getEnv())[k] = ee.Interpolate(ctx, v)
+		(*step.getEnv())[k], _ = ee.Interpolate(ctx, v)
 	}
 }
 
@@ -507,7 +515,7 @@ func populateEnvsFromInput(ctx context.Context, env *map[string]string, action *
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 		envKey = fmt.Sprintf("INPUT_%s", envKey)
 		if _, ok := (*env)[envKey]; !ok {
-			(*env)[envKey] = eval.Interpolate(ctx, input.Default)
+			(*env)[envKey], _ = eval.Interpolate(ctx, input.Default)
 		}
 	}
 }

@@ -277,7 +277,7 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 		caller:      runner.caller,
 	}
 	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
-	rc.Name = rc.ExprEval.Interpolate(ctx, run.String())
+	rc.Name, _ = rc.ExprEval.Interpolate(ctx, run.String())
 
 	return rc
 }

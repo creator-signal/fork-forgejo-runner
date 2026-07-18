@@ -174,7 +174,8 @@ func (rc *RunContext) GetBindsAndMounts(ctx context.Context) ([]string, map[stri
 		if container := job.Container(); container != nil {
 			interpolatedVolumes := make([]string, 0, len(container.Volumes))
 			for _, volume := range container.Volumes {
-				interpolatedVolumes = append(interpolatedVolumes, rc.ExprEval.Interpolate(ctx, volume))
+				volumeName, _ := rc.ExprEval.Interpolate(ctx, volume)
+				interpolatedVolumes = append(interpolatedVolumes, volumeName)
 			}
 
 			for _, v := range interpolatedVolumes {
@@ -522,7 +523,10 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	// add service containers
 	for serviceID, spec := range rc.Run.Job().Services {
 		// Interpolate image first to check if we should skip this service
-		interpolatedImage := rc.ExprEval.Interpolate(ctx, spec.Image)
+		interpolatedImage, err := rc.ExprEval.Interpolate(ctx, spec.Image)
+		if err != nil {
+			return fmt.Errorf("unable to interpolate image name: %w", err)
+		}
 
 		// Skip service if image is empty (allows conditional services via expressions)
 		if interpolatedImage == "" {
@@ -533,15 +537,22 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		// interpolate env
 		interpolatedEnvs := make(map[string]string, len(spec.Env))
 		for k, v := range spec.Env {
-			interpolatedEnvs[k] = rc.ExprEval.Interpolate(ctx, v)
+			var err error
+			if interpolatedEnvs[k], err = rc.ExprEval.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("unable to interpolate environment variable %q: %w", k, err)
+			}
 		}
 		envs := make([]string, 0, len(interpolatedEnvs))
 		for k, v := range interpolatedEnvs {
 			envs = append(envs, fmt.Sprintf("%s=%s", k, v))
 		}
-		interpolatedCmd := make([]string, 0, len(spec.Cmd))
+		interpolatedCommands := make([]string, 0, len(spec.Cmd))
 		for _, v := range spec.Cmd {
-			interpolatedCmd = append(interpolatedCmd, rc.ExprEval.Interpolate(ctx, v))
+			interpolatedCommand, err := rc.ExprEval.Interpolate(ctx, v)
+			if err != nil {
+				return fmt.Errorf("unable to interpolate command: %w", err)
+			}
+			interpolatedCommands = append(interpolatedCommands, interpolatedCommand)
 		}
 
 		username, password, err := rc.handleServiceCredentials(ctx, spec.Credentials)
@@ -551,13 +562,21 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 
 		interpolatedVolumes := make([]string, 0, len(spec.Volumes))
 		for _, volume := range spec.Volumes {
-			interpolatedVolumes = append(interpolatedVolumes, rc.ExprEval.Interpolate(ctx, volume))
+			interpolatedVolume, err := rc.ExprEval.Interpolate(ctx, volume)
+			if err != nil {
+				return fmt.Errorf("unable to interpolate command: %w", err)
+			}
+			interpolatedVolumes = append(interpolatedVolumes, interpolatedVolume)
 		}
 		serviceBinds, serviceMounts := rc.GetServiceBindsAndMounts(interpolatedVolumes)
 
 		interpolatedPorts := make([]string, 0, len(spec.Ports))
 		for _, port := range spec.Ports {
-			interpolatedPorts = append(interpolatedPorts, rc.ExprEval.Interpolate(ctx, port))
+			interpolatedPort, err := rc.ExprEval.Interpolate(ctx, port)
+			if err != nil {
+				return fmt.Errorf("unable to interpolate port: %w", err)
+			}
+			interpolatedPorts = append(interpolatedPorts, interpolatedPort)
 		}
 		natExposed, natBindings, err := nat.ParsePortSpecs(interpolatedPorts)
 		if err != nil {
@@ -576,13 +595,17 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 			portBindings[container.PortSpec(port)] = pb
 		}
 
-		serviceContainerName := createContainerName(rc.jobContainerName(), serviceID)
+		interpolatedOptions, err := rc.ExprEval.Interpolate(ctx, spec.Options)
+		if err != nil {
+			return fmt.Errorf("unable to interpolate options: %w", err)
+		}
+
 		c := docker.NewContainer(ep, &container.NewContainerInput{
-			Name:            serviceContainerName,
+			Name:            createContainerName(rc.jobContainerName(), serviceID),
 			Image:           interpolatedImage,
 			Username:        username,
 			Password:        password,
-			Cmd:             interpolatedCmd,
+			Cmd:             interpolatedCommands,
 			Entrypoint:      spec.GetEntrypoint(nil),
 			Init:            spec.EnableInit(false),
 			TTY:             spec.WithTTY(false),
@@ -601,7 +624,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 			PortBindings:    portBindings,
 			ValidVolumes:    rc.Config.ValidVolumes,
 
-			JobOptions:    rc.ExprEval.Interpolate(ctx, spec.Options),
+			JobOptions:    interpolatedOptions,
 			ConfigOptions: rc.Config.ContainerOptions,
 		})
 		rc.ServiceContainers = append(rc.ServiceContainers, c)
@@ -906,9 +929,9 @@ func (rc *RunContext) interpolateOutputs() common.Executor {
 	return func(ctx context.Context) error {
 		ee := rc.NewExpressionEvaluator(ctx)
 		for k, v := range rc.Run.Job().Outputs {
-			interpolated := ee.Interpolate(ctx, v)
-			if v != interpolated {
-				rc.Run.Job().Outputs[k] = interpolated
+			var err error
+			if rc.Run.Job().Outputs[k], err = ee.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("unable to interpolate output %q: %w", k, err)
 			}
 		}
 		return nil
@@ -1039,11 +1062,13 @@ func (rc *RunContext) containerImage(ctx context.Context) string {
 	job := rc.Run.Job()
 
 	c := job.Container()
-	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Image)
+	if c == nil {
+		return ""
 	}
 
-	return ""
+	imageName, _ := rc.ExprEval.Interpolate(ctx, c.Image)
+	return imageName
+
 }
 
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
@@ -1053,7 +1078,7 @@ func (rc *RunContext) runsOnImage(ctx context.Context) string {
 
 	runsOn := rc.Run.Job().RunsOn()
 	for i, v := range runsOn {
-		runsOn[i] = rc.ExprEval.Interpolate(ctx, v)
+		runsOn[i], _ = rc.ExprEval.Interpolate(ctx, v)
 	}
 
 	if pick := rc.Config.PlatformPicker; pick != nil {
@@ -1114,11 +1139,12 @@ func (rc *RunContext) platformImage(ctx context.Context) string {
 func (rc *RunContext) options(ctx context.Context) string {
 	job := rc.Run.Job()
 	c := job.Container()
-	if c != nil {
-		return rc.ExprEval.Interpolate(ctx, c.Options)
+	if c == nil {
+		return ""
 	}
 
-	return ""
+	options, _ := rc.ExprEval.Interpolate(ctx, c.Options)
+	return options
 }
 
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
@@ -1493,22 +1519,19 @@ func (rc *RunContext) handleCredentials(ctx context.Context) (username, password
 	}
 
 	ee := rc.NewExpressionEvaluator(ctx)
-	if username = ee.Interpolate(ctx, container.Credentials["username"]); username == "" {
-		err := fmt.Errorf("failed to interpolate container.credentials.username")
-		return "", "", err
-	}
-	if password = ee.Interpolate(ctx, container.Credentials["password"]); password == "" {
-		err := fmt.Errorf("failed to interpolate container.credentials.password")
-		return "", "", err
+	username, err = ee.Interpolate(ctx, container.Credentials["username"])
+	if err != nil {
+		return "", "", fmt.Errorf("unable to interpolate username: %w", err)
+	} else if username == "" {
+		return "", "", fmt.Errorf("username is empty")
 	}
 
-	if container.Credentials["username"] == "" {
-		err := fmt.Errorf("container.credentials.username is empty")
-		return "", "", err
-	}
-	if container.Credentials["password"] == "" {
-		err := fmt.Errorf("container.credentials.password is empty")
-		return "", "", err
+	password, err = ee.Interpolate(ctx, container.Credentials["password"])
+	if err != nil {
+		// err isn't included in the error to prevent the password from leaking.
+		return "", "", errors.New("unable to interpolate password")
+	} else if password == "" {
+		return "", "", fmt.Errorf("password is empty")
 	}
 
 	return username, password, nil
@@ -1524,14 +1547,19 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 	}
 
 	ee := rc.NewExpressionEvaluator(ctx)
-	if username = ee.Interpolate(ctx, creds["username"]); username == "" {
-		err = fmt.Errorf("failed to interpolate credentials.username")
-		return username, password, err
+	username, err = ee.Interpolate(ctx, creds["username"])
+	if err != nil {
+		return "", "", fmt.Errorf("unable to interpolate username: %w", err)
+	} else if username == "" {
+		return "", "", fmt.Errorf("username is empty")
 	}
 
-	if password = ee.Interpolate(ctx, creds["password"]); password == "" {
-		err = fmt.Errorf("failed to interpolate credentials.password")
-		return username, password, err
+	password, err = ee.Interpolate(ctx, creds["password"])
+	if err != nil {
+		// err isn't included in the error to prevent the password from leaking.
+		return "", "", errors.New("unable to interpolate password")
+	} else if password == "" {
+		return "", "", fmt.Errorf("password is empty")
 	}
 
 	return username, password, err

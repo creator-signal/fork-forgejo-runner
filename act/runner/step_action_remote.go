@@ -44,11 +44,14 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		// Since actions can specify the download source via a url prefix.
 		// The prefix may contain some sensitive information that needs to be stored in secrets,
 		// so we need to interpolate the expression value for uses first.
-		sar.Step.Uses = sar.RunContext.NewExpressionEvaluator(ctx).Interpolate(ctx, sar.Step.Uses)
+		var err error
+		if sar.Step.Uses, err = sar.RunContext.NewExpressionEvaluator(ctx).Interpolate(ctx, sar.Step.Uses); err != nil {
+			return fmt.Errorf("unable to interpolate uses: %w", err)
+		}
 
 		sar.remoteAction = newRemoteAction(sar.Step.Uses)
 		if sar.remoteAction == nil {
-			return fmt.Errorf("Expected format {org}/{repo}[/path]@ref or https://example.com/{org}/{repo}[/path]@ref. Actual '%s' Input string was not in a correct format", sar.Step.Uses)
+			return fmt.Errorf("expected format {org}/{repo}[/path]@ref or https://example.com/{org}/{repo}[/path]@ref, but got: %q", sar.Step.Uses)
 		}
 
 		github := sar.getGithubContext(ctx)
@@ -138,7 +141,11 @@ func (sar *stepActionRemote) main() common.Executor {
 					return nil
 				}
 				eval := sar.RunContext.NewExpressionEvaluator(ctx)
-				copyToPath := path.Join(sar.RunContext.JobContainer.ToContainerPath(sar.RunContext.Config.Workdir), eval.Interpolate(ctx, sar.Step.With["path"]))
+				interpolatedPath, err := eval.Interpolate(ctx, sar.Step.With["path"])
+				if err != nil {
+					return fmt.Errorf("unable to interpolate path: %w", err)
+				}
+				copyToPath := path.Join(sar.RunContext.JobContainer.ToContainerPath(sar.RunContext.Config.Workdir), interpolatedPath)
 				return sar.RunContext.JobContainer.CopyDir(copyToPath, sar.RunContext.Config.Workdir+string(filepath.Separator)+".", sar.RunContext.Config.UseGitIgnore)(ctx)
 			}
 

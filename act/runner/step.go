@@ -130,7 +130,13 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			return nil
 		}
 
-		stepString := rc.ExprEval.Interpolate(ctx, stepModel.String())
+		stepString, err := rc.ExprEval.Interpolate(ctx, stepModel.String())
+		if err != nil {
+			stepResult.Conclusion = model.StepStatusFailure
+			stepResult.Outcome = model.StepStatusFailure
+			return fmt.Errorf("unable to interpolate step name: %w", err)
+		}
+
 		if strings.Contains(stepString, "::add-mask::") {
 			stepString = "add-mask command"
 		}
@@ -215,7 +221,7 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 }
 
 func evaluateTimeout(ctx context.Context, contextType string, exprEval ExpressionEvaluator, timeoutMinutes string) (context.Context, context.CancelFunc) {
-	timeout := exprEval.Interpolate(ctx, timeoutMinutes)
+	timeout, _ := exprEval.Interpolate(ctx, timeoutMinutes)
 	if timeout != "" {
 		timeOutMinutes, err := strconv.ParseInt(timeout, 10, 64)
 		if err == nil {
@@ -237,7 +243,10 @@ func setupEnv(ctx context.Context, step step) error {
 	exprEval := rc.NewExpressionEvaluator(ctx)
 	for k, v := range *step.getEnv() {
 		if !strings.HasPrefix(k, "INPUT_") {
-			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+			var err error
+			if (*step.getEnv())[k], err = exprEval.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("unable to interpolate variable %q: %w", k, err)
+			}
 		}
 	}
 	// after we have an evaluated step context, update the expressions evaluator with a new env context
@@ -245,7 +254,10 @@ func setupEnv(ctx context.Context, step step) error {
 	exprEval = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
 	for k, v := range *step.getEnv() {
 		if strings.HasPrefix(k, "INPUT_") {
-			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+			var err error
+			if (*step.getEnv())[k], err = exprEval.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("unable to interpolate variable %q: %w", k, err)
+			}
 		}
 	}
 

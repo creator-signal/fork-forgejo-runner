@@ -6,6 +6,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	assert "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	yaml "go.yaml.in/yaml/v3"
 )
 
@@ -256,7 +257,8 @@ func TestExpressionInterpolate(t *testing.T) {
 	for _, table := range tables {
 		t.Run("interpolate", func(t *testing.T) {
 			assertObject := assert.New(t)
-			out := ee.Interpolate(t.Context(), table.in)
+			out, err := ee.Interpolate(t.Context(), table.in)
+			require.NoError(t, err)
 			assertObject.Equal(table.out, out, table.in)
 		})
 	}

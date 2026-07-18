@@ -24,7 +24,7 @@ import (
 type ExpressionEvaluator interface {
 	evaluate(context.Context, string, exprparser.DefaultStatusCheck) (any, error)
 	EvaluateYamlNode(context.Context, *yaml.Node) error
-	Interpolate(context.Context, string) string
+	Interpolate(context.Context, string) (string, error)
 }
 
 // NewExpressionEvaluator creates a new evaluator
@@ -374,24 +374,23 @@ func (ee expressionEvaluator) EvaluateYamlNode(ctx context.Context, node *yaml.N
 	return nil
 }
 
-func (ee expressionEvaluator) Interpolate(ctx context.Context, in string) string {
+func (ee expressionEvaluator) Interpolate(ctx context.Context, in string) (string, error) {
 	if !strings.Contains(in, "${{") || !strings.Contains(in, "}}") {
-		return in
+		return in, nil
 	}
 
 	expr := rewriteSubExpression(ctx, in, true)
 	evaluated, err := ee.evaluate(ctx, expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
-		common.Logger(ctx).Errorf("Unable to interpolate expression '%s': %s", expr, err)
-		return ""
+		return "", fmt.Errorf("unable to interpolate expression %q: %w", expr, err)
 	}
 
 	value, ok := evaluated.(string)
 	if !ok {
-		panic(fmt.Sprintf("Expression %s did not evaluate to a string", expr))
+		return "", fmt.Errorf("expression %q did not evaluate to a string", expr)
 	}
 
-	return value
+	return value, nil
 }
 
 // EvalBool evaluates an expression against given evaluator
@@ -515,7 +514,7 @@ func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 
 		interpolatedSecrets := make(map[string]string, len(rawSecrets))
 		for k, v := range rawSecrets {
-			interpolatedSecrets[k] = rc.caller.runContext.ExprEval.Interpolate(ctx, v)
+			interpolatedSecrets[k], _ = rc.caller.runContext.ExprEval.Interpolate(ctx, v)
 		}
 		return interpolatedSecrets
 	}

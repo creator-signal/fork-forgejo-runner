@@ -59,7 +59,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			// variable. Otherwise, it might contain a reference to a variable that is only visible on the job-level.
 			// But that wouldn't be safe because the job-level hasn't been fully populated, yet.
 			if currentValue, ok := rc.Env[k]; ok && currentValue == v {
-				rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+				var err error
+				if rc.Env[k], err = rc.ExprEval.Interpolate(ctx, v); err != nil {
+					return fmt.Errorf("unable to interpolate environment variable %q: %w", k, err)
+				}
 			}
 		}
 		return nil
@@ -73,7 +76,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		// evaluate environment variables since they can contain
 		// GitHub's special environment variables.
 		for k, v := range rc.GetEnv() {
-			rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+			var err error
+			if rc.Env[k], err = rc.ExprEval.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("unable to interpolate environment variable %q: %w", k, err)
+			}
 		}
 		return nil
 	})
@@ -220,7 +226,7 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 		ee := rc.NewExpressionEvaluator(ctx)
 		if wfcc := rc.Run.Workflow.WorkflowCallConfig(); wfcc != nil {
 			for k, v := range wfcc.Outputs {
-				jobOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
+				jobOutputs[k], _ = ee.Interpolate(ctx, v.Value)
 			}
 		}
 		rc.caller.runContext.Run.Job().Outputs = jobOutputs
@@ -247,7 +253,8 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
-		ctx = withStepLogger(ctx, stepModel.Number, stepModel.ID, rc.ExprEval.Interpolate(ctx, stepModel.String()), stage.String())
+		interpolate, _ := rc.ExprEval.Interpolate(ctx, stepModel.String())
+		ctx = withStepLogger(ctx, stepModel.Number, stepModel.ID, interpolate, stage.String())
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
