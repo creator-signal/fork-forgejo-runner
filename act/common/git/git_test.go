@@ -717,6 +717,37 @@ func TestClone(t *testing.T) {
 			assert.ErrorContains(t, err, fmt.Sprintf("ambiguous argument '%s^{commit}'", targetSHA))
 		})
 	}
+
+	// Similar to the `refTypes` tests above, an attacker who controls the action repository can serve arbitrary content
+	// by publishing a `refs/replace/<pinned-sha>` ref that points at a different commit.  We must ensure that we check
+	// out the target commit and not a substitute from a replace ref.
+	t.Run("refs/replace substitutes a commit", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
+		remoteDir := makeTestRepo(t)
+		remoteURL := "file://" + remoteDir // file:// is needed to avoid git optimizations on local clones which invalidate the test
+
+		// Legitimate commit, target of the pin:
+		targetSHA := makeTestCommit(t, remoteDir, "legitimate content")
+
+		// Unrelated commit carrying malicious content becomes the sole commit on `main`, leaving the legitimate commit
+		// unreachable from any branch or tag:
+		require.NoError(t, gitCmd("-C", remoteDir, "checkout", "--orphan", "evil"))
+		maliciousSHA := makeTestCommit(t, remoteDir, "malicious content")
+		require.NoError(t, gitCmd("-C", remoteDir, "branch", "-D", "main"))
+		require.NoError(t, gitCmd("-C", remoteDir, "branch", "-m", "main"))
+
+		// Add a replace reference from the old to the new malicious commit:
+		require.NoError(t, gitCmd("-C", remoteDir, "replace", targetSHA, maliciousSHA))
+
+		// Clone the repo by the pinned full SHA.
+		_, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteURL,
+			Ref:      targetSHA,
+		})
+		require.ErrorContains(t, err, fmt.Sprintf("ambiguous argument '%s^{commit}'", targetSHA))
+	})
 }
 
 func makeTestRepo(t *testing.T) string {

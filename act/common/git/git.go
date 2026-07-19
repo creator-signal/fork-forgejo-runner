@@ -446,7 +446,10 @@ type gitOptions struct {
 }
 
 func git(ctx context.Context, options *gitOptions, args ...string) (string, error) {
-	var gitArguments []string
+	gitArguments := []string{
+		// always disable refs/replace/*
+		"--no-replace-objects",
+	}
 
 	if options.token != "" {
 		if options.remoteURL == "" {
