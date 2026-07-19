@@ -12,7 +12,7 @@ import (
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	actcontainer "code.forgejo.org/forgejo/runner/v12/act/container"
-	"github.com/docker/docker/api/types/network"
+	"github.com/moby/moby/client"
 )
 
 func NewEndpoint(ctx context.Context, dockerHost string) (Endpoint, error) {
@@ -56,7 +56,7 @@ func NewDockerVolumesRemoveExecutor(ep Endpoint, volumeNames []string) common.Ex
 	}
 }
 
-func NewDockerNetworkCreateExecutor(ep Endpoint, name string, config *network.CreateOptions) common.Executor {
+func NewDockerNetworkCreateExecutor(ep Endpoint, name string, config *client.NetworkCreateOptions) common.Executor {
 	return func(ctx context.Context) error {
 		return nil
 	}

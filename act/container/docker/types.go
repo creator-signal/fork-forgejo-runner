@@ -1,6 +1,11 @@
+// Copyright 2026 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package docker
 
-import "io"
+import (
+	"io"
+)
 
 // NewDockerBuildExecutorInput is the input for NewDockerBuildExecutor.
 type NewDockerBuildExecutorInput struct {

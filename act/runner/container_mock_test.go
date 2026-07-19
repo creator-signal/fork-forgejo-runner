@@ -7,7 +7,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 	"code.forgejo.org/forgejo/runner/v12/act/container"
 	"code.forgejo.org/forgejo/runner/v12/act/container/docker"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/mock"
 )
 

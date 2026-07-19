@@ -114,11 +114,16 @@ jobs:
           make clean
           go test ./... -args -features "-"
 
-  runner-exec-tests:
-    name: runner exec tests
+  runner-exec-tests-with-docker:
+    name: Run exec tests with Docker (docker-${{ matrix.docker }})
     if: vars.ROLE == 'forgejo-coding'
     runs-on: ${{ inputs.runner_prefix || '' }}lxc-bookworm
     needs: [build]
+    strategy:
+      matrix:
+        docker:
+          #- stable # Docker version included in Debian, unusable until https://github.com/moby/moby/issues/52991 is resolved.
+          - latest # Docker version distributed by Docker
     steps:
 
       - uses: https://data.forgejo.org/actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -150,7 +155,7 @@ jobs:
             ]
           }
           EOF
-          apt-get install -y -qq docker.io
+          ./.forgejo/install-docker.sh ${{ matrix.docker }}
 
       - name: forgejo-runner exec --enable-ipv6
         run: |

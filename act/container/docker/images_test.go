@@ -6,11 +6,10 @@ import (
 	"testing"
 
 	"code.forgejo.org/forgejo/runner/v12/testutils"
-	"github.com/docker/docker/api/types/image"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -43,8 +42,8 @@ func TestImageExistsLocally(t *testing.T) {
 
 	// Chose alpine latest because it's so small
 	// maybe we should build an image instead so that tests aren't reliable on dockerhub
-	readerDefault, err := cli.ImagePull(ctx, "code.forgejo.org/oci/alpine:latest", image.PullOptions{
-		Platform: "linux/amd64",
+	readerDefault, err := cli.ImagePull(ctx, "code.forgejo.org/oci/alpine:latest", client.ImagePullOptions{
+		Platforms: []ocispec.Platform{{OS: "linux", Architecture: "amd64"}},
 	})
 	assert.Nil(t, err)
 	defer readerDefault.Close()
@@ -56,8 +55,8 @@ func TestImageExistsLocally(t *testing.T) {
 	assert.Equal(t, true, imageDefaultArchExists)
 
 	// Validate if another architecture platform can be pulled
-	readerArm64, err := cli.ImagePull(ctx, "code.forgejo.org/oci/alpine:latest", image.PullOptions{
-		Platform: "linux/arm64",
+	readerArm64, err := cli.ImagePull(ctx, "code.forgejo.org/oci/alpine:latest", client.ImagePullOptions{
+		Platforms: []ocispec.Platform{{OS: "linux", Architecture: "arm64"}},
 	})
 	assert.Nil(t, err)
 	defer readerArm64.Close()
@@ -67,25 +66,4 @@ func TestImageExistsLocally(t *testing.T) {
 	imageArm64Exists, err := ImageExistsLocally(ctx, ep, "code.forgejo.org/oci/alpine:latest", "linux/arm64")
 	assert.Nil(t, err)
 	assert.Equal(t, true, imageArm64Exists)
-}
-
-func TestParsePlatform(t *testing.T) {
-	tests := []struct {
-		input  string
-		output v1.Platform
-	}{
-		{
-			input: "linux/amd64",
-			output: v1.Platform{
-				Architecture: "amd64",
-				OS:           "linux",
-			},
-		},
-	}
-	for _, tc := range tests {
-		plat, err := parsePlatform(tc.input)
-		require.NoError(t, err)
-		assert.Equal(t, tc.output.Architecture, plat.Architecture)
-		assert.Equal(t, tc.output.OS, plat.OS)
-	}
 }

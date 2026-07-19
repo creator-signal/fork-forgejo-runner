@@ -12,8 +12,9 @@ import (
 	"strings"
 
 	"github.com/distribution/reference"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/client"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"code.forgejo.org/forgejo/runner/v12/act/common"
 )
@@ -80,12 +81,15 @@ func NewDockerPullExecutor(ep Endpoint, input NewDockerPullExecutorInput) common
 	}
 }
 
-func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) (image.PullOptions, error) {
-	imagePullOptions := image.PullOptions{
-		Platform: input.Platform,
-	}
+func getImagePullOptions(ctx context.Context, input NewDockerPullExecutorInput) (client.ImagePullOptions, error) {
 	logger := common.Logger(ctx)
 
+	platSpec, err := parsePlatform(input.Platform)
+	if err != nil {
+		return client.ImagePullOptions{}, err
+	}
+
+	imagePullOptions := client.ImagePullOptions{Platforms: []ocispec.Platform{platSpec}}
 	if input.Username != "" && input.Password != "" {
 		logger.Debugf("using authentication for docker pull")
 
