@@ -231,6 +231,28 @@ host:
   # If it's empty, $HOME/.cache/act/ will be used.
   workdir_parent:
 
+tenki:
+  # Configuration for the Tenki sandbox backend. Jobs whose label carries the
+  # `tenki://` scheme run each in a disposable Tenki microVM.
+  #
+  # The API key. Leave empty to read it from the TENKI_API_KEY environment
+  # variable (recommended, so the secret is not written to disk).
+  token: ""
+  # The Tenki project sandboxes are created under. Required. Leave empty to
+  # read it from the TENKI_PROJECT_ID environment variable.
+  project_id: ""
+  # Override the Tenki API endpoint. Empty uses the SDK default.
+  endpoint: ""
+  # Base image for sandboxes. Empty uses the Tenki default image.
+  image: ""
+  # Default resources per sandbox.
+  cpu: 2
+  memory_mb: 4096
+  disk_gb: 30
+  # Upper bound on a sandbox's lifetime. Tenki reclaims the sandbox after this
+  # even if the runner dies, so leaked jobs cannot bill indefinitely.
+  max_lifetime: 3h
+
 server:
   # A map of connections to one or more Forgejo instances. Example:
   #

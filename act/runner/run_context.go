@@ -304,6 +304,102 @@ func (rc *RunContext) stopHostEnvironment(ctx context.Context) error {
 	)(ctx)
 }
 
+func (rc *RunContext) startTenkiEnvironment() common.Executor {
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+		rawLogger := logger.WithField("raw_output", true)
+		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+			if rc.Config.LogOutput {
+				rawLogger.Infof("%s", s)
+			} else {
+				rawLogger.Debugf("%s", s)
+			}
+			return true
+		})
+
+		if rc.Config.TenkiProjectID == "" {
+			return fmt.Errorf("tenki backend requires a project id: set `tenki.project_id` or TENKI_PROJECT_ID")
+		}
+
+		// In-sandbox POSIX paths (the sandbox is always Linux). Rooted under the
+		// tenki user's home so file operations land in a writable location.
+		randName := common.MustRandName(8)
+		root := "/home/tenki/act-runner/" + randName
+		paths := container.TenkiPaths{
+			Root:      root,
+			Path:      root + "/workspace",
+			ActPath:   root + "/act",
+			TmpDir:    root + "/tmp",
+			// Tool cache lives under the sandbox home: the tenki user cannot
+			// write the default /opt/hostedtoolcache.
+			ToolCache: root + "/toolcache",
+			Workdir:   rc.Config.Workdir,
+		}
+
+		image := rc.GetTenkiImage(ctx)
+		if image == "" {
+			image = rc.Config.TenkiImage
+		}
+
+		env, err := container.NewTenkiEnvironment(
+			rc.Config.TenkiToken,
+			rc.Config.TenkiEndpoint,
+			container.TenkiCreateOptions{
+				Name:        rc.jobContainerName(),
+				ProjectID:   rc.Config.TenkiProjectID,
+				Image:       image,
+				CPUCores:    rc.Config.TenkiCPUCores,
+				MemoryMB:    rc.Config.TenkiMemoryMB,
+				DiskSizeGB:  rc.Config.TenkiDiskSizeGB,
+				MaxLifetime: rc.Config.TenkiMaxLifetime,
+				Metadata: map[string]string{
+					"forgejo-runner": rc.jobContainerName(),
+				},
+			},
+			paths,
+			logWriter,
+		)
+		if err != nil {
+			return err
+		}
+		rc.JobContainer = env
+
+		// Assign cleanup BEFORE the sandbox is created so a failure partway
+		// through Create still tears the sandbox down (research D5).
+		rc.cleanUpJobContainer = func(ctx context.Context) error {
+			if rc.JobContainer == nil {
+				return nil
+			}
+			if err := rc.JobContainer.Remove()(ctx); err != nil {
+				return err
+			}
+			return rc.JobContainer.Close()(ctx)
+		}
+
+		for k, v := range rc.JobContainer.GetRunnerContext(ctx) {
+			if v, ok := v.(string); ok {
+				rc.Env[fmt.Sprintf("RUNNER_%s", strings.ToUpper(k))] = v
+			}
+		}
+
+		return common.NewPipelineExecutor(
+			rc.JobContainer.Create(nil, nil),
+			// Bootstrap the workspace dirs. Run from "/" because the default
+			// workdir (paths.Path) is exactly what this step creates.
+			rc.JobContainer.Exec([]string{"mkdir", "-p", paths.Path, paths.ActPath, paths.TmpDir, paths.ToolCache}, nil, "", "/"),
+			rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
+				Name: "workflow/event.json",
+				Mode: 0o644,
+				Body: rc.EventJSON,
+			}, &container.FileEntry{
+				Name: "workflow/envs.txt",
+				Mode: 0o666,
+				Body: "",
+			}),
+		)(ctx)
+	}
+}
+
 func (rc *RunContext) startHostEnvironment() common.Executor {
 	return func(ctx context.Context) error {
 		logger := common.Logger(ctx)
@@ -927,11 +1023,27 @@ func (rc *RunContext) getToolCache(ctx context.Context) string {
 
 func (rc *RunContext) startContainer() common.Executor {
 	return func(ctx context.Context) error {
+		if rc.IsTenkiEnv(ctx) {
+			return rc.startTenkiEnvironment()(ctx)
+		}
 		if rc.IsHostEnv(ctx) {
 			return rc.startHostEnvironment()(ctx)
 		}
 		return rc.startJobContainer()(ctx)
 	}
+}
+
+const tenkiPrefix = "tenki:"
+
+// IsTenkiEnv reports whether the job's platform selects the Tenki sandbox backend.
+func (rc *RunContext) IsTenkiEnv(ctx context.Context) bool {
+	return strings.HasPrefix(rc.runsOnImage(ctx), tenkiPrefix)
+}
+
+// GetTenkiImage returns the sandbox base image encoded in the tenki:// label
+// arg, or "" when none is set (the runner's configured default image is used).
+func (rc *RunContext) GetTenkiImage(ctx context.Context) string {
+	return strings.TrimPrefix(rc.runsOnImage(ctx), tenkiPrefix)
 }
 
 func (rc *RunContext) IsBareHostEnv(ctx context.Context) bool {

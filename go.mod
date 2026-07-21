@@ -1,6 +1,6 @@
 module code.forgejo.org/forgejo/runner/v12
 
-go 1.25.0
+go 1.25.3
 
 toolchain go1.25.12
 
@@ -9,6 +9,7 @@ require (
 	connectrpc.com/connect v1.20.0
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver v1.5.0
+	github.com/TenkiCloud/tenki-sdk-go/sandbox v0.3.3
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/containerd/errdefs v1.0.0
 	github.com/creack/pty v1.1.24
@@ -41,7 +42,7 @@ require (
 	go.etcd.io/bbolt v1.5.0
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/sys v0.47.0
-	golang.org/x/term v0.41.0
+	golang.org/x/term v0.43.0
 	golang.org/x/time v0.15.0
 	google.golang.org/protobuf v1.36.11
 	gotest.tools/v3 v3.5.2
@@ -49,6 +50,7 @@ require (
 )
 
 require (
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260415201107-50325440f8f2.1 // indirect
 	cyphar.com/go-pathrs v0.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
@@ -66,6 +68,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -90,6 +93,8 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.3 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

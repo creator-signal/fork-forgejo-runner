@@ -126,6 +126,46 @@ func TestLabel_Parse(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			args: "label1:tenki",
+			want: &Label{
+				Name:   "label1",
+				Schema: SchemeTenki,
+				Arg:    "",
+			},
+			wantErr: false,
+		},
+		{
+			args: "label1:tenki://my-image",
+			want: &Label{
+				Name:   "label1",
+				Schema: SchemeTenki,
+				Arg:    "//my-image",
+			},
+			wantErr: false,
+		},
+		{
+			args: "big:tenki://?cpu=8&memory_mb=16384&disk_gb=50",
+			want: &Label{
+				Name:    "big",
+				Schema:  SchemeTenki,
+				Arg:     "//",
+				Options: map[string]string{"cpu": "8", "memory_mb": "16384", "disk_gb": "50"},
+			},
+			wantErr: false,
+		},
+		{
+			// cpu option is tenki-only; rejected on docker.
+			args:    "label1:docker://node:18?cpu=8",
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			// platform option is docker-only; rejected on tenki.
+			args:    "label1:tenki://my-image?platform=linux/amd64",
+			want:    nil,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.args, func(t *testing.T) {
@@ -238,4 +278,16 @@ func TestLabels_Strings(t *testing.T) {
 	}
 
 	assert.Equal(t, expected, labels.Strings())
+}
+
+func TestLabels_PickPlatform_Tenki(t *testing.T) {
+	ls := Labels{
+		MustParse("ubuntu-tenki:tenki://"),
+		MustParse("custom-tenki:tenki://my-image"),
+	}
+
+	// Empty arg yields the bare "tenki:" prefix (image comes from config).
+	assert.Equal(t, "tenki:", ls.PickPlatform([]string{"ubuntu-tenki"}))
+	// Explicit image is carried after the prefix, with "//" stripped.
+	assert.Equal(t, "tenki:my-image", ls.PickPlatform([]string{"custom-tenki"}))
 }

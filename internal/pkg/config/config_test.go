@@ -51,12 +51,13 @@ func TestNew(t *testing.T) {
 		home, err := os.UserHomeDir()
 		require.NoError(t, err)
 
-		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 7, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
+		assert.Equal(t, 8, reflect.TypeOf(Tenki{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Server{}).NumField())
 
 		assert.Equal(t, "info", config.Log.Level)
@@ -115,12 +116,13 @@ func TestNew(t *testing.T) {
 		home, err := os.UserHomeDir()
 		require.NoError(t, err)
 
-		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 7, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
+		assert.Equal(t, 8, reflect.TypeOf(Tenki{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Server{}).NumField())
 
 		assert.Equal(t, "info", config.Log.Level)
@@ -301,12 +303,13 @@ server:
 		config, err := New(FromFile(configPath))
 		require.NoError(t, err)
 
-		assert.Equal(t, 6, reflect.TypeOf(Config{}).NumField())
+		assert.Equal(t, 7, reflect.TypeOf(Config{}).NumField())
 		assert.Equal(t, 2, reflect.TypeOf(Log{}).NumField())
 		assert.Equal(t, 11, reflect.TypeOf(Runner{}).NumField())
 		assert.Equal(t, 8, reflect.TypeOf(Cache{}).NumField())
 		assert.Equal(t, 9, reflect.TypeOf(Container{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Host{}).NumField())
+		assert.Equal(t, 8, reflect.TypeOf(Tenki{}).NumField())
 		assert.Equal(t, 1, reflect.TypeOf(Server{}).NumField())
 
 		// Verify that each value loaded from the configuration file does not match the default configuration.

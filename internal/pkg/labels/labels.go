@@ -18,9 +18,19 @@ const (
 	SchemeLXC = "lxc"
 	ArgLXC    = "//debian:bookworm"
 
+	// SchemeTenki runs each job in a disposable Tenki microVM. The arg, when
+	// set, is the sandbox base image (e.g. "//my-image"); empty uses the image
+	// configured in the runner's `tenki:` settings.
+	SchemeTenki = "tenki"
+
 	// OptionPlatform is the name of the label option that sets the OS/architecture passed to the
 	// container runtime, e.g. "platform=linux/amd64".
 	OptionPlatform = "platform"
+
+	// Tenki per-label resource overrides, e.g. "big:tenki://?cpu=8&memory_mb=16384".
+	OptionCPU      = "cpu"
+	OptionMemoryMB = "memory_mb"
+	OptionDiskGB   = "disk_gb"
 )
 
 type Label struct {
@@ -50,7 +60,7 @@ func Parse(str string) (*Label, error) {
 
 	if len(splits) >= 2 {
 		label.Schema = splits[1]
-		if label.Schema != SchemeHost && label.Schema != SchemeDocker && label.Schema != SchemeLXC {
+		if label.Schema != SchemeHost && label.Schema != SchemeDocker && label.Schema != SchemeLXC && label.Schema != SchemeTenki {
 			return nil, fmt.Errorf("unsupported schema: %s", label.Schema)
 		}
 	}
@@ -103,6 +113,10 @@ func validateOptions(label *Label) error {
 		case OptionPlatform:
 			if label.Schema != SchemeDocker {
 				return fmt.Errorf("option %q is only supported with the %q schema", key, SchemeDocker)
+			}
+		case OptionCPU, OptionMemoryMB, OptionDiskGB:
+			if label.Schema != SchemeTenki {
+				return fmt.Errorf("option %q is only supported with the %q schema", key, SchemeTenki)
 			}
 		default:
 			return fmt.Errorf("unknown label option %q", key)
@@ -175,6 +189,8 @@ func (l Labels) PickPlatform(runsOn []string) string {
 			platforms[label.Name] = "-self-hosted"
 		case SchemeLXC:
 			platforms[label.Name] = "lxc:" + strings.TrimPrefix(label.Arg, "//")
+		case SchemeTenki:
+			platforms[label.Name] = "tenki:" + strings.TrimPrefix(label.Arg, "//")
 		default:
 			// It should not happen, because Parse has checked it.
 			continue

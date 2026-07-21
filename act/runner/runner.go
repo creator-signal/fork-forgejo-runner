@@ -75,6 +75,17 @@ type Config struct {
 
 	ContainerNetworkEnableIPv6 bool   // create the network with IPv6 support enabled
 	ServerVersion              string // Git forge server version
+
+	// Tenki sandbox backend settings, used by jobs whose runs-on label carries
+	// the tenki:// scheme.
+	TenkiToken       string        // Tenki API key
+	TenkiProjectID   string        // Tenki project sandboxes are created under (required for the tenki backend)
+	TenkiEndpoint    string        // Tenki API endpoint override
+	TenkiImage       string        // default sandbox base image; a tenki:// label arg overrides it
+	TenkiCPUCores    int32         // default vCPU count per sandbox
+	TenkiMemoryMB    int32         // default memory per sandbox in MB
+	TenkiDiskSizeGB  int           // default disk size per sandbox in GB
+	TenkiMaxLifetime time.Duration // max sandbox lifetime as a leak guard
 }
 
 // GetToken: Adapt to Gitea

@@ -375,6 +375,14 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		InsecureSkipTLS:            r.cfg.Runner.Insecure,
 		Inputs:                     inputs,
 		ServerVersion:              serverVersion,
+		TenkiToken:                 r.cfg.Tenki.Token,
+		TenkiProjectID:             r.cfg.Tenki.ProjectID,
+		TenkiEndpoint:              r.cfg.Tenki.Endpoint,
+		TenkiImage:                 r.cfg.Tenki.Image,
+		TenkiCPUCores:              r.cfg.Tenki.CPUCores,
+		TenkiMemoryMB:              r.cfg.Tenki.MemoryMB,
+		TenkiDiskSizeGB:            r.cfg.Tenki.DiskSizeGB,
+		TenkiMaxLifetime:           r.cfg.Tenki.MaxLifetime,
 	}
 
 	if r.cfg.Log.JobLevel != "" {

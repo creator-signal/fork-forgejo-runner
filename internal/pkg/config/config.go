@@ -80,6 +80,19 @@ type Host struct {
 	WorkdirParent string // WorkdirParent specifies the parent directory for the host's working directory.
 }
 
+// Tenki represents the configuration for the Tenki sandbox backend, used by
+// jobs whose runs-on label carries the tenki:// scheme.
+type Tenki struct {
+	Token       string        // Token is the Tenki API key. Falls back to the TENKI_API_KEY environment variable when empty.
+	ProjectID   string        // ProjectID is the Tenki project sandboxes are created under. Required. Falls back to TENKI_PROJECT_ID when empty.
+	Endpoint    string        // Endpoint overrides the Tenki API endpoint. Defaults to the SDK's built-in endpoint when empty.
+	Image       string        // Image is the base image for sandboxes. Empty uses the Tenki default image.
+	CPUCores    int32         // CPUCores is the default vCPU count per sandbox.
+	MemoryMB    int32         // MemoryMB is the default memory per sandbox in megabytes.
+	DiskSizeGB  int           // DiskSizeGB is the default disk size per sandbox in gigabytes.
+	MaxLifetime time.Duration // MaxLifetime caps how long a sandbox may live before Tenki reclaims it, guarding against leaks if the runner dies.
+}
+
 // Server configures connections to Forgejo and their behaviour.
 type Server struct {
 	Connections map[string]*Connection // Connections defines which Forgejo instance(s) Forgejo Runner should connect to. The map's key serves as connection name.
@@ -118,6 +131,7 @@ type Config struct {
 	Cache     Cache     // Cache represents the configuration for caching.
 	Container Container // Container represents the configuration for the container.
 	Host      Host      // Host represents the configuration for the host.
+	Tenki     Tenki     // Tenki represents the configuration for the Tenki sandbox backend.
 	Server    Server    // Server configures connections to Forgejo and their behaviour.
 }
 
@@ -128,6 +142,7 @@ type serializedConfiguration struct {
 	Cache     serializedCacheSettings     `yaml:"cache"`     // Cache represents the configuration for caching.
 	Container serializedContainerSettings `yaml:"container"` // Container represents the configuration for the container.
 	Host      serializedHostSettings      `yaml:"host"`      // Host represents the configuration for the host.
+	Tenki     serializedTenkiSettings     `yaml:"tenki"`     // Tenki represents the configuration for the Tenki sandbox backend.
 	Server    serializedServerSettings    `yaml:"server"`    // Server configures connections to Forgejo and their behaviour.
 }
 
@@ -146,6 +161,9 @@ func (s *serializedConfiguration) applyTo(config *Config) error {
 	}
 	if err := s.Host.applyTo(config); err != nil {
 		return fmt.Errorf("invalid `host` settings: %w", err)
+	}
+	if err := s.Tenki.applyTo(config); err != nil {
+		return fmt.Errorf("invalid `tenki` settings: %w", err)
 	}
 	if err := s.Server.applyTo(config); err != nil {
 		return fmt.Errorf("invalid `server` settings: %w", err)
@@ -397,6 +415,38 @@ func (s *serializedHostSettings) applyTo(config *Config) error {
 		config.Host.WorkdirParent = filepath.FromSlash(s.WorkdirParent)
 	}
 
+	return nil
+}
+
+// serializedTenkiSettings is the on-disk format of the Tenki sandbox backend
+// configuration. Token and project_id fall back to environment variables so
+// the API key need not be written to disk.
+type serializedTenkiSettings struct {
+	Token       string        `yaml:"token"`        // Token is the Tenki API key. Empty falls back to TENKI_API_KEY.
+	ProjectID   string        `yaml:"project_id"`   // ProjectID is required; empty falls back to TENKI_PROJECT_ID.
+	Endpoint    string        `yaml:"endpoint"`     // Endpoint overrides the Tenki API endpoint.
+	Image       string        `yaml:"image"`        // Image is the base image; empty uses the Tenki default.
+	CPUCores    int32         `yaml:"cpu"`          // CPUCores is the default vCPU count per sandbox.
+	MemoryMB    int32         `yaml:"memory_mb"`    // MemoryMB is the default memory per sandbox.
+	DiskSizeGB  int           `yaml:"disk_gb"`      // DiskSizeGB is the default disk size per sandbox.
+	MaxLifetime time.Duration `yaml:"max_lifetime"` // MaxLifetime caps sandbox lifetime as a leak guard.
+}
+
+func (s *serializedTenkiSettings) applyTo(config *Config) error {
+	config.Tenki.Token = s.Token
+	if config.Tenki.Token == "" {
+		config.Tenki.Token = os.Getenv("TENKI_API_KEY")
+	}
+	config.Tenki.ProjectID = s.ProjectID
+	if config.Tenki.ProjectID == "" {
+		config.Tenki.ProjectID = os.Getenv("TENKI_PROJECT_ID")
+	}
+	config.Tenki.Endpoint = s.Endpoint
+	config.Tenki.Image = s.Image
+	config.Tenki.CPUCores = s.CPUCores
+	config.Tenki.MemoryMB = s.MemoryMB
+	config.Tenki.DiskSizeGB = s.DiskSizeGB
+	config.Tenki.MaxLifetime = s.MaxLifetime
 	return nil
 }
 
