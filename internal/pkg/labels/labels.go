@@ -26,11 +26,6 @@ const (
 	// OptionPlatform is the name of the label option that sets the OS/architecture passed to the
 	// container runtime, e.g. "platform=linux/amd64".
 	OptionPlatform = "platform"
-
-	// Tenki per-label resource overrides, e.g. "big:tenki://?cpu=8&memory_mb=16384".
-	OptionCPU      = "cpu"
-	OptionMemoryMB = "memory_mb"
-	OptionDiskGB   = "disk_gb"
 )
 
 type Label struct {
@@ -113,10 +108,6 @@ func validateOptions(label *Label) error {
 		case OptionPlatform:
 			if label.Schema != SchemeDocker {
 				return fmt.Errorf("option %q is only supported with the %q schema", key, SchemeDocker)
-			}
-		case OptionCPU, OptionMemoryMB, OptionDiskGB:
-			if label.Schema != SchemeTenki {
-				return fmt.Errorf("option %q is only supported with the %q schema", key, SchemeTenki)
 			}
 		default:
 			return fmt.Errorf("unknown label option %q", key)

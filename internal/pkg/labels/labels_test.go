@@ -145,22 +145,6 @@ func TestLabel_Parse(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			args: "big:tenki://?cpu=8&memory_mb=16384&disk_gb=50",
-			want: &Label{
-				Name:    "big",
-				Schema:  SchemeTenki,
-				Arg:     "//",
-				Options: map[string]string{"cpu": "8", "memory_mb": "16384", "disk_gb": "50"},
-			},
-			wantErr: false,
-		},
-		{
-			// cpu option is tenki-only; rejected on docker.
-			args:    "label1:docker://node:18?cpu=8",
-			want:    nil,
-			wantErr: true,
-		},
-		{
 			// platform option is docker-only; rejected on tenki.
 			args:    "label1:tenki://my-image?platform=linux/amd64",
 			want:    nil,
