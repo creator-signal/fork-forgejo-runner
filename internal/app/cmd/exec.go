@@ -414,6 +414,16 @@ func runExec(ctx context.Context, execArgs *executeArgs) error {
 			return execArgs.image
 		},
 		ValidVolumes: []string{"**"}, // All volumes are allowed for `exec` command
+
+		// Tenki backend settings for local `exec` runs are read from the
+		// environment; use `-i tenki://<image>` to route a run to a sandbox.
+		TenkiToken:       os.Getenv("TENKI_API_KEY"),
+		TenkiProjectID:   os.Getenv("TENKI_PROJECT_ID"),
+		TenkiEndpoint:    os.Getenv("TENKI_API_URL"),
+		TenkiCPUCores:    2,
+		TenkiMemoryMB:    4096,
+		TenkiDiskSizeGB:  30,
+		TenkiMaxLifetime: maxLifetime,
 	}
 
 	config.Env["ACT_EXEC"] = "true"
