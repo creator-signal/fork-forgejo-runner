@@ -482,7 +482,11 @@ func sanitizeNetworkAlias(ctx context.Context, original string) string {
 
 func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	logger := common.Logger(ctx)
-	image := rc.platformImage(ctx)
+	image, err := rc.platformImage(ctx)
+	if err != nil {
+		return fmt.Errorf("could not determine platform image: %w", err)
+	}
+
 	rawLogger := logger.WithField("raw_output", true)
 	logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
 		if rc.Config.LogOutput {
@@ -671,6 +675,11 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		return spec.WithTTY(false)
 	})
 
+	options, err := rc.options(ctx)
+	if err != nil {
+		return fmt.Errorf("could not get container options: %w", err)
+	}
+
 	rc.JobContainer = docker.NewContainer(ep, &container.NewContainerInput{
 		Cmd:             nil,
 		Entrypoint:      entrypoint,
@@ -694,7 +703,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		DefaultPlatform: rc.dockerImagePlatform(ctx),
 		ValidVolumes:    validVolumes,
 
-		JobOptions:    rc.options(ctx),
+		JobOptions:    options,
 		ConfigOptions: rc.Config.ContainerOptions,
 	})
 	if rc.JobContainer == nil {
@@ -962,7 +971,7 @@ func (rc *RunContext) startContainer() common.Executor {
 
 func (rc *RunContext) IsBareHostEnv(ctx context.Context) bool {
 	platform := rc.runsOnImage(ctx)
-	image := rc.containerImage(ctx)
+	image, _ := rc.containerImage(ctx)
 	return image == "" && strings.EqualFold(platform, "-self-hosted")
 }
 
@@ -1061,16 +1070,20 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 	}, nil
 }
 
-func (rc *RunContext) containerImage(ctx context.Context) string {
+func (rc *RunContext) containerImage(ctx context.Context) (string, error) {
 	job := rc.Run.Job()
 
 	c := job.Container()
 	if c == nil {
-		return ""
+		return "", nil
 	}
 
-	imageName, _ := rc.ExprEval.Interpolate(ctx, c.Image)
-	return imageName
+	imageName, err := rc.ExprEval.Interpolate(ctx, c.Image)
+	if err != nil {
+		return "", fmt.Errorf("could not interpolate image name: %w", err)
+	}
+
+	return imageName, nil
 }
 
 func (rc *RunContext) runsOnImage(ctx context.Context) string {
@@ -1130,23 +1143,32 @@ func (rc *RunContext) runsOnPlatformNames(ctx context.Context) []string {
 	return model.FlattenRunsOnNode(rawRunsOn)
 }
 
-func (rc *RunContext) platformImage(ctx context.Context) string {
-	if containerImage := rc.containerImage(ctx); containerImage != "" {
-		return containerImage
+func (rc *RunContext) platformImage(ctx context.Context) (string, error) {
+	containerImage, err := rc.containerImage(ctx)
+	if err != nil {
+		return "", fmt.Errorf("could not interpolate container image: %w", err)
 	}
 
-	return rc.runsOnImage(ctx)
+	if containerImage != "" {
+		return containerImage, nil
+	}
+
+	return rc.runsOnImage(ctx), nil
 }
 
-func (rc *RunContext) options(ctx context.Context) string {
+func (rc *RunContext) options(ctx context.Context) (string, error) {
 	job := rc.Run.Job()
 	c := job.Container()
 	if c == nil {
-		return ""
+		return "", nil
 	}
 
-	options, _ := rc.ExprEval.Interpolate(ctx, c.Options)
-	return options
+	options, err := rc.ExprEval.Interpolate(ctx, c.Options)
+	if err != nil {
+		return "", fmt.Errorf("could not interpolate options: %w", err)
+	}
+
+	return options, nil
 }
 
 func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
@@ -1173,7 +1195,10 @@ func (rc *RunContext) isEnabled(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	img := rc.platformImage(ctx)
+	img, err := rc.platformImage(ctx)
+	if err != nil {
+		return false, fmt.Errorf("could not determine platform image: %w", err)
+	}
 	if img == "" {
 		for _, platformName := range rc.runsOnPlatformNames(ctx) {
 			l.Infof("\U0001F6A7  Skipping unsupported platform -- Try running with `-P %+v=...`", platformName)
