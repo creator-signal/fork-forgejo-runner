@@ -24,6 +24,7 @@ type bothJobTypes struct {
 	id           string
 	jobParserJob *Job
 	workflowJob  *model.Job
+	parseContext *parseContext
 
 	matrix   map[string]any
 	jobNeeds []string
@@ -126,6 +127,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			workflowJob:                      origin.GetJob(jobName),
 			workflowLevelEnableOpenIDConnect: origin.EnableOpenIDConnect,
 			workflowLevelEnv:                 workflow.Env,
+			parseContext:                     pc,
 		}
 	}
 
@@ -209,7 +211,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				WorkflowCallParent: bothJobs.workflowCallParent,
 			},
 			Permissions:  workflow.Permissions,
-			parseContext: pc,
+			parseContext: bothJobs.parseContext,
 		}
 		if bothJobs.overrideOnClause != nil {
 			swf.RawOn = *bothJobs.overrideOnClause
@@ -392,6 +394,7 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 				matrix:           matrix,
 				jobNeeds:         jobNeeds,
 				overrideOnClause: bothJobs.overrideOnClause,
+				parseContext:     pc,
 
 				workflowLevelEnv:                 bothJobs.workflowLevelEnv,
 				workflowLevelEnableOpenIDConnect: bothJobs.workflowLevelEnableOpenIDConnect,
@@ -608,6 +611,12 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			jobParserJob:     job,
 			workflowJob:      workflow.GetJob(id),
 			overrideOnClause: &swf.RawOn,
+
+			// During workflow expansion we created a new parse context, replacing ${{ inputs.* }} with the results of
+			// `evaluateReusableWorkflowInputs`.  We need to preserve that parse context as we pass the jobs pass up to
+			// the outer evaluation as the parse context is used in `EvaluateIf()` later, after jobs are returned from
+			// the jobparser.
+			parseContext: swf.parseContext,
 
 			workflowLevelEnv:                 workflowLevelEnv,
 			workflowLevelEnableOpenIDConnect: workflowLevelEnableOpenIDConnect,

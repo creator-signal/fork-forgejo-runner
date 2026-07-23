@@ -1266,6 +1266,56 @@ jobs:
 		_, err = job.EvaluateIf()
 		require.ErrorContains(t, err, "cannot evaluate in job parser: secrets value \"something\" referenced")
 	})
+
+	t.Run("workflow expansion inputs", func(t *testing.T) {
+		outerWorkflow := `
+on:
+  workflow_dispatch:
+  inputs:
+    outer_input:
+      type: boolean
+      default: true
+jobs:
+  outer-job:
+    # if: ${{ inputs.outer_input }} # FIXME: doesn't work as the 'if' condition is merged into the child job, but this has a different set of inputs
+    uses: some-org/some-repo/.forgejo/workflows/recursive.yaml@v1
+`
+		innerWorkflow := `
+on:
+  workflow_call:
+    inputs:
+      inner_input:
+        type: boolean
+        default: true
+jobs:
+  inner-job:
+    if: ${{ inputs.inner_input }}
+    steps:
+      - run: echo "OK"
+`
+
+		swf, err := Parse(
+			[]byte(outerWorkflow),
+			false,
+			ExpandInstanceReusableWorkflows(func(job *Job, ref *model.NonLocalReusableWorkflowReference) ([]byte, error) {
+				return []byte(innerWorkflow), nil
+			}),
+		)
+		require.NoError(t, err)
+		require.Len(t, swf, 2) // 'outer-job' and 'inner-job'
+
+		name, outer := swf[0].Job()
+		assert.Equal(t, "outer-job", name)
+		require.NotNil(t, outer)
+
+		name, inner := swf[1].Job()
+		assert.Equal(t, "outer-job.inner-job", name)
+		require.NotNil(t, inner)
+
+		ifCond, err := inner.EvaluateIf()
+		require.NoError(t, err)
+		assert.True(t, ifCond)
+	})
 }
 
 func TestEvaluateRunName(t *testing.T) {
