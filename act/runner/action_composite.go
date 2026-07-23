@@ -21,7 +21,10 @@ func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step 
 		}
 	}
 
-	ee := parent.NewStepExpressionEvaluator(ctx, step)
+	ee, err := parent.NewStepExpressionEvaluator(ctx, step)
+	if err != nil {
+		return map[string]string{}, fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
 
 	for inputID, input := range step.getActionModel().Inputs {
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")

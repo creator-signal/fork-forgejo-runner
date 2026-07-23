@@ -128,7 +128,12 @@ func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, 
 
 	step := sr.Step
 
-	script, err = sr.RunContext.NewStepExpressionEvaluator(ctx, sr).Interpolate(ctx, step.Run)
+	ee, err := sr.RunContext.NewStepExpressionEvaluator(ctx, sr)
+	if err != nil {
+		return "", "", fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
+
+	script, err = ee.Interpolate(ctx, step.Run)
 	if err != nil {
 		return "", "", fmt.Errorf("unable to interpolate run command: %w", err)
 	}

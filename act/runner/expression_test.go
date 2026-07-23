@@ -155,7 +155,8 @@ func TestExpressionEvaluateStep(t *testing.T) {
 		RunContext: rc,
 	}
 
-	ee := rc.NewStepExpressionEvaluator(t.Context(), step)
+	ee, err := rc.NewStepExpressionEvaluator(t.Context(), step)
+	require.NoError(t, err)
 
 	tables := []struct {
 		in      string

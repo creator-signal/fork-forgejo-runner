@@ -74,6 +74,11 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 	ghc := rc.getGithubContext(ctx)
 	inputs := getEvaluatorInputs(ctx, rc, nil, ghc)
 
+	secrets, err := getWorkflowSecrets(ctx, rc)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get workflow secrets: %w", err)
+	}
+
 	ee := &exprparser.EvaluationEnvironment{
 		Github: ghc,
 		Env:    env,
@@ -82,7 +87,7 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 		// todo: should be unavailable
 		// but required to interpolate/evaluate the step outputs on the job
 		Steps:     rc.getStepsContext(),
-		Secrets:   getWorkflowSecrets(ctx, rc),
+		Secrets:   secrets,
 		Vars:      getWorkflowVars(ctx, rc),
 		Strategy:  strategy,
 		Matrix:    rc.Matrix,
@@ -107,12 +112,12 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 var hashfiles string
 
 // NewStepExpressionEvaluator creates a new evaluator
-func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step) ExpressionEvaluator {
+func (rc *RunContext) NewStepExpressionEvaluator(ctx context.Context, step step) (ExpressionEvaluator, error) {
 	return rc.NewStepExpressionEvaluatorExt(ctx, step, false)
 }
 
 // NewStepExpressionEvaluatorExt creates a new evaluator
-func (rc *RunContext) NewStepExpressionEvaluatorExt(ctx context.Context, step step, rcInputs bool) ExpressionEvaluator {
+func (rc *RunContext) NewStepExpressionEvaluatorExt(ctx context.Context, step step, rcInputs bool) (ExpressionEvaluator, error) {
 	ghc := rc.getGithubContext(ctx)
 	if rcInputs {
 		return rc.newStepExpressionEvaluator(ctx, step, ghc, getEvaluatorInputs(ctx, rc, nil, ghc))
@@ -120,7 +125,7 @@ func (rc *RunContext) NewStepExpressionEvaluatorExt(ctx context.Context, step st
 	return rc.newStepExpressionEvaluator(ctx, step, ghc, getEvaluatorInputs(ctx, rc, step, ghc))
 }
 
-func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step, ghc *model.GithubContext, inputs map[string]any) ExpressionEvaluator {
+func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step, ghc *model.GithubContext, inputs map[string]any) (ExpressionEvaluator, error) {
 	// todo: cleanup EvaluationEnvironment creation
 	job := rc.Run.Job()
 	strategy := make(map[string]any)
@@ -140,12 +145,17 @@ func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step,
 		}
 	}
 
+	secrets, err := getWorkflowSecrets(ctx, rc)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get workflow secrets: %w", err)
+	}
+
 	ee := &exprparser.EvaluationEnvironment{
 		Github:   step.getGithubContext(ctx),
 		Env:      *step.getEnv(),
 		Job:      rc.getJobContext(),
 		Steps:    rc.getStepsContext(),
-		Secrets:  getWorkflowSecrets(ctx, rc),
+		Secrets:  secrets,
 		Vars:     getWorkflowVars(ctx, rc),
 		Strategy: strategy,
 		Matrix:   rc.Matrix,
@@ -164,7 +174,7 @@ func (rc *RunContext) newStepExpressionEvaluator(ctx context.Context, step step,
 			WorkingDir: rc.Config.Workdir,
 			Context:    "step",
 		}),
-	}
+	}, nil
 }
 
 func getHashFilesFunction(ctx context.Context, rc *RunContext) func(v []reflect.Value) (any, error) {
@@ -500,7 +510,7 @@ func setupWorkflowInputs(ctx context.Context, inputs *map[string]any, rc *RunCon
 	}
 }
 
-func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
+func getWorkflowSecrets(ctx context.Context, rc *RunContext) (map[string]string, error) {
 	if rc.caller != nil {
 		job := rc.caller.runContext.Run.Job()
 		rawSecrets := job.Secrets()
@@ -510,17 +520,21 @@ func getWorkflowSecrets(ctx context.Context, rc *RunContext) map[string]string {
 		}
 
 		if rawSecrets == nil {
-			return map[string]string{}
+			return map[string]string{}, nil
 		}
 
 		interpolatedSecrets := make(map[string]string, len(rawSecrets))
 		for k, v := range rawSecrets {
-			interpolatedSecrets[k], _ = rc.caller.runContext.ExprEval.Interpolate(ctx, v)
+			var err error
+			if interpolatedSecrets[k], err = rc.caller.runContext.ExprEval.Interpolate(ctx, v); err != nil {
+				// The error is omitted to prevent the secret from leaking
+				return map[string]string{}, fmt.Errorf("could not interpolate secret %q", k)
+			}
 		}
-		return interpolatedSecrets
+		return interpolatedSecrets, nil
 	}
 
-	return rc.Config.Secrets
+	return rc.Config.Secrets, nil
 }
 
 func getWorkflowVars(_ context.Context, rc *RunContext) map[string]string {

@@ -346,7 +346,11 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 			logger.Debugf("image '%s' for architecture '%s' already exists", image, targetPlatform)
 		}
 	}
-	eval := rc.NewStepExpressionEvaluator(ctx, step)
+	eval, err := rc.NewStepExpressionEvaluator(ctx, step)
+	if err != nil {
+		return fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
+
 	interpolatedArgs, err := eval.Interpolate(ctx, step.getStepModel().With["args"])
 	if err != nil {
 		return fmt.Errorf("unable to interpolate args: %w", err)
@@ -426,7 +430,11 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 	}
 	mergeIntoMap(step, step.getEnv(), inputs)
 
-	stepEE := rc.NewStepExpressionEvaluator(ctx, step)
+	stepEE, err := rc.NewStepExpressionEvaluator(ctx, step)
+	if err != nil {
+		return fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
+
 	for i, v := range *cmd {
 		var err error
 		if (*cmd)[i], err = stepEE.Interpolate(ctx, v); err != nil {
@@ -435,7 +443,10 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 	}
 	mergeIntoMap(step, step.getEnv(), action.Runs.Env)
 
-	ee := rc.NewStepExpressionEvaluator(ctx, step)
+	ee, err := rc.NewStepExpressionEvaluator(ctx, step)
+	if err != nil {
+		return fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
 	for k, v := range *step.getEnv() {
 		var err error
 		if (*step.getEnv())[k], err = ee.Interpolate(ctx, v); err != nil {

@@ -306,7 +306,12 @@ func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage)
 		defaultStatusCheck = exprparser.DefaultStatusCheckSuccess
 	}
 
-	runStep, err := EvalBool(ctx, rc.NewStepExpressionEvaluatorExt(ctx, step, stage == stepStageMain), expr, defaultStatusCheck)
+	ee, err := rc.NewStepExpressionEvaluatorExt(ctx, step, stage == stepStageMain)
+	if err != nil {
+		return false, fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
+
+	runStep, err := EvalBool(ctx, ee, expr, defaultStatusCheck)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", expr, err)
 	}
@@ -322,7 +327,12 @@ func isContinueOnError(ctx context.Context, expr string, step step, _ stepStage)
 
 	rc := step.getRunContext()
 
-	continueOnError, err := EvalBool(ctx, rc.NewStepExpressionEvaluator(ctx, step), expr, exprparser.DefaultStatusCheckNone)
+	ee, err := rc.NewStepExpressionEvaluator(ctx, step)
+	if err != nil {
+		return false, fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
+
+	continueOnError, err := EvalBool(ctx, ee, expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in continue-on-error-expression: \"continue-on-error: %s\" (%s)", expr, err)
 	}
