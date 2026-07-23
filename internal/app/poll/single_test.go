@@ -8,9 +8,9 @@ import (
 	"time"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	mock_runner "code.forgejo.org/forgejo/runner/v12/internal/app/run/mocks"
-	mock_client "code.forgejo.org/forgejo/runner/v12/internal/pkg/client/mocks"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	mock_runner "code.forgejo.org/forgejo/runner/v13/internal/app/run/mocks"
+	mock_client "code.forgejo.org/forgejo/runner/v13/internal/pkg/client/mocks"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/config"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

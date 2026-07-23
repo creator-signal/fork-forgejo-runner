@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/v12/act/container"
+	"code.forgejo.org/forgejo/runner/v13/act/container"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"

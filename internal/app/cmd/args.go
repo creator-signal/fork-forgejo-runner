@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/labels"
 	gouuid "github.com/google/uuid"
 )
 

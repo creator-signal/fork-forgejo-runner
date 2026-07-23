@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
+	"code.forgejo.org/forgejo/runner/v13/act/common/gitignore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gotest.tools/v3/skip"

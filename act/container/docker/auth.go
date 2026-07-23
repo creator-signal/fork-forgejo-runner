@@ -6,7 +6,7 @@ import (
 	"context"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/credentials"
 	"github.com/moby/moby/api/types/registry"

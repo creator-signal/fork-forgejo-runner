@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 )
 
 func evaluateCompositeInputAndEnv(ctx context.Context, parent *RunContext, step actionStep) (map[string]string, error) {

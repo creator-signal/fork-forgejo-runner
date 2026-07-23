@@ -7,12 +7,12 @@ import (
 	"context"
 	"fmt"
 
-	"code.forgejo.org/forgejo/runner/v12/internal/app/poll"
+	"code.forgejo.org/forgejo/runner/v13/internal/app/poll"
 	log "github.com/sirupsen/logrus"
 
-	"code.forgejo.org/forgejo/runner/v12/act/cacheproxy"
-	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v13/act/cacheproxy"
+	"code.forgejo.org/forgejo/runner/v13/internal/app/run"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/config"
 )
 
 type runJobArgs struct {

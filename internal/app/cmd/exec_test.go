@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/v12/testutils"
+	"code.forgejo.org/forgejo/runner/v13/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

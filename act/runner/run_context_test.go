@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v12/act/container"
-	"code.forgejo.org/forgejo/runner/v12/act/container/docker"
-	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
-	"code.forgejo.org/forgejo/runner/v12/testutils"
+	"code.forgejo.org/forgejo/runner/v13/act/container"
+	"code.forgejo.org/forgejo/runner/v13/act/container/docker"
+	"code.forgejo.org/forgejo/runner/v13/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
+	"code.forgejo.org/forgejo/runner/v13/testutils"
 	"gotest.tools/v3/skip"
 
 	log "github.com/sirupsen/logrus"

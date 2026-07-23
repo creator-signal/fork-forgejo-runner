@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
-	actcontainer "code.forgejo.org/forgejo/runner/v12/act/container"
-	"code.forgejo.org/forgejo/runner/v12/testutils"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
+	actcontainer "code.forgejo.org/forgejo/runner/v13/act/container"
+	"code.forgejo.org/forgejo/runner/v13/testutils"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"

@@ -11,8 +11,8 @@ import (
 	docker_container "github.com/moby/moby/api/types/container"
 	log "github.com/sirupsen/logrus"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 )
 
 // Runner provides capabilities to run GitHub actions

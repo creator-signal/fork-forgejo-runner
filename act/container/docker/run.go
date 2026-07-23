@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
+	"code.forgejo.org/forgejo/runner/v13/act/common/gitignore"
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver"
 	"github.com/avast/retry-go/v4"
@@ -38,9 +38,9 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
-	actcontainer "code.forgejo.org/forgejo/runner/v12/act/container"
-	"code.forgejo.org/forgejo/runner/v12/act/filecollector"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
+	actcontainer "code.forgejo.org/forgejo/runner/v13/act/container"
+	"code.forgejo.org/forgejo/runner/v13/act/filecollector"
 )
 
 // NewContainer creates a reference to a container

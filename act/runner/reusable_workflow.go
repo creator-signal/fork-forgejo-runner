@@ -7,9 +7,9 @@ import (
 	"path"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
-	"code.forgejo.org/forgejo/runner/v12/act/common/git"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/common/git"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 	"github.com/sirupsen/logrus"
 )
 

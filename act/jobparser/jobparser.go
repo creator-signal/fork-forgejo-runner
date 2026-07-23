@@ -12,8 +12,8 @@ import (
 	"github.com/rhysd/actionlint"
 	"go.yaml.in/yaml/v3"
 
-	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 )
 
 var ErrUnsupportedReusableWorkflowFetch = errors.New("unable to support reusable workflow fetch")

@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common/git"
-	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
+	"code.forgejo.org/forgejo/runner/v13/act/common/git"
+	"code.forgejo.org/forgejo/runner/v13/act/common/gitignore"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -8,9 +8,9 @@ import (
 	"errors"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v13/internal/app/run"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/config"
 	"connectrpc.com/connect"
 	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"

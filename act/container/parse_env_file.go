@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
 )
 
 // ParseEnvFile reads an env-file from the container at srcPath and parses it into env.
