@@ -76,7 +76,8 @@ func createRunContext(t *testing.T) *RunContext {
 
 func TestExpressionEvaluateRunContext(t *testing.T) {
 	rc := createRunContext(t)
-	ee := rc.NewExpressionEvaluator(t.Context())
+	ee, err := rc.NewExpressionEvaluator(t.Context())
+	require.NoError(t, err)
 
 	tables := []struct {
 		in      string
@@ -215,7 +216,8 @@ func TestExpressionInterpolate(t *testing.T) {
 			},
 		},
 	}
-	ee := rc.NewExpressionEvaluator(t.Context())
+	ee, err := rc.NewExpressionEvaluator(t.Context())
+	require.NoError(t, err)
 	tables := []struct {
 		in  string
 		out string

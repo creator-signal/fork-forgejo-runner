@@ -196,7 +196,8 @@ func (sr *stepRun) interpretShell(ctx context.Context) string {
 		shell = rc.Run.Job().Defaults.Run.Shell
 	}
 
-	shell, _ = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, shell)
+	ee, _ := rc.NewExpressionEvaluator(ctx)
+	shell, _ = ee.Interpolate(ctx, shell)
 
 	if shell == "" {
 		shell = rc.Run.Workflow.Defaults.Run.Shell
@@ -249,7 +250,8 @@ func (sr *stepRun) setupWorkingDirectory(ctx context.Context) {
 	}
 
 	// jobs can receive context values, so we interpolate
-	workingdirectory, _ = rc.NewExpressionEvaluator(ctx).Interpolate(ctx, workingdirectory)
+	ee, _ := rc.NewExpressionEvaluator(ctx)
+	workingdirectory, _ = ee.Interpolate(ctx, workingdirectory)
 
 	// but top level keys in workflow file like `defaults` or `env` can't
 	if workingdirectory == "" {

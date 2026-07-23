@@ -28,8 +28,8 @@ type ExpressionEvaluator interface {
 }
 
 // NewExpressionEvaluator creates a new evaluator
-func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) ExpressionEvaluator {
-	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.GetEnv())
+func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) (ExpressionEvaluator, error) {
+	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.GetEnv()), nil
 }
 
 func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {

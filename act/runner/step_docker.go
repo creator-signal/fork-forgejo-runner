@@ -65,8 +65,13 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 			return fmt.Errorf("docker container actions are not supported by the back-end %s", rc.JobContainer.BackendID())
 		}
 
+		eval, err := rc.NewExpressionEvaluator(ctx)
+		if err != nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+		}
+
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		eval := rc.NewExpressionEvaluator(ctx)
+
 		interpolatedArgs, err := eval.Interpolate(ctx, step.With["args"])
 		if err != nil {
 			return fmt.Errorf("unable to interpolate args: %w", err)

@@ -44,8 +44,11 @@ func (sar *stepActionRemote) prepareActionExecutor() common.Executor {
 		// Since actions can specify the download source via a url prefix.
 		// The prefix may contain some sensitive information that needs to be stored in secrets,
 		// so we need to interpolate the expression value for uses first.
-		var err error
-		if sar.Step.Uses, err = sar.RunContext.NewExpressionEvaluator(ctx).Interpolate(ctx, sar.Step.Uses); err != nil {
+		ee, err := sar.RunContext.NewExpressionEvaluator(ctx)
+		if err != nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+		}
+		if sar.Step.Uses, err = ee.Interpolate(ctx, sar.Step.Uses); err != nil {
 			return fmt.Errorf("unable to interpolate uses: %w", err)
 		}
 
@@ -140,7 +143,10 @@ func (sar *stepActionRemote) main() common.Executor {
 					common.Logger(ctx).Debugf("Skipping local actions/checkout because you bound your workspace")
 					return nil
 				}
-				eval := sar.RunContext.NewExpressionEvaluator(ctx)
+				eval, err := sar.RunContext.NewExpressionEvaluator(ctx)
+				if err != nil {
+					return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+				}
 				interpolatedPath, err := eval.Interpolate(ctx, sar.Step.With["path"])
 				if err != nil {
 					return fmt.Errorf("unable to interpolate path: %w", err)

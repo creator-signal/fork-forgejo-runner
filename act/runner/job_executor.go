@@ -49,7 +49,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		if rc.Run == nil {
 			return nil
 		}
-		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+		var err error
+		if rc.ExprEval, err = rc.NewExpressionEvaluator(ctx); err != nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+		}
 
 		// Env already contains job variables, not only workflow variables. And those job variables might have
 		// overridden workflow variables. Identify the workflow variables to interpolate by looping over
@@ -72,7 +75,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		if rc.Run == nil {
 			return nil
 		}
-		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+		var err error
+		if rc.ExprEval, err = rc.NewExpressionEvaluator(ctx); err != nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+		}
 		// evaluate environment variables since they can contain
 		// GitHub's special environment variables.
 		for k, v := range rc.GetEnv() {
@@ -223,8 +229,15 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 
 		// 2) copy workflow_call outputs from child to parent (as in upstream)
 		jobOutputs := make(map[string]string)
-		ee := rc.NewExpressionEvaluator(ctx)
-		if wfcc := rc.Run.Workflow.WorkflowCallConfig(); wfcc != nil {
+		ee, err := rc.NewExpressionEvaluator(ctx)
+		if err != nil {
+			// We're already past the point where we could change the outcome of the job. So, we can only log
+			// any errors.
+			logger.
+				WithField("raw_output", true).
+				Errorf("%s %v", runnerLogPrefix, err)
+		}
+		if wfcc := rc.Run.Workflow.WorkflowCallConfig(); wfcc != nil && err == nil {
 			for k, v := range wfcc.Outputs {
 				var err error
 				if jobOutputs[k], err = ee.Interpolate(ctx, v.Value); err != nil {

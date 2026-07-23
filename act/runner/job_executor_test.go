@@ -326,7 +326,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				},
 				Config: &Config{},
 			}
-			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+			var err error
+			rc.ExprEval, err = rc.NewExpressionEvaluator(ctx)
+			require.NoError(t, err)
 
 			jim.On("steps").Return(tt.steps)
 
@@ -386,7 +388,7 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			}
 
 			executor := newJobExecutor(jim, sfm, rc)
-			err := executor(ctx)
+			err = executor(ctx)
 			if tt.hasError {
 				require.Error(t, err)
 			} else {

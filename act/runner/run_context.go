@@ -927,7 +927,10 @@ func (rc *RunContext) ActionCacheDir() string {
 // Interpolate outputs after a job is done
 func (rc *RunContext) interpolateOutputs() common.Executor {
 	return func(ctx context.Context) error {
-		ee := rc.NewExpressionEvaluator(ctx)
+		ee, err := rc.NewExpressionEvaluator(ctx)
+		if err != nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+		}
 		for k, v := range rc.Run.Job().Outputs {
 			var err error
 			if rc.Run.Job().Outputs[k], err = ee.Interpolate(ctx, v); err != nil {
@@ -1517,7 +1520,10 @@ func (rc *RunContext) handleCredentials(ctx context.Context) (username, password
 		return "", "", err
 	}
 
-	ee := rc.NewExpressionEvaluator(ctx)
+	ee, err := rc.NewExpressionEvaluator(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
 	username, err = ee.Interpolate(ctx, container.Credentials["username"])
 	if err != nil {
 		return "", "", fmt.Errorf("unable to interpolate username: %w", err)
@@ -1545,7 +1551,10 @@ func (rc *RunContext) handleServiceCredentials(ctx context.Context, creds map[st
 		return username, password, err
 	}
 
-	ee := rc.NewExpressionEvaluator(ctx)
+	ee, err := rc.NewExpressionEvaluator(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
 	username, err = ee.Interpolate(ctx, creds["username"])
 	if err != nil {
 		return "", "", fmt.Errorf("unable to interpolate username: %w", err)

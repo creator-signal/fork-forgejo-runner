@@ -403,8 +403,12 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
 
+	eval, err := rc.NewExpressionEvaluator(ctx)
+	if err != nil {
+		return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
+
 	inputs := make(map[string]string)
-	eval := rc.NewExpressionEvaluator(ctx)
 	// Set Defaults
 	for k, input := range action.Inputs {
 		var err error
@@ -526,7 +530,7 @@ func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *Run
 }
 
 func populateEnvsFromInput(ctx context.Context, env *map[string]string, action *model.Action, rc *RunContext) {
-	eval := rc.NewExpressionEvaluator(ctx)
+	eval, _ := rc.NewExpressionEvaluator(ctx)
 	for inputID, input := range action.Inputs {
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 		envKey = fmt.Sprintf("INPUT_%s", envKey)

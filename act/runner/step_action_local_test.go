@@ -12,6 +12,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -255,7 +256,9 @@ func TestStepActionLocalPost(t *testing.T) {
 				Step:   tt.stepModel,
 				action: tt.actionModel,
 			}
-			sal.RunContext.ExprEval = sal.RunContext.NewExpressionEvaluator(ctx)
+			var err error
+			sal.RunContext.ExprEval, err = sal.RunContext.NewExpressionEvaluator(ctx)
+			require.NoError(t, err)
 
 			if tt.mocks.exec {
 				suffixMatcher := func(suffix string) any {
@@ -285,7 +288,7 @@ func TestStepActionLocalPost(t *testing.T) {
 				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 			}
 
-			err := sal.post()(ctx)
+			err = sal.post()(ctx)
 
 			assert.Equal(t, tt.err, err)
 			assert.Equal(t, sal.RunContext.StepResults["post-step"], (*model.StepResult)(nil))

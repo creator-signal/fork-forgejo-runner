@@ -69,7 +69,8 @@ func TestRunContext_EvalBool(t *testing.T) {
 			},
 		},
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
+	rc.ExprEval, err = rc.NewExpressionEvaluator(t.Context())
+	require.NoError(t, err)
 
 	tables := []struct {
 		in      string
@@ -280,7 +281,9 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 						BindWorkdir: false,
 					},
 				}
-				rc.ExprEval = rc.NewExpressionEvaluator(t.Context())
+				rc.ExprEval, err = rc.NewExpressionEvaluator(t.Context())
+				require.NoError(t, err)
+
 				rc.Run.JobID = "job1"
 				rc.Run.Workflow.Jobs = map[string]*model.Job{"job1": job}
 
@@ -390,7 +393,7 @@ func createIfTestRunContext(jobs map[string]*model.Job) *RunContext {
 			},
 		},
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator(context.Background())
+	rc.ExprEval, _ = rc.NewExpressionEvaluator(context.Background())
 
 	return rc
 }
@@ -862,7 +865,9 @@ jobs:
 
 			ctx := t.Context()
 			rc := testCase.step.getRunContext()
-			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+
+			rc.ExprEval, err = rc.NewExpressionEvaluator(ctx)
+			require.NoError(t, err)
 
 			require.NoError(t, rc.prepareJobContainer(ctx))
 			slices.SortFunc(containerInputs, func(a, b container.NewContainerInput) int { return cmp.Compare(a.Username, b.Username) })

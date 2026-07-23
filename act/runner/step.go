@@ -240,7 +240,10 @@ func setupEnv(ctx context.Context, step step) error {
 	// merge step env last, since it should not be overwritten
 	mergeIntoMap(step, step.getEnv(), step.getStepModel().GetEnv())
 
-	exprEval := rc.NewExpressionEvaluator(ctx)
+	exprEval, err := rc.NewExpressionEvaluator(ctx)
+	if err != nil {
+		return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
 	for k, v := range *step.getEnv() {
 		if !strings.HasPrefix(k, "INPUT_") {
 			var err error

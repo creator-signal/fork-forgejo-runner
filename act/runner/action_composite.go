@@ -81,7 +81,9 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		Parent:       parent,
 		EventJSON:    parent.EventJSON,
 	}
-	compositerc.ExprEval = compositerc.NewExpressionEvaluator(ctx)
+	if compositerc.ExprEval, err = compositerc.NewExpressionEvaluator(ctx); err != nil {
+		return nil, fmt.Errorf("could not create a new NewExpressionEvaluator: %w", err)
+	}
 
 	return compositerc, nil
 }
@@ -108,7 +110,10 @@ func execAsComposite(step actionStep) common.Executor {
 		err = steps.main(ctx)
 
 		// Map outputs from composite RunContext to job RunContext
-		eval := compositeRC.NewExpressionEvaluator(ctx)
+		eval, err2 := compositeRC.NewExpressionEvaluator(ctx)
+		if err2 != nil && err == nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+		}
 		for outputName, output := range action.Outputs {
 			interpolatedOutput, err2 := eval.Interpolate(ctx, output.Value)
 			if err2 != nil && err == nil {

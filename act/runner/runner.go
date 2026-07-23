@@ -180,7 +180,13 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					log.Debugf("Job.Strategy.RawMatrix: %v", job.Strategy.RawMatrix)
 
 					strategyRc := runner.newRunContext(ctx, run, nil)
-					if err := strategyRc.NewExpressionEvaluator(ctx).EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
+
+					ee, err := strategyRc.NewExpressionEvaluator(ctx)
+					if err != nil {
+						return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+					}
+
+					if err := ee.EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
 						log.Errorf("Error while evaluating matrix: %v", err)
 					}
 				}
@@ -276,7 +282,7 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 		Matrix:      matrix,
 		caller:      runner.caller,
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+	rc.ExprEval, _ = rc.NewExpressionEvaluator(ctx)
 	rc.Name, _ = rc.ExprEval.Interpolate(ctx, run.String())
 
 	return rc
