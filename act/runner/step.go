@@ -183,9 +183,17 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0o666,
 		})(ctx)
 
-		timeoutctx, cancelTimeOut := evaluateTimeout(ctx, "step", rc.ExprEval, stepModel.TimeoutMinutes)
-		defer cancelTimeOut()
-		err = executor(timeoutctx)
+		cancelFunc := func() {}
+		timeoutMinutes, err := evaluateTimeout(ctx, rc.ExprEval, stepModel.TimeoutMinutes)
+		if err != nil {
+			return err
+		}
+		if timeoutMinutes != nil {
+			common.Logger(ctx).Debugf("The step will stop in %d minutes", *timeoutMinutes)
+			ctx, cancelFunc = context.WithTimeout(ctx, time.Duration(*timeoutMinutes)*time.Minute)
+		}
+		defer cancelFunc()
+		err = executor(ctx)
 
 		if err == nil {
 			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
@@ -220,17 +228,21 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 	}
 }
 
-func evaluateTimeout(ctx context.Context, contextType string, exprEval ExpressionEvaluator, timeoutMinutes string) (context.Context, context.CancelFunc) {
-	timeout, _ := exprEval.Interpolate(ctx, timeoutMinutes)
-	if timeout != "" {
-		timeOutMinutes, err := strconv.ParseInt(timeout, 10, 64)
-		if err == nil {
-			common.Logger(ctx).Debugf("the %s will stop in timeout-minutes %s", contextType, timeout)
-			return context.WithTimeout(ctx, time.Duration(timeOutMinutes)*time.Minute)
-		}
-		common.Logger(ctx).Errorf("timeout-minutes %s cannot be parsed and will be ignored: %w", timeout, err)
+func evaluateTimeout(ctx context.Context, exprEval ExpressionEvaluator, timeoutMinutes string) (*int64, error) {
+	interpolatedTimeout, err := exprEval.Interpolate(ctx, timeoutMinutes)
+	if err != nil {
+		return nil, fmt.Errorf("could not interpolate timeout: %w", err)
 	}
-	return ctx, func() {}
+	if strings.TrimSpace(interpolatedTimeout) == "" {
+		return nil, nil
+	}
+
+	timeout, err := strconv.ParseInt(interpolatedTimeout, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse timeout: %w", err)
+	}
+
+	return &timeout, nil
 }
 
 func setupEnv(ctx context.Context, step step) error {

@@ -1135,10 +1135,17 @@ func (rc *RunContext) Executor() (common.Executor, error) {
 			return err
 		}
 		if res {
-			timeoutctx, cancelTimeOut := evaluateTimeout(ctx, "job", rc.ExprEval, rc.Run.Job().TimeoutMinutes)
-			defer cancelTimeOut()
-
-			return executor(timeoutctx)
+			cancelFunc := func() {}
+			timeoutMinutes, err := evaluateTimeout(ctx, rc.ExprEval, rc.Run.Job().TimeoutMinutes)
+			if err != nil {
+				return err
+			}
+			if timeoutMinutes != nil {
+				common.Logger(ctx).Debugf("The job will stop in %d minutes", *timeoutMinutes)
+				ctx, cancelFunc = context.WithTimeout(ctx, time.Duration(*timeoutMinutes)*time.Minute)
+			}
+			defer cancelFunc()
+			return executor(ctx)
 		}
 		return nil
 	}, nil

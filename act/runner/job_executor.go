@@ -273,10 +273,11 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
-		interpolatedStepName, err := rc.ExprEval.Interpolate(ctx, stepModel.String())
-		if err != nil {
-			return fmt.Errorf("unable to interpolate step name: %w", err)
-		}
+		// Returning the error and aborting the execution is not the right choice in this case because the logger is
+		// needed to communicate errors to the user. The worst that can happen without the interpolated step name is
+		// that it is empty, which does not materially affect the outcome of the job. If the error was logged, it
+		// would appear in "Set up job", which wouldn't be particularly helpful due to its unknown origin.
+		interpolatedStepName, _ := rc.ExprEval.Interpolate(ctx, stepModel.String())
 		ctx = withStepLogger(ctx, stepModel.Number, stepModel.ID, interpolatedStepName, stage.String())
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)

@@ -257,9 +257,8 @@ func setupActionEnv(ctx context.Context, step actionStep, _ *remoteAction) error
 	// the action
 	rc.withGithubEnv(ctx, step.getGithubContext(ctx), *step.getEnv())
 	populateEnvsFromSavedState(step.getEnv(), step, rc)
-	populateEnvsFromInput(ctx, step.getEnv(), step.getActionModel(), rc)
 
-	return nil
+	return populateEnvsFromInput(ctx, step.getEnv(), step.getActionModel(), rc)
 }
 
 // https://github.com/nektos/act/issues/228#issuecomment-629709055
@@ -552,15 +551,22 @@ func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *Run
 	}
 }
 
-func populateEnvsFromInput(ctx context.Context, env *map[string]string, action *model.Action, rc *RunContext) {
-	eval, _ := rc.NewExpressionEvaluator(ctx)
+func populateEnvsFromInput(ctx context.Context, env *map[string]string, action *model.Action, rc *RunContext) error {
+	eval, err := rc.NewExpressionEvaluator(ctx)
+	if err != nil {
+		return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
 	for inputID, input := range action.Inputs {
 		envKey := regexp.MustCompile("[^A-Z0-9-]").ReplaceAllString(strings.ToUpper(inputID), "_")
 		envKey = fmt.Sprintf("INPUT_%s", envKey)
 		if _, ok := (*env)[envKey]; !ok {
-			(*env)[envKey], _ = eval.Interpolate(ctx, input.Default)
+			var err error
+			if (*env)[envKey], err = eval.Interpolate(ctx, input.Default); err != nil {
+				return fmt.Errorf("could not interpolate default value of %q: %w", envKey, err)
+			}
 		}
 	}
+	return nil
 }
 
 func getContainerActionPaths(step *model.Step, actionDir string, rc *RunContext) (string, string) {
@@ -632,7 +638,9 @@ func runPreStep(step actionStep) common.Executor {
 		action := step.getActionModel()
 
 		// todo: refactor into step
-		populateEnvsFromInput(ctx, step.getEnv(), action, rc)
+		if err := populateEnvsFromInput(ctx, step.getEnv(), action, rc); err != nil {
+			return err
+		}
 
 		var actionDir string
 		var actionPath string
@@ -687,7 +695,9 @@ func runPreStep(step actionStep) common.Executor {
 
 		case model.ActionRunsUsingGo:
 			// defaults in pre steps were missing, however provided inputs are available
-			populateEnvsFromInput(ctx, step.getEnv(), action, rc)
+			if err := populateEnvsFromInput(ctx, step.getEnv(), action, rc); err != nil {
+				return err
+			}
 			// todo: refactor into step
 			var actionDir string
 			var actionPath string
@@ -811,7 +821,9 @@ func runPostStep(step actionStep) common.Executor {
 		case model.ActionRunsUsingNode12, model.ActionRunsUsingNode16, model.ActionRunsUsingNode20, model.ActionRunsUsingNode24:
 
 			populateEnvsFromSavedState(step.getEnv(), step, rc)
-			populateEnvsFromInput(ctx, step.getEnv(), step.getActionModel(), rc)
+			if err := populateEnvsFromInput(ctx, step.getEnv(), step.getActionModel(), rc); err != nil {
+				return err
+			}
 
 			containerArgs := []string{"node", path.Join(containerActionDir, action.Runs.Post)}
 			logger.Debugf("executing remote job container: %s", containerArgs)
