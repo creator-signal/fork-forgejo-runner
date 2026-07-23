@@ -123,8 +123,14 @@ func shellCommand(shell string) string {
 // OCI runtime exec failed: exec failed: container_linux.go:380: starting container process caused: exec: "${{": executable file not found in $PATH: unknown
 func (sr *stepRun) setupShellCommand(ctx context.Context) (name, script string, err error) {
 	logger := common.Logger(ctx)
-	shell := sr.interpretShell(ctx)
-	sr.setupWorkingDirectory(ctx)
+	shell, err := sr.interpretShell(ctx)
+	if err != nil {
+		return "", "", err
+	}
+
+	if err = sr.setupWorkingDirectory(ctx); err != nil {
+		return "", "", err
+	}
 
 	step := sr.Step
 
@@ -193,7 +199,7 @@ func (l *localEnv) Getenv(name string) string {
 	return l.env[name]
 }
 
-func (sr *stepRun) interpretShell(ctx context.Context) string {
+func (sr *stepRun) interpretShell(ctx context.Context) (string, error) {
 	rc := sr.RunContext
 	shell := sr.Step.RawShell
 
@@ -201,8 +207,14 @@ func (sr *stepRun) interpretShell(ctx context.Context) string {
 		shell = rc.Run.Job().Defaults.Run.Shell
 	}
 
-	ee, _ := rc.NewExpressionEvaluator(ctx)
-	shell, _ = ee.Interpolate(ctx, shell)
+	ee, err := rc.NewExpressionEvaluator(ctx)
+	if err != nil {
+		return "", fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
+
+	if shell, err = ee.Interpolate(ctx, shell); err != nil {
+		return "", fmt.Errorf("could not interpolate shell: %w", err)
+	}
 
 	if shell == "" {
 		shell = rc.Run.Workflow.Defaults.Run.Shell
@@ -240,27 +252,35 @@ fi
 		}
 	}
 
-	return shell
+	return shell, nil
 }
 
-func (sr *stepRun) setupWorkingDirectory(ctx context.Context) {
+func (sr *stepRun) setupWorkingDirectory(ctx context.Context) error {
 	rc := sr.RunContext
 	step := sr.Step
-	var workingdirectory string
+	var workingDirectory string
 
 	if step.WorkingDirectory == "" {
-		workingdirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
+		workingDirectory = rc.Run.Job().Defaults.Run.WorkingDirectory
 	} else {
-		workingdirectory = step.WorkingDirectory
+		workingDirectory = step.WorkingDirectory
 	}
 
 	// jobs can receive context values, so we interpolate
-	ee, _ := rc.NewExpressionEvaluator(ctx)
-	workingdirectory, _ = ee.Interpolate(ctx, workingdirectory)
+	ee, err := rc.NewExpressionEvaluator(ctx)
+	if err != nil {
+		return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
+
+	if workingDirectory, err = ee.Interpolate(ctx, workingDirectory); err != nil {
+		return fmt.Errorf("could not interpolate working directory: %w", err)
+	}
 
 	// but top level keys in workflow file like `defaults` or `env` can't
-	if workingdirectory == "" {
-		workingdirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
+	if workingDirectory == "" {
+		workingDirectory = rc.Run.Workflow.Defaults.Run.WorkingDirectory
 	}
-	sr.WorkingDirectory = workingdirectory
+	sr.WorkingDirectory = workingDirectory
+
+	return nil
 }
