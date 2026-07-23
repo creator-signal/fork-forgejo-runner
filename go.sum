@@ -116,8 +116,8 @@ github.com/opencontainers/selinux v1.15.1 h1:ERxeh5caJvCzNAKdI8WQbJmB1LDTn4BuaAg
 github.com/opencontainers/selinux v1.15.1/go.mod h1:LenyElirjUHszfxrjuFqC85HIeXZKumHcKMQtnaDlQQ=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/powerman/fileuri v0.2.0 h1:+CsMkkrY8HtSXUpoZNp2F53R20hA7caiBjpU2jYnY1g=
-github.com/powerman/fileuri v0.2.0/go.mod h1:nFHerdvcP+wa5FNgLCbXpG4wdZfHSswr2O4dpggGFTs=
+github.com/powerman/fileuri v0.3.0 h1:UEVuRiel+Ob4Z+j1lnaHTnvu4hq8O5ljRaw4zOCQUhU=
+github.com/powerman/fileuri v0.3.0/go.mod h1:rrWmyDVgMdJIZwWbacUG8a+FmS/MQEmpjimnq3i4xAg=
 github.com/rhysd/actionlint v1.7.12 h1:vQ4GeJN86C0QH+gTUQcs8McmK62OLT3kmakPMtEWYnY=
 github.com/rhysd/actionlint v1.7.12/go.mod h1:krOUhujIsJusovkaYzQ/VNH8PFexjNKqU0q5XI/4w+g=
 github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
