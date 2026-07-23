@@ -391,7 +391,11 @@ func execAsDocker(ctx context.Context, step actionStep, actionName, basedir, sub
 			entrypoint = nil
 		}
 	}
-	stepContainer := newStepContainer(ctx, ep, step, image, cmd, entrypoint, targetPlatform)
+	stepContainer, err := newStepContainer(ctx, ep, step, image, cmd, entrypoint, targetPlatform)
+	if err != nil {
+		return fmt.Errorf("could not create new step container: %w", err)
+	}
+
 	return common.NewPipelineExecutor(
 		prepImage,
 		stepContainer.Pull(forcePull),
@@ -457,7 +461,7 @@ func evalDockerArgs(ctx context.Context, step step, action *model.Action, cmd *[
 	return nil
 }
 
-func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image string, cmd, entrypoint []string, targetPlatform string) container.Container {
+func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image string, cmd, entrypoint []string, targetPlatform string) (container.Container, error) {
 	ext := docker.LinuxContainerEnvironmentExtensions{}
 	rc := step.getRunContext()
 	stepModel := step.getStepModel()
@@ -479,12 +483,20 @@ func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image 
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", rc.getToolCache(ctx)))
+	toolCachePath, err := rc.getToolCache(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not determine path of tool cache: %w", err)
+	}
+
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", toolCachePath))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", ep.RunnerArch()))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
-	binds, mounts, validVolumes := rc.GetBindsAndMounts(ctx)
+	binds, mounts, validVolumes, err := rc.GetBindsAndMounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get container binds and mounts: %w", err)
+	}
 	networkMode := fmt.Sprintf("container:%s", rc.jobContainerName())
 	if rc.JobContainer.ManagesOwnNetworking() {
 		networkMode = "default"
@@ -514,7 +526,7 @@ func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image 
 		Image:           image,
 		Name:            createSimpleContainerName(rc.jobContainerName(), "STEP-"+stepModel.ID),
 		Env:             envList,
-		ToolCache:       rc.getToolCache(ctx),
+		ToolCache:       toolCachePath,
 		Mounts:          mounts,
 		NetworkMode:     networkMode,
 		Binds:           binds,
@@ -527,7 +539,7 @@ func newStepContainer(ctx context.Context, ep docker.Endpoint, step step, image 
 
 		ConfigOptions: rc.Config.ContainerOptions,
 	})
-	return stepContainer
+	return stepContainer, nil
 }
 
 func populateEnvsFromSavedState(env *map[string]string, step actionStep, rc *RunContext) {

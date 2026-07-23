@@ -160,7 +160,8 @@ func TestStepDockerNetworkConfiguration(t *testing.T) {
 	}
 
 	// Call newStepContainer directly to test network configuration
-	_ = sd.newStepContainer(ctx, fakeEndpoint{}, "alpine:latest", nil, nil)
+	_, err := sd.newStepContainer(ctx, fakeEndpoint{}, "alpine:latest", nil, nil)
+	require.NoError(t, err)
 
 	// Verify network configuration
 	// NetworkMode should use rc.getNetworkName() instead of container:jobContainerName
