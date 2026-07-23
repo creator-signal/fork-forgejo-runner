@@ -29,10 +29,10 @@ type ExpressionEvaluator interface {
 
 // NewExpressionEvaluator creates a new evaluator
 func (rc *RunContext) NewExpressionEvaluator(ctx context.Context) (ExpressionEvaluator, error) {
-	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.GetEnv()), nil
+	return rc.NewExpressionEvaluatorWithEnv(ctx, rc.GetEnv())
 }
 
-func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) ExpressionEvaluator {
+func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map[string]string) (ExpressionEvaluator, error) {
 	var workflowCallResult map[string]*model.WorkflowCallResult
 
 	// todo: cleanup EvaluationEnvironment creation
@@ -93,13 +93,14 @@ func (rc *RunContext) NewExpressionEvaluatorWithEnv(ctx context.Context, env map
 	if rc.JobContainer != nil {
 		ee.Runner = rc.JobContainer.GetRunnerContext(ctx)
 	}
-	return expressionEvaluator{
-		interpreter: exprparser.NewInterpreter(ee, exprparser.Config{
-			Run:        rc.Run,
-			WorkingDir: rc.Config.Workdir,
-			Context:    "job",
-		}),
-	}
+
+	interpreter := exprparser.NewInterpreter(ee, exprparser.Config{
+		Run:        rc.Run,
+		WorkingDir: rc.Config.Workdir,
+		Context:    "job",
+	})
+
+	return expressionEvaluator{interpreter: interpreter}, nil
 }
 
 //go:embed hashfiles/index.js

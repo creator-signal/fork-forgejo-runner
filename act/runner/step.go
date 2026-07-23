@@ -254,7 +254,9 @@ func setupEnv(ctx context.Context, step step) error {
 	}
 	// after we have an evaluated step context, update the expressions evaluator with a new env context
 	// you can use step level env in the with property of a uses construct
-	exprEval = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
+	if exprEval, err = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv()); err != nil {
+		return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
 	for k, v := range *step.getEnv() {
 		if strings.HasPrefix(k, "INPUT_") {
 			var err error
