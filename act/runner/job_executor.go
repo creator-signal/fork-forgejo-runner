@@ -49,7 +49,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		if rc.Run == nil {
 			return nil
 		}
-		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+		var err error
+		if rc.ExprEval, err = rc.NewExpressionEvaluator(ctx); err != nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+		}
 
 		// Env already contains job variables, not only workflow variables. And those job variables might have
 		// overridden workflow variables. Identify the workflow variables to interpolate by looping over
@@ -59,7 +62,10 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 			// variable. Otherwise, it might contain a reference to a variable that is only visible on the job-level.
 			// But that wouldn't be safe because the job-level hasn't been fully populated, yet.
 			if currentValue, ok := rc.Env[k]; ok && currentValue == v {
-				rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+				var err error
+				if rc.Env[k], err = rc.ExprEval.Interpolate(ctx, v); err != nil {
+					return fmt.Errorf("unable to interpolate environment variable %q: %w", k, err)
+				}
 			}
 		}
 		return nil
@@ -69,11 +75,17 @@ func newJobExecutor(info jobInfo, sf stepFactory, rc *RunContext) common.Executo
 		if rc.Run == nil {
 			return nil
 		}
-		rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+		var err error
+		if rc.ExprEval, err = rc.NewExpressionEvaluator(ctx); err != nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+		}
 		// evaluate environment variables since they can contain
 		// GitHub's special environment variables.
 		for k, v := range rc.GetEnv() {
-			rc.Env[k] = rc.ExprEval.Interpolate(ctx, v)
+			var err error
+			if rc.Env[k], err = rc.ExprEval.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("unable to interpolate environment variable %q: %w", k, err)
+			}
 		}
 		return nil
 	})
@@ -217,10 +229,24 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 
 		// 2) copy workflow_call outputs from child to parent (as in upstream)
 		jobOutputs := make(map[string]string)
-		ee := rc.NewExpressionEvaluator(ctx)
-		if wfcc := rc.Run.Workflow.WorkflowCallConfig(); wfcc != nil {
+		ee, err := rc.NewExpressionEvaluator(ctx)
+		if err != nil {
+			// We're already past the point where we could change the outcome of the job. So, we can only log
+			// any errors.
+			logger.
+				WithField("raw_output", true).
+				Errorf("%s %v", runnerLogPrefix, err)
+		}
+		if wfcc := rc.Run.Workflow.WorkflowCallConfig(); wfcc != nil && err == nil {
 			for k, v := range wfcc.Outputs {
-				jobOutputs[k] = ee.Interpolate(ctx, ee.Interpolate(ctx, v.Value))
+				var err error
+				if jobOutputs[k], err = ee.Interpolate(ctx, v.Value); err != nil {
+					// We're already past the point where we could change the outcome of the job. So, we can only log
+					// any errors.
+					logger.
+						WithField("raw_output", true).
+						Errorf("%s %v", runnerLogPrefix, err)
+				}
 			}
 		}
 		rc.caller.runContext.Run.Job().Outputs = jobOutputs
@@ -247,7 +273,12 @@ func setJobResult(ctx context.Context, info jobInfo, rc *RunContext, success boo
 
 func useStepLogger(rc *RunContext, stepModel *model.Step, stage stepStage, executor common.Executor) common.Executor {
 	return func(ctx context.Context) error {
-		ctx = withStepLogger(ctx, stepModel.Number, stepModel.ID, rc.ExprEval.Interpolate(ctx, stepModel.String()), stage.String())
+		// Returning the error and aborting the execution is not the right choice in this case because the logger is
+		// needed to communicate errors to the user. The worst that can happen without the interpolated step name is
+		// that it is empty, which does not materially affect the outcome of the job. If the error was logged, it
+		// would appear in "Set up job", which wouldn't be particularly helpful due to its unknown origin.
+		interpolatedStepName, _ := rc.ExprEval.Interpolate(ctx, stepModel.String())
+		ctx = withStepLogger(ctx, stepModel.Number, stepModel.ID, interpolatedStepName, stage.String())
 
 		rawLogger := common.Logger(ctx).WithField("raw_output", true)
 		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {

@@ -179,8 +179,17 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					log.Debugf("Job.Strategy.MaxParallelString: %v", job.Strategy.MaxParallelString)
 					log.Debugf("Job.Strategy.RawMatrix: %v", job.Strategy.RawMatrix)
 
-					strategyRc := runner.newRunContext(ctx, run, nil)
-					if err := strategyRc.NewExpressionEvaluator(ctx).EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
+					strategyRc, err := runner.newRunContext(ctx, run, nil)
+					if err != nil {
+						return fmt.Errorf("could not create new run context: %w", err)
+					}
+
+					ee, err := strategyRc.NewExpressionEvaluator(ctx)
+					if err != nil {
+						return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+					}
+
+					if err := ee.EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
 						log.Errorf("Error while evaluating matrix: %v", err)
 					}
 				}
@@ -206,7 +215,11 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 
 				stageExecutor := make([]common.Executor, 0, len(matrixes))
 				for i, matrix := range matrixes {
-					rc := runner.newRunContext(ctx, run, matrix)
+					rc, err := runner.newRunContext(ctx, run, matrix)
+					if err != nil {
+						return fmt.Errorf("could not create new run context: %w", err)
+					}
+
 					rc.JobName = rc.Name
 					if len(matrixes) > 1 {
 						rc.Name = fmt.Sprintf("%s-%d", rc.Name, i+1)
@@ -267,7 +280,7 @@ func selectMatrixes(originalMatrixes []map[string]any, targetMatrixValues map[st
 	return matrixes
 }
 
-func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, matrix map[string]any) *RunContext {
+func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, matrix map[string]any) (*RunContext, error) {
 	rc := &RunContext{
 		Config:      runner.config,
 		Run:         run,
@@ -276,8 +289,14 @@ func (runner *runnerImpl) newRunContext(ctx context.Context, run *model.Run, mat
 		Matrix:      matrix,
 		caller:      runner.caller,
 	}
-	rc.ExprEval = rc.NewExpressionEvaluator(ctx)
-	rc.Name = rc.ExprEval.Interpolate(ctx, run.String())
 
-	return rc
+	var err error
+	if rc.ExprEval, err = rc.NewExpressionEvaluator(ctx); err != nil {
+		return nil, fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
+	if rc.Name, err = rc.ExprEval.Interpolate(ctx, run.String()); err != nil {
+		return nil, fmt.Errorf("could not interpolate run name: %w", err)
+	}
+
+	return rc, nil
 }

@@ -1,0 +1,13 @@
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Should fail
+        run: |
+          echo "${{ format('Hello {0} {1}') }}"
+      - name: Should be skipped
+        run: |
+          echo "The job should have been failed"
+          exit 1

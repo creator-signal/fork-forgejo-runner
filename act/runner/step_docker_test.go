@@ -11,6 +11,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStepDockerMain(t *testing.T) {
@@ -57,7 +58,9 @@ func TestStepDockerMain(t *testing.T) {
 			WorkingDirectory: "workdir",
 		},
 	}
-	sd.RunContext.ExprEval = sd.RunContext.NewExpressionEvaluator(ctx)
+	var err error
+	sd.RunContext.ExprEval, err = sd.RunContext.NewExpressionEvaluator(ctx)
+	require.NoError(t, err)
 
 	cm.On("Pull", false).Return(func(ctx context.Context) error {
 		return nil
@@ -98,8 +101,8 @@ func TestStepDockerMain(t *testing.T) {
 	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/SUMMARY.md").Return(io.NopCloser(&bytes.Buffer{}), nil)
 	cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 
-	err := sd.main()(ctx)
-	assert.Nil(t, err)
+	err = sd.main()(ctx)
+	require.NoError(t, err)
 
 	assert.Equal(t, "node:14", input.Image)
 
@@ -157,7 +160,8 @@ func TestStepDockerNetworkConfiguration(t *testing.T) {
 	}
 
 	// Call newStepContainer directly to test network configuration
-	_ = sd.newStepContainer(ctx, fakeEndpoint{}, "alpine:latest", nil, nil)
+	_, err := sd.newStepContainer(ctx, fakeEndpoint{}, "alpine:latest", nil, nil)
+	require.NoError(t, err)
 
 	// Verify network configuration
 	// NetworkMode should use rc.getNetworkName() instead of container:jobContainerName

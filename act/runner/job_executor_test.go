@@ -29,7 +29,7 @@ func TestJobExecutor(t *testing.T) {
 	tables := []TestJobFileInfo{
 		{workdir, "uses-and-run-in-one-step", "push", "Invalid run/uses syntax for job:test step:Test", platforms, secrets},
 		{workdir, "uses-github-empty", "push", "job:test step:empty", platforms, secrets},
-		{workdir, "uses-github-noref", "push", "Expected format {org}/{repo}[/path]@ref", platforms, secrets},
+		{workdir, "uses-github-noref", "push", "expected format {org}/{repo}[/path]@ref", platforms, secrets},
 		{workdir, "uses-github-root", "push", "", platforms, secrets},
 		{workdir, "uses-github-path", "push", "", platforms, secrets},
 		{workdir, "uses-docker-url", "push", "", platforms, secrets},
@@ -326,7 +326,9 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 				},
 				Config: &Config{},
 			}
-			rc.ExprEval = rc.NewExpressionEvaluator(ctx)
+			var err error
+			rc.ExprEval, err = rc.NewExpressionEvaluator(ctx)
+			require.NoError(t, err)
 
 			jim.On("steps").Return(tt.steps)
 
@@ -386,7 +388,7 @@ func TestJobExecutorNewJobExecutor(t *testing.T) {
 			}
 
 			executor := newJobExecutor(jim, sfm, rc)
-			err := executor(ctx)
+			err = executor(ctx)
 			if tt.hasError {
 				require.Error(t, err)
 			} else {

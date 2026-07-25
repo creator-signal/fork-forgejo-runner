@@ -62,18 +62,29 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 
 	return func(ctx context.Context) error {
 		if !rc.JobContainer.SupportsDockerContainerActions() {
-			return fmt.Errorf("Docker container actions are not supported by the back-end %s", rc.JobContainer.BackendID())
+			return fmt.Errorf("docker container actions are not supported by the back-end %s", rc.JobContainer.BackendID())
+		}
+
+		eval, err := rc.NewExpressionEvaluator(ctx)
+		if err != nil {
+			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
 		}
 
 		image := strings.TrimPrefix(step.Uses, "docker://")
-		eval := rc.NewExpressionEvaluator(ctx)
-		cmd, err := shellquote.Split(eval.Interpolate(ctx, step.With["args"]))
+
+		interpolatedArgs, err := eval.Interpolate(ctx, step.With["args"])
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to interpolate args: %w", err)
+		}
+		cmd, err := shellquote.Split(interpolatedArgs)
+		if err != nil {
+			return fmt.Errorf("unable to process args: %w", err)
 		}
 
 		var entrypoint []string
-		if entry := eval.Interpolate(ctx, step.With["entrypoint"]); entry != "" {
+		if entry, err := eval.Interpolate(ctx, step.With["entrypoint"]); err != nil {
+			return fmt.Errorf("unable to interpolate entrypoint: %w", err)
+		} else if entry != "" {
 			entrypoint = []string{entry}
 		}
 
@@ -82,7 +93,10 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 			return err
 		}
 
-		stepContainer := sd.newStepContainer(ctx, ep, image, cmd, entrypoint)
+		stepContainer, err := sd.newStepContainer(ctx, ep, image, cmd, entrypoint)
+		if err != nil {
+			return fmt.Errorf("could not create new step container: %w", err)
+		}
 
 		return common.NewPipelineExecutor(
 			stepContainer.Pull(rc.Config.ForcePull),
@@ -97,7 +111,7 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 
 var ContainerNewContainer = docker.NewContainer
 
-func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, image string, cmd, entrypoint []string) container.Container {
+func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, image string, cmd, entrypoint []string) (container.Container, error) {
 	rc := sd.RunContext
 	step := sd.Step
 
@@ -115,12 +129,21 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, 
 		envList = append(envList, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", rc.getToolCache(ctx)))
+	toolCachePath, err := rc.getToolCache(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not determine path of tool cache: %w", err)
+	}
+
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", toolCachePath))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", ep.RunnerArch()))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
-	binds, mounts, validVolumes := rc.GetBindsAndMounts(ctx)
+	binds, mounts, validVolumes, err := rc.GetBindsAndMounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get container binds and mounts: %w", err)
+	}
+
 	stepContainer := ContainerNewContainer(ep, &container.NewContainerInput{
 		Cmd:             cmd,
 		Entrypoint:      entrypoint,
@@ -128,7 +151,7 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, 
 		Image:           image,
 		Name:            createSimpleContainerName(rc.jobContainerName(), "STEP-"+step.ID),
 		Env:             envList,
-		ToolCache:       rc.getToolCache(ctx),
+		ToolCache:       toolCachePath,
 		Mounts:          mounts,
 		NetworkMode:     rc.getNetworkName(ctx),
 		NetworkAliases:  []string{sanitizeNetworkAlias(ctx, step.ID)},
@@ -140,5 +163,5 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, 
 		DefaultPlatform: rc.dockerImagePlatform(ctx),
 		ValidVolumes:    validVolumes,
 	})
-	return stepContainer
+	return stepContainer, nil
 }

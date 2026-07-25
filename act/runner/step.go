@@ -130,7 +130,13 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			return nil
 		}
 
-		stepString := rc.ExprEval.Interpolate(ctx, stepModel.String())
+		stepString, err := rc.ExprEval.Interpolate(ctx, stepModel.String())
+		if err != nil {
+			stepResult.Conclusion = model.StepStatusFailure
+			stepResult.Outcome = model.StepStatusFailure
+			return fmt.Errorf("unable to interpolate step name: %w", err)
+		}
+
 		if strings.Contains(stepString, "::add-mask::") {
 			stepString = "add-mask command"
 		}
@@ -177,9 +183,17 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 			Mode: 0o666,
 		})(ctx)
 
-		timeoutctx, cancelTimeOut := evaluateTimeout(ctx, "step", rc.ExprEval, stepModel.TimeoutMinutes)
-		defer cancelTimeOut()
-		err = executor(timeoutctx)
+		cancelFunc := func() {}
+		timeoutMinutes, err := evaluateTimeout(ctx, rc.ExprEval, stepModel.TimeoutMinutes)
+		if err != nil {
+			return err
+		}
+		if timeoutMinutes != nil {
+			common.Logger(ctx).Debugf("The step will stop in %d minutes", *timeoutMinutes)
+			ctx, cancelFunc = context.WithTimeout(ctx, time.Duration(*timeoutMinutes)*time.Minute)
+		}
+		defer cancelFunc()
+		err = executor(ctx)
 
 		if err == nil {
 			logger.WithField("stepResult", stepResult.Outcome).Infof("  \u2705  Success - %s %s", stage, stepString)
@@ -214,17 +228,21 @@ func runStepExecutor(step step, stage stepStage, executor common.Executor) commo
 	}
 }
 
-func evaluateTimeout(ctx context.Context, contextType string, exprEval ExpressionEvaluator, timeoutMinutes string) (context.Context, context.CancelFunc) {
-	timeout := exprEval.Interpolate(ctx, timeoutMinutes)
-	if timeout != "" {
-		timeOutMinutes, err := strconv.ParseInt(timeout, 10, 64)
-		if err == nil {
-			common.Logger(ctx).Debugf("the %s will stop in timeout-minutes %s", contextType, timeout)
-			return context.WithTimeout(ctx, time.Duration(timeOutMinutes)*time.Minute)
-		}
-		common.Logger(ctx).Errorf("timeout-minutes %s cannot be parsed and will be ignored: %w", timeout, err)
+func evaluateTimeout(ctx context.Context, exprEval ExpressionEvaluator, timeoutMinutes string) (*int64, error) {
+	interpolatedTimeout, err := exprEval.Interpolate(ctx, timeoutMinutes)
+	if err != nil {
+		return nil, fmt.Errorf("could not interpolate timeout: %w", err)
 	}
-	return ctx, func() {}
+	if strings.TrimSpace(interpolatedTimeout) == "" {
+		return nil, nil
+	}
+
+	timeout, err := strconv.ParseInt(interpolatedTimeout, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse timeout: %w", err)
+	}
+
+	return &timeout, nil
 }
 
 func setupEnv(ctx context.Context, step step) error {
@@ -234,18 +252,29 @@ func setupEnv(ctx context.Context, step step) error {
 	// merge step env last, since it should not be overwritten
 	mergeIntoMap(step, step.getEnv(), step.getStepModel().GetEnv())
 
-	exprEval := rc.NewExpressionEvaluator(ctx)
+	exprEval, err := rc.NewExpressionEvaluator(ctx)
+	if err != nil {
+		return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
 	for k, v := range *step.getEnv() {
 		if !strings.HasPrefix(k, "INPUT_") {
-			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+			var err error
+			if (*step.getEnv())[k], err = exprEval.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("unable to interpolate variable %q: %w", k, err)
+			}
 		}
 	}
 	// after we have an evaluated step context, update the expressions evaluator with a new env context
 	// you can use step level env in the with property of a uses construct
-	exprEval = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv())
+	if exprEval, err = rc.NewExpressionEvaluatorWithEnv(ctx, *step.getEnv()); err != nil {
+		return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
+	}
 	for k, v := range *step.getEnv() {
 		if strings.HasPrefix(k, "INPUT_") {
-			(*step.getEnv())[k] = exprEval.Interpolate(ctx, v)
+			var err error
+			if (*step.getEnv())[k], err = exprEval.Interpolate(ctx, v); err != nil {
+				return fmt.Errorf("unable to interpolate variable %q: %w", k, err)
+			}
 		}
 	}
 
@@ -289,7 +318,12 @@ func isStepEnabled(ctx context.Context, expr string, step step, stage stepStage)
 		defaultStatusCheck = exprparser.DefaultStatusCheckSuccess
 	}
 
-	runStep, err := EvalBool(ctx, rc.NewStepExpressionEvaluatorExt(ctx, step, stage == stepStageMain), expr, defaultStatusCheck)
+	ee, err := rc.NewStepExpressionEvaluatorExt(ctx, step, stage == stepStageMain)
+	if err != nil {
+		return false, fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
+
+	runStep, err := EvalBool(ctx, ee, expr, defaultStatusCheck)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in if-expression: \"if: %s\" (%s)", expr, err)
 	}
@@ -305,7 +339,12 @@ func isContinueOnError(ctx context.Context, expr string, step step, _ stepStage)
 
 	rc := step.getRunContext()
 
-	continueOnError, err := EvalBool(ctx, rc.NewStepExpressionEvaluator(ctx, step), expr, exprparser.DefaultStatusCheckNone)
+	ee, err := rc.NewStepExpressionEvaluator(ctx, step)
+	if err != nil {
+		return false, fmt.Errorf("could not create new StepExpressionEvaluator: %w", err)
+	}
+
+	continueOnError, err := EvalBool(ctx, ee, expr, exprparser.DefaultStatusCheckNone)
 	if err != nil {
 		return false, fmt.Errorf("  \u274C  Error in continue-on-error-expression: \"continue-on-error: %s\" (%s)", expr, err)
 	}

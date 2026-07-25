@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	yaml "go.yaml.in/yaml/v3"
 )
 
@@ -261,4 +262,53 @@ func TestStep_IsContinueOnError(t *testing.T) {
 	continueOnError, err = isContinueOnError(t.Context(), step.getStepModel().RawContinueOnError, step, stepStageMain)
 	assertObject.False(continueOnError)
 	assertObject.NotNil(err)
+}
+
+func TestEvaluateTimeout(t *testing.T) {
+	rc := &RunContext{
+		Config: &Config{
+			Workdir: ".",
+			Platforms: map[string]string{
+				"ubuntu-latest": "ubuntu-latest",
+			},
+		},
+		StepResults: map[string]*model.StepResult{},
+		Env:         map[string]string{},
+		Run: &model.Run{
+			JobID: "job",
+			Workflow: &model.Workflow{
+				Name: "workflow1",
+				Jobs: map[string]*model.Job{
+					"job": createJob(t, `runs-on: ubuntu-latest`, ""),
+				},
+			},
+		},
+	}
+
+	ee, err := rc.NewExpressionEvaluator(t.Context())
+	require.NoError(t, err)
+
+	t.Run("empty timeout", func(t *testing.T) {
+		timeoutMinutes, err := evaluateTimeout(t.Context(), ee, "")
+		require.NoError(t, err)
+		assert.Nil(t, timeoutMinutes)
+	})
+
+	t.Run("whitespace timeout", func(t *testing.T) {
+		timeoutMinutes, err := evaluateTimeout(t.Context(), ee, "")
+		require.NoError(t, err)
+		assert.Nil(t, timeoutMinutes)
+	})
+
+	t.Run("one minute", func(t *testing.T) {
+		timeoutMinutes, err := evaluateTimeout(t.Context(), ee, "1")
+		require.NoError(t, err)
+		assert.NotNil(t, timeoutMinutes)
+		assert.Equal(t, int64(1), *timeoutMinutes)
+	})
+
+	t.Run("invalid timeout", func(t *testing.T) {
+		_, err := evaluateTimeout(t.Context(), ee, "abc")
+		require.ErrorContains(t, err, "could not parse timeout")
+	})
 }

@@ -6,6 +6,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v12/act/model"
 	assert "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	yaml "go.yaml.in/yaml/v3"
 )
 
@@ -75,7 +76,8 @@ func createRunContext(t *testing.T) *RunContext {
 
 func TestExpressionEvaluateRunContext(t *testing.T) {
 	rc := createRunContext(t)
-	ee := rc.NewExpressionEvaluator(t.Context())
+	ee, err := rc.NewExpressionEvaluator(t.Context())
+	require.NoError(t, err)
 
 	tables := []struct {
 		in      string
@@ -153,7 +155,8 @@ func TestExpressionEvaluateStep(t *testing.T) {
 		RunContext: rc,
 	}
 
-	ee := rc.NewStepExpressionEvaluator(t.Context(), step)
+	ee, err := rc.NewStepExpressionEvaluator(t.Context(), step)
+	require.NoError(t, err)
 
 	tables := []struct {
 		in      string
@@ -214,7 +217,8 @@ func TestExpressionInterpolate(t *testing.T) {
 			},
 		},
 	}
-	ee := rc.NewExpressionEvaluator(t.Context())
+	ee, err := rc.NewExpressionEvaluator(t.Context())
+	require.NoError(t, err)
 	tables := []struct {
 		in  string
 		out string
@@ -256,7 +260,8 @@ func TestExpressionInterpolate(t *testing.T) {
 	for _, table := range tables {
 		t.Run("interpolate", func(t *testing.T) {
 			assertObject := assert.New(t)
-			out := ee.Interpolate(t.Context(), table.in)
+			out, err := ee.Interpolate(t.Context(), table.in)
+			require.NoError(t, err)
 			assertObject.Equal(table.out, out, table.in)
 		})
 	}

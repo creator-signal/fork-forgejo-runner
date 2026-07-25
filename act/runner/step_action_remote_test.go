@@ -169,7 +169,9 @@ func TestStepActionRemoteOK(t *testing.T) {
 				readAction: sarm.readAction,
 				runAction:  sarm.runAction,
 			}
-			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
+			var err error
+			sar.RunContext.ExprEval, err = sar.RunContext.NewExpressionEvaluator(ctx)
+			require.NoError(t, err)
 
 			if tt.mocks.read {
 				sarm.On("readAction", sar.Step, mock.Anything, "", mock.Anything, mock.Anything).Return(&model.Action{}, nil)
@@ -197,7 +199,7 @@ func TestStepActionRemoteOK(t *testing.T) {
 				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 			}
 
-			err := sar.pre()(ctx)
+			err = sar.pre()(ctx)
 			if err == nil {
 				err = sar.main()(ctx)
 			}
@@ -503,7 +505,9 @@ func TestStepActionRemotePost(t *testing.T) {
 				action:   tt.actionModel,
 				workTree: &UselessWorktree{},
 			}
-			sar.RunContext.ExprEval = sar.RunContext.NewExpressionEvaluator(ctx)
+			var err error
+			sar.RunContext.ExprEval, err = sar.RunContext.NewExpressionEvaluator(ctx)
+			require.NoError(t, err)
 
 			if tt.mocks.exec {
 				cm.On("Exec", mock.Anything, sar.env, "", "").Return(func(ctx context.Context) error { return tt.err })
@@ -528,7 +532,7 @@ func TestStepActionRemotePost(t *testing.T) {
 				cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
 			}
 
-			err := sar.post()(ctx)
+			err = sar.post()(ctx)
 
 			assert.Equal(t, tt.err, err)
 			if tt.expectedEnv != nil {
