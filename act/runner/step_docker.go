@@ -70,7 +70,11 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 			return fmt.Errorf("could not create new ExpressionEvaluator: %w", err)
 		}
 
-		image := strings.TrimPrefix(step.Uses, "docker://")
+		interpolatedUses, err := eval.Interpolate(ctx, step.Uses)
+		if err != nil {
+			return fmt.Errorf("could not interpolate uses: %w", err)
+		}
+		image := strings.TrimPrefix(interpolatedUses, "docker://")
 
 		interpolatedArgs, err := eval.Interpolate(ctx, step.With["args"])
 		if err != nil {
