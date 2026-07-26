@@ -190,18 +190,20 @@ func (runner *runnerImpl) NewPlanExecutor(plan *model.Plan) common.Executor {
 					}
 
 					if err := ee.EvaluateYamlNode(ctx, &job.Strategy.RawMatrix); err != nil {
-						log.Errorf("Error while evaluating matrix: %v", err)
+						return fmt.Errorf("could not evaluate matrix: %w", err)
 					}
 				}
 
-				var matrixes []map[string]any
-				if m, err := job.GetMatrixes(); err != nil {
-					log.Errorf("Error while get job's matrix: %v", err)
-				} else {
-					log.Debugf("Job Matrices: %v", m)
-					log.Debugf("Runner Matrices: %v", runner.config.Matrix)
-					matrixes = selectMatrixes(m, runner.config.Matrix)
+				m, err := job.GetMatrixes()
+				if err != nil {
+					return fmt.Errorf("could not get job matrix: %v", err)
 				}
+
+				log.Debugf("Job Matrices: %v", m)
+				log.Debugf("Runner Matrices: %v", runner.config.Matrix)
+
+				matrixes := selectMatrixes(m, runner.config.Matrix)
+
 				log.Debugf("Final matrix after applying user inclusions '%v'", matrixes)
 
 				maxParallel := 4

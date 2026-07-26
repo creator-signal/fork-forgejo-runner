@@ -1,0 +1,13 @@
+name: matrix-invalid-exclude
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [macos-latest]
+        exclude:
+          - unknown: undefined
+    steps:
+      - run: echo "Should not run"
