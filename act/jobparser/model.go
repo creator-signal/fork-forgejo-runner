@@ -70,6 +70,10 @@ type SingleWorkflowMetadata struct {
 	// may be populated if a reusable workflow is used within a reusable workflow.
 	WorkflowCallID     string `yaml:"workflow_call_id,omitempty"`
 	WorkflowCallParent string `yaml:"workflow_call_parent,omitempty"`
+
+	// When expanding reusable workflows, the job's ID should be considered unique only if combined with this namespace.
+	// See the [EnableNamespaces] parse option for more information.
+	Namespace string `yaml:"namespace,omitempty"`
 }
 
 type IncompleteNeeds struct {

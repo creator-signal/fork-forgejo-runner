@@ -22,6 +22,7 @@ var ErrUnsupportedReusableWorkflowFetch = errors.New("unable to support reusable
 // act/model
 type bothJobTypes struct {
 	id           string
+	namespace    string
 	jobParserJob *Job
 	workflowJob  *model.Job
 	parseContext *parseContext
@@ -209,6 +210,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				WorkflowCallInputs: bothJobs.workflowCallInputs,
 				WorkflowCallID:     bothJobs.workflowCallID,
 				WorkflowCallParent: bothJobs.workflowCallParent,
+				Namespace:          bothJobs.namespace,
 			},
 			Permissions:  workflow.Permissions,
 			parseContext: bothJobs.parseContext,
@@ -446,8 +448,14 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool,
 		if withInvalidJobReference == nil && withInvalidMatrixReference == nil {
 			// Append the inner jobs' IDs to the `needs` of the parent job.
 			additionalNeeds := make([]string, len(newJobs))
-			for i, b := range newJobs {
-				additionalNeeds[i] = b.id
+			if pc.enableNamespaces {
+				for i, b := range newJobs {
+					additionalNeeds[i] = fmt.Sprintf("__namespace.%s.%s", bothJobs.workflowCallID, b.id)
+				}
+			} else {
+				for i, b := range newJobs {
+					additionalNeeds[i] = b.id
+				}
 			}
 			callerNeeds := bothJobs.jobParserJob.Needs()
 			callerNeeds = append(callerNeeds, additionalNeeds...)
@@ -563,6 +571,12 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse local workflow: %w", err)
 	}
+
+	var namespace string
+	if pc.enableNamespaces {
+		namespace = callerJob.workflowCallID
+	}
+
 	retval := []*bothJobTypes{}
 	for _, swf := range innerWorkflows {
 		err := rewriteReusableWorkflowNeeds(&swf.RawJobs, callerJob.id)
@@ -581,18 +595,20 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			return nil, fmt.Errorf("model.ReadWorkflow: %w", err)
 		}
 
-		originalNeeds := job.Needs()
-		newNeeds := make([]string, len(originalNeeds))
-		// Rewrite the `needs` of the job to be qualified within the job so they depend upon each other.
-		for i := range originalNeeds {
-			newNeeds[i] = fmt.Sprintf("%s.%s", callerJob.id, originalNeeds[i])
-		}
-		// Add all the jobs that the reusable workflow `needs`'d to the jobs within the reusable workflow as well:
-		newNeeds = append(newNeeds, callerJob.jobParserJob.Needs()...)
-		if len(newNeeds) != 0 {
-			err = job.RawNeeds.Encode(newNeeds)
-			if err != nil {
-				return nil, fmt.Errorf("error encoding newNeeds to yaml: %w", err)
+		if !pc.enableNamespaces {
+			originalNeeds := job.Needs()
+			newNeeds := make([]string, len(originalNeeds))
+			// Rewrite the `needs` of the job to be qualified within the job so they depend upon each other.
+			for i := range originalNeeds {
+				newNeeds[i] = fmt.Sprintf("%s.%s", callerJob.id, originalNeeds[i])
+			}
+			// Add all the jobs that the reusable workflow `needs`'d to the jobs within the reusable workflow as well:
+			newNeeds = append(newNeeds, callerJob.jobParserJob.Needs()...)
+			if len(newNeeds) != 0 {
+				err = job.RawNeeds.Encode(newNeeds)
+				if err != nil {
+					return nil, fmt.Errorf("error encoding newNeeds to yaml: %w", err)
+				}
 			}
 		}
 
@@ -606,8 +622,14 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			}
 		}
 
+		jobID := id
+		if !pc.enableNamespaces {
+			jobID = fmt.Sprintf("%s.%s", callerJob.id, id)
+		}
+
 		newEntry := &bothJobTypes{
-			id:               fmt.Sprintf("%s.%s", callerJob.id, id),
+			id:               jobID,
+			namespace:        namespace,
 			jobParserJob:     job,
 			workflowJob:      workflow.GetJob(id),
 			overrideOnClause: &swf.RawOn,
@@ -640,6 +662,7 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 
 		if swf.IncompleteMatrix || swf.IncompleteRunsOn || swf.IncompleteWith {
 			newEntry.internalIncompleteState = swf
+			// FIXME: namespace support?
 			// if we have a reference to a job stored in the incomplete state, then qualify that job name:
 			if swf.IncompleteMatrixNeeds != nil {
 				swf.IncompleteMatrixNeeds.Job = fmt.Sprintf("%s.%s", callerJob.id, swf.IncompleteMatrixNeeds.Job)
@@ -888,6 +911,21 @@ func ExpandExternalReusableWorkflows(externalWorkflowFetcher ExternalWorkflowFet
 	}
 }
 
+// Enables namespaces for reusable workflow jobs.  When a reusable workflow is expanded, the original implementation
+// changed internal names of jobs to qualify them with the parent's job name -- eg. `outer.inner-1`, `outer.inner-2`.
+// This causes issues with matrix outer jobs as the inner jobs' IDs will be duplicated.
+//
+// By enabling workspaces, this name rewriting will be disabled, and instead additional metadata on unique namespaces
+// will be returned for each job. The consumer (Forgejo) must then treat every job ID as a combination of its namespace,
+// and it's ID.  The consumer must also be aware that parent jobs will have `needs` that include jobs in the form of
+// `__namespace.%s.%s`, with a namespace and a job ID, which will need to be parsed and treated as specific jobs in that
+// namespace.
+func EnableNamespaces() ParseOption {
+	return func(c *parseContext) {
+		c.enableNamespaces = true
+	}
+}
+
 func withRecursionDepth(depth int) ParseOption {
 	return func(c *parseContext) {
 		c.recursionDepth = depth
@@ -919,6 +957,7 @@ type parseContext struct {
 	externalWorkflowFetcher ExternalWorkflowFetcher
 	recursionDepth          int
 	parentUniqueID          string
+	enableNamespaces        bool
 }
 
 type ParseOption func(c *parseContext)

@@ -349,6 +349,20 @@ func TestParse(t *testing.T) {
 				}),
 			},
 		},
+		{
+			name:                           "expand_reusable_caller_matrix_ns",
+			expectingInvalidWorkflowOutput: true,
+			options: []ParseOption{
+				EnableNamespaces(),
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_caller_matrix_ns_reusable-1.yml" {
+						content := ReadTestdata(t, "expand_reusable_caller_matrix_ns_reusable-1.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
 		// `expand_reusable_incomplete1` covers a test case where the caller of a reusable workflow has a `matrix` job
 		// that references `${{ needs... }}`, and therefore requires job outputs before it can be expanded.
 		{
