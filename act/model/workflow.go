@@ -491,7 +491,7 @@ func (j *Job) GetMatrixes() ([]map[string]any, error) {
 						excludes = append(excludes, e)
 					} else {
 						// We fail completely here because that's what GitHub does for non-existing matrix keys, fail on exclude, silent skip on include
-						return nil, fmt.Errorf("the workflow is not valid. Matrix exclude key %q does not match any key within the matrix", k)
+						return nil, fmt.Errorf("the workflow is not valid, matrix exclude key %q does not match any key within the matrix", k)
 					}
 				}
 			}

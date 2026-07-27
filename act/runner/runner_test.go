@@ -297,6 +297,7 @@ func TestRunner_RunEvent(t *testing.T) {
 		{workdir, "remote-action-js-node-user", "push", "", platforms, secrets},
 		{workdir, "matrix", "push", "", platforms, secrets},
 		{workdir, "matrix-include-exclude", "push", "", platforms, secrets},
+		{workdir, "matrix-invalid-exclude", "push", "could not get job matrix", platforms, secrets},
 		{workdir, "matrix-exitcode", "push", "Job 'test' failed", platforms, secrets},
 		{workdir, "matrix-shell", "push", "", platforms, secrets},
 		{workdir, "commands", "push", "", platforms, secrets},
