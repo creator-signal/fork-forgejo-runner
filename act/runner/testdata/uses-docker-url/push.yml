@@ -1,6 +1,7 @@
 name: uses-docker-url
 on: push
-
+env:
+  NODE_VERSION: 22
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,3 +21,10 @@ jobs:
         with:
           entrypoint: /bin/sh
           args: -c 'uname -a'
+      - uses: docker://code.forgejo.org/oci/node:${{ env.NODE_VERSION }}
+        with:
+          entrypoint: /bin/sh
+          args: -c 'echo "SUCCESS=OK" >> $FORGEJO_ENV'
+      - run: |
+          echo "SUCCESS=$SUCCESS"
+          [[ "$SUCCESS" == "OK" ]] || exit 1
