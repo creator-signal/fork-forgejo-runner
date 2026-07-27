@@ -16,7 +16,7 @@ require (
 	github.com/djherbis/buffer v1.2.0
 	github.com/djherbis/nio/v3 v3.0.1
 	github.com/docker/cli v29.6.2+incompatible
-	github.com/docker/go-connections v0.7.0
+	github.com/docker/go-connections v0.8.1
 	github.com/gdgvda/cron v0.7.0
 	github.com/gobwas/glob v0.2.3
 	github.com/google/go-cmp v0.7.0
