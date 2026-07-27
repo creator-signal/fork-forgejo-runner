@@ -1168,10 +1168,6 @@ func (rc *RunContext) containerImage(ctx context.Context) (string, error) {
 }
 
 func (rc *RunContext) runsOnImage(ctx context.Context) (string, error) {
-	if rc.Run.Job().RunsOn() == nil {
-		common.Logger(ctx).Errorf("'runs-on' key not defined in %s", rc.String())
-	}
-
 	runsOn := rc.Run.Job().RunsOn()
 	for i, v := range runsOn {
 		var err error
