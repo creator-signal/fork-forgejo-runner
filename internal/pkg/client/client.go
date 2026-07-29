@@ -4,7 +4,6 @@
 package client
 
 import (
-	"context"
 	"time"
 
 	"code.forgejo.org/forgejo/actions-proto/ping/v1/pingv1connect"
@@ -24,5 +23,4 @@ type Client interface {
 	Insecure() bool
 	FetchInterval() time.Duration
 	SetRequestKey(gouuid.UUID) func()
-	UploadJobSummary(ctx context.Context, runID, runtimeToken, content string) error
 }
