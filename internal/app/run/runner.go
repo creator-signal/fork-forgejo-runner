@@ -324,12 +324,6 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		WorkflowRef:     taskContext["workflow_ref"].GetStringValue(),
 	}
 
-	if t := task.Secrets["FORGEJO_TOKEN"]; t != "" {
-		preset.Token = t
-	} else if t := task.Secrets["GITHUB_TOKEN"]; t != "" {
-		preset.Token = t
-	}
-
 	// Clone the runner default envs into a local envs map
 	runEnvs := make(map[string]string)
 	maps.Copy(runEnvs, r.envs)
