@@ -101,6 +101,11 @@ func (m *forgejoClientMock) SetRequestKey(requestKey gouuid.UUID) func() {
 	return args.Get(0).(func())
 }
 
+func (m *forgejoClientMock) UploadJobSummary(ctx context.Context, runID, runtimeToken, content string) error {
+	args := m.Called(ctx, runID, runtimeToken, content)
+	return args.Error(0)
+}
+
 func (m *forgejoClientMock) Ping(ctx context.Context, request *connect.Request[pingv1.PingRequest]) (*connect.Response[pingv1.PingResponse], error) {
 	args := m.Called(ctx, request)
 	if args.Get(0) == nil {

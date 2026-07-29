@@ -71,8 +71,7 @@ func NewRunner(cfg *config.Config, name string, ls labels.Labels, cli client.Cli
 		envs["ACTIONS_CACHE_URL"] = cacheProxy.ExternalURL()
 	}
 
-	artifactAPI := strings.TrimSuffix(cli.Address(), "/") + "/api/actions_pipeline/"
-	envs["ACTIONS_RUNTIME_URL"] = artifactAPI
+	envs["ACTIONS_RUNTIME_URL"] = client.PipelineURL(cli.Address())
 	envs["ACTIONS_RESULTS_URL"] = strings.TrimSuffix(cli.Address(), "/")
 
 	envs["FORGEJO_ACTIONS"] = "true"
@@ -198,7 +197,7 @@ func (r *Runner) uploadJobSummary(task *runnerv1.Task, reporter *report.Reporter
 		return
 	}
 	runID := task.Context.Fields["run_id"].GetStringValue()
-	if err := client.UploadJobSummary(context.Background(), r.client.Address(), r.cfg.Runner.Insecure, runID, runtimeTokenForTask(task), summary); err != nil {
+	if err := r.client.UploadJobSummary(context.Background(), runID, runtimeTokenForTask(task), summary); err != nil {
 		log.Warnf("failed to upload the job summary: %v", err)
 	}
 }
