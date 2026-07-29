@@ -149,6 +149,14 @@ func (m *forgejoClientMock) UpdateTask(ctx context.Context, request *connect.Req
 	return args.Get(0).(*connect.Response[runnerv1.UpdateTaskResponse]), args.Error(1)
 }
 
+func (m *forgejoClientMock) UpdateJobSummary(ctx context.Context, request *connect.Request[runnerv1.UpdateJobSummaryRequest]) (*connect.Response[runnerv1.UpdateJobSummaryResponse], error) {
+	args := m.Called(ctx, request)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*connect.Response[runnerv1.UpdateJobSummaryResponse]), args.Error(1)
+}
+
 func rowsToString(rows []*runnerv1.LogRow) string {
 	s := ""
 	for _, row := range rows {

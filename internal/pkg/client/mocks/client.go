@@ -569,6 +569,74 @@ func (_c *MockClient_SetRequestKey_Call) RunAndReturn(run func(uUID uuid.UUID) f
 	return _c
 }
 
+// UpdateJobSummary provides a mock function for the type MockClient
+func (_mock *MockClient) UpdateJobSummary(context1 context.Context, request *connect.Request[runnerv1.UpdateJobSummaryRequest]) (*connect.Response[runnerv1.UpdateJobSummaryResponse], error) {
+	ret := _mock.Called(context1, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateJobSummary")
+	}
+
+	var r0 *connect.Response[runnerv1.UpdateJobSummaryResponse]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *connect.Request[runnerv1.UpdateJobSummaryRequest]) (*connect.Response[runnerv1.UpdateJobSummaryResponse], error)); ok {
+		return returnFunc(context1, request)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *connect.Request[runnerv1.UpdateJobSummaryRequest]) *connect.Response[runnerv1.UpdateJobSummaryResponse]); ok {
+		r0 = returnFunc(context1, request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*connect.Response[runnerv1.UpdateJobSummaryResponse])
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *connect.Request[runnerv1.UpdateJobSummaryRequest]) error); ok {
+		r1 = returnFunc(context1, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockClient_UpdateJobSummary_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateJobSummary'
+type MockClient_UpdateJobSummary_Call struct {
+	*mock.Call
+}
+
+// UpdateJobSummary is a helper method to define mock.On call
+//   - context1 context.Context
+//   - request *connect.Request[runnerv1.UpdateJobSummaryRequest]
+func (_e *MockClient_Expecter) UpdateJobSummary(context1 any, request any) *MockClient_UpdateJobSummary_Call {
+	return &MockClient_UpdateJobSummary_Call{Call: _e.mock.On("UpdateJobSummary", context1, request)}
+}
+
+func (_c *MockClient_UpdateJobSummary_Call) Run(run func(context1 context.Context, request *connect.Request[runnerv1.UpdateJobSummaryRequest])) *MockClient_UpdateJobSummary_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *connect.Request[runnerv1.UpdateJobSummaryRequest]
+		if args[1] != nil {
+			arg1 = args[1].(*connect.Request[runnerv1.UpdateJobSummaryRequest])
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClient_UpdateJobSummary_Call) Return(response *connect.Response[runnerv1.UpdateJobSummaryResponse], err error) *MockClient_UpdateJobSummary_Call {
+	_c.Call.Return(response, err)
+	return _c
+}
+
+func (_c *MockClient_UpdateJobSummary_Call) RunAndReturn(run func(context1 context.Context, request *connect.Request[runnerv1.UpdateJobSummaryRequest]) (*connect.Response[runnerv1.UpdateJobSummaryResponse], error)) *MockClient_UpdateJobSummary_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateLog provides a mock function for the type MockClient
 func (_mock *MockClient) UpdateLog(context1 context.Context, request *connect.Request[runnerv1.UpdateLogRequest]) (*connect.Response[runnerv1.UpdateLogResponse], error) {
 	ret := _mock.Called(context1, request)

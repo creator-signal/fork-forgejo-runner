@@ -197,9 +197,16 @@ func (r *Runner) uploadJobSummary(task *runnerv1.Task, reporter *report.Reporter
 	if summary == "" {
 		return
 	}
-	runID := task.Context.Fields["run_id"].GetStringValue()
-	if err := client.UploadJobSummary(context.Background(), r.client.Address(), r.cfg.Runner.Insecure, runID, runtimeTokenForTask(task), summary); err != nil {
-		log.Warnf("failed to upload the job summary: %v", err)
+	_, err := r.client.UpdateJobSummary(context.Background(), connect.NewRequest(&runnerv1.UpdateJobSummaryRequest{
+		TaskId:  task.Id,
+		Summary: summary,
+	}))
+	if err != nil {
+		if connect.CodeOf(err) == connect.CodeUnimplemented {
+			log.Warnf("the Forgejo server does not support job summaries, the GITHUB_STEP_SUMMARY of task %d is discarded", task.Id)
+		} else {
+			log.Warnf("failed to upload the job summary: %v", err)
+		}
 	}
 }
 

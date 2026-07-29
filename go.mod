@@ -5,6 +5,8 @@ go 1.26.0
 toolchain go1.26.7
 
 require (
+// todo(crashdummy - 260730): Wait for merge https://code.forgejo.org/Crashdummy/actions-proto/commit/33e152b8184e7f64b6ac1b69d364e30d0b904457
+// code.forgejo.org/forgejo/actions-proto v0.8.0
 	code.forgejo.org/forgejo/actions-proto v0.7.0
 	connectrpc.com/connect v1.20.0
 	dario.cat/mergo v1.0.2
