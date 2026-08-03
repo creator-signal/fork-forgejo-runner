@@ -4,5 +4,5 @@
 package config
 
 import (
-	_ "code.forgejo.org/forgejo/runner/v12/testutils"
+	_ "code.forgejo.org/forgejo/runner/v13/testutils"
 )

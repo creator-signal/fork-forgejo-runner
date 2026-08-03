@@ -16,14 +16,14 @@ import (
 	"sync"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common/gitignore"
+	"code.forgejo.org/forgejo/runner/v13/act/common/gitignore"
 	"github.com/djherbis/buffer"
 	"github.com/djherbis/nio/v3"
 	"golang.org/x/term"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
-	"code.forgejo.org/forgejo/runner/v12/act/filecollector"
-	"code.forgejo.org/forgejo/runner/v12/act/lookpath"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/filecollector"
+	"code.forgejo.org/forgejo/runner/v13/act/lookpath"
 )
 
 type HostEnvironment struct {

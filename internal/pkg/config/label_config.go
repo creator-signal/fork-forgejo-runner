@@ -6,7 +6,7 @@ package config
 import (
 	"fmt"
 
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/labels"
 	"go.yaml.in/yaml/v3"
 )
 

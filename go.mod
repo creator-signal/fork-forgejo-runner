@@ -1,4 +1,4 @@
-module code.forgejo.org/forgejo/runner/v12
+module code.forgejo.org/forgejo/runner/v13
 
 go 1.25.0
 

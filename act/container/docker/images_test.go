@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/v12/testutils"
+	"code.forgejo.org/forgejo/runner/v13/testutils"
 	"github.com/moby/moby/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"

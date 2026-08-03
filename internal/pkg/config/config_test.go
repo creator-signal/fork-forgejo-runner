@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/labels"
 	gouuid "github.com/google/uuid"
 	"github.com/powerman/fileuri"
 	"github.com/stretchr/testify/assert"

@@ -14,9 +14,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
-	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v13/internal/app/run"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/config"
 	gouuid "github.com/google/uuid"
 )
 

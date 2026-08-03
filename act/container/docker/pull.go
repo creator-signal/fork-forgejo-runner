@@ -16,7 +16,7 @@ import (
 	"github.com/moby/moby/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
 )
 
 // NewDockerPullExecutor function to create a run executor for the container

@@ -4,9 +4,9 @@ import (
 	"context"
 	"io"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
-	"code.forgejo.org/forgejo/runner/v12/act/container"
-	"code.forgejo.org/forgejo/runner/v12/act/container/docker"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/container"
+	"code.forgejo.org/forgejo/runner/v13/act/container/docker"
 	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/mock"
 )

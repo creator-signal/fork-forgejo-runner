@@ -6,7 +6,7 @@ import (
 	"context"
 	"slices"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
 	"github.com/avast/retry-go/v4"
 	cerrdefs "github.com/containerd/errdefs"
 	"github.com/moby/moby/client"

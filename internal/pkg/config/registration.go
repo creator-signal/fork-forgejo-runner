@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"os"
 
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/labels"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/labels"
 	"github.com/google/go-cmp/cmp"
 	gouuid "github.com/google/uuid"
 )

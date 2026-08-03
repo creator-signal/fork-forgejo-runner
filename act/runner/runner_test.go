@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
-	"code.forgejo.org/forgejo/runner/v12/testutils"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
+	"code.forgejo.org/forgejo/runner/v13/testutils"
 	"github.com/joho/godotenv"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"

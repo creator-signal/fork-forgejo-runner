@@ -3,8 +3,8 @@ package runner
 import (
 	"testing"
 
-	"code.forgejo.org/forgejo/runner/v12/act/exprparser"
-	"code.forgejo.org/forgejo/runner/v12/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/exprparser"
+	"code.forgejo.org/forgejo/runner/v13/act/model"
 	assert "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	yaml "go.yaml.in/yaml/v3"

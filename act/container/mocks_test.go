@@ -9,7 +9,7 @@ import (
 	"io"
 	"time"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
 
 	mock "github.com/stretchr/testify/mock"
 )

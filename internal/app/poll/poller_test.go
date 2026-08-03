@@ -16,11 +16,11 @@ import (
 	"connectrpc.com/connect"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
-	"code.forgejo.org/forgejo/runner/v12/internal/app/run"
-	mock_runner "code.forgejo.org/forgejo/runner/v12/internal/app/run/mocks"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/client/mocks"
-	"code.forgejo.org/forgejo/runner/v12/internal/pkg/config"
+	"code.forgejo.org/forgejo/runner/v13/internal/app/run"
+	mock_runner "code.forgejo.org/forgejo/runner/v13/internal/app/run/mocks"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/client"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/client/mocks"
+	"code.forgejo.org/forgejo/runner/v13/internal/pkg/config"
 
 	gouuid "github.com/google/uuid"
 	log "github.com/sirupsen/logrus"

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"code.forgejo.org/forgejo/runner/v12/act/common"
+	"code.forgejo.org/forgejo/runner/v13/act/common"
 
 	"github.com/sirupsen/logrus"
 )
