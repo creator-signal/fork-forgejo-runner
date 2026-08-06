@@ -280,6 +280,7 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		Sha:             taskContext["sha"].GetStringValue(),
 		Ref:             ref,
 		RefName:         taskContext["ref_name"].GetStringValue(),
+		RefProtected:    taskContext["ref_protected"].GetBoolValue(),
 		RefType:         taskContext["ref_type"].GetStringValue(),
 		HeadRef:         taskContext["head_ref"].GetStringValue(),
 		BaseRef:         taskContext["base_ref"].GetStringValue(),

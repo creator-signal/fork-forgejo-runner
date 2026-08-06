@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -1360,6 +1361,9 @@ func (rc *RunContext) getStepsContext() map[string]*model.StepResult {
 
 func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext {
 	logger := common.Logger(ctx)
+
+	refProtected, _ := strconv.ParseBool(rc.Config.Env["GITHUB_REF_PROTECTED"])
+
 	ghc := &model.GithubContext{
 		Event:            make(map[string]any),
 		Workflow:         rc.Run.Workflow.Name,
@@ -1382,6 +1386,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 		Ref:              rc.Config.Env["GITHUB_REF"],
 		Sha:              rc.Config.Env["SHA_REF"],
 		RefName:          rc.Config.Env["GITHUB_REF_NAME"],
+		RefProtected:     refProtected,
 		RefType:          rc.Config.Env["GITHUB_REF_TYPE"],
 		BaseRef:          rc.Config.Env["GITHUB_BASE_REF"],
 		HeadRef:          rc.Config.Env["GITHUB_HEAD_REF"],
@@ -1431,6 +1436,7 @@ func (rc *RunContext) getGithubContext(ctx context.Context) *model.GithubContext
 			ghc.Sha = preset.Sha
 			ghc.Ref = preset.Ref
 			ghc.RefName = preset.RefName
+			ghc.RefProtected = preset.RefProtected
 			ghc.RefType = preset.RefType
 			ghc.HeadRef = preset.HeadRef
 			ghc.BaseRef = preset.BaseRef
@@ -1573,6 +1579,7 @@ func (rc *RunContext) withGithubEnv(ctx context.Context, github *model.GithubCon
 	set("SHA", github.Sha)
 	set("REF", github.Ref)
 	set("REF_NAME", github.RefName)
+	set("REF_PROTECTED", strconv.FormatBool(github.RefProtected))
 	set("REF_TYPE", github.RefType)
 	set("TOKEN", github.Token)
 	set("JOB", github.Job)

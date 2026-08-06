@@ -22,6 +22,7 @@ type GithubContext struct {
 	Sha              string         `json:"sha"`
 	Ref              string         `json:"ref"`
 	RefName          string         `json:"ref_name"`
+	RefProtected     bool           `json:"ref_protected"`
 	RefType          string         `json:"ref_type"`
 	HeadRef          string         `json:"head_ref"`
 	BaseRef          string         `json:"base_ref"`

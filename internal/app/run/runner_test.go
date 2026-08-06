@@ -1124,6 +1124,7 @@ func TestRunnerContextsPopulated(t *testing.T) {
 					"forgejo_actions_id_token_request_url":   structpb.NewStringValue("https://data.forgejo.org/other"),
 					"ref":                                    structpb.NewStringValue("refs/heads/sample-patch-1"),
 					"ref_name":                               structpb.NewStringValue("sample-patch-1"),
+					"ref_protected":                          structpb.NewBoolValue(true),
 					"ref_type":                               structpb.NewStringValue("branch"),
 					"head_ref":                               structpb.NewStringValue("sample-patch-1"),
 					"base_ref":                               structpb.NewStringValue("main"),
@@ -1288,7 +1289,7 @@ jobs:
           echo GITHUB_REF_NAME="$GITHUB_REF_NAME"
           [[ "$GITHUB_REF_NAME" = "sample-patch-1" ]] || exit 1
           echo GITHUB_REF_PROTECTED="$GITHUB_REF_PROTECTED"
-          [[ -z ${GITHUB_REF_PROTECTED+x} ]] || exit 1  # Currently unsupported.
+          [[ "$GITHUB_REF_PROTECTED" = "true" ]] || exit 1
           echo GITHUB_REF_TYPE="$GITHUB_REF_TYPE"
           [[ "$GITHUB_REF_TYPE" = "branch" ]] || exit 1
           echo GITHUB_REPOSITORY="$GITHUB_REPOSITORY"
