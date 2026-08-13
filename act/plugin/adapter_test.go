@@ -47,21 +47,23 @@ type mockPluginServer struct {
 func (s *mockPluginServer) Capabilities(_ context.Context, _ *pluginv1alpha.CapabilitiesRequest) (*pluginv1alpha.CapabilitiesResponse, error) {
 	return &pluginv1alpha.CapabilitiesResponse{
 		Name:                "test-backend",
-		RootPath:            "/test/root",
-		ActPath:             "/test/root/act",
-		ToolCachePath:       "/test/root/toolcache",
 		PathVariableName:    proto.String("PATH"),
 		DefaultPathVariable: proto.String("/usr/bin:/bin"),
 		PathSeparator:       proto.String(":"),
 		Os:                  "Linux",
 		Arch:                "x86_64",
-		Temp:                "/tmp",
 	}, nil
 }
 
 func (s *mockPluginServer) Create(_ context.Context, req *pluginv1alpha.CreateRequest) (*pluginv1alpha.CreateResponse, error) {
 	s.createReq = req
-	return &pluginv1alpha.CreateResponse{EnvironmentId: "test-env-123"}, nil
+	return &pluginv1alpha.CreateResponse{
+		EnvironmentId: "test-env-123",
+		RootPath:      "/test/root",
+		ActPath:       "/test/root/act",
+		ToolCachePath: "/test/root/toolcache",
+		TempPath:      "/tmp",
+	}, nil
 }
 
 func (s *mockPluginServer) Start(_ context.Context, _ *pluginv1alpha.StartRequest) (*pluginv1alpha.StartResponse, error) {
@@ -181,8 +183,6 @@ func TestPluginEnvironment_Capabilities(t *testing.T) {
 
 	assert.Equal(t, "test-backend", env.BackendID())
 	assert.Equal(t, "test-backend", env.GetName())
-	assert.Equal(t, "/test/root", env.GetRoot())
-	assert.Equal(t, "/test/root/act", env.GetActPath())
 	assert.False(t, env.SupportsDockerContainerActions())
 	assert.True(t, env.ManagesOwnNetworking())
 	assert.False(t, env.IsEnvironmentCaseInsensitive())
@@ -190,11 +190,6 @@ func TestPluginEnvironment_Capabilities(t *testing.T) {
 	assert.Equal(t, "/usr/bin:/bin", env.DefaultPathVariable())
 	assert.Equal(t, "/a:/b", env.JoinPathVariable("/a", "/b"))
 	assert.Equal(t, "/some/path", env.ToContainerPath("/some/path"))
-
-	rc := env.GetRunnerContext(t.Context())
-	assert.Equal(t, "Linux", rc["os"])
-	assert.Equal(t, "x86_64", rc["arch"])
-	assert.Equal(t, "/tmp", rc["temp"])
 }
 
 func TestPluginEnvironment_CapabilitiesDefaults(t *testing.T) {
@@ -222,6 +217,13 @@ func TestPluginEnvironment_CreatePassesInput(t *testing.T) {
 	err := env.Create([]string{"NET_ADMIN"}, []string{"MKNOD"})(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "test-env-123", env.envID)
+	assert.Equal(t, "/test/root", env.GetRoot())
+	assert.Equal(t, "/test/root/act", env.GetActPath())
+	rc := env.GetRunnerContext(t.Context())
+	assert.Equal(t, "Linux", rc["os"])
+	assert.Equal(t, "x86_64", rc["arch"])
+	assert.Equal(t, "/tmp", rc["temp"])
+	assert.Equal(t, "/test/root/toolcache", rc["tool_cache"])
 
 	req := mock.createReq
 	require.NotNil(t, req)
@@ -240,6 +242,9 @@ func TestPluginEnvironment_CreatePassesInput(t *testing.T) {
 	assert.Equal(t, "redis:7", req.Services[0].Image)
 	assert.Equal(t, "secret", req.Services[0].Env["REDIS_PASS"])
 	assert.Equal(t, []string{"6379"}, req.Services[0].Ports)
+
+	assert.Contains(t, env.addtEnv, "RUNNER_TOOL_CACHE=/test/root/toolcache")
+	assert.Contains(t, env.addtEnv, "RUNNER_TEMP=/tmp")
 }
 
 func TestPluginEnvironment_Lifecycle(t *testing.T) {
@@ -449,7 +454,6 @@ func TestClient_NewEnvironment(t *testing.T) {
 	}
 	env := c.NewEnvironment(input, map[string]string{"key": "val"}, "ubuntu-24.04", 15*time.Minute)
 	assert.Equal(t, "test-backend", env.BackendID())
-	assert.Equal(t, "/test/root", env.GetRoot())
 }
 
 func TestPluginEnvironment_ExecMixedOutput(t *testing.T) {
@@ -584,11 +588,11 @@ type truncatingExecServer struct {
 }
 
 func (truncatingExecServer) Capabilities(_ context.Context, _ *pluginv1alpha.CapabilitiesRequest) (*pluginv1alpha.CapabilitiesResponse, error) {
-	return &pluginv1alpha.CapabilitiesResponse{Name: "trunc", RootPath: "/r", ActPath: "/r/act"}, nil
+	return &pluginv1alpha.CapabilitiesResponse{Name: "trunc"}, nil
 }
 
 func (truncatingExecServer) Create(_ context.Context, _ *pluginv1alpha.CreateRequest) (*pluginv1alpha.CreateResponse, error) {
-	return &pluginv1alpha.CreateResponse{EnvironmentId: "trunc"}, nil
+	return &pluginv1alpha.CreateResponse{EnvironmentId: "trunc", RootPath: "/r", ActPath: "/r/act"}, nil
 }
 
 func (truncatingExecServer) Exec(_ *pluginv1alpha.ExecRequest, stream grpc.ServerStreamingServer[pluginv1alpha.ExecOutput]) error {

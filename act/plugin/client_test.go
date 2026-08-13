@@ -48,7 +48,7 @@ func TestNewClient_RejectsPlainTCPByDefault(t *testing.T) {
 func TestNewClient_AcceptsTCPWithAllowPlainTCP(t *testing.T) {
 	srv := grpc.NewServer()
 	pluginv1alpha.RegisterBackendPluginServer(srv, &healthOnlyServer{
-		caps: &pluginv1alpha.CapabilitiesResponse{Name: "tcp", RootPath: "/r", ActPath: "/r/act"},
+		caps: &pluginv1alpha.CapabilitiesResponse{Name: "tcp"},
 	})
 	lis := startListener(t, srv, grpc_health_v1.HealthCheckResponse_SERVING)
 
@@ -68,7 +68,7 @@ func TestNewClient_AcceptsTLSConfig(t *testing.T) {
 func TestNewClient_RejectsNotServingHealth(t *testing.T) {
 	srv := grpc.NewServer()
 	pluginv1alpha.RegisterBackendPluginServer(srv, &healthOnlyServer{
-		caps: &pluginv1alpha.CapabilitiesResponse{Name: "x", RootPath: "/r", ActPath: "/r/act"},
+		caps: &pluginv1alpha.CapabilitiesResponse{Name: "x"},
 	})
 	lis := startListener(t, srv, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 
@@ -80,13 +80,12 @@ func TestNewClient_RejectsNotServingHealth(t *testing.T) {
 func TestNewClient_RejectsIncompleteCapabilities(t *testing.T) {
 	srv := grpc.NewServer()
 	pluginv1alpha.RegisterBackendPluginServer(srv, &healthOnlyServer{
-		caps: &pluginv1alpha.CapabilitiesResponse{Name: "incomplete"},
+		caps: &pluginv1alpha.CapabilitiesResponse{Name: ""},
 	})
 	lis := startListener(t, srv, grpc_health_v1.HealthCheckResponse_SERVING)
 
 	_, err := NewClient(t.Context(), lis.Addr().String(), WithAllowPlainTCP())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing required fields")
-	assert.Contains(t, err.Error(), "root_path")
-	assert.Contains(t, err.Error(), "act_path")
+	assert.Contains(t, err.Error(), "name")
 }

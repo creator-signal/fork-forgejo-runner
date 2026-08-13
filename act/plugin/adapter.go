@@ -30,9 +30,16 @@ type pluginEnvironment struct {
 	labelArg    string
 	timeout     time.Duration
 	input       *container.NewContainerInput
-	envID       string
 	services    []*pluginv1alpha.ServiceContainer
 	imageEnv    map[string]string
+
+	// State that is only initialized after an environment is created:
+	envID         string
+	rootPath      string
+	actPath       string
+	toolCachePath string
+	tempPath      string
+	addtEnv       []string // env variables defined by the runner after an image is created, to be passed into each exec
 
 	// mu guards stdout/stderr swaps against in-flight Exec writes.
 	mu     sync.Mutex
@@ -88,11 +95,17 @@ func (p *pluginEnvironment) GetName() string {
 }
 
 func (p *pluginEnvironment) GetRoot() string {
-	return p.caps.GetRootPath()
+	if p.rootPath == "" {
+		panic("accessed pluginEnvironment.GetRoot() but rootPath was uninitialized")
+	}
+	return p.rootPath
 }
 
 func (p *pluginEnvironment) GetActPath() string {
-	return p.caps.GetActPath()
+	if p.actPath == "" {
+		panic("accessed pluginEnvironment.GetActPath() but actPath was uninitialized")
+	}
+	return p.actPath
 }
 
 func (p *pluginEnvironment) GetPathVariableName() string {
@@ -118,11 +131,17 @@ func (p *pluginEnvironment) JoinPathVariable(paths ...string) string {
 }
 
 func (p *pluginEnvironment) GetRunnerContext(_ context.Context) map[string]any {
+	if p.toolCachePath == "" {
+		panic("accessed pluginEnvironment.GetRunnerContext() but toolCachePath was uninitialized")
+	}
+	if p.tempPath == "" {
+		panic("accessed pluginEnvironment.GetRunnerContext() but tempPath was uninitialized")
+	}
 	return map[string]any{
 		"os":         p.caps.GetOs(),
 		"arch":       p.caps.GetArch(),
-		"temp":       p.caps.GetTemp(),
-		"tool_cache": p.caps.GetToolCachePath(),
+		"temp":       p.tempPath,
+		"tool_cache": p.toolCachePath,
 	}
 }
 
@@ -173,6 +192,14 @@ func (p *pluginEnvironment) Create(capAdd, capDrop []string) common.Executor {
 			return fmt.Errorf("plugin create: %w", err)
 		}
 		p.envID = resp.GetEnvironmentId()
+		p.rootPath = resp.GetRootPath()
+		p.actPath = resp.GetActPath()
+		p.toolCachePath = resp.GetToolCachePath()
+		p.tempPath = resp.GetTempPath()
+		// bit hacky; other RUNNER_* variables are initialized by the plugin capabilities, but this one is deferred so
+		// that paths can be created dynamically by the plugin:
+		p.addtEnv = append(p.addtEnv, fmt.Sprintf("RUNNER_TOOL_CACHE=%s", resp.GetToolCachePath()))
+		p.addtEnv = append(p.addtEnv, fmt.Sprintf("RUNNER_TEMP=%s", resp.GetTempPath()))
 		return nil
 	}
 }
@@ -204,10 +231,16 @@ func (p *pluginEnvironment) Exec(command []string, env map[string]string, user, 
 		streamCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
+		// Start with `addtEnv`, and map in `env` overwriting any values that are present.
+		finalEnv := envSliceToMap(p.addtEnv)
+		for k, v := range env {
+			finalEnv[k] = v
+		}
+
 		req := &pluginv1alpha.ExecRequest{
 			EnvironmentId: p.envID,
 			Command:       command,
-			Env:           env,
+			Env:           finalEnv,
 		}
 		if user != "" {
 			req.User = &user

@@ -64,12 +64,10 @@ type BackendPluginClient interface {
 	Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error)
 	// Exec runs a command inside the environment, streaming stdout/stderr back.
 	Exec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecOutput], error)
-	// CopyIn transfers a tar archive into the environment. Paths are canonical
-	// paths in the environment identified by the first chunk's environment_id.
+	// CopyIn transfers a tar archive into the environment.
 	CopyIn(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[CopyInChunk, CopyInResponse], error)
-	// CopyOut transfers a tar archive out of the environment. Paths are canonical
-	// paths in the specified environment. The runner reads env files
-	// (GITHUB_ENV/OUTPUT/STATE) back this way and parses them itself.
+	// CopyOut transfers a tar archive out of the environment. The runner reads
+	// env files (GITHUB_ENV/OUTPUT/STATE) back this way and parses them itself.
 	CopyOut(ctx context.Context, in *CopyOutRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CopyOutChunk], error)
 	// Remove tears down the environment and releases its resources.
 	Remove(ctx context.Context, in *RemoveRequest, opts ...grpc.CallOption) (*RemoveResponse, error)
@@ -200,12 +198,10 @@ type BackendPluginServer interface {
 	Start(context.Context, *StartRequest) (*StartResponse, error)
 	// Exec runs a command inside the environment, streaming stdout/stderr back.
 	Exec(*ExecRequest, grpc.ServerStreamingServer[ExecOutput]) error
-	// CopyIn transfers a tar archive into the environment. Paths are canonical
-	// paths in the environment identified by the first chunk's environment_id.
+	// CopyIn transfers a tar archive into the environment.
 	CopyIn(grpc.ClientStreamingServer[CopyInChunk, CopyInResponse]) error
-	// CopyOut transfers a tar archive out of the environment. Paths are canonical
-	// paths in the specified environment. The runner reads env files
-	// (GITHUB_ENV/OUTPUT/STATE) back this way and parses them itself.
+	// CopyOut transfers a tar archive out of the environment. The runner reads
+	// env files (GITHUB_ENV/OUTPUT/STATE) back this way and parses them itself.
 	CopyOut(*CopyOutRequest, grpc.ServerStreamingServer[CopyOutChunk]) error
 	// Remove tears down the environment and releases its resources.
 	Remove(context.Context, *RemoveRequest) (*RemoveResponse, error)

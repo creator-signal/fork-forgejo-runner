@@ -1086,10 +1086,8 @@ func (rc *RunContext) startPluginEnvironment(name string) common.Executor {
 
 		caps := pluginClient.Capabilities()
 		envList := []string{
-			fmt.Sprintf("RUNNER_TOOL_CACHE=%s", caps.GetToolCachePath()),
 			fmt.Sprintf("RUNNER_OS=%s", caps.GetOs()),
 			fmt.Sprintf("RUNNER_ARCH=%s", caps.GetArch()),
-			fmt.Sprintf("RUNNER_TEMP=%s", caps.GetTemp()),
 			"LANG=C.UTF-8",
 		}
 
@@ -1152,15 +1150,17 @@ func (rc *RunContext) startPluginEnvironment(name string) common.Executor {
 			env.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			env.Start(false),
 			env.Exec([]string{"mkdir", "-p", rc.Config.Workdir}, nil, "", ""),
-			env.Copy(env.GetActPath()+"/", &container.FileEntry{
-				Name: "workflow/event.json",
-				Mode: 0o644,
-				Body: rc.EventJSON,
-			}, &container.FileEntry{
-				Name: "workflow/envs.txt",
-				Mode: 0o666,
-				Body: "",
-			}),
+			func(ctx context.Context) error { // can't access GetActPath until container is created, so drop this into an executor rather than evaluating it now
+				return env.Copy(env.GetActPath()+"/", &container.FileEntry{
+					Name: "workflow/event.json",
+					Mode: 0o644,
+					Body: rc.EventJSON,
+				}, &container.FileEntry{
+					Name: "workflow/envs.txt",
+					Mode: 0o666,
+					Body: "",
+				})(ctx)
+			},
 		)(ctx)
 	}
 }

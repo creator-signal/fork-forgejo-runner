@@ -41,13 +41,11 @@ service BackendPlugin {
   // Exec runs a command inside the environment, streaming stdout/stderr back.
   rpc Exec(ExecRequest) returns (stream ExecOutput);
 
-  // CopyIn transfers a tar archive into the environment. Paths are canonical
-  // paths in the environment identified by the first chunk's environment_id.
+  // CopyIn transfers a tar archive into the environment.
   rpc CopyIn(stream CopyInChunk) returns (CopyInResponse);
 
-  // CopyOut transfers a tar archive out of the environment. Paths are canonical
-  // paths in the specified environment. The runner reads env files
-  // (GITHUB_ENV/OUTPUT/STATE) back this way and parses them itself.
+  // CopyOut transfers a tar archive out of the environment. The runner reads
+  // env files (GITHUB_ENV/OUTPUT/STATE) back this way and parses them itself.
   rpc CopyOut(CopyOutRequest) returns (stream CopyOutChunk);
 
   // Remove tears down the environment and releases its resources.
@@ -60,31 +58,20 @@ message CapabilitiesResponse {
   // name identifies the backend (e.g. "kubernetes"); used in logs and as the
   // container back-end name.
   string name = 1;
-  // root_path is the stable base directory the runner lays workflow files out
-  // under. It, and every path derived from it, must be usable by processes in
-  // each execution environment. Plugins that use per-environment physical paths
-  // translate canonical paths in Exec requests and Copy RPCs accordingly.
-  string root_path = 2;
-  // act_path is the directory where the runner stages its helper binaries and
-  // action code.
-  string act_path = 3;
-  // tool_cache_path is exposed to jobs as RUNNER_TOOL_CACHE.
-  string tool_cache_path = 4;
   // path_variable_name is the search-path environment variable; the runner uses
   // "PATH" when unset.
-  optional string path_variable_name = 5;
+  optional string path_variable_name = 2;
   // default_path_variable is the search path used when a job sets none.
-  optional string default_path_variable = 6;
+  optional string default_path_variable = 3;
   // path_separator joins path entries; the runner uses ":" when unset.
-  optional string path_separator = 7;
+  optional string path_separator = 4;
   // environment_case_insensitive marks environments whose variable names are
   // case-insensitive (Windows), so the runner de-duplicates accordingly.
-  bool environment_case_insensitive = 8;
-  // os, arch, temp populate the RUNNER_OS, RUNNER_ARCH, and RUNNER_TEMP
-  // variables exposed to the job.
-  string os = 9;
-  string arch = 10;
-  string temp = 11;
+  bool environment_case_insensitive = 5;
+  // os populates the RUNNER_OS environment variable exposed to the job.
+  string os = 6;
+  // arch populates the RUNNER_ARCH environment variable exposed to the job.
+  string arch = 7;
 }
 
 message ServiceContainer {
@@ -127,6 +114,16 @@ message CreateRequest {
 message CreateResponse {
   // environment_id is the handle for all later RPCs targeting this environment.
   string environment_id = 1;
+  // root_path is the base directory the runner lays workflow files out
+  // under.
+  string root_path = 2;
+  // act_path is the directory where the runner stages its helper binaries and
+  // action code.
+  string act_path = 3;
+  // tool_cache_path is exposed to jobs as RUNNER_TOOL_CACHE.
+  string tool_cache_path = 4;
+  // temp_path is exposed to jobs as RUNNER_TEMP.
+  string temp_path = 5;
 }
 
 message StartRequest {
@@ -175,7 +172,7 @@ message ExecOutput {
 // reject environment_id or dest_path on later chunks with codes.InvalidArgument.
 message CopyInChunk {
   optional string environment_id = 1;
-  // dest_path is the canonical directory the tar archive is extracted into.
+  // dest_path is the directory the tar archive is extracted into.
   optional string dest_path = 2;
   // data is a chunk of the tar archive.
   bytes data = 3;
@@ -185,8 +182,7 @@ message CopyInResponse {}
 
 message CopyOutRequest {
   string environment_id = 1;
-  // src_path is the canonical path inside the environment to archive and stream
-  // out.
+  // src_path is the path inside the environment to archive and stream out.
   string src_path = 2;
 }
 

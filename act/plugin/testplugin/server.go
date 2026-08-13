@@ -77,13 +77,9 @@ func resolveValue(env *environment, value string) string {
 func (s *Server) Capabilities(_ context.Context, _ *pluginv1alpha.CapabilitiesRequest) (*pluginv1alpha.CapabilitiesResponse, error) {
 	return &pluginv1alpha.CapabilitiesResponse{
 		Name:                       "test",
-		RootPath:                   "/shared",
-		ActPath:                    "/shared/act",
-		ToolCachePath:              "/shared/toolcache",
 		EnvironmentCaseInsensitive: runtime.GOOS == "windows",
 		Os:                         "Linux",
 		Arch:                       "x86_64",
-		Temp:                       "/tmp",
 	}, nil
 }
 
@@ -116,7 +112,13 @@ func (s *Server) Create(_ context.Context, req *pluginv1alpha.CreateRequest) (*p
 	}
 	s.mu.Unlock()
 
-	return &pluginv1alpha.CreateResponse{EnvironmentId: envID}, nil
+	return &pluginv1alpha.CreateResponse{
+		EnvironmentId: envID,
+		RootPath:      "/shared",
+		ActPath:       "/shared/act",
+		ToolCachePath: "/shared/toolcache",
+		TempPath:      "/tmp",
+	}, nil
 }
 
 func (s *Server) Start(_ context.Context, req *pluginv1alpha.StartRequest) (*pluginv1alpha.StartResponse, error) {

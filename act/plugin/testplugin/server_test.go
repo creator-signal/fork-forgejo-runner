@@ -61,6 +61,10 @@ func createEnv(t *testing.T, client pluginv1alpha.BackendPluginClient) string {
 	require.NoError(t, err)
 	_, err = client.Start(t.Context(), &pluginv1alpha.StartRequest{EnvironmentId: resp.GetEnvironmentId()})
 	require.NoError(t, err)
+	assert.Equal(t, "/shared", resp.GetRootPath())
+	assert.Equal(t, "/shared/act", resp.GetActPath())
+	assert.Equal(t, "/shared/toolcache", resp.GetToolCachePath())
+	assert.Equal(t, "/tmp", resp.GetTempPath())
 	return resp.GetEnvironmentId()
 }
 
@@ -70,8 +74,6 @@ func TestCapabilities(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "test", caps.GetName())
-	assert.Equal(t, "/shared", caps.GetRootPath())
-	assert.Equal(t, "/shared/act", caps.GetActPath())
 }
 
 func TestCreateAndRemove(t *testing.T) {

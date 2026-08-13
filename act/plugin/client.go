@@ -194,12 +194,6 @@ func validateCapabilities(caps *pluginv1alpha.CapabilitiesResponse) error {
 	if caps.GetName() == "" {
 		missing = append(missing, "name")
 	}
-	if caps.GetRootPath() == "" {
-		missing = append(missing, "root_path")
-	}
-	if caps.GetActPath() == "" {
-		missing = append(missing, "act_path")
-	}
 	if len(missing) > 0 {
 		return fmt.Errorf("capabilities response missing required fields: %s", strings.Join(missing, ", "))
 	}

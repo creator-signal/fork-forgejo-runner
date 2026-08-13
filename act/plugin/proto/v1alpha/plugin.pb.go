@@ -119,31 +119,20 @@ type CapabilitiesResponse struct {
 	// name identifies the backend (e.g. "kubernetes"); used in logs and as the
 	// container back-end name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// root_path is the stable base directory the runner lays workflow files out
-	// under. It, and every path derived from it, must be usable by processes in
-	// each execution environment. Plugins that use per-environment physical paths
-	// translate canonical paths in Exec requests and Copy RPCs accordingly.
-	RootPath string `protobuf:"bytes,2,opt,name=root_path,json=rootPath,proto3" json:"root_path,omitempty"`
-	// act_path is the directory where the runner stages its helper binaries and
-	// action code.
-	ActPath string `protobuf:"bytes,3,opt,name=act_path,json=actPath,proto3" json:"act_path,omitempty"`
-	// tool_cache_path is exposed to jobs as RUNNER_TOOL_CACHE.
-	ToolCachePath string `protobuf:"bytes,4,opt,name=tool_cache_path,json=toolCachePath,proto3" json:"tool_cache_path,omitempty"`
 	// path_variable_name is the search-path environment variable; the runner uses
 	// "PATH" when unset.
-	PathVariableName *string `protobuf:"bytes,5,opt,name=path_variable_name,json=pathVariableName,proto3,oneof" json:"path_variable_name,omitempty"`
+	PathVariableName *string `protobuf:"bytes,2,opt,name=path_variable_name,json=pathVariableName,proto3,oneof" json:"path_variable_name,omitempty"`
 	// default_path_variable is the search path used when a job sets none.
-	DefaultPathVariable *string `protobuf:"bytes,6,opt,name=default_path_variable,json=defaultPathVariable,proto3,oneof" json:"default_path_variable,omitempty"`
+	DefaultPathVariable *string `protobuf:"bytes,3,opt,name=default_path_variable,json=defaultPathVariable,proto3,oneof" json:"default_path_variable,omitempty"`
 	// path_separator joins path entries; the runner uses ":" when unset.
-	PathSeparator *string `protobuf:"bytes,7,opt,name=path_separator,json=pathSeparator,proto3,oneof" json:"path_separator,omitempty"`
+	PathSeparator *string `protobuf:"bytes,4,opt,name=path_separator,json=pathSeparator,proto3,oneof" json:"path_separator,omitempty"`
 	// environment_case_insensitive marks environments whose variable names are
 	// case-insensitive (Windows), so the runner de-duplicates accordingly.
-	EnvironmentCaseInsensitive bool `protobuf:"varint,8,opt,name=environment_case_insensitive,json=environmentCaseInsensitive,proto3" json:"environment_case_insensitive,omitempty"`
-	// os, arch, temp populate the RUNNER_OS, RUNNER_ARCH, and RUNNER_TEMP
-	// variables exposed to the job.
-	Os            string `protobuf:"bytes,9,opt,name=os,proto3" json:"os,omitempty"`
-	Arch          string `protobuf:"bytes,10,opt,name=arch,proto3" json:"arch,omitempty"`
-	Temp          string `protobuf:"bytes,11,opt,name=temp,proto3" json:"temp,omitempty"`
+	EnvironmentCaseInsensitive bool `protobuf:"varint,5,opt,name=environment_case_insensitive,json=environmentCaseInsensitive,proto3" json:"environment_case_insensitive,omitempty"`
+	// os populates the RUNNER_OS environment variable exposed to the job.
+	Os string `protobuf:"bytes,6,opt,name=os,proto3" json:"os,omitempty"`
+	// arch populates the RUNNER_ARCH environment variable exposed to the job.
+	Arch          string `protobuf:"bytes,7,opt,name=arch,proto3" json:"arch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -181,27 +170,6 @@ func (*CapabilitiesResponse) Descriptor() ([]byte, []int) {
 func (x *CapabilitiesResponse) GetName() string {
 	if x != nil {
 		return x.Name
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetRootPath() string {
-	if x != nil {
-		return x.RootPath
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetActPath() string {
-	if x != nil {
-		return x.ActPath
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetToolCachePath() string {
-	if x != nil {
-		return x.ToolCachePath
 	}
 	return ""
 }
@@ -244,13 +212,6 @@ func (x *CapabilitiesResponse) GetOs() string {
 func (x *CapabilitiesResponse) GetArch() string {
 	if x != nil {
 		return x.Arch
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetTemp() string {
-	if x != nil {
-		return x.Temp
 	}
 	return ""
 }
@@ -460,6 +421,16 @@ type CreateResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// environment_id is the handle for all later RPCs targeting this environment.
 	EnvironmentId string `protobuf:"bytes,1,opt,name=environment_id,json=environmentId,proto3" json:"environment_id,omitempty"`
+	// root_path is the base directory the runner lays workflow files out
+	// under.
+	RootPath string `protobuf:"bytes,2,opt,name=root_path,json=rootPath,proto3" json:"root_path,omitempty"`
+	// act_path is the directory where the runner stages its helper binaries and
+	// action code.
+	ActPath string `protobuf:"bytes,3,opt,name=act_path,json=actPath,proto3" json:"act_path,omitempty"`
+	// tool_cache_path is exposed to jobs as RUNNER_TOOL_CACHE.
+	ToolCachePath string `protobuf:"bytes,4,opt,name=tool_cache_path,json=toolCachePath,proto3" json:"tool_cache_path,omitempty"`
+	// temp_path is exposed to jobs as RUNNER_TEMP.
+	TempPath      string `protobuf:"bytes,5,opt,name=temp_path,json=tempPath,proto3" json:"temp_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -497,6 +468,34 @@ func (*CreateResponse) Descriptor() ([]byte, []int) {
 func (x *CreateResponse) GetEnvironmentId() string {
 	if x != nil {
 		return x.EnvironmentId
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetRootPath() string {
+	if x != nil {
+		return x.RootPath
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetActPath() string {
+	if x != nil {
+		return x.ActPath
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetToolCachePath() string {
+	if x != nil {
+		return x.ToolCachePath
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetTempPath() string {
+	if x != nil {
+		return x.TempPath
 	}
 	return ""
 }
@@ -760,7 +759,7 @@ func (x *ExecOutput) GetErrorMessage() string {
 type CopyInChunk struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EnvironmentId *string                `protobuf:"bytes,1,opt,name=environment_id,json=environmentId,proto3,oneof" json:"environment_id,omitempty"`
-	// dest_path is the canonical directory the tar archive is extracted into.
+	// dest_path is the directory the tar archive is extracted into.
 	DestPath *string `protobuf:"bytes,2,opt,name=dest_path,json=destPath,proto3,oneof" json:"dest_path,omitempty"`
 	// data is a chunk of the tar archive.
 	Data          []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
@@ -858,8 +857,7 @@ func (*CopyInResponse) Descriptor() ([]byte, []int) {
 type CopyOutRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EnvironmentId string                 `protobuf:"bytes,1,opt,name=environment_id,json=environmentId,proto3" json:"environment_id,omitempty"`
-	// src_path is the canonical path inside the environment to archive and stream
-	// out.
+	// src_path is the path inside the environment to archive and stream out.
 	SrcPath       string `protobuf:"bytes,2,opt,name=src_path,json=srcPath,proto3" json:"src_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1039,20 +1037,15 @@ var File_act_plugin_proto_v1alpha_plugin_proto protoreflect.FileDescriptor
 const file_act_plugin_proto_v1alpha_plugin_proto_rawDesc = "" +
 	"\n" +
 	"%act/plugin/proto/v1alpha/plugin.proto\x12\x0eplugin.v1alpha\x1a\x1egoogle/protobuf/duration.proto\"\x15\n" +
-	"\x13CapabilitiesRequest\"\xe0\x03\n" +
+	"\x13CapabilitiesRequest\"\xec\x02\n" +
 	"\x14CapabilitiesResponse\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n" +
-	"\troot_path\x18\x02 \x01(\tR\brootPath\x12\x19\n" +
-	"\bact_path\x18\x03 \x01(\tR\aactPath\x12&\n" +
-	"\x0ftool_cache_path\x18\x04 \x01(\tR\rtoolCachePath\x121\n" +
-	"\x12path_variable_name\x18\x05 \x01(\tH\x00R\x10pathVariableName\x88\x01\x01\x127\n" +
-	"\x15default_path_variable\x18\x06 \x01(\tH\x01R\x13defaultPathVariable\x88\x01\x01\x12*\n" +
-	"\x0epath_separator\x18\a \x01(\tH\x02R\rpathSeparator\x88\x01\x01\x12@\n" +
-	"\x1cenvironment_case_insensitive\x18\b \x01(\bR\x1aenvironmentCaseInsensitive\x12\x0e\n" +
-	"\x02os\x18\t \x01(\tR\x02os\x12\x12\n" +
-	"\x04arch\x18\n" +
-	" \x01(\tR\x04arch\x12\x12\n" +
-	"\x04temp\x18\v \x01(\tR\x04tempB\x15\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
+	"\x12path_variable_name\x18\x02 \x01(\tH\x00R\x10pathVariableName\x88\x01\x01\x127\n" +
+	"\x15default_path_variable\x18\x03 \x01(\tH\x01R\x13defaultPathVariable\x88\x01\x01\x12*\n" +
+	"\x0epath_separator\x18\x04 \x01(\tH\x02R\rpathSeparator\x88\x01\x01\x12@\n" +
+	"\x1cenvironment_case_insensitive\x18\x05 \x01(\bR\x1aenvironmentCaseInsensitive\x12\x0e\n" +
+	"\x02os\x18\x06 \x01(\tR\x02os\x12\x12\n" +
+	"\x04arch\x18\a \x01(\tR\x04archB\x15\n" +
 	"\x13_path_variable_nameB\x18\n" +
 	"\x16_default_path_variableB\x11\n" +
 	"\x0f_path_separator\"\xc7\x01\n" +
@@ -1082,9 +1075,13 @@ const file_act_plugin_proto_v1alpha_plugin_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aA\n" +
 	"\x13BackendOptionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"7\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb4\x01\n" +
 	"\x0eCreateResponse\x12%\n" +
-	"\x0eenvironment_id\x18\x01 \x01(\tR\renvironmentId\"5\n" +
+	"\x0eenvironment_id\x18\x01 \x01(\tR\renvironmentId\x12\x1b\n" +
+	"\troot_path\x18\x02 \x01(\tR\brootPath\x12\x19\n" +
+	"\bact_path\x18\x03 \x01(\tR\aactPath\x12&\n" +
+	"\x0ftool_cache_path\x18\x04 \x01(\tR\rtoolCachePath\x12\x1b\n" +
+	"\ttemp_path\x18\x05 \x01(\tR\btempPath\"5\n" +
 	"\fStartRequest\x12%\n" +
 	"\x0eenvironment_id\x18\x01 \x01(\tR\renvironmentId\"\x96\x01\n" +
 	"\rStartResponse\x12H\n" +
