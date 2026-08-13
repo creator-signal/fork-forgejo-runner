@@ -1,3 +1,12 @@
+// Copyright 2026 The Forgejo Authors. All rights reserved.
+// SPDX-License-Identifier: MIT
+//
+// Licensing note: while most of forgejo/runner is distributed under the terms
+// of GPL-3.0-or-later, this plugin definition file is more permissively
+// licensed under the MIT license.  This choice allows plugin authors to embed
+// it, create derived works of it (e.g. generated source files), and
+// distribute derived products under a wider variety of licenses.
+
 syntax = "proto3";
 
 package plugin.v1alpha;
