@@ -97,7 +97,7 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 			return err
 		}
 
-		stepContainer, err := sd.newStepContainer(ctx, ep, image, cmd, entrypoint)
+		stepContainer, err := sd.newStepContainer(ctx, docker.NewExecutionEnvironment(ep), image, cmd, entrypoint)
 		if err != nil {
 			return fmt.Errorf("could not create new step container: %w", err)
 		}
@@ -113,9 +113,7 @@ func (sd *stepDocker) runUsesContainer() common.Executor {
 	}
 }
 
-var ContainerNewContainer = docker.NewContainer
-
-func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, image string, cmd, entrypoint []string) (container.Container, error) {
+func (sd *stepDocker) newStepContainer(ctx context.Context, xe *docker.ExecutionEnvironment, image string, cmd, entrypoint []string) (container.Container, error) {
 	rc := sd.RunContext
 	step := sd.Step
 
@@ -140,7 +138,7 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, 
 
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TOOL_CACHE", toolCachePath))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_OS", "Linux"))
-	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", ep.RunnerArch()))
+	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_ARCH", xe.Endpoint().RunnerArch()))
 	envList = append(envList, fmt.Sprintf("%s=%s", "RUNNER_TEMP", "/tmp"))
 
 	binds, mounts, validVolumes, err := rc.GetBindsAndMounts(ctx)
@@ -148,7 +146,7 @@ func (sd *stepDocker) newStepContainer(ctx context.Context, ep docker.Endpoint, 
 		return nil, fmt.Errorf("could not get container binds and mounts: %w", err)
 	}
 
-	stepContainer := ContainerNewContainer(ep, &container.NewContainerInput{
+	stepContainer := xe.NewContainer(&container.NewContainerInput{
 		Cmd:             cmd,
 		Entrypoint:      entrypoint,
 		WorkingDir:      rc.JobContainer.ToContainerPath(rc.Config.Workdir),

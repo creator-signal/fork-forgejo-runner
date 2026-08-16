@@ -16,6 +16,9 @@ GOFILES := $(shell find . -type f -name "*.go" -o -name "go.mod" ! -name "genera
 GOFUMPT_PACKAGE ?= mvdan.cc/gofumpt@v0.10.0 # renovate: datasource=go
 GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2 # renovate: datasource=go
 MOCKERY_PACKAGE ?= github.com/vektra/mockery/v3@v3.7.2 # renovate: datasource=go
+BUF_PACKAGE=github.com/bufbuild/buf/cmd/buf@v1.72.0 # renovate: datasource=go
+PROTOC_GEN_GO_PACKAGE=google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12 # renovate: datasource=go
+PROTOC_GEN_GO_GRPC_PACKAGE=google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2 # renovate: datasource=go
 
 DOCKER_IMAGE ?= gitea/act_runner
 DOCKER_TAG ?= nightly
@@ -116,6 +119,13 @@ vet:
 generate:
 	mockery
 
+# proto regenerates the plugin gRPC bindings from plugin.proto. Requires tools
+# from deps-tools. Run after editing the proto; the generated *.pb.go are
+# committed.
+.PHONY: proto
+proto:
+	buf generate
+
 install: $(GOFILES)
 	$(GO) install -v -tags '$(TAGS)' -ldflags '$(EXTLDFLAGS)-s -w $(LDFLAGS)'
 
@@ -128,6 +138,9 @@ $(EXECUTABLE): $(GOFILES) act/schema/action_schema.json act/schema/workflow_sche
 deps-tools:
 	$(GO) install $(MOCKERY_PACKAGE)
 	$(GO) install $(GOFUMPT_PACKAGE)
+	$(GO) install $(BUF_PACKAGE)
+	$(GO) install $(PROTOC_GEN_GO_PACKAGE)
+	$(GO) install $(PROTOC_GEN_GO_GRPC_PACKAGE)
 
 $(DIST_DIRS):
 	mkdir -p $(DIST_DIRS)

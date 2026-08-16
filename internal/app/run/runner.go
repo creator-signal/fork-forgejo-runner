@@ -375,6 +375,8 @@ func (r *Runner) run(ctx context.Context, task *runnerv1.Task, reporter *report.
 		InsecureSkipTLS:            r.cfg.Runner.Insecure,
 		Inputs:                     inputs,
 		ServerVersion:              serverVersion,
+
+		Plugins: r.buildPluginConfigs(),
 	}
 
 	if r.cfg.Log.JobLevel != "" {
@@ -414,4 +416,19 @@ func (r *Runner) Declare(ctx context.Context, labels []string) (*connect.Respons
 
 func (r *Runner) Update(ctx context.Context, labels labels.Labels) {
 	r.labels = labels
+}
+
+// buildPluginConfigs converts internal config.Plugin map to runner.PluginConfig map.
+func (r *Runner) buildPluginConfigs() map[string]runner.PluginConfig {
+	if len(r.cfg.Plugins) == 0 {
+		return nil
+	}
+	plugins := make(map[string]runner.PluginConfig, len(r.cfg.Plugins))
+	for name, p := range r.cfg.Plugins {
+		plugins[name] = runner.PluginConfig{
+			Address: p.Address,
+			Options: p.Options,
+		}
+	}
+	return plugins
 }

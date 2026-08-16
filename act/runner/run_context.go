@@ -27,6 +27,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v13/act/container/docker"
 	"code.forgejo.org/forgejo/runner/v13/act/exprparser"
 	"code.forgejo.org/forgejo/runner/v13/act/model"
+	"code.forgejo.org/forgejo/runner/v13/act/plugin"
 	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/client"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -520,6 +521,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	xe := docker.NewExecutionEnvironment(ep)
 
 	username, password, err := rc.handleCredentials(ctx)
 	if err != nil {
@@ -631,7 +633,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 			return fmt.Errorf("unable to interpolate options: %w", err)
 		}
 
-		c := docker.NewContainer(ep, &container.NewContainerInput{
+		c := xe.NewContainer(&container.NewContainerInput{
 			Name:            createContainerName(rc.jobContainerName(), serviceID),
 			Image:           interpolatedImage,
 			Username:        username,
@@ -712,7 +714,7 @@ func (rc *RunContext) prepareJobContainer(ctx context.Context) error {
 		return fmt.Errorf("could not determine path of tool cache: %w", err)
 	}
 
-	rc.JobContainer = docker.NewContainer(ep, &container.NewContainerInput{
+	rc.JobContainer = xe.NewContainer(&container.NewContainerInput{
 		Cmd:             nil,
 		Entrypoint:      entrypoint,
 		Init:            enableInit,
@@ -1013,7 +1015,153 @@ func (rc *RunContext) startContainer() common.Executor {
 		if isHostEnv {
 			return rc.startHostEnvironment()(ctx)
 		}
+		image, err := rc.runsOnImage(ctx)
+		if err != nil {
+			return err
+		}
+		if name := rc.pluginName(ctx); name != "" {
+			return rc.startPluginEnvironment(name)(ctx)
+		}
+		if strings.Contains(image, "://") {
+			scheme, _, _ := strings.Cut(image, ":")
+			return fmt.Errorf("unknown backend %q: not a configured plugin", scheme)
+		}
 		return rc.startJobContainer()(ctx)
+	}
+}
+
+func (rc *RunContext) pluginName(ctx context.Context) string {
+	image, err := rc.runsOnImage(ctx)
+	if err != nil {
+		return ""
+	}
+	name, _, _ := strings.Cut(image, ":")
+	if _, ok := rc.Config.Plugins[name]; ok {
+		return name
+	}
+	return ""
+}
+
+func (rc *RunContext) pluginLabelArg(ctx context.Context) string {
+	image, err := rc.runsOnImage(ctx)
+	if err != nil {
+		return ""
+	}
+	if _, arg, ok := strings.Cut(image, ":"); ok {
+		return strings.TrimPrefix(arg, "//")
+	}
+	return ""
+}
+
+func (rc *RunContext) startPluginEnvironment(name string) common.Executor {
+	return func(ctx context.Context) error {
+		logger := common.Logger(ctx)
+
+		v1Cfg, ok := rc.Config.Plugins[name]
+		if !ok {
+			return fmt.Errorf("plugin %q not found in configuration", name)
+		}
+		logger.Infof("\U0001f50c Connecting to plugin %s at %s", name, v1Cfg.Address)
+
+		// Plaintext by default for the MVP. TODO: thread TLS material through
+		// PluginConfig and use plugin.WithTLS when configured.
+		pluginClient, err := plugin.NewClient(ctx, v1Cfg.Address, plugin.WithAllowPlainTCP())
+		if err != nil {
+			return fmt.Errorf("plugin %s: %w", name, err)
+		}
+		pluginOpts := v1Cfg.Options
+
+		rawLogger := logger.WithField("raw_output", true)
+		logWriter := common.NewLineWriter(rc.commandHandler(ctx), func(s string) bool {
+			if rc.Config.LogOutput {
+				rawLogger.Infof("%s", s)
+			} else {
+				rawLogger.Debugf("%s", s)
+			}
+			return true
+		})
+
+		containerName := rc.jobContainerName()
+		rc.Env["JOB_CONTAINER_NAME"] = containerName
+
+		caps := pluginClient.Capabilities()
+		envList := []string{
+			fmt.Sprintf("RUNNER_OS=%s", caps.GetOs()),
+			fmt.Sprintf("RUNNER_ARCH=%s", caps.GetArch()),
+			"LANG=C.UTF-8",
+		}
+
+		image, err := rc.containerImage(ctx)
+		if err != nil {
+			return err
+		}
+
+		env := pluginClient.NewEnvironment(&container.NewContainerInput{
+			Image:           image,
+			Name:            containerName,
+			Env:             envList,
+			WorkingDir:      rc.Config.Workdir,
+			DefaultPlatform: rc.dockerImagePlatform(ctx),
+			Stdout:          logWriter,
+			Stderr:          logWriter,
+		}, pluginOpts, rc.pluginLabelArg(ctx), rc.Config.ContainerMaxLifetime)
+
+		if adder, ok := env.(container.ServiceAdder); ok {
+			for serviceID, spec := range rc.Run.Job().Services {
+				interpolatedImage, err := rc.ExprEval.Interpolate(ctx, spec.Image)
+				if err != nil {
+					return err
+				}
+				if interpolatedImage == "" {
+					continue
+				}
+				envs := make(map[string]string, len(spec.Env))
+				for k, v := range spec.Env {
+					interpolated, err := rc.ExprEval.Interpolate(ctx, v)
+					if err != nil {
+						return err
+					}
+					envs[k] = interpolated
+				}
+				var ports []string
+				for _, port := range spec.Ports {
+					interpolatedPort, err := rc.ExprEval.Interpolate(ctx, port)
+					if err != nil {
+						return err
+					}
+					ports = append(ports, interpolatedPort)
+				}
+				adder.AddServiceContainerRaw(serviceID, interpolatedImage, envs, ports)
+			}
+		}
+
+		rc.JobContainer = env
+
+		rc.cleanUpJobContainer = func(ctx context.Context) error {
+			defer pluginClient.Close()
+			if rc.JobContainer != nil {
+				return rc.JobContainer.Remove()(ctx)
+			}
+			return nil
+		}
+
+		return common.NewPipelineExecutor(
+			env.Pull(rc.Config.ForcePull),
+			env.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
+			env.Start(false),
+			env.Exec([]string{"mkdir", "-p", rc.Config.Workdir}, nil, "", ""),
+			func(ctx context.Context) error { // can't access GetActPath until container is created, so drop this into an executor rather than evaluating it now
+				return env.Copy(env.GetActPath()+"/", &container.FileEntry{
+					Name: "workflow/event.json",
+					Mode: 0o644,
+					Body: rc.EventJSON,
+				}, &container.FileEntry{
+					Name: "workflow/envs.txt",
+					Mode: 0o666,
+					Body: "",
+				})(ctx)
+			},
+		)(ctx)
 	}
 }
 
@@ -1085,19 +1233,32 @@ func (rc *RunContext) stopContainer() common.Executor {
 
 func (rc *RunContext) closeContainer() common.Executor {
 	return func(ctx context.Context) error {
+		// The job context may already be cancelled (job timeout, runner
+		// shutdown). Tear down on a fresh context so the endpoint is still
+		// reclaimed.
+		ctx, cancel := context.WithTimeout(common.WithLogger(context.Background(), common.Logger(ctx)), cleanupTimeout)
+		defer cancel()
+
+		// Run every step even if an earlier one fails: skipping the plug-in
+		// teardown would leak the environment it provisioned. Join the errors.
+		var errs []error
 		if rc.JobContainer != nil {
 			if err := rc.JobContainer.Close()(ctx); err != nil {
-				return err
+				errs = append(errs, fmt.Errorf("close job container: %w", err))
 			}
 		}
+
 		rc.dockerEndpointMu.Lock()
 		ep := rc.dockerEndpoint
 		rc.dockerEndpoint = nil
 		rc.dockerEndpointMu.Unlock()
 		if ep != nil {
-			return ep.Close()
+			if err := ep.Close(); err != nil {
+				errs = append(errs, fmt.Errorf("close docker endpoint: %w", err))
+			}
 		}
-		return nil
+
+		return errors.Join(errs...)
 	}
 }
 
