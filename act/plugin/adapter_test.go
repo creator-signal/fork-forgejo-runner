@@ -33,6 +33,7 @@ type mockPluginServer struct {
 	createReq    *pluginv1alpha.CreateRequest
 	removeCalled bool
 
+	execReq      *pluginv1alpha.ExecRequest
 	execExitCode int32
 	execError    string
 	execStdout   string
@@ -70,7 +71,8 @@ func (s *mockPluginServer) Start(_ context.Context, _ *pluginv1alpha.StartReques
 	return &pluginv1alpha.StartResponse{ImageEnv: s.startImageEnv}, nil
 }
 
-func (s *mockPluginServer) Exec(_ *pluginv1alpha.ExecRequest, stream grpc.ServerStreamingServer[pluginv1alpha.ExecOutput]) error {
+func (s *mockPluginServer) Exec(req *pluginv1alpha.ExecRequest, stream grpc.ServerStreamingServer[pluginv1alpha.ExecOutput]) error {
+	s.execReq = req
 	if s.execStdout != "" {
 		_ = stream.Send(&pluginv1alpha.ExecOutput{
 			Stream: pluginv1alpha.ExecOutput_STDOUT,
@@ -229,8 +231,6 @@ func TestPluginEnvironment_CreatePassesInput(t *testing.T) {
 	require.NotNil(t, req)
 	assert.Equal(t, "test:latest", req.Image)
 	assert.Equal(t, "test-container", req.Name)
-	assert.Equal(t, map[string]string{"FOO": "bar"}, req.Env)
-	assert.Equal(t, "/workspace", req.WorkingDir)
 	assert.Equal(t, []string{"NET_ADMIN"}, req.CapAdd)
 	assert.Equal(t, []string{"MKNOD"}, req.CapDrop)
 	assert.Equal(t, "default", req.BackendOptions["ns"])
@@ -266,6 +266,36 @@ func TestPluginEnvironment_Lifecycle(t *testing.T) {
 
 	require.NoError(t, env.Remove()(t.Context()))
 	assert.True(t, mock.removeCalled)
+}
+
+func TestPluginEnvironment_ExecRequest_Defaults(t *testing.T) {
+	mock, conn := startMockServer(t)
+
+	env := newTestEnv(t, conn)
+	require.NoError(t, env.Create(nil, nil)(t.Context()))
+	require.NoError(t, env.Exec([]string{"cmd"}, nil, "", "")(t.Context()))
+
+	// Workdir & Env should contain the defaults from the create request (from newTestEnv)
+	require.NotNil(t, mock.execReq.Workdir)
+	assert.Equal(t, "/workspace", mock.execReq.Workdir)
+	foo, ok := mock.execReq.Env["FOO"]
+	assert.True(t, ok)
+	assert.Equal(t, "bar", foo)
+}
+
+func TestPluginEnvironment_ExecRequest_Overrides(t *testing.T) {
+	mock, conn := startMockServer(t)
+
+	env := newTestEnv(t, conn)
+	require.NoError(t, env.Create(nil, nil)(t.Context()))
+	require.NoError(t, env.Exec([]string{"cmd"}, map[string]string{"FOO": "not bar"}, "", "/new-workdir")(t.Context()))
+
+	// Workdir & Env should contain the overrides from the Exec cmd
+	require.NotNil(t, mock.execReq.Workdir)
+	assert.Equal(t, "/new-workdir", mock.execReq.Workdir)
+	foo, ok := mock.execReq.Env["FOO"]
+	assert.True(t, ok)
+	assert.Equal(t, "not bar", foo)
 }
 
 func TestPluginEnvironment_ExecStderr(t *testing.T) {

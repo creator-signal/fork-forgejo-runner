@@ -295,11 +295,6 @@ type CreateRequest struct {
 	Image string `protobuf:"bytes,1,opt,name=image,proto3" json:"image,omitempty"`
 	// name is a runner-assigned handle for the environment, unique per job.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// env are the environment variables to seed the job container with.
-	Env map[string]string `protobuf:"bytes,3,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// working_dir is the workflow's configured working directory; a backend whose
-	// environment cannot honor the exact path maps it as it sees fit.
-	WorkingDir string `protobuf:"bytes,4,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
 	// cap_add / cap_drop are advisory Linux capability adjustments; backends that
 	// cannot apply them ignore them.
 	CapAdd  []string `protobuf:"bytes,5,rep,name=cap_add,json=capAdd,proto3" json:"cap_add,omitempty"`
@@ -357,20 +352,6 @@ func (x *CreateRequest) GetImage() string {
 func (x *CreateRequest) GetName() string {
 	if x != nil {
 		return x.Name
-	}
-	return ""
-}
-
-func (x *CreateRequest) GetEnv() map[string]string {
-	if x != nil {
-		return x.Env
-	}
-	return nil
-}
-
-func (x *CreateRequest) GetWorkingDir() string {
-	if x != nil {
-		return x.WorkingDir
 	}
 	return ""
 }
@@ -601,7 +582,7 @@ type ExecRequest struct {
 	User *string `protobuf:"bytes,4,opt,name=user,proto3,oneof" json:"user,omitempty"`
 	// workdir overrides the working directory for this command; the environment's
 	// default is used when unset.
-	Workdir       *string `protobuf:"bytes,5,opt,name=workdir,proto3,oneof" json:"workdir,omitempty"`
+	Workdir       string `protobuf:"bytes,5,opt,name=workdir,proto3" json:"workdir,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -665,8 +646,8 @@ func (x *ExecRequest) GetUser() string {
 }
 
 func (x *ExecRequest) GetWorkdir() string {
-	if x != nil && x.Workdir != nil {
-		return *x.Workdir
+	if x != nil {
+		return x.Workdir
 	}
 	return ""
 }
@@ -1056,26 +1037,20 @@ const file_act_plugin_proto_v1alpha_plugin_proto_rawDesc = "" +
 	"\x05ports\x18\x04 \x03(\tR\x05ports\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc6\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xbf\x03\n" +
 	"\rCreateRequest\x12\x14\n" +
 	"\x05image\x18\x01 \x01(\tR\x05image\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x128\n" +
-	"\x03env\x18\x03 \x03(\v2&.plugin.v1alpha.CreateRequest.EnvEntryR\x03env\x12\x1f\n" +
-	"\vworking_dir\x18\x04 \x01(\tR\n" +
-	"workingDir\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
 	"\acap_add\x18\x05 \x03(\tR\x06capAdd\x12\x19\n" +
 	"\bcap_drop\x18\x06 \x03(\tR\acapDrop\x12<\n" +
 	"\bservices\x18\a \x03(\v2 .plugin.v1alpha.ServiceContainerR\bservices\x12Z\n" +
 	"\x0fbackend_options\x18\b \x03(\v21.plugin.v1alpha.CreateRequest.BackendOptionsEntryR\x0ebackendOptions\x12\x1b\n" +
 	"\tlabel_arg\x18\t \x01(\tR\blabelArg\x12J\n" +
 	"\x13environment_timeout\x18\n" +
-	" \x01(\v2\x19.google.protobuf.DurationR\x12environmentTimeout\x1a6\n" +
-	"\bEnvEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aA\n" +
+	" \x01(\v2\x19.google.protobuf.DurationR\x12environmentTimeout\x1aA\n" +
 	"\x13BackendOptionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb4\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"\xb4\x01\n" +
 	"\x0eCreateResponse\x12%\n" +
 	"\x0eenvironment_id\x18\x01 \x01(\tR\renvironmentId\x12\x1b\n" +
 	"\troot_path\x18\x02 \x01(\tR\brootPath\x12\x19\n" +
@@ -1088,19 +1063,17 @@ const file_act_plugin_proto_v1alpha_plugin_proto_rawDesc = "" +
 	"\timage_env\x18\x01 \x03(\v2+.plugin.v1alpha.StartResponse.ImageEnvEntryR\bimageEnv\x1a;\n" +
 	"\rImageEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8b\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xfa\x01\n" +
 	"\vExecRequest\x12%\n" +
 	"\x0eenvironment_id\x18\x01 \x01(\tR\renvironmentId\x12\x18\n" +
 	"\acommand\x18\x02 \x03(\tR\acommand\x126\n" +
 	"\x03env\x18\x03 \x03(\v2$.plugin.v1alpha.ExecRequest.EnvEntryR\x03env\x12\x17\n" +
-	"\x04user\x18\x04 \x01(\tH\x00R\x04user\x88\x01\x01\x12\x1d\n" +
-	"\aworkdir\x18\x05 \x01(\tH\x01R\aworkdir\x88\x01\x01\x1a6\n" +
+	"\x04user\x18\x04 \x01(\tH\x00R\x04user\x88\x01\x01\x12\x18\n" +
+	"\aworkdir\x18\x05 \x01(\tR\aworkdir\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +
-	"\x05_userB\n" +
-	"\n" +
-	"\b_workdir\"\xfd\x01\n" +
+	"\x05_user\"\xfd\x01\n" +
 	"\n" +
 	"ExecOutput\x129\n" +
 	"\x06stream\x18\x01 \x01(\x0e2!.plugin.v1alpha.ExecOutput.StreamR\x06stream\x12\x12\n" +
@@ -1156,7 +1129,7 @@ func file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP() []byte {
 
 var (
 	file_act_plugin_proto_v1alpha_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes  = make([]protoimpl.MessageInfo, 20)
+	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes  = make([]protoimpl.MessageInfo, 19)
 	file_act_plugin_proto_v1alpha_plugin_proto_goTypes   = []any{
 		ExecOutput_Stream(0),         // 0: plugin.v1alpha.ExecOutput.Stream
 		(*CapabilitiesRequest)(nil),  // 1: plugin.v1alpha.CapabilitiesRequest
@@ -1175,41 +1148,39 @@ var (
 		(*RemoveRequest)(nil),        // 14: plugin.v1alpha.RemoveRequest
 		(*RemoveResponse)(nil),       // 15: plugin.v1alpha.RemoveResponse
 		nil,                          // 16: plugin.v1alpha.ServiceContainer.EnvEntry
-		nil,                          // 17: plugin.v1alpha.CreateRequest.EnvEntry
-		nil,                          // 18: plugin.v1alpha.CreateRequest.BackendOptionsEntry
-		nil,                          // 19: plugin.v1alpha.StartResponse.ImageEnvEntry
-		nil,                          // 20: plugin.v1alpha.ExecRequest.EnvEntry
-		(*durationpb.Duration)(nil),  // 21: google.protobuf.Duration
+		nil,                          // 17: plugin.v1alpha.CreateRequest.BackendOptionsEntry
+		nil,                          // 18: plugin.v1alpha.StartResponse.ImageEnvEntry
+		nil,                          // 19: plugin.v1alpha.ExecRequest.EnvEntry
+		(*durationpb.Duration)(nil),  // 20: google.protobuf.Duration
 	}
 )
 var file_act_plugin_proto_v1alpha_plugin_proto_depIdxs = []int32{
 	16, // 0: plugin.v1alpha.ServiceContainer.env:type_name -> plugin.v1alpha.ServiceContainer.EnvEntry
-	17, // 1: plugin.v1alpha.CreateRequest.env:type_name -> plugin.v1alpha.CreateRequest.EnvEntry
-	3,  // 2: plugin.v1alpha.CreateRequest.services:type_name -> plugin.v1alpha.ServiceContainer
-	18, // 3: plugin.v1alpha.CreateRequest.backend_options:type_name -> plugin.v1alpha.CreateRequest.BackendOptionsEntry
-	21, // 4: plugin.v1alpha.CreateRequest.environment_timeout:type_name -> google.protobuf.Duration
-	19, // 5: plugin.v1alpha.StartResponse.image_env:type_name -> plugin.v1alpha.StartResponse.ImageEnvEntry
-	20, // 6: plugin.v1alpha.ExecRequest.env:type_name -> plugin.v1alpha.ExecRequest.EnvEntry
-	0,  // 7: plugin.v1alpha.ExecOutput.stream:type_name -> plugin.v1alpha.ExecOutput.Stream
-	1,  // 8: plugin.v1alpha.BackendPlugin.Capabilities:input_type -> plugin.v1alpha.CapabilitiesRequest
-	4,  // 9: plugin.v1alpha.BackendPlugin.Create:input_type -> plugin.v1alpha.CreateRequest
-	6,  // 10: plugin.v1alpha.BackendPlugin.Start:input_type -> plugin.v1alpha.StartRequest
-	8,  // 11: plugin.v1alpha.BackendPlugin.Exec:input_type -> plugin.v1alpha.ExecRequest
-	10, // 12: plugin.v1alpha.BackendPlugin.CopyIn:input_type -> plugin.v1alpha.CopyInChunk
-	12, // 13: plugin.v1alpha.BackendPlugin.CopyOut:input_type -> plugin.v1alpha.CopyOutRequest
-	14, // 14: plugin.v1alpha.BackendPlugin.Remove:input_type -> plugin.v1alpha.RemoveRequest
-	2,  // 15: plugin.v1alpha.BackendPlugin.Capabilities:output_type -> plugin.v1alpha.CapabilitiesResponse
-	5,  // 16: plugin.v1alpha.BackendPlugin.Create:output_type -> plugin.v1alpha.CreateResponse
-	7,  // 17: plugin.v1alpha.BackendPlugin.Start:output_type -> plugin.v1alpha.StartResponse
-	9,  // 18: plugin.v1alpha.BackendPlugin.Exec:output_type -> plugin.v1alpha.ExecOutput
-	11, // 19: plugin.v1alpha.BackendPlugin.CopyIn:output_type -> plugin.v1alpha.CopyInResponse
-	13, // 20: plugin.v1alpha.BackendPlugin.CopyOut:output_type -> plugin.v1alpha.CopyOutChunk
-	15, // 21: plugin.v1alpha.BackendPlugin.Remove:output_type -> plugin.v1alpha.RemoveResponse
-	15, // [15:22] is the sub-list for method output_type
-	8,  // [8:15] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	3,  // 1: plugin.v1alpha.CreateRequest.services:type_name -> plugin.v1alpha.ServiceContainer
+	17, // 2: plugin.v1alpha.CreateRequest.backend_options:type_name -> plugin.v1alpha.CreateRequest.BackendOptionsEntry
+	20, // 3: plugin.v1alpha.CreateRequest.environment_timeout:type_name -> google.protobuf.Duration
+	18, // 4: plugin.v1alpha.StartResponse.image_env:type_name -> plugin.v1alpha.StartResponse.ImageEnvEntry
+	19, // 5: plugin.v1alpha.ExecRequest.env:type_name -> plugin.v1alpha.ExecRequest.EnvEntry
+	0,  // 6: plugin.v1alpha.ExecOutput.stream:type_name -> plugin.v1alpha.ExecOutput.Stream
+	1,  // 7: plugin.v1alpha.BackendPlugin.Capabilities:input_type -> plugin.v1alpha.CapabilitiesRequest
+	4,  // 8: plugin.v1alpha.BackendPlugin.Create:input_type -> plugin.v1alpha.CreateRequest
+	6,  // 9: plugin.v1alpha.BackendPlugin.Start:input_type -> plugin.v1alpha.StartRequest
+	8,  // 10: plugin.v1alpha.BackendPlugin.Exec:input_type -> plugin.v1alpha.ExecRequest
+	10, // 11: plugin.v1alpha.BackendPlugin.CopyIn:input_type -> plugin.v1alpha.CopyInChunk
+	12, // 12: plugin.v1alpha.BackendPlugin.CopyOut:input_type -> plugin.v1alpha.CopyOutRequest
+	14, // 13: plugin.v1alpha.BackendPlugin.Remove:input_type -> plugin.v1alpha.RemoveRequest
+	2,  // 14: plugin.v1alpha.BackendPlugin.Capabilities:output_type -> plugin.v1alpha.CapabilitiesResponse
+	5,  // 15: plugin.v1alpha.BackendPlugin.Create:output_type -> plugin.v1alpha.CreateResponse
+	7,  // 16: plugin.v1alpha.BackendPlugin.Start:output_type -> plugin.v1alpha.StartResponse
+	9,  // 17: plugin.v1alpha.BackendPlugin.Exec:output_type -> plugin.v1alpha.ExecOutput
+	11, // 18: plugin.v1alpha.BackendPlugin.CopyIn:output_type -> plugin.v1alpha.CopyInResponse
+	13, // 19: plugin.v1alpha.BackendPlugin.CopyOut:output_type -> plugin.v1alpha.CopyOutChunk
+	15, // 20: plugin.v1alpha.BackendPlugin.Remove:output_type -> plugin.v1alpha.RemoveResponse
+	14, // [14:21] is the sub-list for method output_type
+	7,  // [7:14] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_act_plugin_proto_v1alpha_plugin_proto_init() }
@@ -1227,7 +1198,7 @@ func file_act_plugin_proto_v1alpha_plugin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_act_plugin_proto_v1alpha_plugin_proto_rawDesc), len(file_act_plugin_proto_v1alpha_plugin_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   20,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
