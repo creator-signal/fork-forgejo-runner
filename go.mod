@@ -15,7 +15,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/djherbis/buffer v1.2.0
 	github.com/djherbis/nio/v3 v3.0.1
-	github.com/docker/cli v29.7.1+incompatible
+	github.com/docker/cli v29.7.2+incompatible
 	github.com/docker/go-connections v0.8.1
 	github.com/gdgvda/cron v0.7.0
 	github.com/gobwas/glob v0.2.3
