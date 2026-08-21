@@ -13,13 +13,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"code.forgejo.org/forgejo/runner/v13/act/common/gitignore"
-	"github.com/djherbis/buffer"
-	"github.com/djherbis/nio/v3"
-	"golang.org/x/term"
 
 	"code.forgejo.org/forgejo/runner/v13/act/common"
 	"code.forgejo.org/forgejo/runner/v13/act/filecollector"
@@ -209,60 +205,6 @@ func lookupPathHost(cmd string, env map[string]string, writer io.Writer) (string
 	return f, nil
 }
 
-func setupPty(cmd *exec.Cmd) (*os.File, *os.File, error) {
-	master, slave, err := common.OpenPty()
-	if err != nil {
-		return nil, nil, err
-	}
-	if term.IsTerminal(int(slave.Fd())) {
-		_, err := term.MakeRaw(int(slave.Fd()))
-		if err != nil {
-			master.Close()
-			slave.Close()
-			return nil, nil, err
-		}
-	}
-	cmd.Stdin = slave
-	cmd.Stdout = slave
-	cmd.Stderr = slave
-	return master, slave, nil
-}
-
-func copyPtyOutput(writer io.Writer, master io.Reader, finishLog context.CancelFunc) {
-	// LXC had a behaviour which permitted short writes to the PTY to cause discarded data, which is fixed upstream in
-	// https://github.com/lxc/lxc/pull/4633.  As of writing, this isn't released for our Debian LXC images.  Until it
-	// is, we have a partial workaround to reduce the risk of data loss.
-	//
-	// Writing to `writer` can be relatively slow; when forgejo-runner is in daemon mode then `writer` is `lineWriter`
-	// which will split the contents up line-by-line and call a lineHandler, which will send the output to a logger,
-	// which will end up in `Reporter` which acquires a mutex for each line received in order to append the line to its
-	// internal buffers.  Experimentally, when using an LXC command and PTY configuration, if a command outputs a large
-	// log chunk (~500kB), a straight `io.Copy()` between `master` and `reader` will end up with data being lost in
-	// chunks in random places in the log -- sometimes the middle, sometimes the end.
-	//
-	// Introducing a memory buffer in forgejo-runner helps to address this problem.  We read as fast as possible in a
-	// dedicated goroutine into the buffer, attempting to keep the PTY buffer clear and ready for writes from the
-	// subcommand.  Concurrently, we drain that buffer into `writer`.
-	//
-	// There's no limit to the buffer size that could be required to get this right and always guarantee all data.  A 2
-	// MB buffer was sufficient to meet the needs of reproduction test cases, but this has been bumped up to 100 MB for
-	// anticipated real-world use cases.  `buffer.New(x)` is allocated on-demand, so 100 MB is a maximum buffer size.
-
-	pipeReader, pipeWriter := nio.Pipe(buffer.New(100 * 1024 * 1024))
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		// Error is expected -- "read /dev/ptmx: input/output error" is the typical exit for io.Copy here.
-		_, _ = io.Copy(pipeWriter, master)
-		pipeWriter.Close()
-	})
-	wg.Go(func() {
-		_, _ = io.Copy(writer, pipeReader)
-	})
-	wg.Wait()
-
-	finishLog()
-}
-
 func (e *HostEnvironment) UpdateFromImageEnv(_ *map[string]string) common.Executor {
 	return func(ctx context.Context) error {
 		return nil
@@ -321,43 +263,17 @@ func (e *HostEnvironment) exec(ctx context.Context, commandparam []string, cmdli
 	cmd.Stderr = e.StdOut
 	cmd.Dir = wd
 
-	var master *os.File
-	var slave *os.File
-	defer func() {
-		if master != nil {
-			master.Close()
-		}
-		if slave != nil {
-			slave.Close()
-		}
-	}()
-	if true /* allocate Terminal */ {
-		var err error
-		master, slave, err = setupPty(cmd)
-		if err != nil {
-			common.Logger(ctx).Debugf("Failed to setup Pty %v\n", err.Error())
-		}
-	}
-
 	logctx, finishLog := context.WithCancel(context.Background())
-	if master != nil {
-		go copyPtyOutput(e.StdOut, master, finishLog)
-	} else {
-		finishLog()
-	}
+	finishLog()
 
-	// Don't immediately return error if the command fails -- closing the pty and ensuring all data is flushed through
-	// to the logs needs to occur in the command error case.
-	runCmdErr := common.RunCmdInGroup(cmd, cmdline, master != nil)
-
-	if slave != nil {
-		_ = slave.Close()
-	}
+	// Don't immediately return error if the command fails --  ensuring all data is flushed through to the log context
+	// needs to occur in the command error case.
+	runCmdErr := common.RunCmdInGroup(cmd, cmdline)
 	<-logctx.Done()
-
 	if runCmdErr != nil {
 		return fmt.Errorf("RUN %w", runCmdErr)
 	}
+
 	return nil
 }
 

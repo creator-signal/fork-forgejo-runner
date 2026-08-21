@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-func RunCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
+func RunCmdInGroup(cmd *exec.Cmd, cmdline string) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Rfork: syscall.RFNOTEG,
 	}
