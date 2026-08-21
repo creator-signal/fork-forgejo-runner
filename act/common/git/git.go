@@ -508,7 +508,7 @@ func RunWithOutput(cmd *exec.Cmd) ([]byte, error) {
 		cmd.Stderr = &stderr
 	}
 
-	err := common.RunCmdInGroup(cmd, "", false)
+	err := common.RunCmdInGroup(cmd, "")
 	if err != nil && captureErr {
 		if ee, ok := err.(*exec.ExitError); ok {
 			ee.Stderr = cmd.Stderr.(*bytes.Buffer).Bytes()
