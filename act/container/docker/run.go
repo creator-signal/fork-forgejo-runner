@@ -36,7 +36,6 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-	"golang.org/x/term"
 
 	"code.forgejo.org/forgejo/runner/v13/act/common"
 	actcontainer "code.forgejo.org/forgejo/runner/v13/act/container"
@@ -527,7 +526,6 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			return nil
 		}
 		logger := common.Logger(ctx)
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		input := cr.input
 
 		exposedPorts := network.PortSet{}
@@ -544,7 +542,7 @@ func (cr *containerReference) create(capAdd, capDrop []string) common.Executor {
 			WorkingDir:   input.WorkingDir,
 			Env:          input.Env,
 			ExposedPorts: exposedPorts,
-			Tty:          isTerminal || input.TTY,
+			Tty:          input.TTY,
 		}
 		logger.Debugf("Common container.Config ==> %+v", config)
 
@@ -709,7 +707,6 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 		}
 
 		logger.Debugf("Exec command '%s'", cmd)
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 		envList := make([]string, 0)
 		for k, v := range env {
 			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
@@ -732,7 +729,6 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			Cmd:          cmd,
 			WorkingDir:   wd,
 			Env:          envList,
-			TTY:          isTerminal,
 			AttachStderr: true,
 			AttachStdout: true,
 		})
@@ -759,15 +755,13 @@ func (cr *containerReference) exec(cmd []string, env map[string]string, user, wo
 			return fmt.Errorf("failed to create exec: %w; container logs: %q", err, logContext)
 		}
 
-		attachResult, err := cr.cli.ExecAttach(ctx, createResult.ID, client.ExecAttachOptions{
-			TTY: isTerminal,
-		})
+		attachResult, err := cr.cli.ExecAttach(ctx, createResult.ID, client.ExecAttachOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to attach to exec: %w", err)
 		}
 		defer attachResult.Close()
 
-		err = cr.waitForCommand(ctx, isTerminal, attachResult.HijackedResponse)
+		err = cr.waitForCommand(ctx, attachResult.HijackedResponse)
 		if err != nil {
 			return err
 		}
@@ -829,7 +823,7 @@ func (cr *containerReference) tryReadGID() common.Executor {
 	return cr.tryReadID("-g", func(id int) { cr.GID = id })
 }
 
-func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal bool, resp client.HijackedResponse) error {
+func (cr *containerReference) waitForCommand(ctx context.Context, resp client.HijackedResponse) error {
 	logger := common.Logger(ctx)
 
 	cmdResponse := make(chan error)
@@ -845,12 +839,7 @@ func (cr *containerReference) waitForCommand(ctx context.Context, isTerminal boo
 			errWriter = os.Stderr
 		}
 
-		var err error
-		if !isTerminal || os.Getenv("NORAW") != "" {
-			_, err = stdcopy2.StdCopy(outWriter, errWriter, resp.Reader)
-		} else {
-			_, err = io.Copy(outWriter, resp.Reader)
-		}
+		_, err := stdcopy2.StdCopy(outWriter, errWriter, resp.Reader)
 		cmdResponse <- err
 	}()
 
@@ -1017,7 +1006,6 @@ func (cr *containerReference) attach() common.Executor {
 		if err != nil {
 			return fmt.Errorf("failed to attach to container: %w", err)
 		}
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
 
 		var outWriter io.Writer
 		outWriter = cr.input.Stdout
@@ -1029,11 +1017,7 @@ func (cr *containerReference) attach() common.Executor {
 			errWriter = os.Stderr
 		}
 		go func() {
-			if !isTerminal || os.Getenv("NORAW") != "" {
-				_, err = stdcopy2.StdCopy(outWriter, errWriter, out.Reader)
-			} else {
-				_, err = io.Copy(outWriter, out.Reader)
-			}
+			_, err := stdcopy2.StdCopy(outWriter, errWriter, out.Reader)
 			if err != nil {
 				common.Logger(ctx).Errorf("redirect container output: %v", err)
 			}
