@@ -1,0 +1,32 @@
+name: job-container-internal-tty
+on:
+  push:
+jobs:
+  container-tty-true:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/alpine:3.24
+      tty: true
+    steps:
+      - name: Verify that steps are not run in a tty
+        run: |
+          if [ -t 1 ]; then
+            echo "stdout is a TTY"
+            exit 1
+          else
+            echo "stdout is NOT a TTY"
+          fi
+  container-tty-false:
+    runs-on: ubuntu-latest
+    container:
+      image: code.forgejo.org/oci/alpine:3.24
+      tty: false
+    steps:
+      - name: Verify that steps are not run in a tty
+        run: |
+          if [ -t 1 ]; then
+            echo "stdout is a TTY"
+            exit 1
+          else
+            echo "stdout is NOT a TTY"
+          fi
