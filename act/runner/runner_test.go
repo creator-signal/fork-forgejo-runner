@@ -211,10 +211,12 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 
 	planner, err := model.NewWorkflowPlanner(fullWorkflowPath, true, false)
 	if err != nil {
-		assert.Error(t, err, j.errorMessage)
+		if j.errorMessage == "" {
+			assert.Failf(t, "unexpected error", "did not expect error, but had: %s", err)
+		} else {
+			assert.ErrorContains(t, err, j.errorMessage)
+		}
 	} else {
-		assert.Nil(t, err, fullWorkflowPath)
-
 		plan, err := planner.PlanEvent(j.eventName)
 		assert.True(t, (err == nil) != (plan == nil), "PlanEvent should return either a plan or an error")
 		if err == nil && plan != nil {
@@ -222,7 +224,7 @@ func (j *TestJobFileInfo) runTest(ctx context.Context, t *testing.T, cfg *Config
 			if j.errorMessage == "" {
 				assert.NoError(t, err, fullWorkflowPath)
 			} else {
-				require.Error(t, err, j.errorMessage)
+				require.Error(t, err)
 				assert.ErrorContains(t, err, j.errorMessage)
 			}
 		}
