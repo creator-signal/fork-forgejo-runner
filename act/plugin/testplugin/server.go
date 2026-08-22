@@ -28,7 +28,6 @@ import (
 type environment struct {
 	root    string // temp directory root
 	workdir string
-	env     []string
 }
 
 type Server struct {
@@ -108,7 +107,6 @@ func (s *Server) Create(_ context.Context, req *pluginv1alpha.CreateRequest) (*p
 	s.envs[envID] = &environment{
 		root:    root,
 		workdir: workdir,
-		env:     envMapToSlice(req.GetEnv()),
 	}
 	s.mu.Unlock()
 
@@ -122,7 +120,7 @@ func (s *Server) Create(_ context.Context, req *pluginv1alpha.CreateRequest) (*p
 }
 
 func (s *Server) Start(_ context.Context, req *pluginv1alpha.StartRequest) (*pluginv1alpha.StartResponse, error) {
-	env, err := s.getEnv(req.GetEnvironmentId())
+	_, err := s.getEnv(req.GetEnvironmentId())
 	if err != nil {
 		return nil, err
 	}
@@ -130,13 +128,6 @@ func (s *Server) Start(_ context.Context, req *pluginv1alpha.StartRequest) (*plu
 	imageEnv := map[string]string{
 		"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 	}
-
-	for _, kv := range env.env {
-		if k, v, ok := strings.Cut(kv, "="); ok {
-			imageEnv[k] = resolveValue(env, v)
-		}
-	}
-
 	return &pluginv1alpha.StartResponse{ImageEnv: imageEnv}, nil
 }
 
@@ -165,7 +156,6 @@ func (s *Server) Exec(req *pluginv1alpha.ExecRequest, stream grpc.ServerStreamin
 	}
 
 	envList := os.Environ()
-	envList = append(envList, env.env...)
 	for k, v := range req.GetEnv() {
 		envList = append(envList, k+"="+resolveValue(env, v))
 	}
@@ -362,14 +352,6 @@ func (w *execStreamWriter) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	return len(p), nil
-}
-
-func envMapToSlice(env map[string]string) []string {
-	out := make([]string, 0, len(env))
-	for k, v := range env {
-		out = append(out, k+"="+v)
-	}
-	return out
 }
 
 func extractTar(destPath string, r io.Reader) error {

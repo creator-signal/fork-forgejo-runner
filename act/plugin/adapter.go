@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"strings"
 	"sync"
@@ -159,8 +160,6 @@ func newCreateRequest(input *container.NewContainerInput, backendOpts map[string
 	return &pluginv1alpha.CreateRequest{
 		Image:              input.Image,
 		Name:               input.Name,
-		Env:                envSliceToMap(input.Env),
-		WorkingDir:         input.WorkingDir,
 		BackendOptions:     backendOpts,
 		LabelArg:           labelArg,
 		EnvironmentTimeout: durationpb.New(timeout),
@@ -231,11 +230,11 @@ func (p *pluginEnvironment) Exec(command []string, env map[string]string, user, 
 		streamCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		// Start with `addtEnv`, and map in `env` overwriting any values that are present.
+		// Start with `addtEnv` which are the static values the runner defines, and then add in the environment-level
+		// env vars, and then the specific env settings requested for this exec.
 		finalEnv := envSliceToMap(p.addtEnv)
-		for k, v := range env {
-			finalEnv[k] = v
-		}
+		maps.Copy(finalEnv, envSliceToMap(p.input.Env))
+		maps.Copy(finalEnv, env)
 
 		req := &pluginv1alpha.ExecRequest{
 			EnvironmentId: p.envID,
@@ -246,7 +245,9 @@ func (p *pluginEnvironment) Exec(command []string, env map[string]string, user, 
 			req.User = &user
 		}
 		if workdir != "" {
-			req.Workdir = &workdir
+			req.Workdir = workdir
+		} else {
+			req.Workdir = p.input.WorkingDir
 		}
 		stream, err := p.client.Exec(streamCtx, req)
 		if err != nil {

@@ -56,7 +56,6 @@ func createEnv(t *testing.T, client pluginv1alpha.BackendPluginClient) string {
 	resp, err := client.Create(t.Context(), &pluginv1alpha.CreateRequest{
 		Image: "test:latest",
 		Name:  "test",
-		Env:   map[string]string{"TEST_VAR": "hello"},
 	})
 	require.NoError(t, err)
 	_, err = client.Start(t.Context(), &pluginv1alpha.StartRequest{EnvironmentId: resp.GetEnvironmentId()})
@@ -158,7 +157,10 @@ func TestExec_EnvVars(t *testing.T) {
 	stream, err := client.Exec(t.Context(), &pluginv1alpha.ExecRequest{
 		EnvironmentId: envID,
 		Command:       []string{"sh", "-c", "echo $TEST_VAR $EXTRA"},
-		Env:           map[string]string{"EXTRA": "world"},
+		Env: map[string]string{
+			"TEST_VAR": "hello",
+			"EXTRA":    "world",
+		},
 	})
 	require.NoError(t, err)
 

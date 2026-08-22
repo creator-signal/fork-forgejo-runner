@@ -86,16 +86,13 @@ message ServiceContainer {
 }
 
 message CreateRequest {
+  reserved 3, 4; // env & working dir removed, already present in ExecRequest
+
   // image is the backend-defined reference for the job container image, opaque
   // to the protocol (a Docker image name, a VM template, ...).
   string image = 1;
   // name is a runner-assigned handle for the environment, unique per job.
   string name = 2;
-  // env are the environment variables to seed the job container with.
-  map<string, string> env = 3;
-  // working_dir is the workflow's configured working directory; a backend whose
-  // environment cannot honor the exact path maps it as it sees fit.
-  string working_dir = 4;
   // cap_add / cap_drop are advisory Linux capability adjustments; backends that
   // cannot apply them ignore them.
   repeated string cap_add = 5;
@@ -146,7 +143,7 @@ message ExecRequest {
   optional string user = 4;
   // workdir overrides the working directory for this command; the environment's
   // default is used when unset.
-  optional string workdir = 5;
+  string workdir = 5;
 }
 
 message ExecOutput {
