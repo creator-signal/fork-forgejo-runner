@@ -2,7 +2,7 @@ module code.forgejo.org/forgejo/runner/v13
 
 go 1.26.0
 
-toolchain go1.26.5
+toolchain go1.26.6
 
 require (
 	code.forgejo.org/forgejo/actions-proto v0.7.0
@@ -13,8 +13,6 @@ require (
 	github.com/containerd/errdefs v1.0.0
 	github.com/creack/pty v1.1.24
 	github.com/distribution/reference v0.6.0
-	github.com/djherbis/buffer v1.2.0
-	github.com/djherbis/nio/v3 v3.0.1
 	github.com/docker/cli v29.7.2+incompatible
 	github.com/docker/go-connections v0.8.1
 	github.com/gdgvda/cron v0.7.0
