@@ -1,8 +1,8 @@
 module code.forgejo.org/forgejo/runner/v13
 
-go 1.25.0
+go 1.26.0
 
-toolchain go1.25.14
+toolchain go1.26.5
 
 require (
 	code.forgejo.org/forgejo/actions-proto v0.7.0

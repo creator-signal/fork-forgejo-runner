@@ -218,7 +218,7 @@ func (s *serializedRunnerSettings) applyTo(config *Config) error {
 	}
 	if s.Capacity != 0 {
 		if s.Capacity < 0 {
-			log.Warnf("Ignoring invalid `runner.capacity` %q", s.Capacity)
+			log.Warnf("Ignoring invalid `runner.capacity` %d", s.Capacity)
 		} else {
 			config.Runner.Capacity = s.Capacity
 		}
