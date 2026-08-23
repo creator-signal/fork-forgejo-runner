@@ -48,6 +48,17 @@ const (
 // through it. Plugin servers must also expose the standard grpc.health.v1
 // service.
 //
+// For any given environment ID, the runner will not invoke a new RPC while
+// a previous RPS for that environment is outstanding, with one exception:
+// for streaming RPCs, the runner closes or cancels the stream and may
+// immediately invoke a subsequent RPC (typically `Remove`). As teardown of
+// a cancelled stream is not instantaneous, implementations may observe a
+// subsequent RPC invoked while a previous streaming RPC's handler is still
+// executing internally. This behaviour is expected. Exclusive locking of each
+// environment during each RPC is recommended for most implementations to
+// accomodate this, ensuring that a `Remove` operation and the last in-flight
+// RPC operation (currently being cancelled) do not cause internal errors.
+//
 // This is an alpha protocol: it may change in incompatible ways between
 // releases. Errors are reported with gRPC status codes; the runner relies on
 // NotFound (unknown environment_id) and InvalidArgument (malformed request),
@@ -192,6 +203,17 @@ func (c *backendPluginClient) Remove(ctx context.Context, in *RemoveRequest, opt
 // connects to a standalone plugin server and drives the environment lifecycle
 // through it. Plugin servers must also expose the standard grpc.health.v1
 // service.
+//
+// For any given environment ID, the runner will not invoke a new RPC while
+// a previous RPS for that environment is outstanding, with one exception:
+// for streaming RPCs, the runner closes or cancels the stream and may
+// immediately invoke a subsequent RPC (typically `Remove`). As teardown of
+// a cancelled stream is not instantaneous, implementations may observe a
+// subsequent RPC invoked while a previous streaming RPC's handler is still
+// executing internally. This behaviour is expected. Exclusive locking of each
+// environment during each RPC is recommended for most implementations to
+// accomodate this, ensuring that a `Remove` operation and the last in-flight
+// RPC operation (currently being cancelled) do not cause internal errors.
 //
 // This is an alpha protocol: it may change in incompatible ways between
 // releases. Errors are reported with gRPC status codes; the runner relies on
