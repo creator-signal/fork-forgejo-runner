@@ -4,7 +4,7 @@
 services:
 
   demo-workflow:
-    image: data.forgejo.org/oci/alpine:3.23
+    image: data.forgejo.org/oci/alpine:3.24
     links:
       - forgejo
     command: >-
