@@ -63,6 +63,17 @@ type BackendPluginClient interface {
 	// Start boots a previously created environment.
 	Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error)
 	// Exec runs a command inside the environment, streaming stdout/stderr back.
+	//
+	// Exec implementations should detect when the RPC stream is terminated
+	// externally before the command completes, as this will signal explicit job
+	// cancellation, job timeout, or command timeout. When detected, the
+	// implementation should terminate the the running command on the
+	// environment. Implementation should not rely on a failed write to the
+	// output stream as its cancellation signal as some commands produce
+	// infrequent output. (Implementation note: observing context cancellation in
+	// Go, a cancellation-aware select on the response channel in Rust's
+	// `tokio::sync::mspc::Sender::closed()`, or a server-side cancellation
+	// callback in Python/Java.)
 	Exec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecOutput], error)
 	// CopyIn transfers a tar archive into the environment.
 	CopyIn(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[CopyInChunk, CopyInResponse], error)
@@ -197,6 +208,17 @@ type BackendPluginServer interface {
 	// Start boots a previously created environment.
 	Start(context.Context, *StartRequest) (*StartResponse, error)
 	// Exec runs a command inside the environment, streaming stdout/stderr back.
+	//
+	// Exec implementations should detect when the RPC stream is terminated
+	// externally before the command completes, as this will signal explicit job
+	// cancellation, job timeout, or command timeout. When detected, the
+	// implementation should terminate the the running command on the
+	// environment. Implementation should not rely on a failed write to the
+	// output stream as its cancellation signal as some commands produce
+	// infrequent output. (Implementation note: observing context cancellation in
+	// Go, a cancellation-aware select on the response channel in Rust's
+	// `tokio::sync::mspc::Sender::closed()`, or a server-side cancellation
+	// callback in Python/Java.)
 	Exec(*ExecRequest, grpc.ServerStreamingServer[ExecOutput]) error
 	// CopyIn transfers a tar archive into the environment.
 	CopyIn(grpc.ClientStreamingServer[CopyInChunk, CopyInResponse]) error
