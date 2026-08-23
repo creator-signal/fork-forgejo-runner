@@ -15,7 +15,7 @@ GOFILES := $(shell find . -type f -name "*.go" -o -name "go.mod" ! -name "genera
 
 GOFUMPT_PACKAGE ?= mvdan.cc/gofumpt@v0.10.0 # renovate: datasource=go
 GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.1 # renovate: datasource=go
-MOCKERY_PACKAGE ?= github.com/vektra/mockery/v3@v3.7.3 # renovate: datasource=go
+MOCKERY_PACKAGE ?= github.com/vektra/mockery/v3@v3.7.4 # renovate: datasource=go
 BUF_PACKAGE=github.com/bufbuild/buf/cmd/buf@v1.72.0 # renovate: datasource=go
 PROTOC_GEN_GO_PACKAGE=google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12 # renovate: datasource=go
 PROTOC_GEN_GO_GRPC_PACKAGE=google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2 # renovate: datasource=go
