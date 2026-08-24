@@ -48,6 +48,17 @@ const (
 // through it. Plugin servers must also expose the standard grpc.health.v1
 // service.
 //
+// For any given environment ID, the runner will not invoke a new RPC while
+// a previous RPS for that environment is outstanding, with one exception:
+// for streaming RPCs, the runner closes or cancels the stream and may
+// immediately invoke a subsequent RPC (typically `Remove`). As teardown of
+// a cancelled stream is not instantaneous, implementations may observe a
+// subsequent RPC invoked while a previous streaming RPC's handler is still
+// executing internally. This behaviour is expected. Exclusive locking of each
+// environment during each RPC is recommended for most implementations to
+// accomodate this, ensuring that a `Remove` operation and the last in-flight
+// RPC operation (currently being cancelled) do not cause internal errors.
+//
 // This is an alpha protocol: it may change in incompatible ways between
 // releases. Errors are reported with gRPC status codes; the runner relies on
 // NotFound (unknown environment_id) and InvalidArgument (malformed request),
@@ -63,6 +74,17 @@ type BackendPluginClient interface {
 	// Start boots a previously created environment.
 	Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error)
 	// Exec runs a command inside the environment, streaming stdout/stderr back.
+	//
+	// Exec implementations should detect when the RPC stream is terminated
+	// externally before the command completes, as this will signal explicit job
+	// cancellation, job timeout, or command timeout. When detected, the
+	// implementation should terminate the the running command on the
+	// environment. Implementation should not rely on a failed write to the
+	// output stream as its cancellation signal as some commands produce
+	// infrequent output. (Implementation note: observing context cancellation in
+	// Go, a cancellation-aware select on the response channel in Rust's
+	// `tokio::sync::mspc::Sender::closed()`, or a server-side cancellation
+	// callback in Python/Java.)
 	Exec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecOutput], error)
 	// CopyIn transfers a tar archive into the environment.
 	CopyIn(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[CopyInChunk, CopyInResponse], error)
@@ -182,6 +204,17 @@ func (c *backendPluginClient) Remove(ctx context.Context, in *RemoveRequest, opt
 // through it. Plugin servers must also expose the standard grpc.health.v1
 // service.
 //
+// For any given environment ID, the runner will not invoke a new RPC while
+// a previous RPS for that environment is outstanding, with one exception:
+// for streaming RPCs, the runner closes or cancels the stream and may
+// immediately invoke a subsequent RPC (typically `Remove`). As teardown of
+// a cancelled stream is not instantaneous, implementations may observe a
+// subsequent RPC invoked while a previous streaming RPC's handler is still
+// executing internally. This behaviour is expected. Exclusive locking of each
+// environment during each RPC is recommended for most implementations to
+// accomodate this, ensuring that a `Remove` operation and the last in-flight
+// RPC operation (currently being cancelled) do not cause internal errors.
+//
 // This is an alpha protocol: it may change in incompatible ways between
 // releases. Errors are reported with gRPC status codes; the runner relies on
 // NotFound (unknown environment_id) and InvalidArgument (malformed request),
@@ -197,6 +230,17 @@ type BackendPluginServer interface {
 	// Start boots a previously created environment.
 	Start(context.Context, *StartRequest) (*StartResponse, error)
 	// Exec runs a command inside the environment, streaming stdout/stderr back.
+	//
+	// Exec implementations should detect when the RPC stream is terminated
+	// externally before the command completes, as this will signal explicit job
+	// cancellation, job timeout, or command timeout. When detected, the
+	// implementation should terminate the the running command on the
+	// environment. Implementation should not rely on a failed write to the
+	// output stream as its cancellation signal as some commands produce
+	// infrequent output. (Implementation note: observing context cancellation in
+	// Go, a cancellation-aware select on the response channel in Rust's
+	// `tokio::sync::mspc::Sender::closed()`, or a server-side cancellation
+	// callback in Python/Java.)
 	Exec(*ExecRequest, grpc.ServerStreamingServer[ExecOutput]) error
 	// CopyIn transfers a tar archive into the environment.
 	CopyIn(grpc.ClientStreamingServer[CopyInChunk, CopyInResponse]) error
