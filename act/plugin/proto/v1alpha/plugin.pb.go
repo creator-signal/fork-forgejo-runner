@@ -32,50 +32,50 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type ExecOutput_Stream int32
+type DataChunk_Stream int32
 
 const (
-	ExecOutput_STDOUT ExecOutput_Stream = 0
-	ExecOutput_STDERR ExecOutput_Stream = 1
+	DataChunk_STDOUT DataChunk_Stream = 0
+	DataChunk_STDERR DataChunk_Stream = 1
 )
 
-// Enum value maps for ExecOutput_Stream.
+// Enum value maps for DataChunk_Stream.
 var (
-	ExecOutput_Stream_name = map[int32]string{
+	DataChunk_Stream_name = map[int32]string{
 		0: "STDOUT",
 		1: "STDERR",
 	}
-	ExecOutput_Stream_value = map[string]int32{
+	DataChunk_Stream_value = map[string]int32{
 		"STDOUT": 0,
 		"STDERR": 1,
 	}
 )
 
-func (x ExecOutput_Stream) Enum() *ExecOutput_Stream {
-	p := new(ExecOutput_Stream)
+func (x DataChunk_Stream) Enum() *DataChunk_Stream {
+	p := new(DataChunk_Stream)
 	*p = x
 	return p
 }
 
-func (x ExecOutput_Stream) String() string {
+func (x DataChunk_Stream) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (ExecOutput_Stream) Descriptor() protoreflect.EnumDescriptor {
+func (DataChunk_Stream) Descriptor() protoreflect.EnumDescriptor {
 	return file_act_plugin_proto_v1alpha_plugin_proto_enumTypes[0].Descriptor()
 }
 
-func (ExecOutput_Stream) Type() protoreflect.EnumType {
+func (DataChunk_Stream) Type() protoreflect.EnumType {
 	return &file_act_plugin_proto_v1alpha_plugin_proto_enumTypes[0]
 }
 
-func (x ExecOutput_Stream) Number() protoreflect.EnumNumber {
+func (x DataChunk_Stream) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use ExecOutput_Stream.Descriptor instead.
-func (ExecOutput_Stream) EnumDescriptor() ([]byte, []int) {
-	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{8, 0}
+// Deprecated: Use DataChunk_Stream.Descriptor instead.
+func (DataChunk_Stream) EnumDescriptor() ([]byte, []int) {
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{9, 0}
 }
 
 type CapabilitiesRequest struct {
@@ -654,17 +654,12 @@ func (x *ExecRequest) GetWorkdir() string {
 
 type ExecOutput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// stream identifies which output data belongs to.
-	Stream ExecOutput_Stream `protobuf:"varint,1,opt,name=stream,proto3,enum=plugin.v1alpha.ExecOutput_Stream" json:"stream,omitempty"`
-	// data is a chunk of output bytes.
-	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// exit_code is the command's exit status; only set on the final message.
-	ExitCode *int32 `protobuf:"varint,3,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
-	// done marks the final message of the stream.
-	Done bool `protobuf:"varint,4,opt,name=done,proto3" json:"done,omitempty"`
-	// error_message describes a failure to run the command (as opposed to the
-	// command failing); only set on the final message.
-	ErrorMessage  *string `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3,oneof" json:"error_message,omitempty"`
+	// Types that are valid to be assigned to Output:
+	//
+	//	*ExecOutput_Data
+	//	*ExecOutput_ExecComplete
+	//	*ExecOutput_ExecFailed
+	Output        isExecOutput_Output `protobuf_oneof:"Output"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -699,37 +694,203 @@ func (*ExecOutput) Descriptor() ([]byte, []int) {
 	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *ExecOutput) GetStream() ExecOutput_Stream {
+func (x *ExecOutput) GetOutput() isExecOutput_Output {
+	if x != nil {
+		return x.Output
+	}
+	return nil
+}
+
+func (x *ExecOutput) GetData() *DataChunk {
+	if x != nil {
+		if x, ok := x.Output.(*ExecOutput_Data); ok {
+			return x.Data
+		}
+	}
+	return nil
+}
+
+func (x *ExecOutput) GetExecComplete() *ExecComplete {
+	if x != nil {
+		if x, ok := x.Output.(*ExecOutput_ExecComplete); ok {
+			return x.ExecComplete
+		}
+	}
+	return nil
+}
+
+func (x *ExecOutput) GetExecFailed() *ExecFailed {
+	if x != nil {
+		if x, ok := x.Output.(*ExecOutput_ExecFailed); ok {
+			return x.ExecFailed
+		}
+	}
+	return nil
+}
+
+type isExecOutput_Output interface {
+	isExecOutput_Output()
+}
+
+type ExecOutput_Data struct {
+	Data *DataChunk `protobuf:"bytes,1,opt,name=data,proto3,oneof"`
+}
+
+type ExecOutput_ExecComplete struct {
+	ExecComplete *ExecComplete `protobuf:"bytes,2,opt,name=exec_complete,json=execComplete,proto3,oneof"`
+}
+
+type ExecOutput_ExecFailed struct {
+	ExecFailed *ExecFailed `protobuf:"bytes,3,opt,name=exec_failed,json=execFailed,proto3,oneof"`
+}
+
+func (*ExecOutput_Data) isExecOutput_Output() {}
+
+func (*ExecOutput_ExecComplete) isExecOutput_Output() {}
+
+func (*ExecOutput_ExecFailed) isExecOutput_Output() {}
+
+type DataChunk struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// stream identifies which output data belongs to.
+	Stream DataChunk_Stream `protobuf:"varint,1,opt,name=stream,proto3,enum=plugin.v1alpha.DataChunk_Stream" json:"stream,omitempty"`
+	// data is a chunk of output bytes.
+	Data          []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DataChunk) Reset() {
+	*x = DataChunk{}
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DataChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DataChunk) ProtoMessage() {}
+
+func (x *DataChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DataChunk.ProtoReflect.Descriptor instead.
+func (*DataChunk) Descriptor() ([]byte, []int) {
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DataChunk) GetStream() DataChunk_Stream {
 	if x != nil {
 		return x.Stream
 	}
-	return ExecOutput_STDOUT
+	return DataChunk_STDOUT
 }
 
-func (x *ExecOutput) GetData() []byte {
+func (x *DataChunk) GetData() []byte {
 	if x != nil {
 		return x.Data
 	}
 	return nil
 }
 
-func (x *ExecOutput) GetExitCode() int32 {
-	if x != nil && x.ExitCode != nil {
-		return *x.ExitCode
+type ExecComplete struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// exit_code is the command's exit status; only set on the final message.
+	ExitCode      int32 `protobuf:"varint,1,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecComplete) Reset() {
+	*x = ExecComplete{}
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecComplete) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecComplete) ProtoMessage() {}
+
+func (x *ExecComplete) ProtoReflect() protoreflect.Message {
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecComplete.ProtoReflect.Descriptor instead.
+func (*ExecComplete) Descriptor() ([]byte, []int) {
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ExecComplete) GetExitCode() int32 {
+	if x != nil {
+		return x.ExitCode
 	}
 	return 0
 }
 
-func (x *ExecOutput) GetDone() bool {
-	if x != nil {
-		return x.Done
-	}
-	return false
+type ExecFailed struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// error_message describes a failure to run the command (as opposed to the
+	// command failing); only set on the final message.
+	ErrorMessage  string `protobuf:"bytes,1,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ExecOutput) GetErrorMessage() string {
-	if x != nil && x.ErrorMessage != nil {
-		return *x.ErrorMessage
+func (x *ExecFailed) Reset() {
+	*x = ExecFailed{}
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecFailed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecFailed) ProtoMessage() {}
+
+func (x *ExecFailed) ProtoReflect() protoreflect.Message {
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecFailed.ProtoReflect.Descriptor instead.
+func (*ExecFailed) Descriptor() ([]byte, []int) {
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ExecFailed) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
 	}
 	return ""
 }
@@ -750,7 +911,7 @@ type CopyInChunk struct {
 
 func (x *CopyInChunk) Reset() {
 	*x = CopyInChunk{}
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[9]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -762,7 +923,7 @@ func (x *CopyInChunk) String() string {
 func (*CopyInChunk) ProtoMessage() {}
 
 func (x *CopyInChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[9]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -775,7 +936,7 @@ func (x *CopyInChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyInChunk.ProtoReflect.Descriptor instead.
 func (*CopyInChunk) Descriptor() ([]byte, []int) {
-	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{9}
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CopyInChunk) GetEnvironmentId() string {
@@ -807,7 +968,7 @@ type CopyInResponse struct {
 
 func (x *CopyInResponse) Reset() {
 	*x = CopyInResponse{}
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[10]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -819,7 +980,7 @@ func (x *CopyInResponse) String() string {
 func (*CopyInResponse) ProtoMessage() {}
 
 func (x *CopyInResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[10]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -832,7 +993,7 @@ func (x *CopyInResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyInResponse.ProtoReflect.Descriptor instead.
 func (*CopyInResponse) Descriptor() ([]byte, []int) {
-	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{10}
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{13}
 }
 
 type CopyOutRequest struct {
@@ -846,7 +1007,7 @@ type CopyOutRequest struct {
 
 func (x *CopyOutRequest) Reset() {
 	*x = CopyOutRequest{}
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[11]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -858,7 +1019,7 @@ func (x *CopyOutRequest) String() string {
 func (*CopyOutRequest) ProtoMessage() {}
 
 func (x *CopyOutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[11]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -871,7 +1032,7 @@ func (x *CopyOutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyOutRequest.ProtoReflect.Descriptor instead.
 func (*CopyOutRequest) Descriptor() ([]byte, []int) {
-	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{11}
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CopyOutRequest) GetEnvironmentId() string {
@@ -898,7 +1059,7 @@ type CopyOutChunk struct {
 
 func (x *CopyOutChunk) Reset() {
 	*x = CopyOutChunk{}
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[12]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -910,7 +1071,7 @@ func (x *CopyOutChunk) String() string {
 func (*CopyOutChunk) ProtoMessage() {}
 
 func (x *CopyOutChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[12]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -923,7 +1084,7 @@ func (x *CopyOutChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyOutChunk.ProtoReflect.Descriptor instead.
 func (*CopyOutChunk) Descriptor() ([]byte, []int) {
-	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{12}
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CopyOutChunk) GetData() []byte {
@@ -942,7 +1103,7 @@ type RemoveRequest struct {
 
 func (x *RemoveRequest) Reset() {
 	*x = RemoveRequest{}
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[13]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -954,7 +1115,7 @@ func (x *RemoveRequest) String() string {
 func (*RemoveRequest) ProtoMessage() {}
 
 func (x *RemoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[13]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -967,7 +1128,7 @@ func (x *RemoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveRequest.ProtoReflect.Descriptor instead.
 func (*RemoveRequest) Descriptor() ([]byte, []int) {
-	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{13}
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RemoveRequest) GetEnvironmentId() string {
@@ -985,7 +1146,7 @@ type RemoveResponse struct {
 
 func (x *RemoveResponse) Reset() {
 	*x = RemoveResponse{}
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[14]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -997,7 +1158,7 @@ func (x *RemoveResponse) String() string {
 func (*RemoveResponse) ProtoMessage() {}
 
 func (x *RemoveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[14]
+	mi := &file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1010,7 +1171,7 @@ func (x *RemoveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveResponse.ProtoReflect.Descriptor instead.
 func (*RemoveResponse) Descriptor() ([]byte, []int) {
-	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{14}
+	return file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP(), []int{17}
 }
 
 var File_act_plugin_proto_v1alpha_plugin_proto protoreflect.FileDescriptor
@@ -1073,22 +1234,27 @@ const file_act_plugin_proto_v1alpha_plugin_proto_rawDesc = "" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\a\n" +
-	"\x05_user\"\xfd\x01\n" +
+	"\x05_user\"\xcb\x01\n" +
 	"\n" +
-	"ExecOutput\x129\n" +
-	"\x06stream\x18\x01 \x01(\x0e2!.plugin.v1alpha.ExecOutput.StreamR\x06stream\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\x12 \n" +
-	"\texit_code\x18\x03 \x01(\x05H\x00R\bexitCode\x88\x01\x01\x12\x12\n" +
-	"\x04done\x18\x04 \x01(\bR\x04done\x12(\n" +
-	"\rerror_message\x18\x05 \x01(\tH\x01R\ferrorMessage\x88\x01\x01\" \n" +
+	"ExecOutput\x12/\n" +
+	"\x04data\x18\x01 \x01(\v2\x19.plugin.v1alpha.DataChunkH\x00R\x04data\x12C\n" +
+	"\rexec_complete\x18\x02 \x01(\v2\x1c.plugin.v1alpha.ExecCompleteH\x00R\fexecComplete\x12=\n" +
+	"\vexec_failed\x18\x03 \x01(\v2\x1a.plugin.v1alpha.ExecFailedH\x00R\n" +
+	"execFailedB\b\n" +
+	"\x06Output\"{\n" +
+	"\tDataChunk\x128\n" +
+	"\x06stream\x18\x01 \x01(\x0e2 .plugin.v1alpha.DataChunk.StreamR\x06stream\x12\x12\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\" \n" +
 	"\x06Stream\x12\n" +
 	"\n" +
 	"\x06STDOUT\x10\x00\x12\n" +
 	"\n" +
-	"\x06STDERR\x10\x01B\f\n" +
+	"\x06STDERR\x10\x01\"+\n" +
+	"\fExecComplete\x12\x1b\n" +
+	"\texit_code\x18\x01 \x01(\x05R\bexitCode\"1\n" +
 	"\n" +
-	"_exit_codeB\x10\n" +
-	"\x0e_error_message\"\x90\x01\n" +
+	"ExecFailed\x12#\n" +
+	"\rerror_message\x18\x01 \x01(\tR\ferrorMessage\"\x90\x01\n" +
 	"\vCopyInChunk\x12*\n" +
 	"\x0eenvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12 \n" +
 	"\tdest_path\x18\x02 \x01(\tH\x01R\bdestPath\x88\x01\x01\x12\x12\n" +
@@ -1129,9 +1295,9 @@ func file_act_plugin_proto_v1alpha_plugin_proto_rawDescGZIP() []byte {
 
 var (
 	file_act_plugin_proto_v1alpha_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes  = make([]protoimpl.MessageInfo, 19)
+	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes  = make([]protoimpl.MessageInfo, 22)
 	file_act_plugin_proto_v1alpha_plugin_proto_goTypes   = []any{
-		ExecOutput_Stream(0),         // 0: plugin.v1alpha.ExecOutput.Stream
+		DataChunk_Stream(0),          // 0: plugin.v1alpha.DataChunk.Stream
 		(*CapabilitiesRequest)(nil),  // 1: plugin.v1alpha.CapabilitiesRequest
 		(*CapabilitiesResponse)(nil), // 2: plugin.v1alpha.CapabilitiesResponse
 		(*ServiceContainer)(nil),     // 3: plugin.v1alpha.ServiceContainer
@@ -1141,46 +1307,52 @@ var (
 		(*StartResponse)(nil),        // 7: plugin.v1alpha.StartResponse
 		(*ExecRequest)(nil),          // 8: plugin.v1alpha.ExecRequest
 		(*ExecOutput)(nil),           // 9: plugin.v1alpha.ExecOutput
-		(*CopyInChunk)(nil),          // 10: plugin.v1alpha.CopyInChunk
-		(*CopyInResponse)(nil),       // 11: plugin.v1alpha.CopyInResponse
-		(*CopyOutRequest)(nil),       // 12: plugin.v1alpha.CopyOutRequest
-		(*CopyOutChunk)(nil),         // 13: plugin.v1alpha.CopyOutChunk
-		(*RemoveRequest)(nil),        // 14: plugin.v1alpha.RemoveRequest
-		(*RemoveResponse)(nil),       // 15: plugin.v1alpha.RemoveResponse
-		nil,                          // 16: plugin.v1alpha.ServiceContainer.EnvEntry
-		nil,                          // 17: plugin.v1alpha.CreateRequest.BackendOptionsEntry
-		nil,                          // 18: plugin.v1alpha.StartResponse.ImageEnvEntry
-		nil,                          // 19: plugin.v1alpha.ExecRequest.EnvEntry
-		(*durationpb.Duration)(nil),  // 20: google.protobuf.Duration
+		(*DataChunk)(nil),            // 10: plugin.v1alpha.DataChunk
+		(*ExecComplete)(nil),         // 11: plugin.v1alpha.ExecComplete
+		(*ExecFailed)(nil),           // 12: plugin.v1alpha.ExecFailed
+		(*CopyInChunk)(nil),          // 13: plugin.v1alpha.CopyInChunk
+		(*CopyInResponse)(nil),       // 14: plugin.v1alpha.CopyInResponse
+		(*CopyOutRequest)(nil),       // 15: plugin.v1alpha.CopyOutRequest
+		(*CopyOutChunk)(nil),         // 16: plugin.v1alpha.CopyOutChunk
+		(*RemoveRequest)(nil),        // 17: plugin.v1alpha.RemoveRequest
+		(*RemoveResponse)(nil),       // 18: plugin.v1alpha.RemoveResponse
+		nil,                          // 19: plugin.v1alpha.ServiceContainer.EnvEntry
+		nil,                          // 20: plugin.v1alpha.CreateRequest.BackendOptionsEntry
+		nil,                          // 21: plugin.v1alpha.StartResponse.ImageEnvEntry
+		nil,                          // 22: plugin.v1alpha.ExecRequest.EnvEntry
+		(*durationpb.Duration)(nil),  // 23: google.protobuf.Duration
 	}
 )
 var file_act_plugin_proto_v1alpha_plugin_proto_depIdxs = []int32{
-	16, // 0: plugin.v1alpha.ServiceContainer.env:type_name -> plugin.v1alpha.ServiceContainer.EnvEntry
+	19, // 0: plugin.v1alpha.ServiceContainer.env:type_name -> plugin.v1alpha.ServiceContainer.EnvEntry
 	3,  // 1: plugin.v1alpha.CreateRequest.services:type_name -> plugin.v1alpha.ServiceContainer
-	17, // 2: plugin.v1alpha.CreateRequest.backend_options:type_name -> plugin.v1alpha.CreateRequest.BackendOptionsEntry
-	20, // 3: plugin.v1alpha.CreateRequest.environment_timeout:type_name -> google.protobuf.Duration
-	18, // 4: plugin.v1alpha.StartResponse.image_env:type_name -> plugin.v1alpha.StartResponse.ImageEnvEntry
-	19, // 5: plugin.v1alpha.ExecRequest.env:type_name -> plugin.v1alpha.ExecRequest.EnvEntry
-	0,  // 6: plugin.v1alpha.ExecOutput.stream:type_name -> plugin.v1alpha.ExecOutput.Stream
-	1,  // 7: plugin.v1alpha.BackendPlugin.Capabilities:input_type -> plugin.v1alpha.CapabilitiesRequest
-	4,  // 8: plugin.v1alpha.BackendPlugin.Create:input_type -> plugin.v1alpha.CreateRequest
-	6,  // 9: plugin.v1alpha.BackendPlugin.Start:input_type -> plugin.v1alpha.StartRequest
-	8,  // 10: plugin.v1alpha.BackendPlugin.Exec:input_type -> plugin.v1alpha.ExecRequest
-	10, // 11: plugin.v1alpha.BackendPlugin.CopyIn:input_type -> plugin.v1alpha.CopyInChunk
-	12, // 12: plugin.v1alpha.BackendPlugin.CopyOut:input_type -> plugin.v1alpha.CopyOutRequest
-	14, // 13: plugin.v1alpha.BackendPlugin.Remove:input_type -> plugin.v1alpha.RemoveRequest
-	2,  // 14: plugin.v1alpha.BackendPlugin.Capabilities:output_type -> plugin.v1alpha.CapabilitiesResponse
-	5,  // 15: plugin.v1alpha.BackendPlugin.Create:output_type -> plugin.v1alpha.CreateResponse
-	7,  // 16: plugin.v1alpha.BackendPlugin.Start:output_type -> plugin.v1alpha.StartResponse
-	9,  // 17: plugin.v1alpha.BackendPlugin.Exec:output_type -> plugin.v1alpha.ExecOutput
-	11, // 18: plugin.v1alpha.BackendPlugin.CopyIn:output_type -> plugin.v1alpha.CopyInResponse
-	13, // 19: plugin.v1alpha.BackendPlugin.CopyOut:output_type -> plugin.v1alpha.CopyOutChunk
-	15, // 20: plugin.v1alpha.BackendPlugin.Remove:output_type -> plugin.v1alpha.RemoveResponse
-	14, // [14:21] is the sub-list for method output_type
-	7,  // [7:14] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	20, // 2: plugin.v1alpha.CreateRequest.backend_options:type_name -> plugin.v1alpha.CreateRequest.BackendOptionsEntry
+	23, // 3: plugin.v1alpha.CreateRequest.environment_timeout:type_name -> google.protobuf.Duration
+	21, // 4: plugin.v1alpha.StartResponse.image_env:type_name -> plugin.v1alpha.StartResponse.ImageEnvEntry
+	22, // 5: plugin.v1alpha.ExecRequest.env:type_name -> plugin.v1alpha.ExecRequest.EnvEntry
+	10, // 6: plugin.v1alpha.ExecOutput.data:type_name -> plugin.v1alpha.DataChunk
+	11, // 7: plugin.v1alpha.ExecOutput.exec_complete:type_name -> plugin.v1alpha.ExecComplete
+	12, // 8: plugin.v1alpha.ExecOutput.exec_failed:type_name -> plugin.v1alpha.ExecFailed
+	0,  // 9: plugin.v1alpha.DataChunk.stream:type_name -> plugin.v1alpha.DataChunk.Stream
+	1,  // 10: plugin.v1alpha.BackendPlugin.Capabilities:input_type -> plugin.v1alpha.CapabilitiesRequest
+	4,  // 11: plugin.v1alpha.BackendPlugin.Create:input_type -> plugin.v1alpha.CreateRequest
+	6,  // 12: plugin.v1alpha.BackendPlugin.Start:input_type -> plugin.v1alpha.StartRequest
+	8,  // 13: plugin.v1alpha.BackendPlugin.Exec:input_type -> plugin.v1alpha.ExecRequest
+	13, // 14: plugin.v1alpha.BackendPlugin.CopyIn:input_type -> plugin.v1alpha.CopyInChunk
+	15, // 15: plugin.v1alpha.BackendPlugin.CopyOut:input_type -> plugin.v1alpha.CopyOutRequest
+	17, // 16: plugin.v1alpha.BackendPlugin.Remove:input_type -> plugin.v1alpha.RemoveRequest
+	2,  // 17: plugin.v1alpha.BackendPlugin.Capabilities:output_type -> plugin.v1alpha.CapabilitiesResponse
+	5,  // 18: plugin.v1alpha.BackendPlugin.Create:output_type -> plugin.v1alpha.CreateResponse
+	7,  // 19: plugin.v1alpha.BackendPlugin.Start:output_type -> plugin.v1alpha.StartResponse
+	9,  // 20: plugin.v1alpha.BackendPlugin.Exec:output_type -> plugin.v1alpha.ExecOutput
+	14, // 21: plugin.v1alpha.BackendPlugin.CopyIn:output_type -> plugin.v1alpha.CopyInResponse
+	16, // 22: plugin.v1alpha.BackendPlugin.CopyOut:output_type -> plugin.v1alpha.CopyOutChunk
+	18, // 23: plugin.v1alpha.BackendPlugin.Remove:output_type -> plugin.v1alpha.RemoveResponse
+	17, // [17:24] is the sub-list for method output_type
+	10, // [10:17] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_act_plugin_proto_v1alpha_plugin_proto_init() }
@@ -1190,15 +1362,19 @@ func file_act_plugin_proto_v1alpha_plugin_proto_init() {
 	}
 	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[1].OneofWrappers = []any{}
 	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[7].OneofWrappers = []any{}
-	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[8].OneofWrappers = []any{}
-	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[9].OneofWrappers = []any{}
+	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[8].OneofWrappers = []any{
+		(*ExecOutput_Data)(nil),
+		(*ExecOutput_ExecComplete)(nil),
+		(*ExecOutput_ExecFailed)(nil),
+	}
+	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[12].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_act_plugin_proto_v1alpha_plugin_proto_rawDesc), len(file_act_plugin_proto_v1alpha_plugin_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   19,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

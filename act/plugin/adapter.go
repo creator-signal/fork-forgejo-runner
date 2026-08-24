@@ -56,7 +56,7 @@ type ExecError struct {
 
 func (e *ExecError) Error() string {
 	if e.Message != "" {
-		return fmt.Sprintf("plugin exec: %s (exit code %d)", e.Message, e.ExitCode)
+		return fmt.Sprintf("plugin exec: %s", e.Message)
 	}
 	return fmt.Sprintf("plugin exec: exit code %d", e.ExitCode)
 }
@@ -268,21 +268,29 @@ func (p *pluginEnvironment) Exec(command []string, env map[string]string, user, 
 				return fmt.Errorf("plugin exec stream: %w", err)
 			}
 
-			if len(out.GetData()) > 0 {
+			switch v := out.GetOutput().(type) {
+			case *pluginv1alpha.ExecOutput_Data:
 				p.mu.Lock()
-				switch out.GetStream() {
-				case pluginv1alpha.ExecOutput_STDOUT:
-					_, _ = p.stdout.Write(out.GetData())
-				case pluginv1alpha.ExecOutput_STDERR:
-					_, _ = p.stderr.Write(out.GetData())
+				switch v.Data.GetStream() {
+				case pluginv1alpha.DataChunk_STDOUT:
+					_, _ = p.stdout.Write(v.Data.GetData())
+				case pluginv1alpha.DataChunk_STDERR:
+					_, _ = p.stderr.Write(v.Data.GetData())
 				}
 				p.mu.Unlock()
-			}
 
-			if out.GetDone() {
-				exitCode = out.GetExitCode()
-				errorMessage = out.GetErrorMessage()
+			case *pluginv1alpha.ExecOutput_ExecComplete:
+				exitCode = v.ExecComplete.GetExitCode()
 				done = true
+
+			case *pluginv1alpha.ExecOutput_ExecFailed:
+				errorMessage = v.ExecFailed.GetErrorMessage()
+				done = true
+
+			default:
+				return fmt.Errorf("plugin exec: unexpected stream chunk %#v", v)
+			}
+			if done {
 				break
 			}
 		}

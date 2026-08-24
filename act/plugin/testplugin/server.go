@@ -165,8 +165,8 @@ func (s *Server) Exec(req *pluginv1alpha.ExecRequest, stream grpc.ServerStreamin
 	cmd.Env = envList
 
 	var stdoutMu sync.Mutex
-	cmd.Stdout = &execStreamWriter{mu: &stdoutMu, stream: stream, streamType: pluginv1alpha.ExecOutput_STDOUT}
-	cmd.Stderr = &execStreamWriter{mu: &stdoutMu, stream: stream, streamType: pluginv1alpha.ExecOutput_STDERR}
+	cmd.Stdout = &execStreamWriter{mu: &stdoutMu, stream: stream, streamType: pluginv1alpha.DataChunk_STDOUT}
+	cmd.Stderr = &execStreamWriter{mu: &stdoutMu, stream: stream, streamType: pluginv1alpha.DataChunk_STDERR}
 
 	runErr := cmd.Run()
 
@@ -185,9 +185,23 @@ func (s *Server) Exec(req *pluginv1alpha.ExecRequest, stream grpc.ServerStreamin
 }
 
 func sendExecDone(stream grpc.ServerStreamingServer[pluginv1alpha.ExecOutput], exitCode int32, errorMsg string) error {
-	out := &pluginv1alpha.ExecOutput{Done: true, ExitCode: &exitCode}
+	var out *pluginv1alpha.ExecOutput
 	if errorMsg != "" {
-		out.ErrorMessage = &errorMsg
+		out = &pluginv1alpha.ExecOutput{
+			Output: &pluginv1alpha.ExecOutput_ExecFailed{
+				ExecFailed: &pluginv1alpha.ExecFailed{
+					ErrorMessage: errorMsg,
+				},
+			},
+		}
+	} else {
+		out = &pluginv1alpha.ExecOutput{
+			Output: &pluginv1alpha.ExecOutput_ExecComplete{
+				ExecComplete: &pluginv1alpha.ExecComplete{
+					ExitCode: exitCode,
+				},
+			},
+		}
 	}
 	return stream.Send(out)
 }
@@ -339,15 +353,19 @@ func (s *Server) Cleanup() {
 type execStreamWriter struct {
 	mu         *sync.Mutex
 	stream     grpc.ServerStreamingServer[pluginv1alpha.ExecOutput]
-	streamType pluginv1alpha.ExecOutput_Stream
+	streamType pluginv1alpha.DataChunk_Stream
 }
 
 func (w *execStreamWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if err := w.stream.Send(&pluginv1alpha.ExecOutput{
-		Stream: w.streamType,
-		Data:   p,
+		Output: &pluginv1alpha.ExecOutput_Data{
+			Data: &pluginv1alpha.DataChunk{
+				Stream: w.streamType,
+				Data:   p,
+			},
+		},
 	}); err != nil {
 		return 0, err
 	}
