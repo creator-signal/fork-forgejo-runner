@@ -169,6 +169,14 @@ message ExecRequest {
 }
 
 message ExecOutput {
+  oneof Output {
+    DataChunk data = 1;
+    ExecComplete exec_complete = 2;
+    ExecFailed exec_failed = 3;
+  }
+}
+
+message DataChunk {
   enum Stream {
     STDOUT = 0;
     STDERR = 1;
@@ -177,13 +185,17 @@ message ExecOutput {
   Stream stream = 1;
   // data is a chunk of output bytes.
   bytes data = 2;
+}
+
+message ExecComplete {
   // exit_code is the command's exit status; only set on the final message.
-  optional int32 exit_code = 3;
-  // done marks the final message of the stream.
-  bool done = 4;
+  int32 exit_code = 1;
+}
+
+message ExecFailed {
   // error_message describes a failure to run the command (as opposed to the
   // command failing); only set on the final message.
-  optional string error_message = 5;
+  string error_message = 1;
 }
 
 // CopyInChunk frames the client-streaming CopyIn RPC. The first chunk MUST set

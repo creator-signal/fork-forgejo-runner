@@ -75,21 +75,41 @@ func (s *mockPluginServer) Exec(req *pluginv1alpha.ExecRequest, stream grpc.Serv
 	s.execReq = req
 	if s.execStdout != "" {
 		_ = stream.Send(&pluginv1alpha.ExecOutput{
-			Stream: pluginv1alpha.ExecOutput_STDOUT,
-			Data:   []byte(s.execStdout),
+			Output: &pluginv1alpha.ExecOutput_Data{
+				Data: &pluginv1alpha.DataChunk{
+					Stream: pluginv1alpha.DataChunk_STDOUT,
+					Data:   []byte(s.execStdout),
+				},
+			},
 		})
 	}
 	if s.execStderr != "" {
 		_ = stream.Send(&pluginv1alpha.ExecOutput{
-			Stream: pluginv1alpha.ExecOutput_STDERR,
-			Data:   []byte(s.execStderr),
+			Output: &pluginv1alpha.ExecOutput_Data{
+				Data: &pluginv1alpha.DataChunk{
+					Stream: pluginv1alpha.DataChunk_STDERR,
+					Data:   []byte(s.execStderr),
+				},
+			},
 		})
 	}
-	_ = stream.Send(&pluginv1alpha.ExecOutput{
-		Done:         true,
-		ExitCode:     proto.Int32(s.execExitCode),
-		ErrorMessage: proto.String(s.execError),
-	})
+	if s.execError != "" {
+		_ = stream.Send(&pluginv1alpha.ExecOutput{
+			Output: &pluginv1alpha.ExecOutput_ExecFailed{
+				ExecFailed: &pluginv1alpha.ExecFailed{
+					ErrorMessage: s.execError,
+				},
+			},
+		})
+	} else {
+		_ = stream.Send(&pluginv1alpha.ExecOutput{
+			Output: &pluginv1alpha.ExecOutput_ExecComplete{
+				ExecComplete: &pluginv1alpha.ExecComplete{
+					ExitCode: s.execExitCode,
+				},
+			},
+		})
+	}
 	return nil
 }
 
@@ -325,12 +345,16 @@ func TestPluginEnvironment_ExecNonZeroExit(t *testing.T) {
 	err := env.Exec([]string{"false"}, nil, "", "")(t.Context())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exit code 1")
+
+	var execErr *ExecError
+	require.ErrorAs(t, err, &execErr)
+	assert.Equal(t, int32(1), execErr.ExitCode)
+	assert.Equal(t, "", execErr.Message)
 }
 
 func TestPluginEnvironment_ExecErrorMessage(t *testing.T) {
 	mock, conn := startMockServer(t)
 	mock.execStdout = ""
-	mock.execExitCode = 127
 	mock.execError = "exec: command not found"
 
 	env := newTestEnv(t, conn)
@@ -342,7 +366,6 @@ func TestPluginEnvironment_ExecErrorMessage(t *testing.T) {
 
 	var execErr *ExecError
 	require.ErrorAs(t, err, &execErr)
-	assert.Equal(t, int32(127), execErr.ExitCode)
 	assert.Equal(t, "exec: command not found", execErr.Message)
 }
 
@@ -626,7 +649,14 @@ func (truncatingExecServer) Create(_ context.Context, _ *pluginv1alpha.CreateReq
 }
 
 func (truncatingExecServer) Exec(_ *pluginv1alpha.ExecRequest, stream grpc.ServerStreamingServer[pluginv1alpha.ExecOutput]) error {
-	_ = stream.Send(&pluginv1alpha.ExecOutput{Stream: pluginv1alpha.ExecOutput_STDOUT, Data: []byte("partial")})
+	_ = stream.Send(&pluginv1alpha.ExecOutput{
+		Output: &pluginv1alpha.ExecOutput_Data{
+			Data: &pluginv1alpha.DataChunk{
+				Stream: pluginv1alpha.DataChunk_STDOUT,
+				Data:   []byte("partial"),
+			},
+		},
+	})
 	return nil
 }
 

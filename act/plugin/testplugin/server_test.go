@@ -99,19 +99,28 @@ func TestExec_Echo(t *testing.T) {
 	require.NoError(t, err)
 
 	var stdout bytes.Buffer
-	var exitCode int32
+	exitCode := int32(-1) // initialize to non-zero so that assert.Equal validates it is set to 0
 	for {
 		out, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
 		require.NoError(t, err)
-		if out.GetDone() {
-			exitCode = out.GetExitCode()
-			break
+
+		breakLoop := false
+		switch v := out.GetOutput().(type) {
+		case *pluginv1alpha.ExecOutput_Data:
+			if v.Data.GetStream() == pluginv1alpha.DataChunk_STDOUT {
+				stdout.Write(v.Data.GetData())
+			}
+		case *pluginv1alpha.ExecOutput_ExecComplete:
+			exitCode = v.ExecComplete.GetExitCode()
+			breakLoop = true
+		default:
+			assert.Failf(t, "unexpected output type", "did not expect %#v", v)
 		}
-		if out.GetStream() == pluginv1alpha.ExecOutput_STDOUT {
-			stdout.Write(out.GetData())
+		if breakLoop {
+			break
 		}
 	}
 
@@ -132,15 +141,24 @@ func TestExec_FailingCommand(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	var exitCode int32
+	exitCode := int32(-1) // initialize to non-zero so that assert.Equal validates it is set to 0
 	for {
 		out, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
 		require.NoError(t, err)
-		if out.GetDone() {
-			exitCode = out.GetExitCode()
+
+		breakLoop := false
+		switch v := out.GetOutput().(type) {
+		case *pluginv1alpha.ExecOutput_Data:
+		case *pluginv1alpha.ExecOutput_ExecComplete:
+			exitCode = v.ExecComplete.GetExitCode()
+			breakLoop = true
+		default:
+			assert.Failf(t, "unexpected output type", "did not expect %#v", v)
+		}
+		if breakLoop {
 			break
 		}
 	}
@@ -171,11 +189,20 @@ func TestExec_EnvVars(t *testing.T) {
 			break
 		}
 		require.NoError(t, err)
-		if out.GetDone() {
-			break
+
+		breakLoop := false
+		switch v := out.GetOutput().(type) {
+		case *pluginv1alpha.ExecOutput_Data:
+			if v.Data.GetStream() == pluginv1alpha.DataChunk_STDOUT {
+				stdout.Write(v.Data.GetData())
+			}
+		case *pluginv1alpha.ExecOutput_ExecComplete:
+			breakLoop = true
+		default:
+			assert.Failf(t, "unexpected output type", "did not expect %#v", v)
 		}
-		if out.GetStream() == pluginv1alpha.ExecOutput_STDOUT {
-			stdout.Write(out.GetData())
+		if breakLoop {
+			break
 		}
 	}
 	assert.Equal(t, "hello world\n", stdout.String())
@@ -202,8 +229,17 @@ func TestExec_TranslatesEnvironmentPaths(t *testing.T) {
 			break
 		}
 		require.NoError(t, err)
-		if out.GetDone() {
-			assert.Equal(t, int32(0), out.GetExitCode())
+
+		breakLoop := false
+		switch v := out.GetOutput().(type) {
+		case *pluginv1alpha.ExecOutput_Data:
+		case *pluginv1alpha.ExecOutput_ExecComplete:
+			assert.Equal(t, int32(0), v.ExecComplete.GetExitCode())
+			breakLoop = true
+		default:
+			assert.Failf(t, "unexpected output type", "did not expect %#v", v)
+		}
+		if breakLoop {
 			break
 		}
 	}
