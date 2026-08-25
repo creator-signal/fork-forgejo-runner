@@ -203,7 +203,9 @@ message ExecFailed {
 // reject environment_id or dest_path on later chunks with codes.InvalidArgument.
 message CopyInChunk {
   optional string environment_id = 1;
-  // dest_path is the directory the tar archive is extracted into.
+  // dest_path is the directory the tar archive is extracted into. The plugin
+  // must ensure that the destination folder exists in the target environment
+  // before extracting the incoming data stream.
   optional string dest_path = 2;
   // data is a chunk of the tar archive.
   bytes data = 3;
