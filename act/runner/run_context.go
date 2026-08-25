@@ -1149,7 +1149,6 @@ func (rc *RunContext) startPluginEnvironment(name string) common.Executor {
 			env.Pull(rc.Config.ForcePull),
 			env.Create(rc.Config.ContainerCapAdd, rc.Config.ContainerCapDrop),
 			env.Start(false),
-			env.Exec([]string{"mkdir", "-p", rc.Config.Workdir}, nil, "", ""),
 			func(ctx context.Context) error { // can't access GetActPath until container is created, so drop this into an executor rather than evaluating it now
 				return env.Copy(env.GetActPath()+"/", &container.FileEntry{
 					Name: "workflow/event.json",

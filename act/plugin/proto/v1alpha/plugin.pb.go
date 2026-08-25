@@ -901,7 +901,9 @@ func (x *ExecFailed) GetErrorMessage() string {
 type CopyInChunk struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EnvironmentId *string                `protobuf:"bytes,1,opt,name=environment_id,json=environmentId,proto3,oneof" json:"environment_id,omitempty"`
-	// dest_path is the directory the tar archive is extracted into.
+	// dest_path is the directory the tar archive is extracted into. The plugin
+	// must ensure that the destination folder exists in the target environment
+	// before extracting the incoming data stream.
 	DestPath *string `protobuf:"bytes,2,opt,name=dest_path,json=destPath,proto3,oneof" json:"dest_path,omitempty"`
 	// data is a chunk of the tar archive.
 	Data          []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
