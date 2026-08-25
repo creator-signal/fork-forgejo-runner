@@ -1323,6 +1323,7 @@ var (
 		(*durationpb.Duration)(nil),  // 23: google.protobuf.Duration
 	}
 )
+
 var file_act_plugin_proto_v1alpha_plugin_proto_depIdxs = []int32{
 	19, // 0: plugin.v1alpha.ServiceContainer.env:type_name -> plugin.v1alpha.ServiceContainer.EnvEntry
 	3,  // 1: plugin.v1alpha.CreateRequest.services:type_name -> plugin.v1alpha.ServiceContainer
