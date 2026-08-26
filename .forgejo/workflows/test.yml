@@ -22,7 +22,7 @@ jobs:
     if: vars.ROLE == 'forgejo-coding'
     runs-on: ${{ inputs.runner_prefix || '' }}docker
     container:
-      image: 'data.forgejo.org/oci/ci:2'
+      image: 'data.forgejo.org/oci/ci:3'
     steps:
       - uses: https://data.forgejo.org/actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
@@ -55,7 +55,7 @@ jobs:
     needs: [build]
     runs-on: docker
     container:
-      image: 'data.forgejo.org/oci/ci:2'
+      image: 'data.forgejo.org/oci/ci:3'
     steps:
       - uses: https://data.forgejo.org/actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
@@ -320,7 +320,7 @@ jobs:
     if: vars.ROLE == 'forgejo-coding' && inputs.runner_prefix == '' # doesn't need to run on multiplatform
     runs-on: docker
     container:
-      image: 'data.forgejo.org/oci/ci:2'
+      image: 'data.forgejo.org/oci/ci:3'
 
     steps:
       - uses: https://data.forgejo.org/actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -350,7 +350,7 @@ jobs:
     if: vars.ROLE == 'forgejo-coding' && inputs.runner_prefix == '' # doesn't need to run on multiplatform
     runs-on: docker
     container:
-      image: 'data.forgejo.org/oci/ci:2'
+      image: 'data.forgejo.org/oci/ci:3'
 
     steps:
       - uses: https://data.forgejo.org/actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
