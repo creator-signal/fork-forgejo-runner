@@ -17,6 +17,17 @@ assert SPEC and SPEC.loader
 release_control = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release_control)
 
+BACKPORT_COMMIT = "d4db4179a9ba6a0d07e63b8cf382d90fccb2ff21"
+BACKPORT_PATCH_SHA256 = "3" * 64
+PATCHED_SOURCE_TREE_SHA = "4" * 40
+SOURCE_SHA = "1" * 40
+SBOM_COMMENT = (
+    f"Exact upstream source commit: {SOURCE_SHA}; "
+    f"source backport commit: {BACKPORT_COMMIT}; "
+    f"backport patch SHA-256: {BACKPORT_PATCH_SHA256}; "
+    f"patched source tree: {PATCHED_SOURCE_TREE_SHA}"
+)
+
 
 def command(*args: str, cwd: Path) -> str:
     result = subprocess.run(
@@ -49,6 +60,9 @@ class ReleaseControlTests(unittest.TestCase):
         )
         windows = next(item for item in self.policy["artifacts"] if item["os"] == "windows")
         self.assertEqual(windows["upstreamSupport"], "unsupported")
+        backport = self.policy["sourceBackports"]["v13.0.0"]
+        self.assertEqual(backport["upstreamCommit"], BACKPORT_COMMIT)
+        self.assertEqual(len(backport["changedPaths"]), 7)
 
     def test_semver_and_asset_contract(self) -> None:
         self.assertLess(
@@ -80,6 +94,7 @@ class ReleaseControlTests(unittest.TestCase):
                         {
                             "spdxVersion": "SPDX-2.3",
                             "dataLicense": "CC0-1.0",
+                            "creationInfo": {"comment": SBOM_COMMENT},
                             "files": [
                                 {
                                     "fileName": name,
@@ -95,17 +110,23 @@ class ReleaseControlTests(unittest.TestCase):
             release_control.prepare_release(
                 directory,
                 tag="v13.0.0",
-                source_sha="1" * 40,
+                source_sha=SOURCE_SHA,
                 tag_object_sha="1" * 40,
                 automation_sha="2" * 40,
                 workflow_url="https://github.com/example/actions/runs/1",
+                backport_commit=BACKPORT_COMMIT,
+                backport_patch_sha256=BACKPORT_PATCH_SHA256,
+                patched_source_tree_sha=PATCHED_SOURCE_TREE_SHA,
                 policy=self.policy,
             )
             report = release_control.verify_assets(
                 directory,
                 tag="v13.0.0",
-                source_sha="1" * 40,
+                source_sha=SOURCE_SHA,
                 tag_object_sha="1" * 40,
+                backport_commit=BACKPORT_COMMIT,
+                backport_patch_sha256=BACKPORT_PATCH_SHA256,
+                patched_source_tree_sha=PATCHED_SOURCE_TREE_SHA,
                 policy=self.policy,
                 rebuilt=directory,
             )
@@ -130,6 +151,7 @@ class ReleaseControlTests(unittest.TestCase):
                         {
                             "spdxVersion": "SPDX-2.3",
                             "dataLicense": "CC0-1.0",
+                            "creationInfo": {"comment": SBOM_COMMENT},
                             "files": [
                                 {
                                     "fileName": name,
@@ -145,10 +167,13 @@ class ReleaseControlTests(unittest.TestCase):
             release_control.prepare_release(
                 published,
                 tag="v13.0.0",
-                source_sha="1" * 40,
+                source_sha=SOURCE_SHA,
                 tag_object_sha="1" * 40,
                 automation_sha="2" * 40,
                 workflow_url="https://github.com/example/actions/runs/1",
+                backport_commit=BACKPORT_COMMIT,
+                backport_patch_sha256=BACKPORT_PATCH_SHA256,
+                patched_source_tree_sha=PATCHED_SOURCE_TREE_SHA,
                 policy=self.policy,
             )
             changed = rebuilt / "forgejo-runner-13.0.0-linux-amd64"
@@ -157,8 +182,11 @@ class ReleaseControlTests(unittest.TestCase):
                 release_control.verify_assets(
                     published,
                     tag="v13.0.0",
-                    source_sha="1" * 40,
+                    source_sha=SOURCE_SHA,
                     tag_object_sha="1" * 40,
+                    backport_commit=BACKPORT_COMMIT,
+                    backport_patch_sha256=BACKPORT_PATCH_SHA256,
+                    patched_source_tree_sha=PATCHED_SOURCE_TREE_SHA,
                     policy=self.policy,
                     rebuilt=rebuilt,
                 )

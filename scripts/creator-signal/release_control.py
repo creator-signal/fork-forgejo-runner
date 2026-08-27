@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from typing import Any, Iterable
@@ -30,12 +31,14 @@ def run(
     cwd: Path | None = None,
     check: bool = True,
     input_text: str | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(
         args,
         cwd=cwd,
         check=False,
         input=input_text,
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -45,6 +48,34 @@ def run(
         raise ControlError(
             f"command failed ({result.returncode}): {rendered}\n"
             f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        )
+    return result
+
+
+def run_bytes(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    check: bool = True,
+    input_bytes: bytes | None = None,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    """Run a command without platform newline translation."""
+    result = subprocess.run(
+        args,
+        cwd=cwd,
+        check=False,
+        input=input_bytes,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if check and result.returncode:
+        stdout = result.stdout.decode("utf-8", errors="replace")
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        raise ControlError(
+            f"command failed ({result.returncode}): {' '.join(args)}\n"
+            f"stdout:\n{stdout}\nstderr:\n{stderr}"
         )
     return result
 
@@ -63,6 +94,7 @@ def load_policy(path: Path = POLICY_PATH) -> dict[str, Any]:
         "maintainedBranchPatterns",
         "semanticTagPattern",
         "stableTagPattern",
+        "sourceBackports",
         "artifacts",
         "supplyChain",
     }
@@ -363,6 +395,13 @@ def plan_tag(
             f"immutable tag mismatch for {tag}: GitHub={origin_object} upstream={upstream_object}"
         )
     source_sha = commit_sha(repo, upstream_ref)
+    backport = source_backport_plan(
+        repo,
+        tag=tag,
+        source_sha=source_sha,
+        policy=policy,
+    )
+    source_tree_sha = git(repo, "rev-parse", f"{source_sha}^{{tree}}")
     go_mod = git(repo, "show", f"{upstream_ref}:go.mod")
     module_match = re.search(r"(?m)^module\s+(\S+)\s*$", go_mod)
     go_match = re.search(r"(?m)^go\s+(\S+)\s*$", go_mod)
@@ -379,6 +418,15 @@ def plan_tag(
         "version": tag.removeprefix("v"),
         "tag_object_sha": upstream_object,
         "source_sha": source_sha,
+        "source_tree_sha": source_tree_sha,
+        "backport_required": backport is not None,
+        "backport_commit": backport["upstreamCommit"] if backport else "",
+        "backport_pull_request": backport["upstreamPullRequest"] if backport else "",
+        "backport_patch_sha256": backport["patchSha256"] if backport else "",
+        "patched_source_tree_sha": (
+            backport["patchedSourceTreeSha"] if backport else source_tree_sha
+        ),
+        "source_backport": backport,
         "module_path": module_match.group(1),
         "go_version": go_version,
         "prerelease": not bool(re.fullmatch(policy["stableTagPattern"], tag)),
@@ -399,6 +447,70 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def source_backport_plan(
+    repo: Path,
+    *,
+    tag: str,
+    source_sha: str,
+    policy: dict[str, Any],
+) -> dict[str, Any] | None:
+    configured = policy["sourceBackports"].get(tag)
+    if configured is None:
+        return None
+    commit = configured.get("upstreamCommit", "")
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ControlError(f"{tag} source backport does not pin a full upstream commit SHA")
+    resolved = git(repo, "rev-parse", f"{commit}^{{commit}}", check=False)
+    if resolved != commit:
+        raise ControlError(f"{tag} source backport commit is unavailable or mismatched: {commit}")
+    parents = git(repo, "rev-list", "--parents", "-n", "1", commit).split()
+    if len(parents) != 2:
+        raise ControlError(f"{tag} source backport must be a single-parent upstream commit")
+    if not is_ancestor(repo, source_sha, commit):
+        raise ControlError(f"{tag} source backport is not descended from source {source_sha}")
+    changed_paths = sorted(
+        line
+        for line in git(
+            repo,
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            commit,
+        ).splitlines()
+        if line
+    )
+    expected_paths = sorted(configured.get("changedPaths", []))
+    if changed_paths != expected_paths:
+        raise ControlError(
+            f"{tag} source backport path mismatch: expected={expected_paths}; actual={changed_paths}"
+        )
+    patch = run_bytes(
+        ["git", "diff", "--binary", parents[1], commit], cwd=repo
+    ).stdout
+    patch_sha256 = hashlib.sha256(patch).hexdigest()
+    with tempfile.TemporaryDirectory(prefix="creator-signal-runner-backport-") as temporary:
+        index_path = str(Path(temporary) / "index")
+        git_env = dict(os.environ)
+        git_env["GIT_INDEX_FILE"] = index_path
+        run(["git", "read-tree", source_sha], cwd=repo, env=git_env)
+        run_bytes(
+            ["git", "apply", "--cached", "--whitespace=error-all", "-"],
+            cwd=repo,
+            input_bytes=patch,
+            env=git_env,
+        )
+        patched_tree_sha = run(["git", "write-tree"], cwd=repo, env=git_env).stdout.strip()
+    return {
+        "upstreamCommit": commit,
+        "upstreamPullRequest": configured["upstreamPullRequest"],
+        "reason": configured["reason"],
+        "changedPaths": changed_paths,
+        "patchSha256": patch_sha256,
+        "patchedSourceTreeSha": patched_tree_sha,
+    }
+
+
 def prepare_release(
     directory: Path,
     *,
@@ -407,19 +519,48 @@ def prepare_release(
     tag_object_sha: str,
     automation_sha: str,
     workflow_url: str,
+    backport_commit: str,
+    backport_patch_sha256: str,
+    patched_source_tree_sha: str,
     policy: dict[str, Any],
 ) -> None:
+    configured_backport = policy["sourceBackports"].get(tag)
+    expected_commit = configured_backport["upstreamCommit"] if configured_backport else ""
+    if backport_commit != expected_commit:
+        raise ControlError(
+            f"source backport mismatch: expected {expected_commit or 'none'}; "
+            f"received {backport_commit or 'none'}"
+        )
+    if configured_backport:
+        if not re.fullmatch(r"[0-9a-f]{64}", backport_patch_sha256):
+            raise ControlError("source backport patch SHA-256 is invalid")
+    elif backport_patch_sha256:
+        raise ControlError("unexpected source backport patch SHA-256")
+    if not re.fullmatch(r"[0-9a-f]{40}", patched_source_tree_sha):
+        raise ControlError("patched source tree SHA is invalid")
     expected = expected_asset_names(tag, policy)
     content_assets = [name for name in expected if name not in {"SHA256SUMS", "SOURCE-PROVENANCE.json"}]
     missing = [name for name in content_assets if not (directory / name).is_file()]
     if missing:
         raise ControlError(f"cannot prepare release; assets are missing: {', '.join(missing)}")
     provenance = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "upstreamUrl": policy["upstreamUrl"],
         "sourceTag": tag,
         "sourceTagObjectSha": tag_object_sha,
         "sourceSha": source_sha,
+        "patchedSourceTreeSha": patched_source_tree_sha,
+        "sourceBackport": (
+            {
+                "upstreamCommit": backport_commit,
+                "upstreamPullRequest": configured_backport["upstreamPullRequest"],
+                "reason": configured_backport["reason"],
+                "patchSha256": backport_patch_sha256,
+                "changedPaths": sorted(configured_backport["changedPaths"]),
+            }
+            if configured_backport
+            else None
+        ),
         "automationBranch": policy["automationBranch"],
         "automationSha": automation_sha,
         "workflowUrl": workflow_url,
@@ -458,6 +599,9 @@ def verify_assets(
     tag: str,
     source_sha: str,
     tag_object_sha: str,
+    backport_commit: str,
+    backport_patch_sha256: str,
+    patched_source_tree_sha: str,
     policy: dict[str, Any],
     rebuilt: Path | None,
 ) -> dict[str, Any]:
@@ -488,6 +632,22 @@ def verify_assets(
             f"tag object provenance mismatch: expected {tag_object_sha}; "
             f"recorded {provenance.get('sourceTagObjectSha')}"
         )
+    expected_backport = policy["sourceBackports"].get(tag)
+    recorded_backport = provenance.get("sourceBackport")
+    if expected_backport:
+        expected_record = {
+            "upstreamCommit": backport_commit,
+            "upstreamPullRequest": expected_backport["upstreamPullRequest"],
+            "reason": expected_backport["reason"],
+            "patchSha256": backport_patch_sha256,
+            "changedPaths": sorted(expected_backport["changedPaths"]),
+        }
+        if backport_commit != expected_backport["upstreamCommit"] or recorded_backport != expected_record:
+            raise ControlError("source backport provenance mismatch")
+    elif backport_commit or backport_patch_sha256 or recorded_backport is not None:
+        raise ControlError("unexpected source backport provenance")
+    if provenance.get("patchedSourceTreeSha") != patched_source_tree_sha:
+        raise ControlError("patched source tree provenance mismatch")
     if provenance.get("upstreamUrl") != policy["upstreamUrl"]:
         raise ControlError("source provenance upstream URL mismatch")
     content_assets = set(expected).difference({"SHA256SUMS", "SOURCE-PROVENANCE.json"})
@@ -518,6 +678,15 @@ def verify_assets(
         )
         if recorded != checksums[binary]:
             raise ControlError(f"SBOM binary digest mismatch: {sbom_name}")
+        comment = sbom.get("creationInfo", {}).get("comment", "")
+        expected_comment = (
+            f"Exact upstream source commit: {source_sha}; "
+            f"source backport commit: {backport_commit or 'none'}; "
+            f"backport patch SHA-256: {backport_patch_sha256 or 'none'}; "
+            f"patched source tree: {patched_source_tree_sha}"
+        )
+        if comment != expected_comment:
+            raise ControlError(f"SBOM source provenance mismatch: {sbom_name}")
     if rebuilt:
         for name in binaries:
             rebuilt_path = rebuilt / name
@@ -531,7 +700,15 @@ def verify_assets(
     return {"tag": tag, "source_sha": source_sha, "assets": checksums}
 
 
-def release_body(tag: str, source_sha: str, workflow_url: str) -> str:
+def release_body(
+    tag: str,
+    source_sha: str,
+    workflow_url: str,
+    backport_commit: str,
+    backport_pull_request: str,
+    backport_patch_sha256: str,
+    patched_source_tree_sha: str,
+) -> str:
     version = tag.removeprefix("v")
     return f"""Creator Signal downstream build of Forgejo Runner {tag}.
 
@@ -539,6 +716,9 @@ Authoritative upstream source: https://code.forgejo.org/forgejo/runner/src/tag/{
 Upstream release notes: https://code.forgejo.org/forgejo/runner/releases/tag/{tag}
 Exact source commit: `{source_sha}`
 Build workflow: {workflow_url}
+Creator Signal source correction: upstream commit `{backport_commit}` ({backport_pull_request})
+Backport patch SHA-256: `{backport_patch_sha256}`
+Patched source tree: `{patched_source_tree_sha}`
 
 Published executables:
 - `forgejo-runner-{version}-linux-amd64`
@@ -580,6 +760,9 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     prepare_parser.add_argument("--tag-object-sha", required=True)
     prepare_parser.add_argument("--automation-sha", required=True)
     prepare_parser.add_argument("--workflow-url", required=True)
+    prepare_parser.add_argument("--backport-commit", required=True)
+    prepare_parser.add_argument("--backport-patch-sha256", required=True)
+    prepare_parser.add_argument("--patched-source-tree-sha", required=True)
 
     verify_parser = subparsers.add_parser("verify-assets")
     verify_parser.add_argument("--directory", type=Path, required=True)
@@ -587,11 +770,18 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     verify_parser.add_argument("--tag", required=True)
     verify_parser.add_argument("--source-sha", required=True)
     verify_parser.add_argument("--tag-object-sha", required=True)
+    verify_parser.add_argument("--backport-commit", required=True)
+    verify_parser.add_argument("--backport-patch-sha256", required=True)
+    verify_parser.add_argument("--patched-source-tree-sha", required=True)
 
     body_parser = subparsers.add_parser("release-body")
     body_parser.add_argument("--tag", required=True)
     body_parser.add_argument("--source-sha", required=True)
     body_parser.add_argument("--workflow-url", required=True)
+    body_parser.add_argument("--backport-commit", required=True)
+    body_parser.add_argument("--backport-pull-request", required=True)
+    body_parser.add_argument("--backport-patch-sha256", required=True)
+    body_parser.add_argument("--patched-source-tree-sha", required=True)
     body_parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args(list(argv))
 
@@ -632,6 +822,12 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             write_json(args.report, report)
             for name in (
                 "source_sha",
+                "source_tree_sha",
+                "backport_required",
+                "backport_commit",
+                "backport_pull_request",
+                "backport_patch_sha256",
+                "patched_source_tree_sha",
                 "version",
                 "tag_object_sha",
                 "module_path",
@@ -650,6 +846,9 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
                 tag_object_sha=args.tag_object_sha,
                 automation_sha=args.automation_sha,
                 workflow_url=args.workflow_url,
+                backport_commit=args.backport_commit,
+                backport_patch_sha256=args.backport_patch_sha256,
+                patched_source_tree_sha=args.patched_source_tree_sha,
                 policy=policy,
             )
         elif args.command == "verify-assets":
@@ -658,13 +857,25 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
                 tag=args.tag,
                 source_sha=args.source_sha,
                 tag_object_sha=args.tag_object_sha,
+                backport_commit=args.backport_commit,
+                backport_patch_sha256=args.backport_patch_sha256,
+                patched_source_tree_sha=args.patched_source_tree_sha,
                 policy=policy,
                 rebuilt=args.rebuilt.resolve() if args.rebuilt else None,
             )
             print(json.dumps(report, indent=2, sort_keys=True))
         elif args.command == "release-body":
             args.output.write_text(
-                release_body(args.tag, args.source_sha, args.workflow_url), encoding="utf-8"
+                release_body(
+                    args.tag,
+                    args.source_sha,
+                    args.workflow_url,
+                    args.backport_commit,
+                    args.backport_pull_request,
+                    args.backport_patch_sha256,
+                    args.patched_source_tree_sha,
+                ),
+                encoding="utf-8",
             )
     except ControlError as error:
         print(f"error: {error}", file=sys.stderr)

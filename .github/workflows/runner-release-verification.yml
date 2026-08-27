@@ -28,6 +28,9 @@ jobs:
       source-sha: ${{ steps.plan.outputs.source_sha }}
       tag-object-sha: ${{ steps.plan.outputs.tag_object_sha }}
       version: ${{ steps.plan.outputs.version }}
+      backport-commit: ${{ steps.plan.outputs.backport_commit }}
+      backport-patch-sha256: ${{ steps.plan.outputs.backport_patch_sha256 }}
+      patched-source-tree-sha: ${{ steps.plan.outputs.patched_source_tree_sha }}
     steps:
       - name: Check out trusted automation
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -78,13 +81,19 @@ jobs:
           RELEASE_VERSION: ${{ needs.source.outputs.version }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
           SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation
         run: |
           python3 scripts/creator-signal/release_control.py verify-assets \
             --directory published \
             --tag "$RELEASE_TAG" \
             --source-sha "$SOURCE_SHA" \
-            --tag-object-sha "$TAG_OBJECT_SHA"
+            --tag-object-sha "$TAG_OBJECT_SHA" \
+            --backport-commit "$BACKPORT_COMMIT" \
+            --backport-patch-sha256 "$BACKPORT_PATCH_SHA256" \
+            --patched-source-tree-sha "$PATCHED_SOURCE_TREE_SHA"
           binary="forgejo-runner-${RELEASE_VERSION}-linux-amd64"
           gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$SIGNER_WORKFLOW" --predicate-type 'https://slsa.dev/provenance/v1'
@@ -118,13 +127,19 @@ jobs:
           RELEASE_VERSION: ${{ needs.source.outputs.version }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
           SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation
         run: |
           python3 scripts/creator-signal/release_control.py verify-assets \
             --directory published \
             --tag "$RELEASE_TAG" \
             --source-sha "$SOURCE_SHA" \
-            --tag-object-sha "$TAG_OBJECT_SHA"
+            --tag-object-sha "$TAG_OBJECT_SHA" \
+            --backport-commit "$BACKPORT_COMMIT" \
+            --backport-patch-sha256 "$BACKPORT_PATCH_SHA256" \
+            --patched-source-tree-sha "$PATCHED_SOURCE_TREE_SHA"
           binary="forgejo-runner-${RELEASE_VERSION}-linux-arm64"
           gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$SIGNER_WORKFLOW" --predicate-type 'https://slsa.dev/provenance/v1'
@@ -160,13 +175,19 @@ jobs:
           RELEASE_VERSION: ${{ needs.source.outputs.version }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
           SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation
         run: |
           python scripts/creator-signal/release_control.py verify-assets `
             --directory published `
             --tag "$env:RELEASE_TAG" `
             --source-sha "$env:SOURCE_SHA" `
-            --tag-object-sha "$env:TAG_OBJECT_SHA"
+            --tag-object-sha "$env:TAG_OBJECT_SHA" `
+            --backport-commit "$env:BACKPORT_COMMIT" `
+            --backport-patch-sha256 "$env:BACKPORT_PATCH_SHA256" `
+            --patched-source-tree-sha "$env:PATCHED_SOURCE_TREE_SHA"
           $binary = "forgejo-runner-$env:RELEASE_VERSION-windows-amd64.exe"
           gh attestation verify "published/$binary" --repo "$env:GITHUB_REPOSITORY" `
             --signer-workflow "$env:SIGNER_WORKFLOW" --predicate-type 'https://slsa.dev/provenance/v1'

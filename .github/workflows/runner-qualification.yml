@@ -34,6 +34,10 @@ jobs:
       release-exists: ${{ steps.plan.outputs.release_exists }}
       release-complete: ${{ steps.plan.outputs.release_complete }}
       release-draft: ${{ steps.plan.outputs.release_draft }}
+      backport-commit: ${{ steps.plan.outputs.backport_commit }}
+      backport-pull-request: ${{ steps.plan.outputs.backport_pull_request }}
+      backport-patch-sha256: ${{ steps.plan.outputs.backport_patch_sha256 }}
+      patched-source-tree-sha: ${{ steps.plan.outputs.patched_source_tree_sha }}
     steps:
       - name: Check out trusted automation
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -94,6 +98,21 @@ jobs:
         env:
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
         run: test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Apply exact governed upstream source backport
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
+        run: >-
+          python3 automation/scripts/creator-signal/apply_source_backport.py
+          --source source
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --expected-commit "${BACKPORT_COMMIT}"
+          --expected-patch-sha256 "${BACKPORT_PATCH_SHA256}"
+          --expected-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
       - name: Install exact declared Go toolchain
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
@@ -193,11 +212,17 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
         run: >-
           python3 automation/scripts/creator-signal/generate_go_sbom.py
           --binary "out/forgejo-runner-${RELEASE_TAG#v}-linux-amd64"
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
+          --backport-commit "${BACKPORT_COMMIT}"
+          --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
+          --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
           --output "out/forgejo-runner-${RELEASE_TAG#v}-linux-amd64.spdx.json"
       - name: Upload immutable candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -234,6 +259,21 @@ jobs:
         env:
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
         run: test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Apply exact governed upstream source backport
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
+        run: >-
+          python3 automation/scripts/creator-signal/apply_source_backport.py
+          --source source
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --expected-commit "${BACKPORT_COMMIT}"
+          --expected-patch-sha256 "${BACKPORT_PATCH_SHA256}"
+          --expected-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
       - name: Install exact declared Go toolchain
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
@@ -267,11 +307,17 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
         run: >-
           python3 automation/scripts/creator-signal/generate_go_sbom.py
           --binary "out/forgejo-runner-${RELEASE_TAG#v}-linux-arm64"
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
+          --backport-commit "${BACKPORT_COMMIT}"
+          --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
+          --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
           --output "out/forgejo-runner-${RELEASE_TAG#v}-linux-arm64.spdx.json"
       - name: Upload immutable candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -314,6 +360,22 @@ jobs:
           if ($actual -ne $env:SOURCE_SHA) {
             throw "Source mismatch: expected $env:SOURCE_SHA, got $actual"
           }
+      - name: Apply exact governed upstream source backport
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
+        run: |
+          python automation/scripts/creator-signal/apply_source_backport.py `
+            --source source `
+            --tag "$env:RELEASE_TAG" `
+            --source-sha "$env:SOURCE_SHA" `
+            --expected-commit "$env:BACKPORT_COMMIT" `
+            --expected-patch-sha256 "$env:BACKPORT_PATCH_SHA256" `
+            --expected-tree-sha "$env:PATCHED_SOURCE_TREE_SHA"
       - name: Install exact declared Go toolchain
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
@@ -373,12 +435,18 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
         run: |
           $version = $env:RELEASE_TAG.TrimStart('v')
           python automation/scripts/creator-signal/generate_go_sbom.py `
             --binary "out/forgejo-runner-$version-windows-amd64.exe" `
             --tag "$env:RELEASE_TAG" `
             --source-sha "$env:SOURCE_SHA" `
+            --backport-commit "$env:BACKPORT_COMMIT" `
+            --backport-patch-sha256 "$env:BACKPORT_PATCH_SHA256" `
+            --patched-source-tree-sha "$env:PATCHED_SOURCE_TREE_SHA" `
             --output "out/forgejo-runner-$version-windows-amd64.exe.spdx.json"
       - name: Upload immutable candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -417,6 +485,9 @@ jobs:
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
           AUTOMATION_SHA: ${{ github.sha }}
           WORKFLOW_DEFINITION_URL: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/.github/workflows/runner-qualification.yml
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
         run: >-
           python3 automation/scripts/creator-signal/release_control.py prepare-release
           --directory rebuilt
@@ -425,17 +496,26 @@ jobs:
           --tag-object-sha "${TAG_OBJECT_SHA}"
           --automation-sha "${AUTOMATION_SHA}"
           --workflow-url "${WORKFLOW_DEFINITION_URL}"
+          --backport-commit "${BACKPORT_COMMIT}"
+          --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
+          --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
       - name: Verify assembled asset contract
         env:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
+          BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
         run: >-
           python3 automation/scripts/creator-signal/release_control.py verify-assets
           --directory rebuilt
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
           --tag-object-sha "${TAG_OBJECT_SHA}"
+          --backport-commit "${BACKPORT_COMMIT}"
+          --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
+          --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
       - name: Preserve qualified release bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
