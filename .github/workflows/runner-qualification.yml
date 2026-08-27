@@ -99,18 +99,26 @@ jobs:
         with:
           go-version: ${{ needs.source.outputs.go-version }}
           cache-dependency-path: source/go.sum
+      - name: Prepare native Linux container test features
+        working-directory: source
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo act/runner/lxc-helpers.sh lxc_prepare_environment
+          sudo act/runner/lxc-helpers.sh lxc_install_lxc_inside 10.39.28 fdb1
       - name: Run Linux unit and container-capable tests
         working-directory: source
         run: |
           mkdir -p ../out
           set -o pipefail
-          go test -json -race -timeout 45m ./... | tee ../out/linux-amd64-tests.jsonl
+          go test -count=1 -race -v -timeout 45m ./... 2>&1 | tee ../out/linux-amd64-tests.log
       - name: Preserve Linux test results
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: runner-tests-linux-amd64-${{ inputs.tag }}
-          path: out/linux-amd64-tests.jsonl
+          path: out/linux-amd64-tests.log
           if-no-files-found: warn
           retention-days: 14
       - name: Build deterministic Linux amd64 executable

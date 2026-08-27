@@ -65,13 +65,19 @@ def main() -> int:
             require(expected in qualification, f"runner-qualification.yml: missing artifact {expected}", errors)
         windows_start = qualification.find("build-windows-amd64:")
         finalize_start = qualification.find("finalize:")
+        linux_start = qualification.find("build-linux-amd64:")
+        linux_arm_start = qualification.find("build-linux-arm64:")
+        linux_job = qualification[linux_start:linux_arm_start]
         windows_job = qualification[windows_start:finalize_start]
+        require(linux_start >= 0 and linux_arm_start > linux_start, "runner-qualification.yml: Linux amd64/arm64 jobs not found", errors)
+        require("lxc_prepare_environment" in linux_job and "lxc_install_lxc_inside 10.39.28 fdb1" in linux_job, "runner-qualification.yml: Linux LXC preparation is incomplete", errors)
+        require("go test -count=1 -race -v -timeout 45m ./..." in linux_job and "-json" not in linux_job, "runner-qualification.yml: Linux tests must be complete, uncached, race-enabled, and avoid the upstream stdout-capture JSON failure", errors)
+        require("out/linux-amd64-tests.log" in linux_job and "linux-amd64-tests.jsonl" not in linux_job, "runner-qualification.yml: Linux plain test transcript contract is missing", errors)
         require(windows_start >= 0 and finalize_start > windows_start, "runner-qualification.yml: Windows/finalize jobs not found", errors)
         require(not re.search(r"(?i)\b(?:wsl|podman|docker)\b", windows_job), "runner-qualification.yml: Windows job introduces a WSL/container prerequisite", errors)
         require("./internal/..." in windows_job, "runner-qualification.yml: native Windows runner tests are missing", errors)
         require("./act/..." not in windows_job, "runner-qualification.yml: container-capable act tests must remain on Linux", errors)
         require("-count=1 -short" in windows_job and "-json" not in windows_job, "runner-qualification.yml: Windows tests must be uncached and avoid the upstream stdout-capture JSON failure", errors)
-        require("go test -json -race -timeout 45m ./..." in qualification, "runner-qualification.yml: complete Linux test suite is missing", errors)
         require("contents: write" not in qualification and "id-token: write" not in qualification and "attestations: write" not in qualification, "runner-qualification.yml: read-only qualification requests publication permissions", errors)
     if release_path.is_file():
         release = release_path.read_text(encoding="utf-8")

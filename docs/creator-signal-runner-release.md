@@ -83,18 +83,21 @@ without publication. The reusable, read-only qualification workflow verifies
 one exact mirrored tag/SHA, derives the module path and exact Go toolchain from
 that tag's `go.mod`, then runs:
 
-- Linux amd64 native unit/container-capable tests, deterministic build, and
-  version/configuration smoke checks;
+- Linux amd64 native unit/container-capable tests after preparing LXC with the
+  upstream helpers, followed by deterministic build and version/configuration
+  smoke checks;
 - Linux arm64 native deterministic build and version/configuration smoke
   checks; and
 - native Windows amd64 `internal/...` runner tests with container features
   disabled, followed by deterministic build and version/configuration smoke
   checks in PowerShell. The `act/...` packages remain in the complete Linux
   amd64 gate because their client tests are container-capable and have Unix
-  host assumptions. The Windows tests run uncached and preserve a plain log:
-  the upstream command tests temporarily capture `os.Stdout`, which makes Go's
-  Windows `-json` test stream report a false package failure even though the
-  same uncached native tests pass without that formatter.
+  host assumptions. Both native test jobs run uncached and preserve plain logs:
+  the upstream command tests temporarily capture `os.Stdout` and `os.Stderr`,
+  which makes Go's `-json` test stream report a false package failure even
+  though the same uncached native tests pass without that formatter. The Linux
+  job retains race detection and prepares both Docker- and LXC-dependent test
+  capabilities before exercising the complete suite.
 
 Each job produces its executable and deterministic SPDX 2.3 JSON SBOM. The
 read-only finalizer assembles the exact asset inventory, writes `SHA256SUMS`
