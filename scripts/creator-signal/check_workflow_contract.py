@@ -121,6 +121,7 @@ def main() -> int:
         require("contents: write" in release and "id-token: write" in release and "attestations: write" in release, "runner-release.yml: publication permissions are incomplete", errors)
         require("uses: ./.github/workflows/runner-qualification.yml" in release, "runner-release.yml: read-only qualification dependency is missing", errors)
         require("needs: qualify" in release, "runner-release.yml: publisher is not gated on qualification", errors)
+        require("GH_REPO: ${{ github.repository }}" in release, "runner-release.yml: GitHub CLI repository binding is missing", errors)
         require("--clobber" not in release, "runner-release.yml: release asset replacement is prohibited", errors)
         require("gh attestation verify" in release, "runner-release.yml: idempotent attestation verification is missing", errors)
         require("--backport-pull-request" in release and release.count("--backport-patch-sha256") >= 3, "runner-release.yml: published backport provenance is incomplete", errors)

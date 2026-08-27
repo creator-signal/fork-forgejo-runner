@@ -37,6 +37,8 @@ jobs:
     if: ${{ inputs.publish }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      GH_REPO: ${{ github.repository }}
     permissions:
       contents: write
       id-token: write
