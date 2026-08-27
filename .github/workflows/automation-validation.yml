@@ -98,9 +98,8 @@ jobs:
   initial-release-qualification:
     name: Initial v13.0.0 release qualification
     needs: [contracts, security]
-    uses: ./.github/workflows/runner-release.yml
+    uses: ./.github/workflows/runner-qualification.yml
     with:
       tag: v13.0.0
-      publish: false
     permissions:
       contents: read

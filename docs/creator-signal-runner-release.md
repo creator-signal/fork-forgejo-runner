@@ -79,9 +79,9 @@ that decision silently.
 ## Qualification and named backfill
 
 Every automation PR qualifies the Issue's initial acceptance tag (`v13.0.0`)
-without publication. The reusable release workflow verifies one exact mirrored
-tag/SHA, derives the module path and exact Go toolchain from that tag's
-`go.mod`, then runs:
+without publication. The reusable, read-only qualification workflow verifies
+one exact mirrored tag/SHA, derives the module path and exact Go toolchain from
+that tag's `go.mod`, then runs:
 
 - Linux amd64 native unit/container-capable tests, deterministic build, and
   version/configuration smoke checks;
@@ -94,9 +94,11 @@ tag/SHA, derives the module path and exact Go toolchain from that tag's
   host assumptions.
 
 Each job produces its executable and deterministic SPDX 2.3 JSON SBOM. The
-finalizer assembles the exact asset inventory, writes `SHA256SUMS` and
-`SOURCE-PROVENANCE.json`, and verifies the bundle even when publication is
-disabled.
+read-only finalizer assembles the exact asset inventory, writes `SHA256SUMS`
+and `SOURCE-PROVENANCE.json`, verifies the bundle, and uploads it as a run
+artifact. The separate manual release workflow consumes that exact qualified
+bundle; only its publication job receives Release, OIDC, and attestation write
+permissions.
 
 After the automation PR is merged and current-head CI is terminal-successful,
 perform the named backfill:

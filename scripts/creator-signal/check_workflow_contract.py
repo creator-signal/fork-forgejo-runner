@@ -46,32 +46,37 @@ def main() -> int:
                 errors,
             )
 
+    qualification_path = WORKFLOW_DIR / "runner-qualification.yml"
     release_path = WORKFLOW_DIR / "runner-release.yml"
     sync_path = WORKFLOW_DIR / "upstream-sync.yml"
     validation_path = WORKFLOW_DIR / "automation-validation.yml"
     verification_path = WORKFLOW_DIR / "runner-release-verification.yml"
-    for path in (release_path, sync_path, validation_path, verification_path):
+    for path in (qualification_path, release_path, sync_path, validation_path, verification_path):
         require(path.is_file(), f"missing workflow: {path.name}", errors)
-    if release_path.is_file():
-        release = release_path.read_text(encoding="utf-8")
+    if qualification_path.is_file():
+        qualification = qualification_path.read_text(encoding="utf-8")
         for artifact in POLICY["artifacts"]:
             require(
-                artifact["nativeRunner"] in release,
-                f"runner-release.yml: missing native runner {artifact['nativeRunner']}",
+                artifact["nativeRunner"] in qualification,
+                f"runner-qualification.yml: missing native runner {artifact['nativeRunner']}",
                 errors,
             )
             expected = f"{artifact['os']}-{artifact['arch']}"
-            require(expected in release, f"runner-release.yml: missing artifact {expected}", errors)
-        windows_start = release.find("build-windows-amd64:")
-        finalize_start = release.find("finalize:")
-        windows_job = release[windows_start:finalize_start]
-        require(windows_start >= 0 and finalize_start > windows_start, "runner-release.yml: Windows/finalize jobs not found", errors)
-        require(not re.search(r"(?i)\b(?:wsl|podman|docker)\b", windows_job), "runner-release.yml: Windows job introduces a WSL/container prerequisite", errors)
-        require("./internal/..." in windows_job, "runner-release.yml: native Windows runner tests are missing", errors)
-        require("./act/..." not in windows_job, "runner-release.yml: container-capable act tests must remain on Linux", errors)
-        require("go test -json -race -timeout 45m ./..." in release, "runner-release.yml: complete Linux test suite is missing", errors)
+            require(expected in qualification, f"runner-qualification.yml: missing artifact {expected}", errors)
+        windows_start = qualification.find("build-windows-amd64:")
+        finalize_start = qualification.find("finalize:")
+        windows_job = qualification[windows_start:finalize_start]
+        require(windows_start >= 0 and finalize_start > windows_start, "runner-qualification.yml: Windows/finalize jobs not found", errors)
+        require(not re.search(r"(?i)\b(?:wsl|podman|docker)\b", windows_job), "runner-qualification.yml: Windows job introduces a WSL/container prerequisite", errors)
+        require("./internal/..." in windows_job, "runner-qualification.yml: native Windows runner tests are missing", errors)
+        require("./act/..." not in windows_job, "runner-qualification.yml: container-capable act tests must remain on Linux", errors)
+        require("go test -json -race -timeout 45m ./..." in qualification, "runner-qualification.yml: complete Linux test suite is missing", errors)
+        require("contents: write" not in qualification and "id-token: write" not in qualification and "attestations: write" not in qualification, "runner-qualification.yml: read-only qualification requests publication permissions", errors)
+    if release_path.is_file():
+        release = release_path.read_text(encoding="utf-8")
         require("contents: write" in release and "id-token: write" in release and "attestations: write" in release, "runner-release.yml: publication permissions are incomplete", errors)
-        require("needs: [source, build-linux-amd64, build-linux-arm64, build-windows-amd64]" in release, "runner-release.yml: finalizer is not gated on every source/build job", errors)
+        require("uses: ./.github/workflows/runner-qualification.yml" in release, "runner-release.yml: read-only qualification dependency is missing", errors)
+        require("needs: qualify" in release, "runner-release.yml: publisher is not gated on qualification", errors)
         require("--clobber" not in release, "runner-release.yml: release asset replacement is prohibited", errors)
         require("gh attestation verify" in release, "runner-release.yml: idempotent attestation verification is missing", errors)
         require("Creator Signal-tested; upstream-unsupported" in combined, "runner-release.yml: Windows support boundary is missing", errors)
