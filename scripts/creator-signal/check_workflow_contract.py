@@ -147,7 +147,7 @@ def main() -> int:
     require('"push", "--atomic"' in control, "release_control.py: synchronization push is not atomic", errors)
     require("reject-mismatch" in control, "release_control.py: immutable tag mismatch shield is missing", errors)
     require("immutable rerun mismatch" in control, "release_control.py: rerun byte verification is missing", errors)
-    require("source_backport_plan" in control and "git apply" in control and "patchedSourceTreeSha" in control, "release_control.py: governed source backport controls are incomplete", errors)
+    require("source_backport_plan" in control and '["git", "apply", "--cached", "--whitespace=error-all", "-"]' in control and "patchedSourceTreeSha" in control, "release_control.py: governed source backport controls are incomplete", errors)
     require("ghcr.io" not in combined.lower(), "Runner workflows must not publish containers", errors)
     require(not re.search(r"(?i)(dockerhub|docker hub|amazon s3|\bs3\b)", combined), "Runner workflows contain an unauthorized publication destination", errors)
 
