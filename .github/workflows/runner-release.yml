@@ -1,0 +1,208 @@
+name: Governed Runner release
+run-name: Runner ${{ inputs.tag }} (${{ inputs.publish && 'publish' || 'qualify' }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact synchronized upstream semantic-version tag
+        required: true
+        type: string
+        default: v13.0.0
+      publish:
+        description: Publish (clear to run qualification only)
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runner-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    name: Read-only native qualification
+    uses: ./.github/workflows/runner-qualification.yml
+    with:
+      tag: ${{ inputs.tag }}
+    permissions:
+      contents: read
+
+  publish:
+    name: Attest, publish, and verify immutable Release
+    needs: qualify
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: automation
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Revalidate source tag and live Release state
+        id: plan
+        working-directory: automation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: >-
+          python3 scripts/creator-signal/release_control.py plan-tag
+          --tag "${RELEASE_TAG}"
+          --repository "${GITHUB_REPOSITORY}"
+          --report ../publication-plan.json
+      - name: Download exact qualified bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: runner-qualified-release-${{ inputs.tag }}
+          path: rebuilt
+      - name: Verify qualified bytes and source metadata
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
+          TAG_OBJECT_SHA: ${{ steps.plan.outputs.tag_object_sha }}
+        run: >-
+          python3 automation/scripts/creator-signal/release_control.py verify-assets
+          --directory rebuilt
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --tag-object-sha "${TAG_OBJECT_SHA}"
+      - name: Reject incomplete published Release
+        if: ${{ steps.plan.outputs.release_exists == 'true' && steps.plan.outputs.release_complete != 'true' && steps.plan.outputs.release_draft != 'true' }}
+        run: |
+          echo 'A non-draft Release exists without the complete governed asset set.' >&2
+          echo 'Failing closed; no existing Release or asset will be deleted or replaced.' >&2
+          exit 1
+      - name: Create or refresh resumable draft metadata
+        if: ${{ steps.plan.outputs.release_complete != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
+          RELEASE_EXISTS: ${{ steps.plan.outputs.release_exists }}
+        run: |
+          python3 automation/scripts/creator-signal/release_control.py release-body \
+            --tag "$RELEASE_TAG" \
+            --source-sha "$SOURCE_SHA" \
+            --workflow-url "$WORKFLOW_URL" \
+            --output release-notes.md
+          if [ "$RELEASE_EXISTS" != 'true' ]; then
+            gh release create "$RELEASE_TAG" --draft --verify-tag \
+              --title "Forgejo Runner $RELEASE_TAG (Creator Signal build)" \
+              --notes-file release-notes.md
+          else
+            gh release edit "$RELEASE_TAG" --draft --notes-file release-notes.md
+          fi
+      - name: Attest build provenance
+        if: ${{ steps.plan.outputs.release_complete != 'true' }}
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: rebuilt/*
+      - name: Attest Linux amd64 SBOM
+        if: ${{ steps.plan.outputs.release_complete != 'true' }}
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: rebuilt/forgejo-runner-${{ steps.plan.outputs.version }}-linux-amd64
+          sbom-path: rebuilt/forgejo-runner-${{ steps.plan.outputs.version }}-linux-amd64.spdx.json
+      - name: Attest Linux arm64 SBOM
+        if: ${{ steps.plan.outputs.release_complete != 'true' }}
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: rebuilt/forgejo-runner-${{ steps.plan.outputs.version }}-linux-arm64
+          sbom-path: rebuilt/forgejo-runner-${{ steps.plan.outputs.version }}-linux-arm64.spdx.json
+      - name: Attest Windows amd64 SBOM
+        if: ${{ steps.plan.outputs.release_complete != 'true' }}
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: rebuilt/forgejo-runner-${{ steps.plan.outputs.version }}-windows-amd64.exe
+          sbom-path: rebuilt/forgejo-runner-${{ steps.plan.outputs.version }}-windows-amd64.exe.spdx.json
+      - name: Resume draft without replacing existing bytes
+        if: ${{ steps.plan.outputs.release_complete != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p draft-assets
+          asset_count=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length')
+          if [ "$asset_count" -gt 0 ]; then
+            gh release download "$RELEASE_TAG" --dir draft-assets
+          fi
+          for desired in rebuilt/*; do
+            name=$(basename "$desired")
+            if [ -f "draft-assets/$name" ]; then
+              cmp --silent "$desired" "draft-assets/$name" || {
+                echo "Existing draft asset differs and will not be overwritten: $name" >&2
+                exit 1
+              }
+            else
+              gh release upload "$RELEASE_TAG" "$desired"
+            fi
+          done
+      - name: Publish completed draft
+        if: ${{ steps.plan.outputs.release_complete != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          IS_PRERELEASE: ${{ steps.plan.outputs.prerelease }}
+        run: |
+          args=("$RELEASE_TAG" --draft=false)
+          if [ "$IS_PRERELEASE" = 'true' ]; then
+            args+=(--prerelease)
+          fi
+          gh release edit "${args[@]}"
+      - name: Download published assets independently
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p published
+          gh release download "$RELEASE_TAG" --dir published
+      - name: Verify immutable published bytes and source metadata
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
+          TAG_OBJECT_SHA: ${{ steps.plan.outputs.tag_object_sha }}
+        run: >-
+          python3 automation/scripts/creator-signal/release_control.py verify-assets
+          --directory published
+          --rebuilt rebuilt
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --tag-object-sha "${TAG_OBJECT_SHA}"
+      - name: Verify provenance and SBOM attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          for binary in \
+            "forgejo-runner-${version}-linux-amd64" \
+            "forgejo-runner-${version}-linux-arm64" \
+            "forgejo-runner-${version}-windows-amd64.exe"; do
+            gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation" \
+              --predicate-type 'https://slsa.dev/provenance/v1'
+            gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation" \
+              --predicate-type 'https://spdx.dev/Document/v2.3'
+          done
+      - name: Preserve publication evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runner-publication-evidence-${{ inputs.tag }}-${{ github.run_id }}
+          path: |
+            publication-plan.json
+            published
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14

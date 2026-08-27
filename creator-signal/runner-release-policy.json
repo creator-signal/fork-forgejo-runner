@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "upstreamUrl": "https://code.forgejo.org/forgejo/runner.git",
+  "automationBranch": "creator-signal/automation",
+  "initialBackfillTag": "v13.0.0",
+  "maintainedBranchPatterns": [
+    "^main$",
+    "^support-v[0-9]+(?:\\.[0-9]+)*\\.x$"
+  ],
+  "semanticTagPattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$",
+  "stableTagPattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+  "artifacts": [
+    {
+      "os": "linux",
+      "arch": "amd64",
+      "nativeRunner": "ubuntu-24.04",
+      "unitTests": true
+    },
+    {
+      "os": "linux",
+      "arch": "arm64",
+      "nativeRunner": "ubuntu-24.04-arm",
+      "unitTests": false
+    },
+    {
+      "os": "windows",
+      "arch": "amd64",
+      "nativeRunner": "windows-2025",
+      "unitTests": true,
+      "upstreamSupport": "unsupported",
+      "creatorSignalQualification": "native-build-test-version-and-config-smoke"
+    }
+  ],
+  "supplyChain": {
+    "checksumAlgorithm": "sha256",
+    "sbomFormat": "spdx-json",
+    "provenance": "github-artifact-attestation",
+    "authenticode": "not-authorized"
+  }
+}
