@@ -106,12 +106,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo act/runner/lxc-helpers.sh lxc_prepare_environment
+          sudo apt-get install -y -qq debian-archive-keyring
+          sudo install -m 0644 \
+            /usr/share/keyrings/debian-archive-bookworm-stable.gpg \
+            /etc/apt/trusted.gpg.d/debian-archive-bookworm-stable.gpg
           sudo act/runner/lxc-helpers.sh lxc_install_lxc_inside 10.39.28 fdb1
       - name: Run Linux unit and container-capable tests
         working-directory: source
         run: |
           mkdir -p ../out
           set -o pipefail
+          git config --global gc.auto 0
+          git config --global maintenance.auto false
+          command_token="runner-test-$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+          echo "::stop-commands::$command_token"
+          trap 'echo "::$command_token::"' EXIT
           go test -count=1 -race -v -timeout 45m ./... 2>&1 | tee ../out/linux-amd64-tests.log
       - name: Preserve Linux test results
         if: ${{ always() }}

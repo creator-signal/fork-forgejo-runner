@@ -71,6 +71,9 @@ def main() -> int:
         windows_job = qualification[windows_start:finalize_start]
         require(linux_start >= 0 and linux_arm_start > linux_start, "runner-qualification.yml: Linux amd64/arm64 jobs not found", errors)
         require("lxc_prepare_environment" in linux_job and "lxc_install_lxc_inside 10.39.28 fdb1" in linux_job, "runner-qualification.yml: Linux LXC preparation is incomplete", errors)
+        require("debian-archive-keyring" in linux_job and "/usr/share/keyrings/debian-archive-bookworm-stable.gpg" in linux_job and "/etc/apt/trusted.gpg.d/debian-archive-bookworm-stable.gpg" in linux_job, "runner-qualification.yml: Linux LXC preparation does not seed the current Bookworm archive trust root", errors)
+        require("git config --global gc.auto 0" in linux_job and "git config --global maintenance.auto false" in linux_job, "runner-qualification.yml: Linux tests do not suppress background Git maintenance during temporary-repository assertions", errors)
+        require("::stop-commands::" in linux_job and "trap 'echo \"::$command_token::\"' EXIT" in linux_job, "runner-qualification.yml: Linux test output can be interpreted as GitHub workflow commands", errors)
         require("go test -count=1 -race -v -timeout 45m ./..." in linux_job and "-json" not in linux_job, "runner-qualification.yml: Linux tests must be complete, uncached, race-enabled, and avoid the upstream stdout-capture JSON failure", errors)
         require("out/linux-amd64-tests.log" in linux_job and "linux-amd64-tests.jsonl" not in linux_job, "runner-qualification.yml: Linux plain test transcript contract is missing", errors)
         require(windows_start >= 0 and finalize_start > windows_start, "runner-qualification.yml: Windows/finalize jobs not found", errors)

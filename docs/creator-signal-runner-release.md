@@ -85,7 +85,10 @@ that tag's `go.mod`, then runs:
 
 - Linux amd64 native unit/container-capable tests after preparing LXC with the
   upstream helpers, followed by deterministic build and version/configuration
-  smoke checks;
+  smoke checks. Before Bookworm creation, the GitHub-hosted Ubuntu image's LXC
+  Debian template is seeded from the installed Bookworm archive keyring, so
+  archive verification cannot fall back to the template's obsolete Jessie
+  bootstrap key;
 - Linux arm64 native deterministic build and version/configuration smoke
   checks; and
 - native Windows amd64 `internal/...` runner tests with container features
@@ -97,7 +100,12 @@ that tag's `go.mod`, then runs:
   which makes Go's `-json` test stream report a false package failure even
   though the same uncached native tests pass without that formatter. The Linux
   job retains race detection and prepares both Docker- and LXC-dependent test
-  capabilities before exercising the complete suite.
+  capabilities before exercising the complete suite. Background Git
+  maintenance is disabled while upstream temporary-repository assertions run,
+  avoiding cleanup races with detached commit-graph writes. GitHub
+  workflow-command parsing is suspended only while the upstream test transcript
+  is streamed, so fixture output such as `##[add-matcher]` remains inert test
+  data; the shell exit trap restores command processing for subsequent steps.
 
 Each job produces its executable and deterministic SPDX 2.3 JSON SBOM. The
 read-only finalizer assembles the exact asset inventory, writes `SHA256SUMS`
