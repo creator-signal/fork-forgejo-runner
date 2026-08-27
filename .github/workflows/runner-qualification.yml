@@ -272,8 +272,11 @@ jobs:
         working-directory: source
         run: |
           New-Item -ItemType Directory -Force -Path '..\out' | Out-Null
-          $results = '..\out\windows-amd64-tests.jsonl'
-          $output = go test -p 2 -json -short -timeout 45m ./internal/... -args -features '-' 2>&1
+          $results = '..\out\windows-amd64-tests.log'
+          # The upstream command tests temporarily capture os.Stdout. Go's
+          # Windows structured test stream is incompatible with that capture and reports
+          # a false package failure, so preserve a plain uncached transcript.
+          $output = go test -p 2 -count=1 -short -timeout 45m ./internal/... -args -features '-' 2>&1
           $exitCode = $LASTEXITCODE
           $output | Set-Content -Path $results
           $output | Write-Output
@@ -283,7 +286,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: runner-tests-windows-amd64-${{ inputs.tag }}
-          path: out/windows-amd64-tests.jsonl
+          path: out/windows-amd64-tests.log
           if-no-files-found: warn
           retention-days: 14
       - name: Build deterministic native Windows amd64 executable

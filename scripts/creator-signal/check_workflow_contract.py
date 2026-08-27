@@ -70,6 +70,7 @@ def main() -> int:
         require(not re.search(r"(?i)\b(?:wsl|podman|docker)\b", windows_job), "runner-qualification.yml: Windows job introduces a WSL/container prerequisite", errors)
         require("./internal/..." in windows_job, "runner-qualification.yml: native Windows runner tests are missing", errors)
         require("./act/..." not in windows_job, "runner-qualification.yml: container-capable act tests must remain on Linux", errors)
+        require("-count=1 -short" in windows_job and "-json" not in windows_job, "runner-qualification.yml: Windows tests must be uncached and avoid the upstream stdout-capture JSON failure", errors)
         require("go test -json -race -timeout 45m ./..." in qualification, "runner-qualification.yml: complete Linux test suite is missing", errors)
         require("contents: write" not in qualification and "id-token: write" not in qualification and "attestations: write" not in qualification, "runner-qualification.yml: read-only qualification requests publication permissions", errors)
     if release_path.is_file():

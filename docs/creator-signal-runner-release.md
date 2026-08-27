@@ -91,7 +91,10 @@ that tag's `go.mod`, then runs:
   disabled, followed by deterministic build and version/configuration smoke
   checks in PowerShell. The `act/...` packages remain in the complete Linux
   amd64 gate because their client tests are container-capable and have Unix
-  host assumptions.
+  host assumptions. The Windows tests run uncached and preserve a plain log:
+  the upstream command tests temporarily capture `os.Stdout`, which makes Go's
+  Windows `-json` test stream report a false package failure even though the
+  same uncached native tests pass without that formatter.
 
 Each job produces its executable and deterministic SPDX 2.3 JSON SBOM. The
 read-only finalizer assembles the exact asset inventory, writes `SHA256SUMS`
