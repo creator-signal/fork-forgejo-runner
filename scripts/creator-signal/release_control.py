@@ -457,7 +457,9 @@ def source_backport_plan(
         raise ControlError(
             f"{tag} source backport path mismatch: expected={expected_paths}; actual={changed_paths}"
         )
-    patch = git(repo, "diff", "--binary", parents[1], commit)
+    patch = run(
+        ["git", "diff", "--binary", parents[1], commit], cwd=repo
+    ).stdout
     patch_sha256 = hashlib.sha256(patch.encode("utf-8")).hexdigest()
     with tempfile.TemporaryDirectory(prefix="creator-signal-runner-backport-") as temporary:
         index_path = str(Path(temporary) / "index")
