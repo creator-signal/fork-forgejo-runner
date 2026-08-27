@@ -47,14 +47,20 @@ service BackendPlugin {
   rpc Create(CreateRequest) returns (CreateResponse);
 
   // Start boots a previously created environment.
-  rpc Start(StartRequest) returns (StartResponse);
+  //
+  // Start implementations should detect when the RPC stream is terminated
+  // externally before the command completes, as this will signal explicit job
+  // cancellation, or job timeout. When detected, the implementation should
+  // terminate the startup process on the environment. The Remove RPC for the
+  // environment will follow, even though the Start RPC did not complete.
+  rpc Start(StartRequest) returns (stream StartOutput);
 
   // Exec runs a command inside the environment, streaming stdout/stderr back.
   //
   // Exec implementations should detect when the RPC stream is terminated
   // externally before the command completes, as this will signal explicit job
   // cancellation, job timeout, or command timeout. When detected, the
-  // implementation should terminate the the running command on the
+  // implementation should terminate the running command on the
   // environment. Implementation should not rely on a failed write to the
   // output stream as its cancellation signal as some commands produce
   // infrequent output. (Implementation note: observing context cancellation in
@@ -149,7 +155,14 @@ message StartRequest {
   string environment_id = 1;
 }
 
-message StartResponse {
+message StartOutput {
+  oneof Output {
+    DataChunk data = 1;
+    StartComplete start_complete = 2;
+  }
+}
+
+message StartComplete {
   // image_env are environment variables baked into the resolved image (e.g. a
   // Docker image's ENV). The runner layers them under the job's own variables.
   map<string, string> image_env = 1;

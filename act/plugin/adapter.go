@@ -205,13 +205,53 @@ func (p *pluginEnvironment) Create(capAdd, capDrop []string) common.Executor {
 
 func (p *pluginEnvironment) Start(_ bool) common.Executor {
 	return func(ctx context.Context) error {
-		resp, err := p.client.Start(ctx, &pluginv1alpha.StartRequest{
+		// Cancel on early return so the client-side stream goroutines exit.
+		streamCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		stream, err := p.client.Start(streamCtx, &pluginv1alpha.StartRequest{
 			EnvironmentId: p.envID,
 		})
 		if err != nil {
-			return fmt.Errorf("plugin start: %w", err)
+			return fmt.Errorf("plugin start: request error %w", err)
 		}
-		p.imageEnv = resp.GetImageEnv()
+
+		done := false
+		for {
+			out, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return fmt.Errorf("plugin start: stream error %w", err)
+			}
+
+			switch v := out.GetOutput().(type) {
+			case *pluginv1alpha.StartOutput_Data:
+				p.mu.Lock()
+				switch v.Data.GetStream() {
+				case pluginv1alpha.DataChunk_STDOUT:
+					_, _ = p.stdout.Write(v.Data.GetData())
+				case pluginv1alpha.DataChunk_STDERR:
+					_, _ = p.stderr.Write(v.Data.GetData())
+				}
+				p.mu.Unlock()
+
+			case *pluginv1alpha.StartOutput_StartComplete:
+				p.imageEnv = v.StartComplete.GetImageEnv()
+				done = true
+
+			default:
+				return fmt.Errorf("plugin start: unexpected stream chunk %#v", v)
+			}
+			if done {
+				break
+			}
+		}
+
+		if !done {
+			return fmt.Errorf("plugin start: stream ended before completion signal")
+		}
 		return nil
 	}
 }

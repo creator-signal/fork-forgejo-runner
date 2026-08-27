@@ -119,16 +119,20 @@ func (s *Server) Create(_ context.Context, req *pluginv1alpha.CreateRequest) (*p
 	}, nil
 }
 
-func (s *Server) Start(_ context.Context, req *pluginv1alpha.StartRequest) (*pluginv1alpha.StartResponse, error) {
+func (s *Server) Start(req *pluginv1alpha.StartRequest, stream grpc.ServerStreamingServer[pluginv1alpha.StartOutput]) error {
 	_, err := s.getEnv(req.GetEnvironmentId())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	imageEnv := map[string]string{
 		"PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 	}
-	return &pluginv1alpha.StartResponse{ImageEnv: imageEnv}, nil
+	return stream.Send(&pluginv1alpha.StartOutput{
+		Output: &pluginv1alpha.StartOutput_StartComplete{
+			StartComplete: &pluginv1alpha.StartComplete{ImageEnv: imageEnv},
+		},
+	})
 }
 
 func (s *Server) Exec(req *pluginv1alpha.ExecRequest, stream grpc.ServerStreamingServer[pluginv1alpha.ExecOutput]) error {

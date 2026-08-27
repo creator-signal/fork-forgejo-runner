@@ -72,13 +72,19 @@ type BackendPluginClient interface {
 	// passed here so the backend realises them however fits its platform.
 	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*CreateResponse, error)
 	// Start boots a previously created environment.
-	Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error)
+	//
+	// Start implementations should detect when the RPC stream is terminated
+	// externally before the command completes, as this will signal explicit job
+	// cancellation, or job timeout. When detected, the implementation should
+	// terminate the startup process on the environment. The Remove RPC for the
+	// environment will follow, even though the Start RPC did not complete.
+	Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StartOutput], error)
 	// Exec runs a command inside the environment, streaming stdout/stderr back.
 	//
 	// Exec implementations should detect when the RPC stream is terminated
 	// externally before the command completes, as this will signal explicit job
 	// cancellation, job timeout, or command timeout. When detected, the
-	// implementation should terminate the the running command on the
+	// implementation should terminate the running command on the
 	// environment. Implementation should not rely on a failed write to the
 	// output stream as its cancellation signal as some commands produce
 	// infrequent output. (Implementation note: observing context cancellation in
@@ -123,19 +129,28 @@ func (c *backendPluginClient) Create(ctx context.Context, in *CreateRequest, opt
 	return out, nil
 }
 
-func (c *backendPluginClient) Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error) {
+func (c *backendPluginClient) Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StartOutput], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StartResponse)
-	err := c.cc.Invoke(ctx, BackendPlugin_Start_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &BackendPlugin_ServiceDesc.Streams[0], BackendPlugin_Start_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[StartRequest, StartOutput]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type BackendPlugin_StartClient = grpc.ServerStreamingClient[StartOutput]
 
 func (c *backendPluginClient) Exec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecOutput], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &BackendPlugin_ServiceDesc.Streams[0], BackendPlugin_Exec_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &BackendPlugin_ServiceDesc.Streams[1], BackendPlugin_Exec_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +169,7 @@ type BackendPlugin_ExecClient = grpc.ServerStreamingClient[ExecOutput]
 
 func (c *backendPluginClient) CopyIn(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[CopyInChunk, CopyInResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &BackendPlugin_ServiceDesc.Streams[1], BackendPlugin_CopyIn_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &BackendPlugin_ServiceDesc.Streams[2], BackendPlugin_CopyIn_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +182,7 @@ type BackendPlugin_CopyInClient = grpc.ClientStreamingClient[CopyInChunk, CopyIn
 
 func (c *backendPluginClient) CopyOut(ctx context.Context, in *CopyOutRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CopyOutChunk], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &BackendPlugin_ServiceDesc.Streams[2], BackendPlugin_CopyOut_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &BackendPlugin_ServiceDesc.Streams[3], BackendPlugin_CopyOut_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -228,13 +243,19 @@ type BackendPluginServer interface {
 	// passed here so the backend realises them however fits its platform.
 	Create(context.Context, *CreateRequest) (*CreateResponse, error)
 	// Start boots a previously created environment.
-	Start(context.Context, *StartRequest) (*StartResponse, error)
+	//
+	// Start implementations should detect when the RPC stream is terminated
+	// externally before the command completes, as this will signal explicit job
+	// cancellation, or job timeout. When detected, the implementation should
+	// terminate the startup process on the environment. The Remove RPC for the
+	// environment will follow, even though the Start RPC did not complete.
+	Start(*StartRequest, grpc.ServerStreamingServer[StartOutput]) error
 	// Exec runs a command inside the environment, streaming stdout/stderr back.
 	//
 	// Exec implementations should detect when the RPC stream is terminated
 	// externally before the command completes, as this will signal explicit job
 	// cancellation, job timeout, or command timeout. When detected, the
-	// implementation should terminate the the running command on the
+	// implementation should terminate the running command on the
 	// environment. Implementation should not rely on a failed write to the
 	// output stream as its cancellation signal as some commands produce
 	// infrequent output. (Implementation note: observing context cancellation in
@@ -267,8 +288,8 @@ func (UnimplementedBackendPluginServer) Create(context.Context, *CreateRequest) 
 	return nil, status.Error(codes.Unimplemented, "method Create not implemented")
 }
 
-func (UnimplementedBackendPluginServer) Start(context.Context, *StartRequest) (*StartResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method Start not implemented")
+func (UnimplementedBackendPluginServer) Start(*StartRequest, grpc.ServerStreamingServer[StartOutput]) error {
+	return status.Error(codes.Unimplemented, "method Start not implemented")
 }
 
 func (UnimplementedBackendPluginServer) Exec(*ExecRequest, grpc.ServerStreamingServer[ExecOutput]) error {
@@ -343,23 +364,16 @@ func _BackendPlugin_Create_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BackendPlugin_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _BackendPlugin_Start_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StartRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(BackendPluginServer).Start(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: BackendPlugin_Start_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BackendPluginServer).Start(ctx, req.(*StartRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(BackendPluginServer).Start(m, &grpc.GenericServerStream[StartRequest, StartOutput]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type BackendPlugin_StartServer = grpc.ServerStreamingServer[StartOutput]
 
 func _BackendPlugin_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ExecRequest)
@@ -424,15 +438,16 @@ var BackendPlugin_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _BackendPlugin_Create_Handler,
 		},
 		{
-			MethodName: "Start",
-			Handler:    _BackendPlugin_Start_Handler,
-		},
-		{
 			MethodName: "Remove",
 			Handler:    _BackendPlugin_Remove_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Start",
+			Handler:       _BackendPlugin_Start_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "Exec",
 			Handler:       _BackendPlugin_Exec_Handler,

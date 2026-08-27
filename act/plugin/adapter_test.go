@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -32,6 +33,11 @@ type mockPluginServer struct {
 
 	createReq    *pluginv1alpha.CreateRequest
 	removeCalled bool
+
+	startStdout               string
+	startStderr               string
+	startMissingStartComplete bool
+	startStreamError          bool
 
 	execReq      *pluginv1alpha.ExecRequest
 	execExitCode int32
@@ -67,8 +73,38 @@ func (s *mockPluginServer) Create(_ context.Context, req *pluginv1alpha.CreateRe
 	}, nil
 }
 
-func (s *mockPluginServer) Start(_ context.Context, _ *pluginv1alpha.StartRequest) (*pluginv1alpha.StartResponse, error) {
-	return &pluginv1alpha.StartResponse{ImageEnv: s.startImageEnv}, nil
+func (s *mockPluginServer) Start(_ *pluginv1alpha.StartRequest, stream grpc.ServerStreamingServer[pluginv1alpha.StartOutput]) error {
+	if s.startStreamError {
+		return errors.New("startStreamError")
+	}
+	if s.startStdout != "" {
+		_ = stream.Send(&pluginv1alpha.StartOutput{
+			Output: &pluginv1alpha.StartOutput_Data{
+				Data: &pluginv1alpha.DataChunk{
+					Stream: pluginv1alpha.DataChunk_STDOUT,
+					Data:   []byte(s.startStdout),
+				},
+			},
+		})
+	}
+	if s.startStderr != "" {
+		_ = stream.Send(&pluginv1alpha.StartOutput{
+			Output: &pluginv1alpha.StartOutput_Data{
+				Data: &pluginv1alpha.DataChunk{
+					Stream: pluginv1alpha.DataChunk_STDERR,
+					Data:   []byte(s.startStderr),
+				},
+			},
+		})
+	}
+	if !s.startMissingStartComplete {
+		_ = stream.Send(&pluginv1alpha.StartOutput{
+			Output: &pluginv1alpha.StartOutput_StartComplete{
+				StartComplete: &pluginv1alpha.StartComplete{ImageEnv: s.startImageEnv},
+			},
+		})
+	}
+	return nil
 }
 
 func (s *mockPluginServer) Exec(req *pluginv1alpha.ExecRequest, stream grpc.ServerStreamingServer[pluginv1alpha.ExecOutput]) error {
@@ -286,6 +322,43 @@ func TestPluginEnvironment_Lifecycle(t *testing.T) {
 
 	require.NoError(t, env.Remove()(t.Context()))
 	assert.True(t, mock.removeCalled)
+}
+
+func TestPluginEnvironment_StartMixedOutput(t *testing.T) {
+	mock, conn := startMockServer(t)
+	mock.startStdout = "out-line\n"
+	mock.startStderr = "err-line\n"
+
+	env := newTestEnv(t, conn)
+	require.NoError(t, env.Create(nil, nil)(t.Context()))
+
+	var stdout, stderr bytes.Buffer
+	env.ReplaceLogWriter(&stdout, &stderr)
+
+	err := env.Start(false)(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "out-line\n", stdout.String())
+	assert.Equal(t, "err-line\n", stderr.String())
+}
+
+func TestPluginEnvironment_StartMissingStartComplete(t *testing.T) {
+	mock, conn := startMockServer(t)
+	mock.startMissingStartComplete = true
+	env := newTestEnv(t, conn)
+	require.NoError(t, env.Create(nil, nil)(t.Context()))
+
+	err := env.Start(false)(t.Context())
+	require.ErrorContains(t, err, "stream ended before completion signal")
+}
+
+func TestPluginEnvironment_StartStreamError(t *testing.T) {
+	mock, conn := startMockServer(t)
+	mock.startStreamError = true
+	env := newTestEnv(t, conn)
+	require.NoError(t, env.Create(nil, nil)(t.Context()))
+
+	err := env.Start(false)(t.Context())
+	require.ErrorContains(t, err, "stream error rpc error: code = Unknown desc = startStreamError")
 }
 
 func TestPluginEnvironment_ExecRequest_Defaults(t *testing.T) {
