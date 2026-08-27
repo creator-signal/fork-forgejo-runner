@@ -52,6 +52,34 @@ def run(
     return result
 
 
+def run_bytes(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    check: bool = True,
+    input_bytes: bytes | None = None,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[bytes]:
+    """Run a command without platform newline translation."""
+    result = subprocess.run(
+        args,
+        cwd=cwd,
+        check=False,
+        input=input_bytes,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if check and result.returncode:
+        stdout = result.stdout.decode("utf-8", errors="replace")
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        raise ControlError(
+            f"command failed ({result.returncode}): {' '.join(args)}\n"
+            f"stdout:\n{stdout}\nstderr:\n{stderr}"
+        )
+    return result
+
+
 def git(repo: Path, *args: str, check: bool = True) -> str:
     return run(["git", *args], cwd=repo, check=check).stdout.strip()
 
@@ -457,19 +485,19 @@ def source_backport_plan(
         raise ControlError(
             f"{tag} source backport path mismatch: expected={expected_paths}; actual={changed_paths}"
         )
-    patch = run(
+    patch = run_bytes(
         ["git", "diff", "--binary", parents[1], commit], cwd=repo
     ).stdout
-    patch_sha256 = hashlib.sha256(patch.encode("utf-8")).hexdigest()
+    patch_sha256 = hashlib.sha256(patch).hexdigest()
     with tempfile.TemporaryDirectory(prefix="creator-signal-runner-backport-") as temporary:
         index_path = str(Path(temporary) / "index")
         git_env = dict(os.environ)
         git_env["GIT_INDEX_FILE"] = index_path
         run(["git", "read-tree", source_sha], cwd=repo, env=git_env)
-        run(
+        run_bytes(
             ["git", "apply", "--cached", "--whitespace=error-all", "-"],
             cwd=repo,
-            input_text=patch,
+            input_bytes=patch,
             env=git_env,
         )
         patched_tree_sha = run(["git", "write-tree"], cwd=repo, env=git_env).stdout.strip()
