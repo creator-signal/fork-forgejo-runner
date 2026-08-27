@@ -1,0 +1,176 @@
+name: Independent published Runner verification
+run-name: Verify published Runner ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published semantic-version tag to verify
+        required: true
+        type: string
+        default: v13.0.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runner-published-verification-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Verify published source identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      source-sha: ${{ steps.plan.outputs.source_sha }}
+      tag-object-sha: ${{ steps.plan.outputs.tag_object_sha }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - name: Check out trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify tag and completed Release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python3 scripts/creator-signal/release_control.py plan-tag \
+            --tag "$RELEASE_TAG" \
+            --repository "$GITHUB_REPOSITORY" \
+            --report source-plan.json
+      - name: Require complete published asset contract
+        env:
+          RELEASE_COMPLETE: ${{ steps.plan.outputs.release_complete }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "$RELEASE_COMPLETE" != 'true' ]; then
+            echo "Release is not complete: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+  verify-linux-amd64:
+    name: Linux amd64 published smoke
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted verification code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Download Release assets independently
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release download "$RELEASE_TAG" --dir published
+      - name: Verify checksums, SBOMs, source metadata, and attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_VERSION: ${{ needs.source.outputs.version }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation
+        run: |
+          python3 scripts/creator-signal/release_control.py verify-assets \
+            --directory published \
+            --tag "$RELEASE_TAG" \
+            --source-sha "$SOURCE_SHA" \
+            --tag-object-sha "$TAG_OBJECT_SHA"
+          binary="forgejo-runner-${RELEASE_VERSION}-linux-amd64"
+          gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$SIGNER_WORKFLOW" --predicate-type 'https://slsa.dev/provenance/v1'
+          gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$SIGNER_WORKFLOW" --predicate-type 'https://spdx.dev/Document/v2.3'
+          chmod +x "published/$binary"
+          python3 scripts/creator-signal/smoke_binary.py \
+            --binary "published/$binary" --tag "$RELEASE_TAG" --config linux-amd64-config.yml
+
+  verify-linux-arm64:
+    name: Linux arm64 published smoke
+    needs: source
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted verification code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Download Release assets independently
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release download "$RELEASE_TAG" --dir published
+      - name: Verify checksums, SBOMs, source metadata, and attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_VERSION: ${{ needs.source.outputs.version }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation
+        run: |
+          python3 scripts/creator-signal/release_control.py verify-assets \
+            --directory published \
+            --tag "$RELEASE_TAG" \
+            --source-sha "$SOURCE_SHA" \
+            --tag-object-sha "$TAG_OBJECT_SHA"
+          binary="forgejo-runner-${RELEASE_VERSION}-linux-arm64"
+          gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$SIGNER_WORKFLOW" --predicate-type 'https://slsa.dev/provenance/v1'
+          gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$SIGNER_WORKFLOW" --predicate-type 'https://spdx.dev/Document/v2.3'
+          chmod +x "published/$binary"
+          python3 scripts/creator-signal/smoke_binary.py \
+            --binary "published/$binary" --tag "$RELEASE_TAG" --config linux-arm64-config.yml
+
+  verify-windows-amd64:
+    name: Windows amd64 published smoke
+    needs: source
+    runs-on: windows-2025
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted verification code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Download Release assets independently
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release download "$env:RELEASE_TAG" --dir published
+      - name: Verify checksums, SBOMs, source metadata, and attestations natively
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_VERSION: ${{ needs.source.outputs.version }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          SIGNER_WORKFLOW: ${{ github.repository }}/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation
+        run: |
+          python scripts/creator-signal/release_control.py verify-assets `
+            --directory published `
+            --tag "$env:RELEASE_TAG" `
+            --source-sha "$env:SOURCE_SHA" `
+            --tag-object-sha "$env:TAG_OBJECT_SHA"
+          $binary = "forgejo-runner-$env:RELEASE_VERSION-windows-amd64.exe"
+          gh attestation verify "published/$binary" --repo "$env:GITHUB_REPOSITORY" `
+            --signer-workflow "$env:SIGNER_WORKFLOW" --predicate-type 'https://slsa.dev/provenance/v1'
+          gh attestation verify "published/$binary" --repo "$env:GITHUB_REPOSITORY" `
+            --signer-workflow "$env:SIGNER_WORKFLOW" --predicate-type 'https://spdx.dev/Document/v2.3'
+          python scripts/creator-signal/smoke_binary.py `
+            --binary "published/$binary" --tag "$env:RELEASE_TAG" --config windows-amd64-config.yml

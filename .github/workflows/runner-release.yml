@@ -1,0 +1,533 @@
+name: Governed Runner release
+run-name: Runner ${{ inputs.tag }} (${{ inputs.publish && 'publish' || 'qualify' }})
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Exact synchronized upstream semantic-version tag
+        required: true
+        type: string
+      publish:
+        description: Publish or idempotently verify the GitHub Release
+        required: true
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact synchronized upstream semantic-version tag
+        required: true
+        type: string
+        default: v13.0.0
+      publish:
+        description: Publish (clear to run qualification only)
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runner-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Verify exact upstream source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      source-sha: ${{ steps.plan.outputs.source_sha }}
+      tag-object-sha: ${{ steps.plan.outputs.tag_object_sha }}
+      version: ${{ steps.plan.outputs.version }}
+      source-epoch: ${{ steps.epoch.outputs.value }}
+      module-path: ${{ steps.plan.outputs.module_path }}
+      go-version: ${{ steps.plan.outputs.go_version }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      release-exists: ${{ steps.plan.outputs.release_exists }}
+      release-complete: ${{ steps.plan.outputs.release_complete }}
+      release-draft: ${{ steps.plan.outputs.release_draft }}
+    steps:
+      - name: Check out trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: automation
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify mirrored tag and derive source toolchain
+        id: plan
+        working-directory: automation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: >-
+          python3 scripts/creator-signal/release_control.py plan-tag
+          --tag "${RELEASE_TAG}"
+          --repository "${GITHUB_REPOSITORY}"
+          --report ../source-plan.json
+
+      - name: Derive deterministic source epoch
+        id: epoch
+        working-directory: automation
+        env:
+          SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
+        run: |
+          epoch=$(git show -s --format=%ct "$SOURCE_SHA")
+          echo "value=$epoch" >> "$GITHUB_OUTPUT"
+
+      - name: Preserve source plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runner-source-plan-${{ inputs.tag }}
+          path: source-plan.json
+          retention-days: 14
+
+  build-linux-amd64:
+    name: Linux amd64 native build, tests and smoke
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: automation
+          persist-credentials: false
+      - name: Check out exact mirrored source tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.tag }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify checked-out source commit
+        env:
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+        run: test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Install exact declared Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: ${{ needs.source.outputs.go-version }}
+          cache-dependency-path: source/go.sum
+      - name: Run Linux unit and container-capable tests
+        working-directory: source
+        run: |
+          mkdir -p ../out
+          set -o pipefail
+          go test -json -race -timeout 45m ./... | tee ../out/linux-amd64-tests.jsonl
+      - name: Preserve Linux test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runner-tests-linux-amd64-${{ inputs.tag }}
+          path: out/linux-amd64-tests.jsonl
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Build deterministic Linux amd64 executable
+        working-directory: source
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
+          SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
+          MODULE_PATH: ${{ needs.source.outputs.module-path }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p ../out
+          version="${RELEASE_TAG#v}"
+          go build -trimpath -buildvcs=false -tags 'netgo osusergo' \
+            -ldflags "-s -w -buildid= -X ${MODULE_PATH}/internal/pkg/ver.version=${RELEASE_TAG}" \
+            -o "../out/forgejo-runner-${version}-linux-amd64" .
+      - name: Run version and configuration smoke checks
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: >-
+          python3 automation/scripts/creator-signal/smoke_binary.py
+          --binary "out/forgejo-runner-${RELEASE_TAG#v}-linux-amd64"
+          --tag "${RELEASE_TAG}"
+          --config out/linux-amd64-config.yml
+      - name: Generate deterministic SPDX SBOM
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+        run: >-
+          python3 automation/scripts/creator-signal/generate_go_sbom.py
+          --binary "out/forgejo-runner-${RELEASE_TAG#v}-linux-amd64"
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --output "out/forgejo-runner-${RELEASE_TAG#v}-linux-amd64.spdx.json"
+      - name: Upload immutable candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runner-linux-amd64-candidate-${{ inputs.tag }}
+          path: |
+            out/forgejo-runner-*-linux-amd64
+            out/forgejo-runner-*-linux-amd64.spdx.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  build-linux-arm64:
+    name: Linux arm64 native build and smoke
+    needs: source
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: automation
+          persist-credentials: false
+      - name: Check out exact mirrored source tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.tag }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify checked-out source commit
+        env:
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+        run: test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Install exact declared Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: ${{ needs.source.outputs.go-version }}
+          cache-dependency-path: source/go.sum
+      - name: Build deterministic Linux arm64 executable
+        working-directory: source
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: arm64
+          SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
+          MODULE_PATH: ${{ needs.source.outputs.module-path }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p ../out
+          version="${RELEASE_TAG#v}"
+          go build -trimpath -buildvcs=false -tags 'netgo osusergo' \
+            -ldflags "-s -w -buildid= -X ${MODULE_PATH}/internal/pkg/ver.version=${RELEASE_TAG}" \
+            -o "../out/forgejo-runner-${version}-linux-arm64" .
+      - name: Run version and configuration smoke checks natively
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: >-
+          python3 automation/scripts/creator-signal/smoke_binary.py
+          --binary "out/forgejo-runner-${RELEASE_TAG#v}-linux-arm64"
+          --tag "${RELEASE_TAG}"
+          --config out/linux-arm64-config.yml
+      - name: Generate deterministic SPDX SBOM
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+        run: >-
+          python3 automation/scripts/creator-signal/generate_go_sbom.py
+          --binary "out/forgejo-runner-${RELEASE_TAG#v}-linux-arm64"
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --output "out/forgejo-runner-${RELEASE_TAG#v}-linux-arm64.spdx.json"
+      - name: Upload immutable candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runner-linux-arm64-candidate-${{ inputs.tag }}
+          path: |
+            out/forgejo-runner-*-linux-arm64
+            out/forgejo-runner-*-linux-arm64.spdx.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  build-windows-amd64:
+    # Windows artifacts are Creator Signal-tested; upstream-unsupported.
+    name: Windows amd64 native build, tests and smoke
+    needs: source
+    runs-on: windows-2025
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: automation
+          persist-credentials: false
+      - name: Check out exact mirrored source tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.tag }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify checked-out source commit
+        shell: pwsh
+        env:
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+        run: |
+          $actual = git -C source rev-parse HEAD
+          if ($actual -ne $env:SOURCE_SHA) {
+            throw "Source mismatch: expected $env:SOURCE_SHA, got $actual"
+          }
+      - name: Install exact declared Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: ${{ needs.source.outputs.go-version }}
+          cache-dependency-path: source/go.sum
+      - name: Run native Windows runner tests without container features
+        shell: pwsh
+        working-directory: source
+        run: |
+          New-Item -ItemType Directory -Force -Path '..\out' | Out-Null
+          $results = '..\out\windows-amd64-tests.jsonl'
+          $output = go test -p 2 -json -short -timeout 45m ./internal/... -args -features '-' 2>&1
+          $exitCode = $LASTEXITCODE
+          $output | Set-Content -Path $results
+          $output | Write-Output
+          if ($exitCode -ne 0) { exit $exitCode }
+      - name: Preserve Windows test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runner-tests-windows-amd64-${{ inputs.tag }}
+          path: out/windows-amd64-tests.jsonl
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Build deterministic native Windows amd64 executable
+        shell: pwsh
+        working-directory: source
+        env:
+          SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
+          MODULE_PATH: ${{ needs.source.outputs.module-path }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $env:CGO_ENABLED = '0'
+          $env:GOOS = 'windows'
+          $env:GOARCH = 'amd64'
+          New-Item -ItemType Directory -Force -Path '..\out' | Out-Null
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          $ldflags = "-s -w -buildid= -X $env:MODULE_PATH/internal/pkg/ver.version=$env:RELEASE_TAG"
+          go build -trimpath -buildvcs=false -tags 'netgo osusergo' -ldflags $ldflags `
+            -o "..\out\forgejo-runner-$version-windows-amd64.exe" .
+      - name: Run version and configuration smoke checks natively
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          python automation/scripts/creator-signal/smoke_binary.py `
+            --binary "out/forgejo-runner-$version-windows-amd64.exe" `
+            --tag "$env:RELEASE_TAG" `
+            --config out/windows-amd64-config.yml
+      - name: Generate deterministic SPDX SBOM
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+        run: |
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          python automation/scripts/creator-signal/generate_go_sbom.py `
+            --binary "out/forgejo-runner-$version-windows-amd64.exe" `
+            --tag "$env:RELEASE_TAG" `
+            --source-sha "$env:SOURCE_SHA" `
+            --output "out/forgejo-runner-$version-windows-amd64.exe.spdx.json"
+      - name: Upload immutable candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runner-windows-amd64-candidate-${{ inputs.tag }}
+          path: |
+            out/forgejo-runner-*-windows-amd64.exe
+            out/forgejo-runner-*-windows-amd64.exe.spdx.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  finalize:
+    name: Assemble, attest and publish or verify
+    needs: [source, build-linux-amd64, build-linux-arm64, build-windows-amd64]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out trusted automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: automation
+          persist-credentials: false
+      - name: Download all qualified candidates
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: runner-*-candidate-${{ inputs.tag }}
+          path: rebuilt
+          merge-multiple: true
+      - name: Prepare deterministic release metadata and checksums
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          AUTOMATION_SHA: ${{ github.sha }}
+          WORKFLOW_DEFINITION_URL: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/.github/workflows/runner-release.yml
+        run: >-
+          python3 automation/scripts/creator-signal/release_control.py prepare-release
+          --directory rebuilt
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --tag-object-sha "${TAG_OBJECT_SHA}"
+          --automation-sha "${AUTOMATION_SHA}"
+          --workflow-url "${WORKFLOW_DEFINITION_URL}"
+      - name: Verify assembled asset contract
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+        run: >-
+          python3 automation/scripts/creator-signal/release_control.py verify-assets
+          --directory rebuilt
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --tag-object-sha "${TAG_OBJECT_SHA}"
+      - name: Reject incomplete published Release
+        if: ${{ inputs.publish && needs.source.outputs.release-exists == 'true' && needs.source.outputs.release-complete != 'true' && needs.source.outputs.release-draft != 'true' }}
+        run: |
+          echo 'A non-draft Release exists without the complete governed asset set.' >&2
+          echo 'Failing closed; no existing Release or asset will be deleted or replaced.' >&2
+          exit 1
+      - name: Create or refresh resumable draft metadata
+        if: ${{ inputs.publish && needs.source.outputs.release-complete != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          RELEASE_EXISTS: ${{ needs.source.outputs.release-exists }}
+        run: |
+          python3 automation/scripts/creator-signal/release_control.py release-body \
+            --tag "$RELEASE_TAG" \
+            --source-sha "$SOURCE_SHA" \
+            --workflow-url "$WORKFLOW_URL" \
+            --output release-notes.md
+          if [ "$RELEASE_EXISTS" != 'true' ]; then
+            gh release create "$RELEASE_TAG" --draft --verify-tag \
+              --title "Forgejo Runner $RELEASE_TAG (Creator Signal build)" \
+              --notes-file release-notes.md
+          else
+            gh release edit "$RELEASE_TAG" --draft --notes-file release-notes.md
+          fi
+      - name: Attest build provenance
+        if: ${{ inputs.publish && needs.source.outputs.release-complete != 'true' }}
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: rebuilt/*
+      - name: Attest Linux amd64 SBOM
+        if: ${{ inputs.publish && needs.source.outputs.release-complete != 'true' }}
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: rebuilt/forgejo-runner-${{ needs.source.outputs.version }}-linux-amd64
+          sbom-path: rebuilt/forgejo-runner-${{ needs.source.outputs.version }}-linux-amd64.spdx.json
+      - name: Attest Linux arm64 SBOM
+        if: ${{ inputs.publish && needs.source.outputs.release-complete != 'true' }}
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: rebuilt/forgejo-runner-${{ needs.source.outputs.version }}-linux-arm64
+          sbom-path: rebuilt/forgejo-runner-${{ needs.source.outputs.version }}-linux-arm64.spdx.json
+      - name: Attest Windows amd64 SBOM
+        if: ${{ inputs.publish && needs.source.outputs.release-complete != 'true' }}
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: rebuilt/forgejo-runner-${{ needs.source.outputs.version }}-windows-amd64.exe
+          sbom-path: rebuilt/forgejo-runner-${{ needs.source.outputs.version }}-windows-amd64.exe.spdx.json
+      - name: Resume draft without replacing existing bytes
+        if: ${{ inputs.publish && needs.source.outputs.release-complete != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p draft-assets
+          asset_count=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length')
+          if [ "$asset_count" -gt 0 ]; then
+            gh release download "$RELEASE_TAG" --dir draft-assets
+          fi
+          for desired in rebuilt/*; do
+            name=$(basename "$desired")
+            if [ -f "draft-assets/$name" ]; then
+              cmp --silent "$desired" "draft-assets/$name" || {
+                echo "Existing draft asset differs and will not be overwritten: $name" >&2
+                exit 1
+              }
+            else
+              gh release upload "$RELEASE_TAG" "$desired"
+            fi
+          done
+      - name: Publish completed draft
+        if: ${{ inputs.publish && needs.source.outputs.release-complete != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          IS_PRERELEASE: ${{ needs.source.outputs.prerelease }}
+        run: |
+          args=("$RELEASE_TAG" --draft=false)
+          if [ "$IS_PRERELEASE" = 'true' ]; then
+            args+=(--prerelease)
+          fi
+          gh release edit "${args[@]}"
+      - name: Download published assets independently
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p published
+          gh release download "$RELEASE_TAG" --dir published
+      - name: Verify immutable published bytes and source metadata
+        if: ${{ inputs.publish }}
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+        run: >-
+          python3 automation/scripts/creator-signal/release_control.py verify-assets
+          --directory published
+          --rebuilt rebuilt
+          --tag "${RELEASE_TAG}"
+          --source-sha "${SOURCE_SHA}"
+          --tag-object-sha "${TAG_OBJECT_SHA}"
+      - name: Verify provenance and SBOM attestations
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          for binary in \
+            "forgejo-runner-${version}-linux-amd64" \
+            "forgejo-runner-${version}-linux-arm64" \
+            "forgejo-runner-${version}-windows-amd64.exe"; do
+            gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation" \
+              --predicate-type 'https://slsa.dev/provenance/v1'
+            gh attestation verify "published/$binary" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/runner-release.yml@refs/heads/creator-signal/automation" \
+              --predicate-type 'https://spdx.dev/Document/v2.3'
+          done
+      - name: Preserve qualified release bundle
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: runner-qualified-release-${{ inputs.tag }}-${{ github.run_id }}
+          path: rebuilt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

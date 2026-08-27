@@ -1,0 +1,93 @@
+name: Governed upstream synchronization
+
+on:
+  schedule:
+    - cron: '37 4 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Report only, or apply a non-destructive atomic refresh
+        required: true
+        type: choice
+        default: dry-run
+        options:
+          - dry-run
+          - apply
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runner-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Dry-run synchronization
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out protected automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Plan non-destructive synchronization
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/creator-signal/release_control.py sync
+          --mode dry-run
+          --repository "${GITHUB_REPOSITORY}"
+          --report upstream-sync-dry-run.json
+
+      - name: Preserve dry-run report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: upstream-sync-dry-run-${{ github.run_id }}
+          path: upstream-sync-dry-run.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  apply:
+    name: Apply atomic synchronization
+    needs: plan
+    if: ${{ github.event_name == 'schedule' || inputs.mode == 'apply' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Check out protected automation with scoped push credentials
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Apply non-destructive synchronization
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cleanup() {
+            git config --local --unset-all credential.helper || true
+          }
+          trap cleanup EXIT
+          git config --local credential.helper \
+            '!f() { test "$1" = get && echo "username=x-access-token" && echo "password=$GH_TOKEN"; }; f'
+          python3 scripts/creator-signal/release_control.py sync \
+            --mode apply \
+            --repository "$GITHUB_REPOSITORY" \
+            --report upstream-sync-apply.json
+
+      - name: Preserve apply report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: upstream-sync-apply-${{ github.run_id }}
+          path: upstream-sync-apply.json
+          if-no-files-found: warn
+          retention-days: 14
