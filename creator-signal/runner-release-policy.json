@@ -9,6 +9,22 @@
   ],
   "semanticTagPattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$",
   "stableTagPattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+  "sourceBackports": {
+    "v13.0.0": {
+      "upstreamCommit": "d4db4179a9ba6a0d07e63b8cf382d90fccb2ff21",
+      "upstreamPullRequest": "https://code.forgejo.org/forgejo/runner/pulls/1692",
+      "reason": "Prevent LXC and host executor PTY short writes from dropping high-throughput log chunks.",
+      "changedPaths": [
+        "act/common/cmdgroup.go",
+        "act/common/cmdgroup_openbsd_mips64.go",
+        "act/common/cmdgroup_plan9.go",
+        "act/common/cmdgroup_windows.go",
+        "act/common/git/git.go",
+        "act/container/host_environment.go",
+        "internal/app/run/runner_test.go"
+      ]
+    }
+  },
   "artifacts": [
     {
       "os": "linux",

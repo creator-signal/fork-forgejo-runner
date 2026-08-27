@@ -4,7 +4,9 @@ This is a downstream Creator Signal automation projection for the authoritative
 Forgejo Runner repository at
 `https://code.forgejo.org/forgejo/runner.git`. It is not an upstream Forgejo
 contribution and does not change the Runner source carried by mirrored upstream
-branches or tags.
+branches or tags. A release policy may, however, name a minimal upstream fix to
+apply after checking out a tag; that correction is never written to a mirrored
+ref and is disclosed in every release provenance record and SBOM.
 
 The protected default and integration branch is
 `creator-signal/automation`. Upstream `main`, maintained `support-v*.x`
@@ -77,6 +79,23 @@ explicit version or repository-owner intervention; automation must never make
 that decision silently.
 
 ## Qualification and named backfill
+
+### Governed v13.0.0 PTY correction
+
+The unchanged `v13.0.0` tag drops chunks from high-throughput host/LXC command
+output because those executor subprocesses run in a PTY. Upstream corrected the
+defect after the tag in commit
+`d4db4179a9ba6a0d07e63b8cf382d90fccb2ff21` ([upstream PR #1692](https://code.forgejo.org/forgejo/runner/pulls/1692)).
+Creator Signal therefore fails closed on an exact minimal backport for this one
+tag: the policy pins the upstream commit and its seven changed paths, computes
+the patch SHA-256 and resulting Git tree, and requires Linux amd64, Linux arm64,
+and Windows amd64 to apply and reproduce that same tree before testing or
+building. The full race-enabled Linux suite and every LXC case remain enabled;
+no test is serialized, filtered, skipped, or reclassified as passing.
+
+`SOURCE-PROVENANCE.json`, all SPDX SBOMs, and the release notes retain the base
+tag/SHA, upstream fix commit/PR, patch digest, and patched tree. A changed
+upstream commit, path inventory, patch, or output tree stops qualification.
 
 Every automation PR qualifies the Issue's initial acceptance tag (`v13.0.0`)
 without publication. The reusable, read-only qualification workflow verifies

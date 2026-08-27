@@ -24,6 +24,24 @@ def require(condition: bool, message: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
+    v13_backport = POLICY.get("sourceBackports", {}).get("v13.0.0", {})
+    require(
+        v13_backport.get("upstreamCommit")
+        == "d4db4179a9ba6a0d07e63b8cf382d90fccb2ff21",
+        "runner-release-policy.json: v13.0.0 must pin the upstream PTY fix commit",
+        errors,
+    )
+    require(
+        v13_backport.get("upstreamPullRequest")
+        == "https://code.forgejo.org/forgejo/runner/pulls/1692",
+        "runner-release-policy.json: v13.0.0 backport provenance is missing",
+        errors,
+    )
+    require(
+        len(v13_backport.get("changedPaths", [])) == 7,
+        "runner-release-policy.json: v13.0.0 backport path inventory drifted",
+        errors,
+    )
     workflows = sorted(WORKFLOW_DIR.glob("*.yml"))
     require(bool(workflows), "no GitHub workflows found", errors)
     combined = "\n".join(path.read_text(encoding="utf-8") for path in workflows)
@@ -69,6 +87,9 @@ def main() -> int:
         linux_arm_start = qualification.find("build-linux-arm64:")
         linux_job = qualification[linux_start:linux_arm_start]
         windows_job = qualification[windows_start:finalize_start]
+        require(qualification.count("apply_source_backport.py") == 3, "runner-qualification.yml: the governed backport must be applied to all three native builds", errors)
+        require("--expected-patch-sha256" in qualification and "--expected-tree-sha" in qualification, "runner-qualification.yml: backport patch/tree identity is not fail-closed", errors)
+        require("--backport-commit" in qualification and "--backport-patch-sha256" in qualification and "--patched-source-tree-sha" in qualification, "runner-qualification.yml: SBOM/release backport provenance is incomplete", errors)
         require(linux_start >= 0 and linux_arm_start > linux_start, "runner-qualification.yml: Linux amd64/arm64 jobs not found", errors)
         require("lxc_prepare_environment" in linux_job and "lxc_install_lxc_inside 10.39.28 fdb1" in linux_job, "runner-qualification.yml: Linux LXC preparation is incomplete", errors)
         require("debian-archive-keyring" in linux_job and "/usr/share/keyrings/debian-archive-bookworm-stable.gpg" in linux_job and "/etc/apt/trusted.gpg.d/debian-archive-bookworm-stable.gpg" in linux_job, "runner-qualification.yml: Linux LXC preparation does not seed the current Bookworm archive trust root", errors)
@@ -87,6 +108,7 @@ def main() -> int:
         require("git config --global gc.auto 0" in linux_job and "git config --global maintenance.auto false" in linux_job, "runner-qualification.yml: Linux tests do not suppress background Git maintenance during temporary-repository assertions", errors)
         require("::stop-commands::" in linux_job and "trap 'echo \"::$command_token::\"' EXIT" in linux_job, "runner-qualification.yml: Linux test output can be interpreted as GitHub workflow commands", errors)
         require("go test -count=1 -race -v -timeout 45m ./..." in linux_job and "-json" not in linux_job, "runner-qualification.yml: Linux tests must be complete, uncached, race-enabled, and avoid the upstream stdout-capture JSON failure", errors)
+        require("-p 1" not in linux_job and "Large_Fast_Logs" not in linux_job, "runner-qualification.yml: high-throughput LXC tests must not be serialized or excluded", errors)
         require("out/linux-amd64-tests.log" in linux_job and "linux-amd64-tests.jsonl" not in linux_job, "runner-qualification.yml: Linux plain test transcript contract is missing", errors)
         require(windows_start >= 0 and finalize_start > windows_start, "runner-qualification.yml: Windows/finalize jobs not found", errors)
         require(not re.search(r"(?i)\b(?:wsl|podman|docker)\b", windows_job), "runner-qualification.yml: Windows job introduces a WSL/container prerequisite", errors)
@@ -101,6 +123,7 @@ def main() -> int:
         require("needs: qualify" in release, "runner-release.yml: publisher is not gated on qualification", errors)
         require("--clobber" not in release, "runner-release.yml: release asset replacement is prohibited", errors)
         require("gh attestation verify" in release, "runner-release.yml: idempotent attestation verification is missing", errors)
+        require("--backport-pull-request" in release and release.count("--backport-patch-sha256") >= 3, "runner-release.yml: published backport provenance is incomplete", errors)
         require("Creator Signal-tested; upstream-unsupported" in combined, "runner-release.yml: Windows support boundary is missing", errors)
     if verification_path.is_file():
         verification = verification_path.read_text(encoding="utf-8")
@@ -109,6 +132,7 @@ def main() -> int:
         require("gh release download" in verification, "runner-release-verification.yml: independent download is missing", errors)
         require("https://slsa.dev/provenance/v1" in verification, "runner-release-verification.yml: provenance verification is missing", errors)
         require("https://spdx.dev/Document/v2.3" in verification, "runner-release-verification.yml: SBOM attestation verification is missing", errors)
+        require(verification.count("--backport-patch-sha256") == 3 and verification.count("--patched-source-tree-sha") == 3, "runner-release-verification.yml: independent backport provenance verification is incomplete", errors)
     if validation_path.is_file():
         validation = validation_path.read_text(encoding="utf-8")
         require("inputs: .github/workflows" in validation, "automation-validation.yml: zizmor must remain scoped to governed workflows", errors)
@@ -123,6 +147,7 @@ def main() -> int:
     require('"push", "--atomic"' in control, "release_control.py: synchronization push is not atomic", errors)
     require("reject-mismatch" in control, "release_control.py: immutable tag mismatch shield is missing", errors)
     require("immutable rerun mismatch" in control, "release_control.py: rerun byte verification is missing", errors)
+    require("source_backport_plan" in control and "git apply" in control and "patchedSourceTreeSha" in control, "release_control.py: governed source backport controls are incomplete", errors)
     require("ghcr.io" not in combined.lower(), "Runner workflows must not publish containers", errors)
     require(not re.search(r"(?i)(dockerhub|docker hub|amazon s3|\bs3\b)", combined), "Runner workflows contain an unauthorized publication destination", errors)
 

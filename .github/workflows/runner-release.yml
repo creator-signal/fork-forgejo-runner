@@ -69,12 +69,18 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
           TAG_OBJECT_SHA: ${{ steps.plan.outputs.tag_object_sha }}
+          BACKPORT_COMMIT: ${{ steps.plan.outputs.backport_commit }}
+          BACKPORT_PATCH_SHA256: ${{ steps.plan.outputs.backport_patch_sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ steps.plan.outputs.patched_source_tree_sha }}
         run: >-
           python3 automation/scripts/creator-signal/release_control.py verify-assets
           --directory rebuilt
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
           --tag-object-sha "${TAG_OBJECT_SHA}"
+          --backport-commit "${BACKPORT_COMMIT}"
+          --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
+          --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
       - name: Reject incomplete published Release
         if: ${{ steps.plan.outputs.release_exists == 'true' && steps.plan.outputs.release_complete != 'true' && steps.plan.outputs.release_draft != 'true' }}
         run: |
@@ -89,11 +95,19 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
           RELEASE_EXISTS: ${{ steps.plan.outputs.release_exists }}
+          BACKPORT_COMMIT: ${{ steps.plan.outputs.backport_commit }}
+          BACKPORT_PULL_REQUEST: ${{ steps.plan.outputs.backport_pull_request }}
+          BACKPORT_PATCH_SHA256: ${{ steps.plan.outputs.backport_patch_sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ steps.plan.outputs.patched_source_tree_sha }}
         run: |
           python3 automation/scripts/creator-signal/release_control.py release-body \
             --tag "$RELEASE_TAG" \
             --source-sha "$SOURCE_SHA" \
             --workflow-url "$WORKFLOW_URL" \
+            --backport-commit "$BACKPORT_COMMIT" \
+            --backport-pull-request "$BACKPORT_PULL_REQUEST" \
+            --backport-patch-sha256 "$BACKPORT_PATCH_SHA256" \
+            --patched-source-tree-sha "$PATCHED_SOURCE_TREE_SHA" \
             --output release-notes.md
           if [ "$RELEASE_EXISTS" != 'true' ]; then
             gh release create "$RELEASE_TAG" --draft --verify-tag \
@@ -171,6 +185,9 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
           TAG_OBJECT_SHA: ${{ steps.plan.outputs.tag_object_sha }}
+          BACKPORT_COMMIT: ${{ steps.plan.outputs.backport_commit }}
+          BACKPORT_PATCH_SHA256: ${{ steps.plan.outputs.backport_patch_sha256 }}
+          PATCHED_SOURCE_TREE_SHA: ${{ steps.plan.outputs.patched_source_tree_sha }}
         run: >-
           python3 automation/scripts/creator-signal/release_control.py verify-assets
           --directory published
@@ -178,6 +195,9 @@ jobs:
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
           --tag-object-sha "${TAG_OBJECT_SHA}"
+          --backport-commit "${BACKPORT_COMMIT}"
+          --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
+          --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
       - name: Verify provenance and SBOM attestations
         env:
           GH_TOKEN: ${{ github.token }}
