@@ -76,6 +76,9 @@ jobs:
             git config --local --unset-all credential.helper || true
           }
           trap cleanup EXIT
+          # The single quotes intentionally prevent the current shell from
+          # expanding the credential-helper function while configuring Git.
+          # shellcheck disable=SC2016
           git config --local credential.helper \
             '!f() { test "$1" = get && echo "username=x-access-token" && echo "password=$GH_TOKEN"; }; f'
           python3 scripts/creator-signal/release_control.py sync \

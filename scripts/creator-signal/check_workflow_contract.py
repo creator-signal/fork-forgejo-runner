@@ -87,6 +87,9 @@ def main() -> int:
         require("gh release download" in verification, "runner-release-verification.yml: independent download is missing", errors)
         require("https://slsa.dev/provenance/v1" in verification, "runner-release-verification.yml: provenance verification is missing", errors)
         require("https://spdx.dev/Document/v2.3" in verification, "runner-release-verification.yml: SBOM attestation verification is missing", errors)
+    if validation_path.is_file():
+        validation = validation_path.read_text(encoding="utf-8")
+        require("inputs: .github/workflows" in validation, "automation-validation.yml: zizmor must remain scoped to governed workflows", errors)
     if sync_path.is_file():
         sync = sync_path.read_text(encoding="utf-8")
         require("37 4 * * *" in sync, "upstream-sync.yml: schedule must remain non-top-of-hour", errors)
