@@ -72,6 +72,18 @@ def main() -> int:
         require(linux_start >= 0 and linux_arm_start > linux_start, "runner-qualification.yml: Linux amd64/arm64 jobs not found", errors)
         require("lxc_prepare_environment" in linux_job and "lxc_install_lxc_inside 10.39.28 fdb1" in linux_job, "runner-qualification.yml: Linux LXC preparation is incomplete", errors)
         require("debian-archive-keyring" in linux_job and "/usr/share/keyrings/debian-archive-bookworm-stable.gpg" in linux_job and "/etc/apt/trusted.gpg.d/debian-archive-bookworm-stable.gpg" in linux_job, "runner-qualification.yml: Linux LXC preparation does not seed the current Bookworm archive trust root", errors)
+        require("ip -o -4 addr show dev lxcbr0 scope global" in linux_job and "ipaddress.ip_interface" in linux_job and "interface.network.prefixlen == 24" in linux_job, "runner-qualification.yml: Linux LXC bridge subnet is not derived and narrowly validated", errors)
+        require("${#lxc_addresses[@]}" in linux_job and "Invalid or unsafe lxcbr0 IPv4 CIDR" in linux_job, "runner-qualification.yml: Linux LXC bridge subnet discovery does not fail closed", errors)
+        require("ip -4 route show default" in linux_job and "${#egress_interfaces[@]}" in linux_job and 'ip link show dev "$egress_interface"' in linux_job, "runner-qualification.yml: Linux LXC egress interface is not derived and validated", errors)
+        require("sysctl -n net.ipv4.ip_forward" in linux_job and "sysctl -w net.ipv4.ip_forward=1" in linux_job, "runner-qualification.yml: Linux LXC IPv4 forwarding is not enabled conditionally", errors)
+        firewall_rules = (
+            ('iptables', 'FORWARD -i "$egress_interface" -o lxcbr0 -d "$lxc_subnet" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT'),
+            ('iptables', 'FORWARD -i lxcbr0 -o "$egress_interface" -s "$lxc_subnet" -j ACCEPT'),
+            ('iptables -t nat', 'POSTROUTING -s "$lxc_subnet" -o "$egress_interface" -j MASQUERADE'),
+        )
+        for command, rule in firewall_rules:
+            require(f"{command} -C {rule}" in linux_job and f"{command} -A {rule}" in linux_job, f"runner-qualification.yml: Linux LXC firewall rule is not scoped and idempotent: {rule}", errors)
+        require(not re.search(r"(?m)\\biptables\\b[^\\n]*(?:\\s-(?:F|P)\\b|--flush\\b|--policy\\b)", linux_job), "runner-qualification.yml: Linux LXC firewall setup flushes a table or changes a global policy", errors)
         require("git config --global gc.auto 0" in linux_job and "git config --global maintenance.auto false" in linux_job, "runner-qualification.yml: Linux tests do not suppress background Git maintenance during temporary-repository assertions", errors)
         require("::stop-commands::" in linux_job and "trap 'echo \"::$command_token::\"' EXIT" in linux_job, "runner-qualification.yml: Linux test output can be interpreted as GitHub workflow commands", errors)
         require("go test -count=1 -race -v -timeout 45m ./..." in linux_job and "-json" not in linux_job, "runner-qualification.yml: Linux tests must be complete, uncached, race-enabled, and avoid the upstream stdout-capture JSON failure", errors)

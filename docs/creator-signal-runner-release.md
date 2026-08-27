@@ -88,7 +88,14 @@ that tag's `go.mod`, then runs:
   smoke checks. Before Bookworm creation, the GitHub-hosted Ubuntu image's LXC
   Debian template is seeded from the installed Bookworm archive keyring, so
   archive verification cannot fall back to the template's obsolete Jessie
-  bootstrap key;
+  bootstrap key. GitHub-hosted Ubuntu also arrives with Docker firewall
+  isolation that can leave `lxcbr0` unable to reach its package mirrors. The
+  job derives and validates the bridge's single private `/24` and the runner's
+  single IPv4 egress interface, then idempotently permits only outbound traffic
+  from that bridge, established/related return traffic, and IPv4 masquerading
+  for that exact subnet/interface pair. It never flushes firewall tables,
+  changes a global forwarding policy, disables Docker isolation, or enables
+  unrestricted IPv6 forwarding;
 - Linux arm64 native deterministic build and version/configuration smoke
   checks; and
 - native Windows amd64 `internal/...` runner tests with container features

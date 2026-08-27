@@ -111,6 +111,41 @@ jobs:
             /usr/share/keyrings/debian-archive-bookworm-stable.gpg \
             /etc/apt/trusted.gpg.d/debian-archive-bookworm-stable.gpg
           sudo act/runner/lxc-helpers.sh lxc_install_lxc_inside 10.39.28 fdb1
+          mapfile -t lxc_addresses < <(
+            ip -o -4 addr show dev lxcbr0 scope global | awk '{print $4}'
+          )
+          if [[ "${#lxc_addresses[@]}" -ne 1 ]]; then
+            echo "Expected one global IPv4 address on lxcbr0, found ${#lxc_addresses[@]}" >&2
+            exit 1
+          fi
+          lxc_address="${lxc_addresses[0]}"
+          if ! lxc_subnet="$(python3 -c 'import ipaddress, sys; interface = ipaddress.ip_interface(sys.argv[1]); assert interface.version == 4 and interface.ip.is_private and interface.network.prefixlen == 24; print(interface.network.with_prefixlen)' "$lxc_address")"; then
+            echo "Invalid or unsafe lxcbr0 IPv4 CIDR: $lxc_address" >&2
+            exit 1
+          fi
+          mapfile -t egress_interfaces < <(
+            ip -4 route show default |
+              awk '{for (field = 1; field <= NF; field++) if ($field == "dev") print $(field + 1)}' |
+              sort -u
+          )
+          if [[ "${#egress_interfaces[@]}" -ne 1 ]]; then
+            echo "Expected one IPv4 default-route interface, found ${#egress_interfaces[@]}" >&2
+            exit 1
+          fi
+          egress_interface="${egress_interfaces[0]}"
+          if [[ "$egress_interface" == "lxcbr0" ]] || ! ip link show dev "$egress_interface" >/dev/null; then
+            echo "Invalid LXC egress interface: $egress_interface" >&2
+            exit 1
+          fi
+          if [[ "$(sysctl -n net.ipv4.ip_forward)" != "1" ]]; then
+            sudo sysctl -w net.ipv4.ip_forward=1
+          fi
+          sudo iptables -C FORWARD -i "$egress_interface" -o lxcbr0 -d "$lxc_subnet" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT ||
+            sudo iptables -A FORWARD -i "$egress_interface" -o lxcbr0 -d "$lxc_subnet" -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+          sudo iptables -C FORWARD -i lxcbr0 -o "$egress_interface" -s "$lxc_subnet" -j ACCEPT ||
+            sudo iptables -A FORWARD -i lxcbr0 -o "$egress_interface" -s "$lxc_subnet" -j ACCEPT
+          sudo iptables -t nat -C POSTROUTING -s "$lxc_subnet" -o "$egress_interface" -j MASQUERADE ||
+            sudo iptables -t nat -A POSTROUTING -s "$lxc_subnet" -o "$egress_interface" -j MASQUERADE
       - name: Run Linux unit and container-capable tests
         working-directory: source
         run: |
