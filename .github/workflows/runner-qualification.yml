@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       tag:
-        description: Exact synchronized upstream semantic-version tag
+        description: Exact governed upstream or Creator Signal downstream semantic-version tag
         required: true
         type: string
 
@@ -25,6 +25,11 @@ jobs:
       contents: read
     outputs:
       source-sha: ${{ steps.plan.outputs.source_sha }}
+      source-checkout-ref: ${{ steps.plan.outputs.source_checkout_ref }}
+      source-checkout-sha: ${{ steps.plan.outputs.source_checkout_sha }}
+      source-is-committed: ${{ steps.plan.outputs.source_is_committed }}
+      base-tag: ${{ steps.plan.outputs.base_tag }}
+      base-source-sha: ${{ steps.plan.outputs.base_source_sha }}
       tag-object-sha: ${{ steps.plan.outputs.tag_object_sha }}
       version: ${{ steps.plan.outputs.version }}
       source-epoch: ${{ steps.epoch.outputs.value }}
@@ -62,7 +67,7 @@ jobs:
         id: epoch
         working-directory: automation
         env:
-          SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
+          SOURCE_SHA: ${{ steps.plan.outputs.source_checkout_sha }}
         run: |
           epoch=$(git show -s --format=%ct "$SOURCE_SHA")
           echo "value=$epoch" >> "$GITHUB_OUTPUT"
@@ -90,18 +95,19 @@ jobs:
       - name: Check out exact mirrored source tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.source.outputs.source-checkout-ref }}
           path: source
           fetch-depth: 0
           persist-credentials: false
       - name: Verify checked-out source commit
         env:
-          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-checkout-sha }}
         run: test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
       - name: Apply exact governed upstream source backport
+        if: ${{ needs.source.outputs.source-is-committed != 'true' }}
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-checkout-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -212,6 +218,8 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BASE_TAG: ${{ needs.source.outputs.base-tag }}
+          BASE_SOURCE_SHA: ${{ needs.source.outputs.base-source-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -220,6 +228,8 @@ jobs:
           --binary "out/forgejo-runner-${RELEASE_TAG#v}-linux-amd64"
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
+          --base-tag "${BASE_TAG}"
+          --base-source-sha "${BASE_SOURCE_SHA}"
           --backport-commit "${BACKPORT_COMMIT}"
           --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
           --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
@@ -251,18 +261,19 @@ jobs:
       - name: Check out exact mirrored source tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.source.outputs.source-checkout-ref }}
           path: source
           fetch-depth: 0
           persist-credentials: false
       - name: Verify checked-out source commit
         env:
-          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-checkout-sha }}
         run: test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
       - name: Apply exact governed upstream source backport
+        if: ${{ needs.source.outputs.source-is-committed != 'true' }}
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-checkout-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -307,6 +318,8 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BASE_TAG: ${{ needs.source.outputs.base-tag }}
+          BASE_SOURCE_SHA: ${{ needs.source.outputs.base-source-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -315,6 +328,8 @@ jobs:
           --binary "out/forgejo-runner-${RELEASE_TAG#v}-linux-arm64"
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
+          --base-tag "${BASE_TAG}"
+          --base-source-sha "${BASE_SOURCE_SHA}"
           --backport-commit "${BACKPORT_COMMIT}"
           --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
           --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"
@@ -347,24 +362,25 @@ jobs:
       - name: Check out exact mirrored source tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.source.outputs.source-checkout-ref }}
           path: source
           fetch-depth: 0
           persist-credentials: false
       - name: Verify checked-out source commit
         shell: pwsh
         env:
-          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-checkout-sha }}
         run: |
           $actual = git -C source rev-parse HEAD
           if ($actual -ne $env:SOURCE_SHA) {
             throw "Source mismatch: expected $env:SOURCE_SHA, got $actual"
           }
       - name: Apply exact governed upstream source backport
+        if: ${{ needs.source.outputs.source-is-committed != 'true' }}
         shell: pwsh
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-          SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          SOURCE_SHA: ${{ needs.source.outputs.source-checkout-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -435,6 +451,8 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_DATE_EPOCH: ${{ needs.source.outputs.source-epoch }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
+          BASE_TAG: ${{ needs.source.outputs.base-tag }}
+          BASE_SOURCE_SHA: ${{ needs.source.outputs.base-source-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -444,6 +462,8 @@ jobs:
             --binary "out/forgejo-runner-$version-windows-amd64.exe" `
             --tag "$env:RELEASE_TAG" `
             --source-sha "$env:SOURCE_SHA" `
+            --base-tag "$env:BASE_TAG" `
+            --base-source-sha "$env:BASE_SOURCE_SHA" `
             --backport-commit "$env:BACKPORT_COMMIT" `
             --backport-patch-sha256 "$env:BACKPORT_PATCH_SHA256" `
             --patched-source-tree-sha "$env:PATCHED_SOURCE_TREE_SHA" `
@@ -483,6 +503,8 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BASE_TAG: ${{ needs.source.outputs.base-tag }}
+          BASE_SOURCE_SHA: ${{ needs.source.outputs.base-source-sha }}
           AUTOMATION_SHA: ${{ github.sha }}
           WORKFLOW_DEFINITION_URL: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/.github/workflows/runner-qualification.yml
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
@@ -494,6 +516,8 @@ jobs:
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
           --tag-object-sha "${TAG_OBJECT_SHA}"
+          --base-tag "${BASE_TAG}"
+          --base-source-sha "${BASE_SOURCE_SHA}"
           --automation-sha "${AUTOMATION_SHA}"
           --workflow-url "${WORKFLOW_DEFINITION_URL}"
           --backport-commit "${BACKPORT_COMMIT}"
@@ -504,6 +528,8 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BASE_TAG: ${{ needs.source.outputs.base-tag }}
+          BASE_SOURCE_SHA: ${{ needs.source.outputs.base-source-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -513,6 +539,8 @@ jobs:
           --tag "${RELEASE_TAG}"
           --source-sha "${SOURCE_SHA}"
           --tag-object-sha "${TAG_OBJECT_SHA}"
+          --base-tag "${BASE_TAG}"
+          --base-source-sha "${BASE_SOURCE_SHA}"
           --backport-commit "${BACKPORT_COMMIT}"
           --backport-patch-sha256 "${BACKPORT_PATCH_SHA256}"
           --patched-source-tree-sha "${PATCHED_SOURCE_TREE_SHA}"

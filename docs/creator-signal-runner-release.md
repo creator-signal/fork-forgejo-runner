@@ -4,14 +4,18 @@ This is a downstream Creator Signal automation projection for the authoritative
 Forgejo Runner repository at
 `https://code.forgejo.org/forgejo/runner.git`. It is not an upstream Forgejo
 contribution and does not change the Runner source carried by mirrored upstream
-branches or tags. A release policy may, however, name a minimal upstream fix to
-apply after checking out a tag; that correction is never written to a mirrored
-ref and is disclosed in every release provenance record and SBOM.
+branches or tags. Creator Signal changes use a distinct `-cs.N` release tag
+bound to an explicit committed downstream source tree. The release policy names
+the exact upstream base and minimal upstream fix, and every provenance record
+and SBOM discloses both identities.
 
 The protected default and integration branch is
 `creator-signal/automation`. Upstream `main`, maintained `support-v*.x`
 branches, and semantic-version tags remain clean mirror refs. Automation files
-exist only on the protected branch and Issue branches derived from it.
+exist only on the protected branch and Issue branches derived from it. Reserved
+Creator Signal `-cs.N` tags are never imported from or compared as upstream
+mirror tags; synchronization fails if such a reserved identity appears upstream
+or an existing downstream tag moves.
 
 ## Security and authorization boundary
 
@@ -80,24 +84,30 @@ that decision silently.
 
 ## Qualification and named backfill
 
-### Governed v13.0.0 PTY correction
+### Governed v13.0.0-cs.1 PTY correction
 
 The unchanged `v13.0.0` tag drops chunks from high-throughput host/LXC command
 output because those executor subprocesses run in a PTY. Upstream corrected the
 defect after the tag in commit
 `d4db4179a9ba6a0d07e63b8cf382d90fccb2ff21` ([upstream PR #1692](https://code.forgejo.org/forgejo/runner/pulls/1692)).
-Creator Signal therefore fails closed on an exact minimal backport for this one
-tag: the policy pins the upstream commit and its seven changed paths, computes
-the patch SHA-256 and resulting Git tree, and requires Linux amd64, Linux arm64,
-and Windows amd64 to apply and reproduce that same tree before testing or
-building. The full race-enabled Linux suite and every LXC case remain enabled;
-no test is serialized, filtered, skipped, or reclassified as passing.
+The first Creator Signal publication applied that correction while retaining the
+upstream `v13.0.0` identity. That historical Release, tag, assets and
+attestations are preserved unchanged, but it is not the identity used for new
+adoption. The correction is now represented as `v13.0.0-cs.1`: an explicit Git
+commit with sole parent upstream `v13.0.0` commit
+`1a633ad51320631293dfcac99755b13659efe784`, patch SHA-256
+`c4a5078d6fac4c1a086b2c245238f26d49941ae118281b51af97d8a0ec3340d1`,
+and resulting tree `5e51c1c4aaa101ad963cc7e28b29f38942b67d1a`.
+The policy and workflows verify that complete chain before testing or building.
+The full race-enabled Linux suite and every LXC case remain enabled; no test is
+serialized, filtered, skipped, or reclassified as passing.
 
-`SOURCE-PROVENANCE.json`, all SPDX SBOMs, and the release notes retain the base
-tag/SHA, upstream fix commit/PR, patch digest, and patched tree. A changed
+`SOURCE-PROVENANCE.json`, all SPDX SBOMs, and the release notes retain the
+downstream tag/commit, upstream base tag/SHA, fix commit/PR, patch digest, and
+source tree. A changed
 upstream commit, path inventory, patch, or output tree stops qualification.
 
-Every automation PR qualifies the Issue's initial acceptance tag (`v13.0.0`)
+Every automation PR qualifies the corrective acceptance tag (`v13.0.0-cs.1`)
 without publication. The reusable, read-only qualification workflow verifies
 one exact mirrored tag/SHA, derives the module path and exact Go toolchain from
 that tag's `go.mod`, then runs:
@@ -147,7 +157,7 @@ perform the named backfill:
 gh workflow run runner-release.yml \
   --repo creator-signal/fork-forgejo-runner \
   --ref creator-signal/automation \
-  -f tag=v13.0.0 \
+  -f tag=v13.0.0-cs.1 \
   -F publish=true
 ```
 
@@ -158,9 +168,10 @@ arm64, and Windows amd64 hosts; verifies the complete checksum/SBOM/source
 inventory and both attestation predicates; and reruns version/configuration
 smoke checks on the downloaded executable.
 
-If upstream has advanced to a newer intended stable tag, update Issue #1 first
-with the old and new tags and exact source SHAs. The named `v13.0.0` acceptance
-case must still be explicitly reconciled; do not silently substitute a tag.
+If upstream has advanced to a newer intended stable tag, open or update its
+owning release Issue with the old and new tags and exact source SHAs. The named
+`v13.0.0-cs.1` corrective acceptance case must still be explicitly reconciled;
+do not silently substitute a tag.
 
 ## Idempotency and interrupted drafts
 
@@ -185,7 +196,7 @@ does not upload or replace anything.
 Use a new empty directory outside the build checkout:
 
 ```sh
-tag=v13.0.0
+tag=v13.0.0-cs.1
 repo=creator-signal/fork-forgejo-runner
 gh release download "$tag" --repo "$repo" --dir published-runner
 cd published-runner
@@ -196,9 +207,9 @@ Verify both attestation predicates for every executable:
 
 ```sh
 for binary in \
-  forgejo-runner-13.0.0-linux-amd64 \
-  forgejo-runner-13.0.0-linux-arm64 \
-  forgejo-runner-13.0.0-windows-amd64.exe; do
+  forgejo-runner-13.0.0-cs.1-linux-amd64 \
+  forgejo-runner-13.0.0-cs.1-linux-arm64 \
+  forgejo-runner-13.0.0-cs.1-windows-amd64.exe; do
   gh attestation verify "$binary" --repo "$repo" \
     --predicate-type https://slsa.dev/provenance/v1
   gh attestation verify "$binary" --repo "$repo" \
@@ -212,8 +223,9 @@ require exact `--version` output, generate a configuration, verify the `log`,
 `runner`, and `container` sections, and require `daemon --help` to succeed. Do
 not register the executable during release verification.
 
-Finally verify that the Release source tag and `SOURCE-PROVENANCE.json` both
-name the expected upstream SHA, the workflow run used the merged automation
-revision, the protected default branch remains `creator-signal/automation`, the
-scheduled workflow is active, and the owning Issue is closed only after all
-evidence is recorded.
+Finally verify that the Release source tag points to the exact committed
+downstream source, `SOURCE-PROVENANCE.json` names that commit plus the expected
+upstream base SHA, the workflow run used the merged automation revision, the
+protected default branch remains `creator-signal/automation`, the scheduled
+workflow is active, and the owning Issue is closed only after all evidence is
+recorded.

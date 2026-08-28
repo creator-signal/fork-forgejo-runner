@@ -94,6 +94,9 @@ def load_policy(path: Path = POLICY_PATH) -> dict[str, Any]:
         "maintainedBranchPatterns",
         "semanticTagPattern",
         "stableTagPattern",
+        "downstreamTagPattern",
+        "initialDownstreamReleaseTag",
+        "downstreamReleases",
         "sourceBackports",
         "artifacts",
         "supplyChain",
@@ -156,6 +159,17 @@ def commit_sha(repo: Path, ref: str) -> str:
     return git(repo, "rev-parse", f"{ref}^{{commit}}")
 
 
+def exact_ref_sha(repo: Path, ref: str) -> str:
+    return git(repo, "show-ref", "--verify", "--hash", ref, check=False)
+
+
+def exact_commit_exists(repo: Path, sha: str) -> bool:
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        return False
+    result = run(["git", "cat-file", "-e", f"{sha}^{{commit}}"], cwd=repo, check=False)
+    return result.returncode == 0
+
+
 def is_ancestor(repo: Path, ancestor: str, descendant: str) -> bool:
     result = run(
         ["git", "merge-base", "--is-ancestor", ancestor, descendant],
@@ -209,6 +223,20 @@ def release_is_complete(release: dict[str, Any], tag: str, policy: dict[str, Any
         return False
     present = {asset.get("name") for asset in release.get("assets", [])}
     return set(expected_asset_names(tag, policy)).issubset(present)
+
+
+def downstream_release_policy(tag: str, policy: dict[str, Any]) -> dict[str, Any] | None:
+    configured = policy["downstreamReleases"].get(tag)
+    if configured is None:
+        return None
+    if not re.fullmatch(policy["downstreamTagPattern"], tag):
+        raise ControlError(f"downstream release tag is outside policy: {tag}")
+    return configured
+
+
+def release_backport_policy(tag: str, policy: dict[str, Any]) -> dict[str, Any] | None:
+    downstream = downstream_release_policy(tag, policy)
+    return downstream["backport"] if downstream else policy["sourceBackports"].get(tag)
 
 
 def write_output(name: str, value: str) -> None:
@@ -325,6 +353,36 @@ def sync_repository(
             }
         )
 
+    downstream_tag_actions: list[dict[str, str]] = []
+    for name, configured in sorted(policy["downstreamReleases"].items()):
+        if name in upstream_tags:
+            errors.append(
+                f"reserved Creator Signal downstream tag unexpectedly exists upstream: {name}"
+            )
+            continue
+        expected_sha = configured.get("sourceCommitSha", "")
+        if not re.fullmatch(r"[0-9a-f]{40}", expected_sha):
+            errors.append(f"downstream tag {name} does not pin a full source commit SHA")
+            continue
+        origin_sha = origin_tags.get(name)
+        if origin_sha is None:
+            action = "reserved-unpublished"
+        elif origin_sha == expected_sha:
+            action = "immutable-downstream"
+        else:
+            action = "reject-mismatch"
+            errors.append(
+                f"immutable downstream tag {name} differs: GitHub={origin_sha} expected={expected_sha}"
+            )
+        downstream_tag_actions.append(
+            {
+                "name": name,
+                "action": action,
+                "github_sha": origin_sha or "missing",
+                "expected_sha": expected_sha,
+            }
+        )
+
     if errors:
         raise ControlError("synchronization rejected before push:\n" + "\n".join(errors))
 
@@ -353,6 +411,7 @@ def sync_repository(
         "upstream_main_sha": selected_heads["main"],
         "branches": branch_actions,
         "tags": tag_actions,
+        "downstream_tags": downstream_tag_actions,
         "missing_stable_releases": missing_stable,
         "latest_stable_tag": stable_tags[-1] if stable_tags else None,
         "release_floor_tag": policy["initialBackfillTag"],
@@ -382,27 +441,93 @@ def plan_tag(
     if not re.fullmatch(policy["semanticTagPattern"], tag):
         raise ControlError(f"tag is outside the governed semantic-version policy: {tag}")
     fetch_namespaces(repo, policy["upstreamUrl"], origin)
-    upstream_ref = f"refs/creator-signal-upstream-tags/{tag}"
-    origin_ref = f"refs/creator-signal-origin-tags/{tag}"
-    upstream_object = git(repo, "rev-parse", upstream_ref, check=False)
-    origin_object = git(repo, "rev-parse", origin_ref, check=False)
-    if not upstream_object:
-        raise ControlError(f"upstream tag does not exist: {tag}")
-    if not origin_object:
-        raise ControlError(f"GitHub mirror tag does not exist; apply synchronization first: {tag}")
-    if upstream_object != origin_object:
-        raise ControlError(
-            f"immutable tag mismatch for {tag}: GitHub={origin_object} upstream={upstream_object}"
+    downstream = downstream_release_policy(tag, policy)
+    if downstream:
+        base_tag = downstream.get("baseTag", "")
+        base_ref = f"refs/creator-signal-upstream-tags/{base_tag}"
+        mirrored_base_ref = f"refs/creator-signal-origin-tags/{base_tag}"
+        upstream_base_object = exact_ref_sha(repo, base_ref)
+        mirrored_base_object = exact_ref_sha(repo, mirrored_base_ref)
+        if not upstream_base_object or upstream_base_object != mirrored_base_object:
+            raise ControlError(
+                f"downstream base tag is absent or mismatched: {base_tag}; "
+                f"GitHub={mirrored_base_object or 'missing'} upstream={upstream_base_object or 'missing'}"
+            )
+        base_source_sha = commit_sha(repo, base_ref)
+        if base_source_sha != downstream.get("baseSourceSha"):
+            raise ControlError(
+                f"{tag} base source mismatch: policy={downstream.get('baseSourceSha')} actual={base_source_sha}"
+            )
+        backport = source_backport_plan(
+            repo,
+            tag=tag,
+            source_sha=base_source_sha,
+            policy=policy,
+            configured=downstream["backport"],
         )
-    source_sha = commit_sha(repo, upstream_ref)
-    backport = source_backport_plan(
-        repo,
-        tag=tag,
-        source_sha=source_sha,
-        policy=policy,
-    )
-    source_tree_sha = git(repo, "rev-parse", f"{source_sha}^{{tree}}")
-    go_mod = git(repo, "show", f"{upstream_ref}:go.mod")
+        if not backport:
+            raise ControlError(f"{tag} does not define its required downstream backport")
+        if backport["patchSha256"] != downstream["backport"].get("patchSha256"):
+            raise ControlError(f"{tag} downstream patch digest does not reproduce policy")
+        source_sha = downstream.get("sourceCommitSha", "")
+        if not exact_commit_exists(repo, source_sha):
+            raise ControlError(f"{tag} committed downstream source is unavailable: {source_sha}")
+        parents = git(repo, "rev-list", "--parents", "-n", "1", source_sha).split()
+        if parents != [source_sha, base_source_sha]:
+            raise ControlError(
+                f"{tag} source commit must have only the exact upstream base parent: {base_source_sha}"
+            )
+        source_tree_sha = git(repo, "rev-parse", f"{source_sha}^{{tree}}")
+        if source_tree_sha != downstream.get("sourceTreeSha") or source_tree_sha != backport["patchedSourceTreeSha"]:
+            raise ControlError(f"{tag} committed source tree does not reproduce the governed patch")
+        subject = git(repo, "show", "-s", "--format=%s", source_sha)
+        if subject != downstream.get("sourceCommitSubject"):
+            raise ControlError(f"{tag} committed source subject differs from policy")
+        upstream_downstream_ref = f"refs/creator-signal-upstream-tags/{tag}"
+        if exact_ref_sha(repo, upstream_downstream_ref):
+            raise ControlError(f"Creator Signal downstream tag collides with upstream: {tag}")
+        origin_ref = f"refs/creator-signal-origin-tags/{tag}"
+        origin_object = exact_ref_sha(repo, origin_ref)
+        if origin_object and origin_object != source_sha:
+            raise ControlError(
+                f"immutable downstream tag mismatch for {tag}: GitHub={origin_object} expected={source_sha}"
+            )
+        tag_object_sha = source_sha
+        tag_exists = bool(origin_object)
+        source_checkout_ref = source_sha
+        source_checkout_sha = source_sha
+        source_is_committed = True
+        source_tree_sha = downstream["sourceTreeSha"]
+        go_mod = git(repo, "show", f"{source_sha}:go.mod")
+    else:
+        base_tag = ""
+        base_source_sha = ""
+        upstream_ref = f"refs/creator-signal-upstream-tags/{tag}"
+        origin_ref = f"refs/creator-signal-origin-tags/{tag}"
+        upstream_object = exact_ref_sha(repo, upstream_ref)
+        origin_object = exact_ref_sha(repo, origin_ref)
+        if not upstream_object:
+            raise ControlError(f"upstream tag does not exist: {tag}")
+        if not origin_object:
+            raise ControlError(f"GitHub mirror tag does not exist; apply synchronization first: {tag}")
+        if upstream_object != origin_object:
+            raise ControlError(
+                f"immutable tag mismatch for {tag}: GitHub={origin_object} upstream={upstream_object}"
+            )
+        source_sha = commit_sha(repo, upstream_ref)
+        backport = source_backport_plan(
+            repo,
+            tag=tag,
+            source_sha=source_sha,
+            policy=policy,
+        )
+        source_tree_sha = git(repo, "rev-parse", f"{source_sha}^{{tree}}")
+        tag_object_sha = upstream_object
+        tag_exists = True
+        source_checkout_ref = tag
+        source_checkout_sha = source_sha
+        source_is_committed = False
+        go_mod = git(repo, "show", f"{upstream_ref}:go.mod")
     module_match = re.search(r"(?m)^module\s+(\S+)\s*$", go_mod)
     go_match = re.search(r"(?m)^go\s+(\S+)\s*$", go_mod)
     toolchain_match = re.search(r"(?m)^toolchain\s+go(\S+)\s*$", go_mod)
@@ -416,10 +541,16 @@ def plan_tag(
         "upstream_url": policy["upstreamUrl"],
         "tag": tag,
         "version": tag.removeprefix("v"),
-        "tag_object_sha": upstream_object,
+        "tag_object_sha": tag_object_sha,
+        "tag_exists": tag_exists,
         "source_sha": source_sha,
         "source_tree_sha": source_tree_sha,
-        "backport_required": backport is not None,
+        "source_checkout_ref": source_checkout_ref,
+        "source_checkout_sha": source_checkout_sha,
+        "source_is_committed": source_is_committed,
+        "base_tag": base_tag,
+        "base_source_sha": base_source_sha,
+        "backport_required": backport is not None and not source_is_committed,
         "backport_commit": backport["upstreamCommit"] if backport else "",
         "backport_pull_request": backport["upstreamPullRequest"] if backport else "",
         "backport_patch_sha256": backport["patchSha256"] if backport else "",
@@ -439,6 +570,34 @@ def plan_tag(
     return report
 
 
+def publish_downstream_tag(
+    repo: Path,
+    *,
+    tag: str,
+    origin: str,
+    repository: str,
+    policy: dict[str, Any],
+    token: str | None,
+) -> dict[str, Any]:
+    if not downstream_release_policy(tag, policy):
+        raise ControlError(f"refusing to publish non-downstream tag with this command: {tag}")
+    plan = plan_tag(
+        repo,
+        tag=tag,
+        origin=origin,
+        repository=repository,
+        policy=policy,
+        token=token,
+    )
+    if plan["tag_exists"]:
+        return {"tag": tag, "source_sha": plan["source_sha"], "mutation_count": 0}
+    git(repo, "push", origin, f"{plan['source_sha']}:refs/tags/{tag}")
+    remote = git(repo, "ls-remote", "--tags", origin, f"refs/tags/{tag}")
+    if remote.split()[:1] != [plan["source_sha"]]:
+        raise ControlError(f"published downstream tag did not resolve to expected source: {tag}")
+    return {"tag": tag, "source_sha": plan["source_sha"], "mutation_count": 1}
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -453,8 +612,9 @@ def source_backport_plan(
     tag: str,
     source_sha: str,
     policy: dict[str, Any],
+    configured: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    configured = policy["sourceBackports"].get(tag)
+    configured = configured if configured is not None else policy["sourceBackports"].get(tag)
     if configured is None:
         return None
     commit = configured.get("upstreamCommit", "")
@@ -489,6 +649,11 @@ def source_backport_plan(
         ["git", "diff", "--binary", parents[1], commit], cwd=repo
     ).stdout
     patch_sha256 = hashlib.sha256(patch).hexdigest()
+    expected_patch_sha256 = configured.get("patchSha256")
+    if expected_patch_sha256 and patch_sha256 != expected_patch_sha256:
+        raise ControlError(
+            f"{tag} source backport patch mismatch: expected={expected_patch_sha256}; actual={patch_sha256}"
+        )
     with tempfile.TemporaryDirectory(prefix="creator-signal-runner-backport-") as temporary:
         index_path = str(Path(temporary) / "index")
         git_env = dict(os.environ)
@@ -517,6 +682,8 @@ def prepare_release(
     tag: str,
     source_sha: str,
     tag_object_sha: str,
+    base_tag: str,
+    base_source_sha: str,
     automation_sha: str,
     workflow_url: str,
     backport_commit: str,
@@ -524,7 +691,15 @@ def prepare_release(
     patched_source_tree_sha: str,
     policy: dict[str, Any],
 ) -> None:
-    configured_backport = policy["sourceBackports"].get(tag)
+    configured_backport = release_backport_policy(tag, policy)
+    downstream = downstream_release_policy(tag, policy)
+    expected_base_tag = downstream["baseTag"] if downstream else ""
+    expected_base_sha = downstream["baseSourceSha"] if downstream else ""
+    if base_tag != expected_base_tag or base_source_sha != expected_base_sha:
+        raise ControlError(
+            f"upstream base identity mismatch: expected {expected_base_tag or 'none'}@{expected_base_sha or 'none'}; "
+            f"received {base_tag or 'none'}@{base_source_sha or 'none'}"
+        )
     expected_commit = configured_backport["upstreamCommit"] if configured_backport else ""
     if backport_commit != expected_commit:
         raise ControlError(
@@ -534,10 +709,15 @@ def prepare_release(
     if configured_backport:
         if not re.fullmatch(r"[0-9a-f]{64}", backport_patch_sha256):
             raise ControlError("source backport patch SHA-256 is invalid")
+        expected_patch = configured_backport.get("patchSha256")
+        if expected_patch and backport_patch_sha256 != expected_patch:
+            raise ControlError("source backport patch SHA-256 differs from release policy")
     elif backport_patch_sha256:
         raise ControlError("unexpected source backport patch SHA-256")
     if not re.fullmatch(r"[0-9a-f]{40}", patched_source_tree_sha):
         raise ControlError("patched source tree SHA is invalid")
+    if downstream and patched_source_tree_sha != downstream["sourceTreeSha"]:
+        raise ControlError("downstream source tree differs from release policy")
     expected = expected_asset_names(tag, policy)
     content_assets = [name for name in expected if name not in {"SHA256SUMS", "SOURCE-PROVENANCE.json"}]
     missing = [name for name in content_assets if not (directory / name).is_file()]
@@ -549,6 +729,8 @@ def prepare_release(
         "sourceTag": tag,
         "sourceTagObjectSha": tag_object_sha,
         "sourceSha": source_sha,
+        "upstreamBaseTag": base_tag or None,
+        "upstreamBaseSha": base_source_sha or None,
         "patchedSourceTreeSha": patched_source_tree_sha,
         "sourceBackport": (
             {
@@ -557,6 +739,11 @@ def prepare_release(
                 "reason": configured_backport["reason"],
                 "patchSha256": backport_patch_sha256,
                 "changedPaths": sorted(configured_backport["changedPaths"]),
+                **(
+                    {"baseTag": base_tag, "baseSha": base_source_sha}
+                    if base_tag
+                    else {}
+                ),
             }
             if configured_backport
             else None
@@ -599,6 +786,8 @@ def verify_assets(
     tag: str,
     source_sha: str,
     tag_object_sha: str,
+    base_tag: str,
+    base_source_sha: str,
     backport_commit: str,
     backport_patch_sha256: str,
     patched_source_tree_sha: str,
@@ -632,7 +821,16 @@ def verify_assets(
             f"tag object provenance mismatch: expected {tag_object_sha}; "
             f"recorded {provenance.get('sourceTagObjectSha')}"
         )
-    expected_backport = policy["sourceBackports"].get(tag)
+    downstream = downstream_release_policy(tag, policy)
+    expected_base_tag = downstream["baseTag"] if downstream else ""
+    expected_base_sha = downstream["baseSourceSha"] if downstream else ""
+    if base_tag != expected_base_tag or base_source_sha != expected_base_sha:
+        raise ControlError("requested upstream base identity differs from release policy")
+    if provenance.get("upstreamBaseTag") != (base_tag or None) or provenance.get(
+        "upstreamBaseSha"
+    ) != (base_source_sha or None):
+        raise ControlError("upstream base provenance mismatch")
+    expected_backport = release_backport_policy(tag, policy)
     recorded_backport = provenance.get("sourceBackport")
     if expected_backport:
         expected_record = {
@@ -641,6 +839,11 @@ def verify_assets(
             "reason": expected_backport["reason"],
             "patchSha256": backport_patch_sha256,
             "changedPaths": sorted(expected_backport["changedPaths"]),
+            **(
+                {"baseTag": base_tag, "baseSha": base_source_sha}
+                if base_tag
+                else {}
+            ),
         }
         if backport_commit != expected_backport["upstreamCommit"] or recorded_backport != expected_record:
             raise ControlError("source backport provenance mismatch")
@@ -679,11 +882,13 @@ def verify_assets(
         if recorded != checksums[binary]:
             raise ControlError(f"SBOM binary digest mismatch: {sbom_name}")
         comment = sbom.get("creationInfo", {}).get("comment", "")
-        expected_comment = (
-            f"Exact upstream source commit: {source_sha}; "
-            f"source backport commit: {backport_commit or 'none'}; "
-            f"backport patch SHA-256: {backport_patch_sha256 or 'none'}; "
-            f"patched source tree: {patched_source_tree_sha}"
+        expected_comment = sbom_source_comment(
+            source_sha=source_sha,
+            base_tag=base_tag,
+            base_source_sha=base_source_sha,
+            backport_commit=backport_commit,
+            backport_patch_sha256=backport_patch_sha256,
+            patched_source_tree_sha=patched_source_tree_sha,
         )
         if comment != expected_comment:
             raise ControlError(f"SBOM source provenance mismatch: {sbom_name}")
@@ -700,9 +905,36 @@ def verify_assets(
     return {"tag": tag, "source_sha": source_sha, "assets": checksums}
 
 
+def sbom_source_comment(
+    *,
+    source_sha: str,
+    base_tag: str,
+    base_source_sha: str,
+    backport_commit: str,
+    backport_patch_sha256: str,
+    patched_source_tree_sha: str,
+) -> str:
+    if base_tag:
+        return (
+            f"Exact downstream source commit: {source_sha}; "
+            f"upstream base: {base_tag}@{base_source_sha}; "
+            f"source backport commit: {backport_commit or 'none'}; "
+            f"backport patch SHA-256: {backport_patch_sha256 or 'none'}; "
+            f"source tree: {patched_source_tree_sha}"
+        )
+    return (
+        f"Exact upstream source commit: {source_sha}; "
+        f"source backport commit: {backport_commit or 'none'}; "
+        f"backport patch SHA-256: {backport_patch_sha256 or 'none'}; "
+        f"patched source tree: {patched_source_tree_sha}"
+    )
+
+
 def release_body(
     tag: str,
     source_sha: str,
+    base_tag: str,
+    base_source_sha: str,
     workflow_url: str,
     backport_commit: str,
     backport_pull_request: str,
@@ -712,9 +944,11 @@ def release_body(
     version = tag.removeprefix("v")
     return f"""Creator Signal downstream build of Forgejo Runner {tag}.
 
-Authoritative upstream source: https://code.forgejo.org/forgejo/runner/src/tag/{tag}
-Upstream release notes: https://code.forgejo.org/forgejo/runner/releases/tag/{tag}
-Exact source commit: `{source_sha}`
+Creator Signal downstream source tag: `{tag}`
+Exact downstream source commit: `{source_sha}`
+Authoritative upstream base: https://code.forgejo.org/forgejo/runner/src/tag/{base_tag}
+Exact upstream base commit: `{base_source_sha}`
+Upstream release notes: https://code.forgejo.org/forgejo/runner/releases/tag/{base_tag}
 Build workflow: {workflow_url}
 Creator Signal source correction: upstream commit `{backport_commit}` ({backport_pull_request})
 Backport patch SHA-256: `{backport_patch_sha256}`
@@ -753,11 +987,20 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     plan_parser.add_argument("--repository", required=True)
     plan_parser.add_argument("--report", type=Path, required=True)
 
+    publish_tag_parser = subparsers.add_parser("publish-downstream-tag")
+    publish_tag_parser.add_argument("--tag", required=True)
+    publish_tag_parser.add_argument("--repo", type=Path, default=Path.cwd())
+    publish_tag_parser.add_argument("--origin", default="origin")
+    publish_tag_parser.add_argument("--repository", required=True)
+    publish_tag_parser.add_argument("--report", type=Path, required=True)
+
     prepare_parser = subparsers.add_parser("prepare-release")
     prepare_parser.add_argument("--directory", type=Path, required=True)
     prepare_parser.add_argument("--tag", required=True)
     prepare_parser.add_argument("--source-sha", required=True)
     prepare_parser.add_argument("--tag-object-sha", required=True)
+    prepare_parser.add_argument("--base-tag", default="")
+    prepare_parser.add_argument("--base-source-sha", default="")
     prepare_parser.add_argument("--automation-sha", required=True)
     prepare_parser.add_argument("--workflow-url", required=True)
     prepare_parser.add_argument("--backport-commit", required=True)
@@ -770,6 +1013,8 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     verify_parser.add_argument("--tag", required=True)
     verify_parser.add_argument("--source-sha", required=True)
     verify_parser.add_argument("--tag-object-sha", required=True)
+    verify_parser.add_argument("--base-tag", default="")
+    verify_parser.add_argument("--base-source-sha", default="")
     verify_parser.add_argument("--backport-commit", required=True)
     verify_parser.add_argument("--backport-patch-sha256", required=True)
     verify_parser.add_argument("--patched-source-tree-sha", required=True)
@@ -777,6 +1022,8 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     body_parser = subparsers.add_parser("release-body")
     body_parser.add_argument("--tag", required=True)
     body_parser.add_argument("--source-sha", required=True)
+    body_parser.add_argument("--base-tag", required=True)
+    body_parser.add_argument("--base-source-sha", required=True)
     body_parser.add_argument("--workflow-url", required=True)
     body_parser.add_argument("--backport-commit", required=True)
     body_parser.add_argument("--backport-pull-request", required=True)
@@ -823,6 +1070,11 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
             for name in (
                 "source_sha",
                 "source_tree_sha",
+                "source_checkout_ref",
+                "source_checkout_sha",
+                "source_is_committed",
+                "base_tag",
+                "base_source_sha",
                 "backport_required",
                 "backport_commit",
                 "backport_pull_request",
@@ -830,6 +1082,7 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
                 "patched_source_tree_sha",
                 "version",
                 "tag_object_sha",
+                "tag_exists",
                 "module_path",
                 "go_version",
                 "prerelease",
@@ -838,12 +1091,25 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
                 "release_draft",
             ):
                 write_output(name, str(report[name]).lower() if isinstance(report[name], bool) else str(report[name]))
+        elif args.command == "publish-downstream-tag":
+            report = publish_downstream_tag(
+                args.repo.resolve(),
+                tag=args.tag,
+                origin=args.origin,
+                repository=args.repository,
+                policy=policy,
+                token=token,
+            )
+            write_json(args.report, report)
+            write_output("mutation_count", str(report["mutation_count"]))
         elif args.command == "prepare-release":
             prepare_release(
                 args.directory.resolve(),
                 tag=args.tag,
                 source_sha=args.source_sha,
                 tag_object_sha=args.tag_object_sha,
+                base_tag=args.base_tag,
+                base_source_sha=args.base_source_sha,
                 automation_sha=args.automation_sha,
                 workflow_url=args.workflow_url,
                 backport_commit=args.backport_commit,
@@ -857,6 +1123,8 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
                 tag=args.tag,
                 source_sha=args.source_sha,
                 tag_object_sha=args.tag_object_sha,
+                base_tag=args.base_tag,
+                base_source_sha=args.base_source_sha,
                 backport_commit=args.backport_commit,
                 backport_patch_sha256=args.backport_patch_sha256,
                 patched_source_tree_sha=args.patched_source_tree_sha,
@@ -869,6 +1137,8 @@ def main(argv: Iterable[str] = sys.argv[1:]) -> int:
                 release_body(
                     args.tag,
                     args.source_sha,
+                    args.base_tag,
+                    args.base_source_sha,
                     args.workflow_url,
                     args.backport_commit,
                     args.backport_pull_request,

@@ -18,14 +18,18 @@ release_control = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release_control)
 
 BACKPORT_COMMIT = "d4db4179a9ba6a0d07e63b8cf382d90fccb2ff21"
-BACKPORT_PATCH_SHA256 = "3" * 64
-PATCHED_SOURCE_TREE_SHA = "4" * 40
-SOURCE_SHA = "1" * 40
+BACKPORT_PATCH_SHA256 = "c4a5078d6fac4c1a086b2c245238f26d49941ae118281b51af97d8a0ec3340d1"
+PATCHED_SOURCE_TREE_SHA = "5e51c1c4aaa101ad963cc7e28b29f38942b67d1a"
+DOWNSTREAM_TAG = "v13.0.0-cs.1"
+BASE_TAG = "v13.0.0"
+BASE_SOURCE_SHA = "1a633ad51320631293dfcac99755b13659efe784"
+SOURCE_SHA = "f9b2c46a8cdeb4806855ab0d1b07414b49c54258"
 SBOM_COMMENT = (
-    f"Exact upstream source commit: {SOURCE_SHA}; "
+    f"Exact downstream source commit: {SOURCE_SHA}; "
+    f"upstream base: {BASE_TAG}@{BASE_SOURCE_SHA}; "
     f"source backport commit: {BACKPORT_COMMIT}; "
     f"backport patch SHA-256: {BACKPORT_PATCH_SHA256}; "
-    f"patched source tree: {PATCHED_SOURCE_TREE_SHA}"
+    f"source tree: {PATCHED_SOURCE_TREE_SHA}"
 )
 
 
@@ -60,9 +64,12 @@ class ReleaseControlTests(unittest.TestCase):
         )
         windows = next(item for item in self.policy["artifacts"] if item["os"] == "windows")
         self.assertEqual(windows["upstreamSupport"], "unsupported")
-        backport = self.policy["sourceBackports"]["v13.0.0"]
+        downstream = self.policy["downstreamReleases"][DOWNSTREAM_TAG]
+        backport = downstream["backport"]
         self.assertEqual(backport["upstreamCommit"], BACKPORT_COMMIT)
         self.assertEqual(len(backport["changedPaths"]), 7)
+        self.assertEqual(downstream["baseSourceSha"], BASE_SOURCE_SHA)
+        self.assertEqual(downstream["sourceCommitSha"], SOURCE_SHA)
 
     def test_semver_and_asset_contract(self) -> None:
         self.assertLess(
@@ -70,18 +77,18 @@ class ReleaseControlTests(unittest.TestCase):
             release_control.semver_key("v13.0.0"),
         )
         self.assertIn(
-            "forgejo-runner-13.0.0-windows-amd64.exe",
-            release_control.expected_asset_names("v13.0.0", self.policy),
+            "forgejo-runner-13.0.0-cs.1-windows-amd64.exe",
+            release_control.expected_asset_names(DOWNSTREAM_TAG, self.policy),
         )
         self.assertIn(
-            "forgejo-runner-13.0.0-linux-arm64.spdx.json",
-            release_control.expected_asset_names("v13.0.0", self.policy),
+            "forgejo-runner-13.0.0-cs.1-linux-arm64.spdx.json",
+            release_control.expected_asset_names(DOWNSTREAM_TAG, self.policy),
         )
 
     def test_prepare_and_verify_release_assets(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
-            expected = release_control.expected_asset_names("v13.0.0", self.policy)
+            expected = release_control.expected_asset_names(DOWNSTREAM_TAG, self.policy)
             for name in expected:
                 if name in {"SOURCE-PROVENANCE.json", "SHA256SUMS"}:
                     continue
@@ -109,9 +116,11 @@ class ReleaseControlTests(unittest.TestCase):
                 )
             release_control.prepare_release(
                 directory,
-                tag="v13.0.0",
+                tag=DOWNSTREAM_TAG,
                 source_sha=SOURCE_SHA,
-                tag_object_sha="1" * 40,
+                tag_object_sha=SOURCE_SHA,
+                base_tag=BASE_TAG,
+                base_source_sha=BASE_SOURCE_SHA,
                 automation_sha="2" * 40,
                 workflow_url="https://github.com/example/actions/runs/1",
                 backport_commit=BACKPORT_COMMIT,
@@ -121,23 +130,25 @@ class ReleaseControlTests(unittest.TestCase):
             )
             report = release_control.verify_assets(
                 directory,
-                tag="v13.0.0",
+                tag=DOWNSTREAM_TAG,
                 source_sha=SOURCE_SHA,
-                tag_object_sha="1" * 40,
+                tag_object_sha=SOURCE_SHA,
+                base_tag=BASE_TAG,
+                base_source_sha=BASE_SOURCE_SHA,
                 backport_commit=BACKPORT_COMMIT,
                 backport_patch_sha256=BACKPORT_PATCH_SHA256,
                 patched_source_tree_sha=PATCHED_SOURCE_TREE_SHA,
                 policy=self.policy,
                 rebuilt=directory,
             )
-            self.assertEqual(report["tag"], "v13.0.0")
+            self.assertEqual(report["tag"], DOWNSTREAM_TAG)
             self.assertEqual(len(report["assets"]), len(expected) - 1)
 
     def test_rerun_rejects_changed_binary(self) -> None:
         with tempfile.TemporaryDirectory() as published_temp, tempfile.TemporaryDirectory() as rebuilt_temp:
             published = Path(published_temp)
             rebuilt = Path(rebuilt_temp)
-            expected = release_control.expected_asset_names("v13.0.0", self.policy)
+            expected = release_control.expected_asset_names(DOWNSTREAM_TAG, self.policy)
             for name in expected:
                 if name in {"SOURCE-PROVENANCE.json", "SHA256SUMS"}:
                     continue
@@ -166,9 +177,11 @@ class ReleaseControlTests(unittest.TestCase):
                 )
             release_control.prepare_release(
                 published,
-                tag="v13.0.0",
+                tag=DOWNSTREAM_TAG,
                 source_sha=SOURCE_SHA,
-                tag_object_sha="1" * 40,
+                tag_object_sha=SOURCE_SHA,
+                base_tag=BASE_TAG,
+                base_source_sha=BASE_SOURCE_SHA,
                 automation_sha="2" * 40,
                 workflow_url="https://github.com/example/actions/runs/1",
                 backport_commit=BACKPORT_COMMIT,
@@ -176,14 +189,16 @@ class ReleaseControlTests(unittest.TestCase):
                 patched_source_tree_sha=PATCHED_SOURCE_TREE_SHA,
                 policy=self.policy,
             )
-            changed = rebuilt / "forgejo-runner-13.0.0-linux-amd64"
+            changed = rebuilt / "forgejo-runner-13.0.0-cs.1-linux-amd64"
             changed.write_bytes(b"changed")
             with self.assertRaisesRegex(release_control.ControlError, "immutable rerun mismatch"):
                 release_control.verify_assets(
                     published,
-                    tag="v13.0.0",
+                    tag=DOWNSTREAM_TAG,
                     source_sha=SOURCE_SHA,
-                    tag_object_sha="1" * 40,
+                    tag_object_sha=SOURCE_SHA,
+                    base_tag=BASE_TAG,
+                    base_source_sha=BASE_SOURCE_SHA,
                     backport_commit=BACKPORT_COMMIT,
                     backport_patch_sha256=BACKPORT_PATCH_SHA256,
                     patched_source_tree_sha=PATCHED_SOURCE_TREE_SHA,

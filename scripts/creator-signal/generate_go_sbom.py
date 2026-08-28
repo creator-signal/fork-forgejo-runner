@@ -64,6 +64,8 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--source-sha", required=True)
+    parser.add_argument("--base-tag", default="")
+    parser.add_argument("--base-source-sha", default="")
     parser.add_argument("--backport-commit", required=True)
     parser.add_argument("--backport-patch-sha256", required=True)
     parser.add_argument("--patched-source-tree-sha", required=True)
@@ -122,10 +124,20 @@ def main() -> int:
             "created": created,
             "creators": ["Tool: creator-signal-generate-go-sbom/1"],
             "comment": (
-                f"Exact upstream source commit: {args.source_sha}; "
-                f"source backport commit: {args.backport_commit or 'none'}; "
-                f"backport patch SHA-256: {args.backport_patch_sha256 or 'none'}; "
-                f"patched source tree: {args.patched_source_tree_sha}"
+                (
+                    f"Exact downstream source commit: {args.source_sha}; "
+                    f"upstream base: {args.base_tag}@{args.base_source_sha}; "
+                    f"source backport commit: {args.backport_commit or 'none'}; "
+                    f"backport patch SHA-256: {args.backport_patch_sha256 or 'none'}; "
+                    f"source tree: {args.patched_source_tree_sha}"
+                )
+                if args.base_tag
+                else (
+                    f"Exact upstream source commit: {args.source_sha}; "
+                    f"source backport commit: {args.backport_commit or 'none'}; "
+                    f"backport patch SHA-256: {args.backport_patch_sha256 or 'none'}; "
+                    f"patched source tree: {args.patched_source_tree_sha}"
+                )
             ),
         },
         "files": [

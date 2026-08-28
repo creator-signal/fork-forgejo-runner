@@ -24,22 +24,31 @@ def require(condition: bool, message: str, errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-    v13_backport = POLICY.get("sourceBackports", {}).get("v13.0.0", {})
+    downstream = POLICY.get("downstreamReleases", {}).get("v13.0.0-cs.1", {})
+    v13_backport = downstream.get("backport", {})
+    require(
+        downstream.get("baseTag") == "v13.0.0"
+        and downstream.get("baseSourceSha") == "1a633ad51320631293dfcac99755b13659efe784"
+        and downstream.get("sourceCommitSha") == "f9b2c46a8cdeb4806855ab0d1b07414b49c54258"
+        and downstream.get("sourceTreeSha") == "5e51c1c4aaa101ad963cc7e28b29f38942b67d1a",
+        "runner-release-policy.json: downstream source/base identity drifted",
+        errors,
+    )
     require(
         v13_backport.get("upstreamCommit")
         == "d4db4179a9ba6a0d07e63b8cf382d90fccb2ff21",
-        "runner-release-policy.json: v13.0.0 must pin the upstream PTY fix commit",
+        "runner-release-policy.json: v13.0.0-cs.1 must pin the upstream PTY fix commit",
         errors,
     )
     require(
         v13_backport.get("upstreamPullRequest")
         == "https://code.forgejo.org/forgejo/runner/pulls/1692",
-        "runner-release-policy.json: v13.0.0 backport provenance is missing",
+        "runner-release-policy.json: v13.0.0-cs.1 backport provenance is missing",
         errors,
     )
     require(
         len(v13_backport.get("changedPaths", [])) == 7,
-        "runner-release-policy.json: v13.0.0 backport path inventory drifted",
+        "runner-release-policy.json: v13.0.0-cs.1 backport path inventory drifted",
         errors,
     )
     workflows = sorted(WORKFLOW_DIR.glob("*.yml"))
@@ -87,7 +96,9 @@ def main() -> int:
         linux_arm_start = qualification.find("build-linux-arm64:")
         linux_job = qualification[linux_start:linux_arm_start]
         windows_job = qualification[windows_start:finalize_start]
-        require(qualification.count("apply_source_backport.py") == 3, "runner-qualification.yml: the governed backport must be applied to all three native builds", errors)
+        require(qualification.count("apply_source_backport.py") == 3, "runner-qualification.yml: legacy base-tag qualification must retain governed backport application", errors)
+        require(qualification.count("source-is-committed != 'true'") == 3, "runner-qualification.yml: committed downstream source must not be patched a second time", errors)
+        require(qualification.count("source-checkout-ref") >= 4 and qualification.count("source-checkout-sha") >= 4, "runner-qualification.yml: builds are not bound to the explicit downstream source commit", errors)
         require("--expected-patch-sha256" in qualification and "--expected-tree-sha" in qualification, "runner-qualification.yml: backport patch/tree identity is not fail-closed", errors)
         require("--backport-commit" in qualification and "--backport-patch-sha256" in qualification and "--patched-source-tree-sha" in qualification, "runner-qualification.yml: SBOM/release backport provenance is incomplete", errors)
         require(linux_start >= 0 and linux_arm_start > linux_start, "runner-qualification.yml: Linux amd64/arm64 jobs not found", errors)
@@ -122,6 +133,8 @@ def main() -> int:
         require("uses: ./.github/workflows/runner-qualification.yml" in release, "runner-release.yml: read-only qualification dependency is missing", errors)
         require("needs: qualify" in release, "runner-release.yml: publisher is not gated on qualification", errors)
         require("GH_REPO: ${{ github.repository }}" in release, "runner-release.yml: GitHub CLI repository binding is missing", errors)
+        require("default: v13.0.0-cs.1" in release, "runner-release.yml: default release identity is not the Creator Signal downstream tag", errors)
+        require("publish-downstream-tag" in release, "runner-release.yml: immutable downstream source tag publication is missing", errors)
         require("--clobber" not in release, "runner-release.yml: release asset replacement is prohibited", errors)
         require("gh attestation verify" in release, "runner-release.yml: idempotent attestation verification is missing", errors)
         require("--backport-pull-request" in release and release.count("--backport-patch-sha256") >= 3, "runner-release.yml: published backport provenance is incomplete", errors)
@@ -134,6 +147,7 @@ def main() -> int:
         require("https://slsa.dev/provenance/v1" in verification, "runner-release-verification.yml: provenance verification is missing", errors)
         require("https://spdx.dev/Document/v2.3" in verification, "runner-release-verification.yml: SBOM attestation verification is missing", errors)
         require(verification.count("--backport-patch-sha256") == 3 and verification.count("--patched-source-tree-sha") == 3, "runner-release-verification.yml: independent backport provenance verification is incomplete", errors)
+        require(verification.count("--base-source-sha") == 3 and "default: v13.0.0-cs.1" in verification, "runner-release-verification.yml: downstream base/source identity verification is incomplete", errors)
     if validation_path.is_file():
         validation = validation_path.read_text(encoding="utf-8")
         require("inputs: .github/workflows" in validation, "automation-validation.yml: zizmor must remain scoped to governed workflows", errors)
@@ -149,6 +163,7 @@ def main() -> int:
     require("reject-mismatch" in control, "release_control.py: immutable tag mismatch shield is missing", errors)
     require("immutable rerun mismatch" in control, "release_control.py: rerun byte verification is missing", errors)
     require("source_backport_plan" in control and '["git", "apply", "--cached", "--whitespace=error-all", "-"]' in control and "patchedSourceTreeSha" in control, "release_control.py: governed source backport controls are incomplete", errors)
+    require("reserved-unpublished" in control and "immutable-downstream" in control, "release_control.py: synchronization does not distinguish downstream tags", errors)
     require("ghcr.io" not in combined.lower(), "Runner workflows must not publish containers", errors)
     require(not re.search(r"(?i)(dockerhub|docker hub|amazon s3|\bs3\b)", combined), "Runner workflows contain an unauthorized publication destination", errors)
 
