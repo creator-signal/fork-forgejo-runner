@@ -4,6 +4,8 @@ forgejo-runner*
 .env
 .runner
 coverage.txt
+__pycache__/
+*.pyc
 /config.yaml
 
 # MS VSCode

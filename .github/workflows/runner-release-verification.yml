@@ -8,7 +8,7 @@ on:
         description: Published semantic-version tag to verify
         required: true
         type: string
-        default: v13.0.0
+        default: v13.0.0-cs.1
 
 permissions:
   contents: read
@@ -27,6 +27,8 @@ jobs:
     outputs:
       source-sha: ${{ steps.plan.outputs.source_sha }}
       tag-object-sha: ${{ steps.plan.outputs.tag_object_sha }}
+      base-tag: ${{ steps.plan.outputs.base_tag }}
+      base-source-sha: ${{ steps.plan.outputs.base_source_sha }}
       version: ${{ steps.plan.outputs.version }}
       backport-commit: ${{ steps.plan.outputs.backport_commit }}
       backport-patch-sha256: ${{ steps.plan.outputs.backport_patch_sha256 }}
@@ -50,9 +52,10 @@ jobs:
       - name: Require complete published asset contract
         env:
           RELEASE_COMPLETE: ${{ steps.plan.outputs.release_complete }}
+          TAG_EXISTS: ${{ steps.plan.outputs.tag_exists }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          if [ "$RELEASE_COMPLETE" != 'true' ]; then
+          if [ "$TAG_EXISTS" != 'true' ] || [ "$RELEASE_COMPLETE" != 'true' ]; then
             echo "Release is not complete: $RELEASE_TAG" >&2
             exit 1
           fi
@@ -81,6 +84,8 @@ jobs:
           RELEASE_VERSION: ${{ needs.source.outputs.version }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BASE_TAG: ${{ needs.source.outputs.base-tag }}
+          BASE_SOURCE_SHA: ${{ needs.source.outputs.base-source-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -91,6 +96,8 @@ jobs:
             --tag "$RELEASE_TAG" \
             --source-sha "$SOURCE_SHA" \
             --tag-object-sha "$TAG_OBJECT_SHA" \
+            --base-tag "$BASE_TAG" \
+            --base-source-sha "$BASE_SOURCE_SHA" \
             --backport-commit "$BACKPORT_COMMIT" \
             --backport-patch-sha256 "$BACKPORT_PATCH_SHA256" \
             --patched-source-tree-sha "$PATCHED_SOURCE_TREE_SHA"
@@ -127,6 +134,8 @@ jobs:
           RELEASE_VERSION: ${{ needs.source.outputs.version }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BASE_TAG: ${{ needs.source.outputs.base-tag }}
+          BASE_SOURCE_SHA: ${{ needs.source.outputs.base-source-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -137,6 +146,8 @@ jobs:
             --tag "$RELEASE_TAG" \
             --source-sha "$SOURCE_SHA" \
             --tag-object-sha "$TAG_OBJECT_SHA" \
+            --base-tag "$BASE_TAG" \
+            --base-source-sha "$BASE_SOURCE_SHA" \
             --backport-commit "$BACKPORT_COMMIT" \
             --backport-patch-sha256 "$BACKPORT_PATCH_SHA256" \
             --patched-source-tree-sha "$PATCHED_SOURCE_TREE_SHA"
@@ -175,6 +186,8 @@ jobs:
           RELEASE_VERSION: ${{ needs.source.outputs.version }}
           SOURCE_SHA: ${{ needs.source.outputs.source-sha }}
           TAG_OBJECT_SHA: ${{ needs.source.outputs.tag-object-sha }}
+          BASE_TAG: ${{ needs.source.outputs.base-tag }}
+          BASE_SOURCE_SHA: ${{ needs.source.outputs.base-source-sha }}
           BACKPORT_COMMIT: ${{ needs.source.outputs.backport-commit }}
           BACKPORT_PATCH_SHA256: ${{ needs.source.outputs.backport-patch-sha256 }}
           PATCHED_SOURCE_TREE_SHA: ${{ needs.source.outputs.patched-source-tree-sha }}
@@ -185,6 +198,8 @@ jobs:
             --tag "$env:RELEASE_TAG" `
             --source-sha "$env:SOURCE_SHA" `
             --tag-object-sha "$env:TAG_OBJECT_SHA" `
+            --base-tag "$env:BASE_TAG" `
+            --base-source-sha "$env:BASE_SOURCE_SHA" `
             --backport-commit "$env:BACKPORT_COMMIT" `
             --backport-patch-sha256 "$env:BACKPORT_PATCH_SHA256" `
             --patched-source-tree-sha "$env:PATCHED_SOURCE_TREE_SHA"

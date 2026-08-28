@@ -96,11 +96,11 @@ jobs:
           advanced-security: false
           annotations: false
 
-  initial-release-qualification:
-    name: Initial v13.0.0 release qualification
+  downstream-release-qualification:
+    name: Downstream v13.0.0-cs.1 release qualification
     needs: [contracts, security]
     uses: ./.github/workflows/runner-qualification.yml
     with:
-      tag: v13.0.0
+      tag: v13.0.0-cs.1
     permissions:
       contents: read
