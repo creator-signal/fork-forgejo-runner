@@ -9,7 +9,7 @@ import (
 	syscall "golang.org/x/sys/windows"
 )
 
-func RunCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
+func RunCmdInGroup(cmd *exec.Cmd, cmdline string) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		CmdLine: cmdline,
 		// We pass `CREATE_SUSPENDED` here to avoid a race condition: we want to assign

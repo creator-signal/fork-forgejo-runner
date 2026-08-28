@@ -726,9 +726,9 @@ jobs:
 
           if [ -t 1 ]; then
             echo "stdout is a TTY"
+            exit 1
           else
             echo "stdout is NOT a TTY"
-            exit 1
           fi
 
           current_proc=$(readlink /proc/$$/exe)

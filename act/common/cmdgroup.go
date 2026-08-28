@@ -11,16 +11,9 @@ import (
 )
 
 // Execute `cmd` in such a way that `cmd.Cancel` will kill `cmd` and all of its children.
-func RunCmdInGroup(cmd *exec.Cmd, cmdline string, tty bool) error {
-	if tty {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setsid:  true,
-			Setctty: true,
-		}
-	} else {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-		}
+func RunCmdInGroup(cmd *exec.Cmd, cmdline string) error {
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
 	}
 	cmd.Cancel = func() error {
 		// The `Setpgid` (or `Setsid`) flag means that the process is leader of a
