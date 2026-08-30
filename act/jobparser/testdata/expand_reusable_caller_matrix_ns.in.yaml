@@ -1,0 +1,16 @@
+name: test
+jobs:
+  prereq:
+    runs-on: linux
+    steps:
+      - run: uname -a
+  reusable-1:
+    needs: [prereq]
+    strategy:
+      matrix:
+        os: [debian, nixos]
+        platform: [amd64, arm64]
+    uses: ./.forgejo/workflows/expand_reusable_caller_matrix_ns_reusable-1.yml
+    with:
+      os: ${{ matrix.os }}
+      platform: ${{ matrix.platform }}

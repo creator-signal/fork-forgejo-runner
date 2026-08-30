@@ -22,6 +22,7 @@ var ErrUnsupportedReusableWorkflowFetch = errors.New("unable to support reusable
 // act/model
 type bothJobTypes struct {
 	id           string
+	namespace    string
 	jobParserJob *Job
 	workflowJob  *model.Job
 	parseContext *parseContext
@@ -128,6 +129,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 			workflowLevelEnableOpenIDConnect: origin.EnableOpenIDConnect,
 			workflowLevelEnv:                 workflow.Env,
 			parseContext:                     pc,
+			namespace:                        workflow.Metadata.Namespace,
 		}
 	}
 
@@ -209,6 +211,7 @@ func Parse(content []byte, validate bool, options ...ParseOption) ([]*SingleWork
 				WorkflowCallInputs: bothJobs.workflowCallInputs,
 				WorkflowCallID:     bothJobs.workflowCallID,
 				WorkflowCallParent: bothJobs.workflowCallParent,
+				Namespace:          bothJobs.namespace,
 			},
 			Permissions:  workflow.Permissions,
 			parseContext: bothJobs.parseContext,
@@ -395,6 +398,7 @@ func expandMatrixJobs(jobs []*bothJobTypes, incompleteMatrix map[string]*exprpar
 				jobNeeds:         jobNeeds,
 				overrideOnClause: bothJobs.overrideOnClause,
 				parseContext:     pc,
+				namespace:        bothJobs.namespace,
 
 				workflowLevelEnv:                 bothJobs.workflowLevelEnv,
 				workflowLevelEnableOpenIDConnect: bothJobs.workflowLevelEnableOpenIDConnect,
@@ -446,8 +450,14 @@ func expandReusableWorkflows(jobs []*bothJobTypes, validate bool,
 		if withInvalidJobReference == nil && withInvalidMatrixReference == nil {
 			// Append the inner jobs' IDs to the `needs` of the parent job.
 			additionalNeeds := make([]string, len(newJobs))
-			for i, b := range newJobs {
-				additionalNeeds[i] = b.id
+			if pc.enableNamespaces {
+				for i, b := range newJobs {
+					additionalNeeds[i] = fmt.Sprintf("__namespace.%s.%s", b.namespace, b.id)
+				}
+			} else {
+				for i, b := range newJobs {
+					additionalNeeds[i] = b.id
+				}
 			}
 			callerNeeds := bothJobs.jobParserJob.Needs()
 			callerNeeds = append(callerNeeds, additionalNeeds...)
@@ -554,7 +564,7 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	// valid context when evaluating them.  Store a copy of the inputs on the caller job for that evaluation.
 	callerJob.workflowCallInputs = inputs
 
-	err = migrateReusableWorkflowOutputs(workflow, callerJob)
+	err = migrateReusableWorkflowOutputs(workflow, callerJob, pc.enableNamespaces)
 	if err != nil {
 		return nil, fmt.Errorf("failure to migrate workflow outputs: %w", err)
 	}
@@ -563,11 +573,16 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse local workflow: %w", err)
 	}
+
 	retval := []*bothJobTypes{}
 	for _, swf := range innerWorkflows {
-		err := rewriteReusableWorkflowNeeds(&swf.RawJobs, callerJob.id)
-		if err != nil {
-			return nil, fmt.Errorf("unable to rewrite reusable workflow needs: %w", err)
+		// Rewriting `needs` isn't needed if we're using namespaces, as every `${{ needs.x }}` will work correctly with
+		// `x` that will be interpreted as being within the same job namespace.
+		if !pc.enableNamespaces {
+			err := rewriteReusableWorkflowNeeds(&swf.RawJobs, callerJob.id)
+			if err != nil {
+				return nil, fmt.Errorf("unable to rewrite reusable workflow needs: %w", err)
+			}
 		}
 
 		id, job := swf.Job()
@@ -581,33 +596,81 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 			return nil, fmt.Errorf("model.ReadWorkflow: %w", err)
 		}
 
-		originalNeeds := job.Needs()
-		newNeeds := make([]string, len(originalNeeds))
-		// Rewrite the `needs` of the job to be qualified within the job so they depend upon each other.
-		for i := range originalNeeds {
-			newNeeds[i] = fmt.Sprintf("%s.%s", callerJob.id, originalNeeds[i])
-		}
-		// Add all the jobs that the reusable workflow `needs`'d to the jobs within the reusable workflow as well:
-		newNeeds = append(newNeeds, callerJob.jobParserJob.Needs()...)
-		if len(newNeeds) != 0 {
-			err = job.RawNeeds.Encode(newNeeds)
-			if err != nil {
-				return nil, fmt.Errorf("error encoding newNeeds to yaml: %w", err)
+		if !pc.enableNamespaces {
+			originalNeeds := job.Needs()
+			newNeeds := make([]string, len(originalNeeds))
+			// Rewrite the `needs` of the job to be qualified within the job so they depend upon each other.
+			for i := range originalNeeds {
+				newNeeds[i] = fmt.Sprintf("%s.%s", callerJob.id, originalNeeds[i])
+			}
+			// The outer job of a reusable workflow may have `needs: [a, b, c]`.  Those dependencies are copied into the
+			// inner expanded jobs as well, so that jobs are executed in the expected order.
+			newNeeds = append(newNeeds, callerJob.jobParserJob.Needs()...)
+			if len(newNeeds) != 0 {
+				err = job.RawNeeds.Encode(newNeeds)
+				if err != nil {
+					return nil, fmt.Errorf("error encoding newNeeds to yaml: %w", err)
+				}
+			}
+		} else {
+			newNeeds := job.Needs()
+			// The outer job of a reusable workflow may have `needs: [a, b, c]`.  Those dependencies are copied into the
+			// inner expanded jobs as well, so that jobs are executed in the expected order.  However, all the needs of
+			// the outer job are in a different namespace.  They are converted to an absolute namespace reference,
+			// `__namespace.<ns>.<id>`, Forgejo can resolve it from a different job's namespace.
+			callerNamespace := pc.parentUniqueID
+			for _, n := range callerJob.jobParserJob.Needs() {
+				newNeeds = append(newNeeds, fmt.Sprintf("__namespace.%s.%s", callerNamespace, n))
+			}
+			if len(newNeeds) != 0 {
+				err = job.RawNeeds.Encode(newNeeds)
+				if err != nil {
+					return nil, fmt.Errorf("error encoding newNeeds to yaml: %w", err)
+				}
 			}
 		}
 
+		// If the caller job had an `if:` clause on it, then place it onto the child job as well.  If the child job had
+		// an `if:` clause on it, then we combine the two conditions -- `{parent-if} && {child-if}`.
 		if callerJob.workflowJob.RawIf.Value != "" {
-			// If the caller job had an `if:` clause on it, then place it onto the child job as well.  If the child job
-			// had an `if:` clause on it, then we combine the two conditions -- `{parent-if} && {child-if}`.
-			if job.If.Value != "" {
-				job.If.SetString(joinExprClausesWithAnd(callerJob.workflowJob.IfClause(), workflow.GetJob(id).IfClause()))
+			if pc.enableNamespaces {
+				// Rewrite the parent job's `if` to namespace-qualify references to the names, eg. `needs.x` ->
+				// `needs[format("__namespace.{0}.{1}", "parent-ns", "x")]`
+				parentIfNode, err := cloneNode(&callerJob.workflowJob.RawIf)
+				if err != nil {
+					return nil, fmt.Errorf("unable to clone If node: %w", err)
+				}
+				err = rewriteNamespaceQualifiedNeeds(parentIfNode, callerJob.namespace)
+				if err != nil {
+					return nil, fmt.Errorf("unable to rewrite namespace qualified if: %w", err)
+				}
+				if job.If.Value != "" {
+					parentIf := parentIfNode.Value
+					if parentIf == "" { // mirror behaviour of (*Job).IfClause()
+						parentIf = "success()"
+					}
+					job.If.SetString(joinExprClausesWithAnd(parentIf, workflow.GetJob(id).IfClause()))
+				} else {
+					job.If = *parentIfNode
+				}
 			} else {
-				job.If = callerJob.workflowJob.RawIf
+				// Rewrite the child job's `if` to dot-qualify references to the names, eg. `needs.x` ->
+				// `needs[format("{0}.{1}", "parent", "x")]`
+				if job.If.Value != "" {
+					job.If.SetString(joinExprClausesWithAnd(callerJob.workflowJob.IfClause(), workflow.GetJob(id).IfClause()))
+				} else {
+					job.If = callerJob.workflowJob.RawIf
+				}
 			}
+		}
+
+		jobID := id
+		if !pc.enableNamespaces {
+			jobID = fmt.Sprintf("%s.%s", callerJob.id, id)
 		}
 
 		newEntry := &bothJobTypes{
-			id:               fmt.Sprintf("%s.%s", callerJob.id, id),
+			id:               jobID,
 			jobParserJob:     job,
 			workflowJob:      workflow.GetJob(id),
 			overrideOnClause: &swf.RawOn,
@@ -640,7 +703,9 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 
 		if swf.IncompleteMatrix || swf.IncompleteRunsOn || swf.IncompleteWith {
 			newEntry.internalIncompleteState = swf
-			// if we have a reference to a job stored in the incomplete state, then qualify that job name:
+			// If we have a reference to a job stored in the incomplete state, then qualify that job name.  Namespaces
+			// aren't used here because these job identifiers aren't used for internal dereferencing, but are instead
+			// used to display useful error messages to the user.
 			if swf.IncompleteMatrixNeeds != nil {
 				swf.IncompleteMatrixNeeds.Job = fmt.Sprintf("%s.%s", callerJob.id, swf.IncompleteMatrixNeeds.Job)
 			}
@@ -651,6 +716,11 @@ func expandReusableWorkflow(contents []byte, validate bool, options []ParseOptio
 				swf.IncompleteWithNeeds.Job = fmt.Sprintf("%s.%s", callerJob.id, swf.IncompleteWithNeeds.Job)
 			}
 		}
+
+		if pc.enableNamespaces {
+			newEntry.namespace = newEntry.workflowCallParent
+		}
+
 		retval = append(retval, newEntry)
 	}
 	return retval, nil
@@ -737,25 +807,48 @@ func evaluateReusableWorkflowInputs(workflow *model.Workflow, pc *parseContext, 
 }
 
 // `on.workflow_call.outputs` on the reusable workflow will be converted into an `job.<job_id>.outputs` on the caller job.
-func migrateReusableWorkflowOutputs(workflow *model.Workflow, callerJob *bothJobTypes) error {
-	// Rewrite `jobs.<job-id>....` into `needs[format("{0}.{1}", parent-job-id, job-id)]....`
-	vam := &exprparser.VariableAccessMutator{
-		// "Variable access": Whenever we find `jobs[x]` or `jobs.x`...
-		Variable: "jobs",
-		Rewriter: func(property actionlint.ExprNode) actionlint.ExprNode {
-			// "Mutator": replace it with `needs[format('{0}.{1}', "y", x)]`, where "y" is the caller job's ID.
-			return &actionlint.IndexAccessNode{
-				Operand: &actionlint.VariableNode{Name: "needs"},
-				Index: &actionlint.FuncCallNode{
-					Callee: "format",
-					Args: []actionlint.ExprNode{
-						&actionlint.StringNode{Value: "{0}.{1}"},
-						&actionlint.StringNode{Value: callerJob.id},
-						property,
+func migrateReusableWorkflowOutputs(workflow *model.Workflow, callerJob *bothJobTypes, enableNamespaces bool) error {
+	var vam *exprparser.VariableAccessMutator
+	if enableNamespaces {
+		// Rewrite `jobs.<job-id>....` into `needs[format("__namespace.{0}.{1}", workflow-namespace, job-id)]....`
+		vam = &exprparser.VariableAccessMutator{
+			// "Variable access": Whenever we find `jobs[x]` or `jobs.x`...
+			Variable: "jobs",
+			Rewriter: func(property actionlint.ExprNode) actionlint.ExprNode {
+				// "Mutator": replace it with `needs[format('__namespace.{0}.{1}', "y", x)]`, where "y" is caller's namespace.
+				return &actionlint.IndexAccessNode{
+					Operand: &actionlint.VariableNode{Name: "needs"},
+					Index: &actionlint.FuncCallNode{
+						Callee: "format",
+						Args: []actionlint.ExprNode{
+							&actionlint.StringNode{Value: "__namespace.{0}.{1}"},
+							&actionlint.StringNode{Value: callerJob.workflowCallID},
+							property,
+						},
 					},
-				},
-			}
-		},
+				}
+			},
+		}
+	} else {
+		// Rewrite `jobs.<job-id>....` into `needs[format("{0}.{1}", parent-job-id, job-id)]....`
+		vam = &exprparser.VariableAccessMutator{
+			// "Variable access": Whenever we find `jobs[x]` or `jobs.x`...
+			Variable: "jobs",
+			Rewriter: func(property actionlint.ExprNode) actionlint.ExprNode {
+				// "Mutator": replace it with `needs[format('{0}.{1}', "y", x)]`, where "y" is the caller job's ID.
+				return &actionlint.IndexAccessNode{
+					Operand: &actionlint.VariableNode{Name: "needs"},
+					Index: &actionlint.FuncCallNode{
+						Callee: "format",
+						Args: []actionlint.ExprNode{
+							&actionlint.StringNode{Value: "{0}.{1}"},
+							&actionlint.StringNode{Value: callerJob.id},
+							property,
+						},
+					},
+				}
+			},
+		}
 	}
 
 	workflowConfig := workflow.WorkflowCallConfig()
@@ -794,6 +887,73 @@ func rewriteReusableWorkflowNeeds(job *yaml.Node, prefix string) error {
 		},
 	}
 	return exprparser.MutateYamlNode(job, vam)
+}
+
+func rewriteNamespaceQualifiedNeeds(ifClause *yaml.Node, namespace string) error {
+	// Expected input is a scalar yaml.Node representing the *value* of the `if` clause.  However, `if: ...` doesn't
+	// need to have expressions with `${{...}}` in it, the entire structure is implemented as a condition.  If we pass
+	// the scalar value to `MutateYamlNode` it won't recognize that this is an `if` value, so it won't handle that case
+	// correctly.  To fix this, we wrap it in a mapping node, and then unwrap it.
+	mappingNode := yaml.Node{
+		Kind: yaml.MappingNode,
+		Content: []*yaml.Node{
+			{
+				Kind:  yaml.ScalarNode,
+				Value: "if",
+			},
+			ifClause,
+		},
+	}
+
+	// Rewrite `needs.<job-id>....` into accessing `<job-id>` as a fully qualified name.  Because `<job-id>` can be an
+	// expression (`needs[x]`), and it may already be a fully-qualified name (if we're two-levels deep in a nested
+	// reusable workflow and evaluating a condition from the root workflow), we need to check if the expression is
+	// already fully-qualified.  If so, use it.  Otherwise, qualify it with the passed-in expression.
+	vam := &exprparser.VariableAccessMutator{
+		// "Variable access": Whenever we find `needs[x]` or `needs.x`...
+		Variable: "needs",
+		Rewriter: func(property actionlint.ExprNode) actionlint.ExprNode {
+			// "Mutator": replace it with `needs[...]`...
+
+			// Target job name that is fully-qualified; `__namespace.{namespace}.{...}`
+			qualifiedProperty := &actionlint.FuncCallNode{
+				Callee: "format",
+				Args: []actionlint.ExprNode{
+					&actionlint.StringNode{Value: "__namespace.{0}.{1}"},
+					&actionlint.StringNode{Value: namespace},
+					property,
+				},
+			}
+
+			// startsWith(..., "__namespace")
+			condAlreadyQualified := &actionlint.FuncCallNode{
+				Callee: "startsWith",
+				Args: []actionlint.ExprNode{
+					property,
+					&actionlint.StringNode{Value: "__namespace."},
+				},
+			}
+
+			// case(startsWith(..., "__namespace"), ..., full-qualified)
+			caseFunc := &actionlint.FuncCallNode{
+				Callee: "case",
+				Args: []actionlint.ExprNode{
+					condAlreadyQualified,
+					property,
+					qualifiedProperty,
+				},
+			}
+
+			// Rewrite to needs[case(...)].
+			return &actionlint.IndexAccessNode{
+				Operand: &actionlint.VariableNode{Name: "needs"},
+				Index:   caseFunc,
+			}
+		},
+	}
+
+	// Original ifClause is modified in-place.
+	return exprparser.MutateYamlNode(&mappingNode, vam)
 }
 
 func WithJobResults(results map[string]string) ParseOption {
@@ -888,6 +1048,21 @@ func ExpandExternalReusableWorkflows(externalWorkflowFetcher ExternalWorkflowFet
 	}
 }
 
+// Enables namespaces for reusable workflow jobs.  When a reusable workflow is expanded, the original implementation
+// changed internal names of jobs to qualify them with the parent's job name -- eg. `outer.inner-1`, `outer.inner-2`.
+// This causes issues with matrix outer jobs as the inner jobs' IDs will be duplicated.
+//
+// By enabling namespaces, this name rewriting will be disabled, and instead additional metadata on unique namespaces
+// will be returned for each job. The consumer (Forgejo) must then treat every job ID as a combination of its namespace,
+// and it's ID.  The consumer must also be aware that jobs will have `needs` that include the form of
+// `__namespace.%s.%s`, with a namespace and a job ID, which will need to be parsed and treated as specific jobs in that
+// namespace.
+func EnableNamespaces() ParseOption {
+	return func(c *parseContext) {
+		c.enableNamespaces = true
+	}
+}
+
 func withRecursionDepth(depth int) ParseOption {
 	return func(c *parseContext) {
 		c.recursionDepth = depth
@@ -919,6 +1094,7 @@ type parseContext struct {
 	externalWorkflowFetcher ExternalWorkflowFetcher
 	recursionDepth          int
 	parentUniqueID          string
+	enableNamespaces        bool
 }
 
 type ParseOption func(c *parseContext)

@@ -1,0 +1,293 @@
+name: test
+jobs:
+  prereq:
+    name: prereq
+    runs-on: linux
+    steps:
+      - run: uname -a
+---
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1 (amd64)
+    needs:
+      - prereq
+      - __namespace.5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2.reusable-1-prereq
+      - __namespace.5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2.reusable-2
+      - __namespace.5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2.reusable-2
+      - __namespace.68b3596bf6d758fbd8d6f0913a14589685b9dc1393398aa9e81f547fc583a254.build
+      - __namespace.dc6d5d9f0037e662e3ed405f9efc27d64f353567b4acb92c7226aa5766711c5b.build
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        platform:
+          - amd64
+__metadata:
+  workflow_call_inputs:
+    platform: amd64
+  workflow_call_id: 5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2
+---
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1 (arm64)
+    needs:
+      - prereq
+      - __namespace.019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796.reusable-1-prereq
+      - __namespace.019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796.reusable-2
+      - __namespace.019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796.reusable-2
+      - __namespace.93210dca02eafaf45c93289378011c73e37d1fcd4ff6d60be02f9cb8b458a8f6.build
+      - __namespace.408c9494d9e0e612924ee524b18cbb51afb61dc923d023a4636fbda2cf394ac6.build
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        platform:
+          - arm64
+__metadata:
+  workflow_call_inputs:
+    platform: arm64
+  workflow_call_id: 019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      platform:
+        default: amd64
+        type: string
+jobs:
+  reusable-1-prereq:
+    name: reusable-1-prereq
+    needs:
+      - __namespace..prereq
+    runs-on: linux
+    steps:
+      - run: uname -a
+__metadata:
+  workflow_call_parent: 5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2
+  namespace: 5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      platform:
+        default: amd64
+        type: string
+jobs:
+  reusable-2:
+    name: reusable-2 (debian)
+    needs:
+      - reusable-1-prereq
+      - __namespace.68b3596bf6d758fbd8d6f0913a14589685b9dc1393398aa9e81f547fc583a254.build
+      - __namespace..prereq
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - debian
+__metadata:
+  workflow_call_inputs:
+    os: debian
+    platform: amd64
+  workflow_call_id: 68b3596bf6d758fbd8d6f0913a14589685b9dc1393398aa9e81f547fc583a254
+  workflow_call_parent: 5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2
+  namespace: 5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      platform:
+        default: amd64
+        type: string
+jobs:
+  reusable-2:
+    name: reusable-2 (nixos)
+    needs:
+      - reusable-1-prereq
+      - __namespace.dc6d5d9f0037e662e3ed405f9efc27d64f353567b4acb92c7226aa5766711c5b.build
+      - __namespace..prereq
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - nixos
+__metadata:
+  workflow_call_inputs:
+    os: nixos
+    platform: amd64
+  workflow_call_id: dc6d5d9f0037e662e3ed405f9efc27d64f353567b4acb92c7226aa5766711c5b
+  workflow_call_parent: 5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2
+  namespace: 5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      os:
+        default: debian
+        type: string
+      platform:
+        default: amd64
+        type: string
+jobs:
+  build:
+    name: build
+    needs:
+      - __namespace.5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2.reusable-1-prereq
+      - __namespace..prereq
+    runs-on: linux
+    steps:
+      - run: echo ${{ inputs.os }} on ${{ inputs.platform }}
+__metadata:
+  workflow_call_parent: 68b3596bf6d758fbd8d6f0913a14589685b9dc1393398aa9e81f547fc583a254
+  namespace: 68b3596bf6d758fbd8d6f0913a14589685b9dc1393398aa9e81f547fc583a254
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      os:
+        default: nixos
+        type: string
+      platform:
+        default: amd64
+        type: string
+jobs:
+  build:
+    name: build
+    needs:
+      - __namespace.5211c45cff1498babd5f2909dd321b99c36dc23da3c9c7b0571f9bee65d7cec2.reusable-1-prereq
+      - __namespace..prereq
+    runs-on: linux
+    steps:
+      - run: echo ${{ inputs.os }} on ${{ inputs.platform }}
+__metadata:
+  workflow_call_parent: dc6d5d9f0037e662e3ed405f9efc27d64f353567b4acb92c7226aa5766711c5b
+  namespace: dc6d5d9f0037e662e3ed405f9efc27d64f353567b4acb92c7226aa5766711c5b
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      platform:
+        default: arm64
+        type: string
+jobs:
+  reusable-1-prereq:
+    name: reusable-1-prereq
+    needs:
+      - __namespace..prereq
+    runs-on: linux
+    steps:
+      - run: uname -a
+__metadata:
+  workflow_call_parent: 019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796
+  namespace: 019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      platform:
+        default: arm64
+        type: string
+jobs:
+  reusable-2:
+    name: reusable-2 (debian)
+    needs:
+      - reusable-1-prereq
+      - __namespace.93210dca02eafaf45c93289378011c73e37d1fcd4ff6d60be02f9cb8b458a8f6.build
+      - __namespace..prereq
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - debian
+__metadata:
+  workflow_call_inputs:
+    os: debian
+    platform: arm64
+  workflow_call_id: 93210dca02eafaf45c93289378011c73e37d1fcd4ff6d60be02f9cb8b458a8f6
+  workflow_call_parent: 019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796
+  namespace: 019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      platform:
+        default: arm64
+        type: string
+jobs:
+  reusable-2:
+    name: reusable-2 (nixos)
+    needs:
+      - reusable-1-prereq
+      - __namespace.408c9494d9e0e612924ee524b18cbb51afb61dc923d023a4636fbda2cf394ac6.build
+      - __namespace..prereq
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - nixos
+__metadata:
+  workflow_call_inputs:
+    os: nixos
+    platform: arm64
+  workflow_call_id: 408c9494d9e0e612924ee524b18cbb51afb61dc923d023a4636fbda2cf394ac6
+  workflow_call_parent: 019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796
+  namespace: 019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      os:
+        default: debian
+        type: string
+      platform:
+        default: arm64
+        type: string
+jobs:
+  build:
+    name: build
+    needs:
+      - __namespace.019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796.reusable-1-prereq
+      - __namespace..prereq
+    runs-on: linux
+    steps:
+      - run: echo ${{ inputs.os }} on ${{ inputs.platform }}
+__metadata:
+  workflow_call_parent: 93210dca02eafaf45c93289378011c73e37d1fcd4ff6d60be02f9cb8b458a8f6
+  namespace: 93210dca02eafaf45c93289378011c73e37d1fcd4ff6d60be02f9cb8b458a8f6
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      os:
+        default: nixos
+        type: string
+      platform:
+        default: arm64
+        type: string
+jobs:
+  build:
+    name: build
+    needs:
+      - __namespace.019aa475834f158a1ac7e0ce153afb23c80d8a88d67323dc4c50f2050331e796.reusable-1-prereq
+      - __namespace..prereq
+    runs-on: linux
+    steps:
+      - run: echo ${{ inputs.os }} on ${{ inputs.platform }}
+__metadata:
+  workflow_call_parent: 408c9494d9e0e612924ee524b18cbb51afb61dc923d023a4636fbda2cf394ac6
+  namespace: 408c9494d9e0e612924ee524b18cbb51afb61dc923d023a4636fbda2cf394ac6

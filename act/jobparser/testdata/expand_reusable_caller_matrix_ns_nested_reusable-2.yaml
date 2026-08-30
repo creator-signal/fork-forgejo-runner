@@ -1,0 +1,14 @@
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+      platform:
+        type: string
+
+name: test
+jobs:
+  build:
+    runs-on: linux
+    steps:
+      - run: echo ${{ inputs.os }} on ${{ inputs.platform }}

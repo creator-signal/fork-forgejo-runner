@@ -1,0 +1,9 @@
+name: test
+jobs:
+  reusable-1:
+    if: forgejo.ref == 'refs/heads/main'
+    uses: ./.forgejo/workflows/expand_reusable_caller_if_reusable.yaml
+  reusable-2:
+    needs: [reusable-1]
+    if: needs.reusable-1.result == 'success'
+    uses: ./.forgejo/workflows/expand_reusable_caller_if_reusable.yaml

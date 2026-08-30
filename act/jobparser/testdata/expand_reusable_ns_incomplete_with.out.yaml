@@ -1,0 +1,113 @@
+"on":
+  workflow_call:
+    inputs:
+      input1:
+        default: top-level-input1
+        type: string
+      input3:
+        default: dynamic output
+        type: string
+jobs:
+  layer-2:
+    name: layer-2
+    needs:
+      - __namespace.5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520.callee-3
+      - __namespace.5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520.callee-4
+    runs-on: []
+    if: false
+    outputs:
+      output3: ${{ needs[format('__namespace.{0}.{1}', '5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520', 'callee-3')].outputs.job-output }}
+      output4: ${{ needs[format('__namespace.{0}.{1}', '5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520', 'callee-4')].outputs.job-output }}
+    secrets: inherit
+__metadata:
+  workflow_call_inputs:
+    input1: top-level-input1
+    input2: mid-level-input2
+    input3: dynamic output
+    input4: some-value
+  workflow_call_id: 5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520
+  workflow_call_parent: 8d0756ede5312cb4dcded7cd103210fba349c6504bd40641a3e3dc656319ad9a
+  namespace: 8d0756ede5312cb4dcded7cd103210fba349c6504bd40641a3e3dc656319ad9a
+---
+"on":
+  workflow_call:
+    inputs:
+      input1:
+        default: top-level-input1
+        type: string
+      input2:
+        default: mid-level-input2
+        type: string
+      input3:
+        default: dynamic output
+        type: string
+      input4:
+        default: some-value
+        type: string
+jobs:
+  callee-3:
+    name: callee-3
+    runs-on: docker
+    steps:
+      - name: verify workflow inputs
+        run: |
+          set -x
+          test "top-level-input1" = "${{ inputs.input1 }}"
+          test "mid-level-input2" = "${{ inputs.input2 }}"
+          test "dynamic output" = "${{ inputs.input3 }}"
+          test "callee-1-output" = "${{ inputs.input4 }}"
+      - name: verify workflow secrets inherited
+        run: |
+          set -x
+          test "AAAA" = "${{ secrets.secret1 }}"
+          test "BBBB1234" = "${{ secrets.secret2 }}"
+          test "" = "${{ secrets.secret3 }}" # wasn't specified to the workflow, should be absent
+      - name: indicate callee-3 hit
+        run: touch /srv/example/callee-3
+    container:
+      image: data.forgejo.org/oci/node:22-trixie
+      volumes:
+        - srv-example:/srv/example
+    outputs:
+      job-output: callee-3-output
+__metadata:
+  workflow_call_parent: 5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520
+  namespace: 5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520
+---
+"on":
+  workflow_call:
+    inputs:
+      input1:
+        default: top-level-input1
+        type: string
+      input2:
+        default: mid-level-input2
+        type: string
+      input3:
+        default: dynamic output
+        type: string
+      input4:
+        default: some-value
+        type: string
+jobs:
+  callee-4:
+    name: callee-4
+    needs:
+      - callee-3
+    runs-on: docker
+    steps:
+      - name: verify callee-3 completed
+        run: |
+          set -x
+          test -f /srv/example/callee-3
+      - name: indicate callee-4 hit
+        run: touch /srv/example/callee-4
+    container:
+      image: data.forgejo.org/oci/node:22-trixie
+      volumes:
+        - srv-example:/srv/example
+    outputs:
+      job-output: callee-4-output
+__metadata:
+  workflow_call_parent: 5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520
+  namespace: 5490b7dfcb1ced41b34e861a451ddc3365e9fc91ab376d79a8cfe5ab69408520

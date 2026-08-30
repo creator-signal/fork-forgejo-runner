@@ -1,0 +1,21 @@
+on:
+  workflow_call:
+    inputs:
+      platform:
+        type: string
+
+name: test
+jobs:
+  reusable-1-prereq:
+    runs-on: linux
+    steps:
+      - run: uname -a
+  reusable-2:
+    needs: [reusable-1-prereq]
+    strategy:
+      matrix:
+        os: [debian, nixos]
+    uses: ./.forgejo/workflows/expand_reusable_caller_matrix_ns_nested_reusable-2.yml
+    with:
+      os: ${{ matrix.os }}
+      platform: ${{ inputs.platform }}

@@ -324,6 +324,20 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
+			name:                           "expand_reusable_ns_outputs",
+			expectingInvalidWorkflowOutput: true,
+			options: []ParseOption{
+				EnableNamespaces(),
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_ns_outputs_reusable-1.yml" {
+						content := ReadTestdata(t, "expand_reusable_ns_outputs_reusable-1.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
+		{
 			name:                           "expand_reusable_crossreferences",
 			expectingInvalidWorkflowOutput: true,
 			options: []ParseOption{
@@ -343,6 +357,37 @@ func TestParse(t *testing.T) {
 				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
 					if path == "./.forgejo/workflows/expand_reusable_caller_matrix_reusable-1.yml" {
 						content := ReadTestdata(t, "expand_reusable_caller_matrix_reusable-1.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
+		{
+			name:                           "expand_reusable_caller_matrix_ns",
+			expectingInvalidWorkflowOutput: true,
+			options: []ParseOption{
+				EnableNamespaces(),
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_caller_matrix_ns_reusable-1.yml" {
+						content := ReadTestdata(t, "expand_reusable_caller_matrix_ns_reusable-1.yaml", true)
+						return content, nil
+					}
+					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
+		{
+			name:                           "expand_reusable_caller_matrix_ns_nested",
+			expectingInvalidWorkflowOutput: true,
+			options: []ParseOption{
+				EnableNamespaces(),
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+					if path == "./.forgejo/workflows/expand_reusable_caller_matrix_ns_nested_reusable-1.yml" {
+						content := ReadTestdata(t, "expand_reusable_caller_matrix_ns_nested_reusable-1.yaml", true)
+						return content, nil
+					} else if path == "./.forgejo/workflows/expand_reusable_caller_matrix_ns_nested_reusable-2.yml" {
+						content := ReadTestdata(t, "expand_reusable_caller_matrix_ns_nested_reusable-2.yaml", true)
 						return content, nil
 					}
 					return nil, fmt.Errorf("unexpected local path: %q", path)
@@ -544,6 +589,17 @@ func TestParse(t *testing.T) {
 			},
 		},
 		{
+			name: "expand_reusable_ns_caller_if",
+			options: []ParseOption{
+				EnableNamespaces(),
+				WithGitContext(&model.GithubContext{Ref: "refs/heads/not-main"}),
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+					content := ReadTestdata(t, "expand_reusable_ns_caller_if_reusable.yaml", true)
+					return content, nil
+				}),
+			},
+		},
+		{
 			name: "expand_reusable_with_from_matrix",
 			options: []ParseOption{
 				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
@@ -552,6 +608,23 @@ func TestParse(t *testing.T) {
 						return content, nil
 					}
 					return nil, fmt.Errorf("unexpected local path: %q", path)
+				}),
+			},
+		},
+		{
+			name:                           "expand_reusable_ns_incomplete_with",
+			reparsingSingleWorkflow:        true,
+			expectingInvalidWorkflowOutput: true,
+			options: []ParseOption{
+				EnableNamespaces(),
+				WithWorkflowNeeds([]string{"callee-1"}),
+				WithJobOutputs(map[string]map[string]string{
+					"callee-1": {"job-output": "some-value"},
+				}),
+				WithGitContext(&model.GithubContext{Ref: "refs/heads/not-main"}),
+				ExpandLocalReusableWorkflows(func(job *Job, path string) ([]byte, error) {
+					content := ReadTestdata(t, "expand_reusable_ns_incomplete_with-reusable.yaml", true)
+					return content, nil
 				}),
 			},
 		},

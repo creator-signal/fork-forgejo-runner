@@ -1,0 +1,112 @@
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1
+    needs:
+      - __namespace.b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed.job1
+      - __namespace.b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed.job2
+      - __namespace.b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed.job3
+    runs-on: []
+    if: false
+__metadata:
+  workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+jobs:
+  reusable-2:
+    name: reusable-2
+    needs:
+      - reusable-1
+      - __namespace.1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f.job1
+      - __namespace.1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f.job2
+      - __namespace.1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f.job3
+    runs-on: []
+    if: false
+__metadata:
+  workflow_call_id: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+---
+name: test
+jobs:
+  job1:
+    name: job1
+    runs-on: linux
+    if: ${{ forgejo.ref == 'refs/heads/main' }}
+    steps:
+      - run: uname -a
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+  namespace: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+jobs:
+  job2:
+    name: job2
+    needs:
+      - job1
+    runs-on: linux
+    if: ${{ (forgejo.ref == 'refs/heads/main') && (needs.job1.result == 'success') }}
+    steps:
+      - run: uname -a
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+  namespace: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+jobs:
+  job3:
+    name: job3
+    needs:
+      - job1
+      - job2
+    runs-on: linux
+    if: ${{ (forgejo.ref == 'refs/heads/main') && (needs.job1.result == 'success') }}
+    steps:
+      - run: uname -a
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+  namespace: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+jobs:
+  job1:
+    name: job1
+    needs:
+      - __namespace..reusable-1
+    runs-on: linux
+    if: ${{ needs[case(startsWith('reusable-1', '__namespace.'), 'reusable-1', format('__namespace.{0}.{1}', '', 'reusable-1'))].result == 'success' }}
+    steps:
+      - run: uname -a
+__metadata:
+  workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+  namespace: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+---
+name: test
+jobs:
+  job2:
+    name: job2
+    needs:
+      - job1
+      - __namespace..reusable-1
+    runs-on: linux
+    if: ${{ (needs[case(startsWith('reusable-1', '__namespace.'), 'reusable-1', format('__namespace.{0}.{1}', '', 'reusable-1'))].result == 'success') && (needs.job1.result == 'success') }}
+    steps:
+      - run: uname -a
+__metadata:
+  workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+  namespace: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+---
+name: test
+jobs:
+  job3:
+    name: job3
+    needs:
+      - job1
+      - job2
+      - __namespace..reusable-1
+    runs-on: linux
+    if: ${{ (needs[case(startsWith('reusable-1', '__namespace.'), 'reusable-1', format('__namespace.{0}.{1}', '', 'reusable-1'))].result == 'success') && (needs.job1.result == 'success') }}
+    steps:
+      - run: uname -a
+__metadata:
+  workflow_call_parent: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f
+  namespace: 1976193ec4c48a92ba58816b34116272f5b3a612b91494956e5b53ee70b8714f

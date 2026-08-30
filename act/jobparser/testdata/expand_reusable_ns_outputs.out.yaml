@@ -1,0 +1,45 @@
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1
+    needs:
+      - __namespace.b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed.job1
+      - __namespace.b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed.job2
+    runs-on: []
+    if: false
+    outputs:
+      workflow_output_1: ${{ needs[format('__namespace.{0}.{1}', 'b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed', 'job1')].outputs.job1output }}
+      workflow_output_2: ${{ toJSON(needs[format('__namespace.{0}.{1}', 'b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed', 'job2')].outputs) }}
+__metadata:
+  workflow_call_id: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+jobs:
+  finalize:
+    name: finalize
+    needs: [reusable-1]
+    runs-on: ubuntu
+    steps:
+      - run: echo ${{ needs.reusable-1.outputs.output-1 }}
+---
+name: test
+jobs:
+  job1:
+    name: job1
+    runs-on: linux
+    outputs:
+      job1output: Hello, world!
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+  namespace: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+---
+name: test
+jobs:
+  job2:
+    name: job2
+    runs-on: linux
+    outputs:
+      job2output: Hello, world!
+__metadata:
+  workflow_call_parent: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed
+  namespace: b5a9f46f1f2513d7777fde50b169d323a6519e349cc175484c947ac315a209ed

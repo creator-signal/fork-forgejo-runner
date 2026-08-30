@@ -1,0 +1,20 @@
+on:
+  workflow_call:
+    outputs:
+      workflow_output_1:
+        description: Output from job 1
+        value: ${{ jobs.job1.outputs.job1output }}
+      workflow_output_2:
+        description: All outputs from job 2
+        value: ${{ toJSON(jobs.job2.outputs) }}
+
+name: test
+jobs:
+  job1:
+    runs-on: linux
+    outputs:
+      job1output: "Hello, world!"
+  job2:
+    runs-on: linux
+    outputs:
+      job2output: "Hello, world!"

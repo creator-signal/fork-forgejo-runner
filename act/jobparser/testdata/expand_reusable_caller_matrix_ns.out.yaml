@@ -1,0 +1,187 @@
+name: test
+jobs:
+  prereq:
+    name: prereq
+    runs-on: linux
+    steps:
+      - run: uname -a
+---
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1 (debian, amd64)
+    needs:
+      - prereq
+      - __namespace.2ff7609456cf32dba7ace02d495fec228c2d4009352ec3af0094cea13f6ce7a2.job1
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - debian
+        platform:
+          - amd64
+__metadata:
+  workflow_call_inputs:
+    os: debian
+    platform: amd64
+  workflow_call_id: 2ff7609456cf32dba7ace02d495fec228c2d4009352ec3af0094cea13f6ce7a2
+---
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1 (debian, arm64)
+    needs:
+      - prereq
+      - __namespace.f8144d31aebcf8aae6a4476ab967dc506309b897d29caf758463214113aa4ad6.job1
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - debian
+        platform:
+          - arm64
+__metadata:
+  workflow_call_inputs:
+    os: debian
+    platform: arm64
+  workflow_call_id: f8144d31aebcf8aae6a4476ab967dc506309b897d29caf758463214113aa4ad6
+---
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1 (nixos, amd64)
+    needs:
+      - prereq
+      - __namespace.eda890db8075d46fbeb1ff77ca529b3f99dd7ac24b5daba6cf4594a74315a58a.job1
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - nixos
+        platform:
+          - amd64
+__metadata:
+  workflow_call_inputs:
+    os: nixos
+    platform: amd64
+  workflow_call_id: eda890db8075d46fbeb1ff77ca529b3f99dd7ac24b5daba6cf4594a74315a58a
+---
+name: test
+jobs:
+  reusable-1:
+    name: reusable-1 (nixos, arm64)
+    needs:
+      - prereq
+      - __namespace.5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673.job1
+    runs-on: []
+    if: false
+    strategy:
+      matrix:
+        os:
+          - nixos
+        platform:
+          - arm64
+__metadata:
+  workflow_call_inputs:
+    os: nixos
+    platform: arm64
+  workflow_call_id: 5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      os:
+        default: debian
+        type: string
+      platform:
+        default: amd64
+        type: string
+jobs:
+  job1:
+    name: job1
+    needs:
+      - __namespace..prereq
+    runs-on: ubuntu
+    steps:
+      - run: |
+          echo os=${{ inputs.os }}
+          echo platform=${{ inputs.platform }}
+__metadata:
+  workflow_call_parent: 2ff7609456cf32dba7ace02d495fec228c2d4009352ec3af0094cea13f6ce7a2
+  namespace: 2ff7609456cf32dba7ace02d495fec228c2d4009352ec3af0094cea13f6ce7a2
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      os:
+        default: debian
+        type: string
+      platform:
+        default: arm64
+        type: string
+jobs:
+  job1:
+    name: job1
+    needs:
+      - __namespace..prereq
+    runs-on: ubuntu
+    steps:
+      - run: |
+          echo os=${{ inputs.os }}
+          echo platform=${{ inputs.platform }}
+__metadata:
+  workflow_call_parent: f8144d31aebcf8aae6a4476ab967dc506309b897d29caf758463214113aa4ad6
+  namespace: f8144d31aebcf8aae6a4476ab967dc506309b897d29caf758463214113aa4ad6
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      os:
+        default: nixos
+        type: string
+      platform:
+        default: amd64
+        type: string
+jobs:
+  job1:
+    name: job1
+    needs:
+      - __namespace..prereq
+    runs-on: ubuntu
+    steps:
+      - run: |
+          echo os=${{ inputs.os }}
+          echo platform=${{ inputs.platform }}
+__metadata:
+  workflow_call_parent: eda890db8075d46fbeb1ff77ca529b3f99dd7ac24b5daba6cf4594a74315a58a
+  namespace: eda890db8075d46fbeb1ff77ca529b3f99dd7ac24b5daba6cf4594a74315a58a
+---
+name: test
+"on":
+  workflow_call:
+    inputs:
+      os:
+        default: nixos
+        type: string
+      platform:
+        default: arm64
+        type: string
+jobs:
+  job1:
+    name: job1
+    needs:
+      - __namespace..prereq
+    runs-on: ubuntu
+    steps:
+      - run: |
+          echo os=${{ inputs.os }}
+          echo platform=${{ inputs.platform }}
+__metadata:
+  workflow_call_parent: 5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673
+  namespace: 5f20e1c09048608cf912fe621259da8912c9f9779506d145f05b0669f3119673

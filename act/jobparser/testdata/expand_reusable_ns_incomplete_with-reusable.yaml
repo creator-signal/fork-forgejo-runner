@@ -1,0 +1,63 @@
+on:
+  workflow_call:
+    inputs:
+      input1:
+        required: true
+        type: string
+      input2:
+        required: true
+        type: string
+      input3:
+        required: true
+        type: string
+      input4:
+        required: true
+        type: string
+    outputs:
+      output3:
+        value: ${{ jobs.callee-3.outputs.job-output }}
+      output4:
+        value: ${{ jobs.callee-4.outputs.job-output }}
+
+jobs:
+  callee-3:
+    runs-on: docker
+    outputs:
+      job-output: callee-3-output
+    container:
+      image: data.forgejo.org/oci/node:22-trixie
+      volumes:
+        - srv-example:/srv/example
+    steps:
+      - name: verify workflow inputs
+        run: |
+          set -x
+          test "top-level-input1" = "${{ inputs.input1 }}"
+          test "mid-level-input2" = "${{ inputs.input2 }}"
+          test "dynamic output" = "${{ inputs.input3 }}"
+          test "callee-1-output" = "${{ inputs.input4 }}"
+      - name: verify workflow secrets inherited
+        run: |
+          set -x
+          test "AAAA" = "${{ secrets.secret1 }}"
+          test "BBBB1234" = "${{ secrets.secret2 }}"
+          test "" = "${{ secrets.secret3 }}" # wasn't specified to the workflow, should be absent
+      - name: indicate callee-3 hit
+        run: touch /srv/example/callee-3
+
+  callee-4:
+    needs: callee-3
+    runs-on: docker
+    outputs:
+      job-output: callee-4-output
+    container:
+      image: data.forgejo.org/oci/node:22-trixie
+      volumes:
+        - srv-example:/srv/example
+    steps:
+      - name: verify callee-3 completed
+        run: |
+          set -x
+          test -f /srv/example/callee-3
+      - name: indicate callee-4 hit
+        run: touch /srv/example/callee-4

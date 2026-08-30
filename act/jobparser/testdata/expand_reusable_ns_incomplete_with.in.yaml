@@ -1,0 +1,28 @@
+"on":
+    workflow_call:
+        inputs:
+            input1:
+                default: top-level-input1
+                type: string
+            input3:
+                default: dynamic output
+                type: string
+jobs:
+    layer-2:
+        name: layer-2
+        runs-on: []
+        uses: ./.forgejo/workflows/expand_reusable_ns_incomplete_with-reusable.yml
+        with:
+            input1: ${{ inputs.input1 }}
+            input2: mid-level-input2
+            input3: ${{ inputs.input3 }}
+            input4: ${{ needs.callee-1.outputs.job-output }}
+        secrets: inherit
+incomplete_with: true
+incomplete_with_needs:
+    job: layer-1.callee-1
+__metadata:
+    incomplete_recursion_depth: 1
+    workflow_call_id: b5ceaa0c4d60c3d245cac8436ed1198ff75c2bcb1dc5c85c3c8a123bf6f79b3e
+    workflow_call_parent: 8d0756ede5312cb4dcded7cd103210fba349c6504bd40641a3e3dc656319ad9a
+    namespace: 8d0756ede5312cb4dcded7cd103210fba349c6504bd40641a3e3dc656319ad9a
