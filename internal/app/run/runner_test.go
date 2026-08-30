@@ -149,6 +149,10 @@ func (m *forgejoClientMock) UpdateTask(ctx context.Context, request *connect.Req
 	return args.Get(0).(*connect.Response[runnerv1.UpdateTaskResponse]), args.Error(1)
 }
 
+func (m *forgejoClientMock) UpdateStepSummary(ctx context.Context, request *connect.Request[runnerv1.UpdateStepSummaryRequest]) (*connect.Response[runnerv1.UpdateStepSummaryResponse], error) {
+	return nil, errors.New("not implemented")
+}
+
 func rowsToString(rows []*runnerv1.LogRow) string {
 	s := ""
 	for _, row := range rows {
