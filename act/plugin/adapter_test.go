@@ -53,23 +53,23 @@ type mockPluginServer struct {
 
 func (s *mockPluginServer) Capabilities(_ context.Context, _ *pluginv1alpha.CapabilitiesRequest) (*pluginv1alpha.CapabilitiesResponse, error) {
 	return &pluginv1alpha.CapabilitiesResponse{
-		Name:                "test-backend",
-		PathVariableName:    proto.String("PATH"),
-		DefaultPathVariable: proto.String("/usr/bin:/bin"),
-		PathSeparator:       proto.String(":"),
-		Os:                  "Linux",
-		Arch:                "x86_64",
+		Name: "test-backend",
 	}, nil
 }
 
 func (s *mockPluginServer) Create(_ context.Context, req *pluginv1alpha.CreateRequest) (*pluginv1alpha.CreateResponse, error) {
 	s.createReq = req
 	return &pluginv1alpha.CreateResponse{
-		EnvironmentId: "test-env-123",
-		RootPath:      "/test/root",
-		ActPath:       "/test/root/act",
-		ToolCachePath: "/test/root/toolcache",
-		TempPath:      "/tmp",
+		EnvironmentId:       "test-env-123",
+		RootPath:            "/test/root",
+		ActPath:             "/test/root/act",
+		ToolCachePath:       "/test/root/toolcache",
+		TempPath:            "/tmp",
+		PathVariableName:    proto.String("PATH"),
+		DefaultPathVariable: proto.String("/usr/bin:/bin"),
+		PathSeparator:       proto.String(":"),
+		Os:                  "Linux",
+		Arch:                "x86_64",
 	}, nil
 }
 
@@ -243,27 +243,75 @@ func TestPluginEnvironment_Capabilities(t *testing.T) {
 	assert.Equal(t, "test-backend", env.GetName())
 	assert.False(t, env.SupportsDockerContainerActions())
 	assert.True(t, env.ManagesOwnNetworking())
-	assert.False(t, env.IsEnvironmentCaseInsensitive())
-	assert.Equal(t, "PATH", env.GetPathVariableName())
-	assert.Equal(t, "/usr/bin:/bin", env.DefaultPathVariable())
-	assert.Equal(t, "/a:/b", env.JoinPathVariable("/a", "/b"))
 	assert.Equal(t, "/some/path", env.ToContainerPath("/some/path"))
 }
 
-func TestPluginEnvironment_CapabilitiesDefaults(t *testing.T) {
+func TestPluginEnvironment_StateAccessBeforeStart(t *testing.T) {
+	_, conn := startMockServer(t)
+	env := newTestEnv(t, conn)
+
+	assert.Panics(t, func() { env.GetRoot() })
+	assert.Panics(t, func() { env.GetActPath() })
+	assert.Panics(t, func() { env.GetPathVariableName() })
+	assert.Panics(t, func() { env.DefaultPathVariable() })
+	assert.Panics(t, func() { env.JoinPathVariable("/a", "/b") })
+	assert.Panics(t, func() { env.IsEnvironmentCaseInsensitive() })
+	assert.Panics(t, func() { env.GetRunnerContext(t.Context()) })
+}
+
+func TestPluginEnvironment_StateDefaults(t *testing.T) {
 	_, conn := startMockServer(t)
 	rpc := pluginv1alpha.NewBackendPluginClient(conn)
 	env := &pluginEnvironment{
-		client: rpc,
-		caps:   &pluginv1alpha.CapabilitiesResponse{},
-		input:  &container.NewContainerInput{},
-		stdout: io.Discard,
-		stderr: io.Discard,
+		client:     rpc,
+		caps:       &pluginv1alpha.CapabilitiesResponse{},
+		envCreated: &createdEnvironment{},
+		input:      &container.NewContainerInput{},
+		stdout:     io.Discard,
+		stderr:     io.Discard,
 	}
 
 	assert.Equal(t, "PATH", env.GetPathVariableName())
 	assert.Equal(t, "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", env.DefaultPathVariable())
 	assert.Equal(t, "/a:/b", env.JoinPathVariable("/a", "/b"))
+}
+
+func TestPluginEnvironment_StateFromStart(t *testing.T) {
+	_, conn := startMockServer(t)
+	rpc := pluginv1alpha.NewBackendPluginClient(conn)
+	env := &pluginEnvironment{
+		client: rpc,
+		caps:   &pluginv1alpha.CapabilitiesResponse{},
+		envCreated: &createdEnvironment{
+			envID:                        "abc",
+			rootPath:                     "/my-root",
+			actPath:                      "/my-act-path",
+			toolCachePath:                "/my-tool-cache-path",
+			tempPath:                     "/my-tmp-path",
+			pathVariableName:             "MyPath",
+			defaultPathVariable:          "C:\\Tmp",
+			pathSeparator:                ";",
+			environmentOS:                "plan9",
+			environmentArch:              "riscv5",
+			isEnvironmentCaseInsensitive: true,
+		},
+		input:  &container.NewContainerInput{},
+		stdout: io.Discard,
+		stderr: io.Discard,
+	}
+
+	assert.Equal(t, "/my-root", env.GetRoot())
+	assert.Equal(t, "/my-act-path", env.GetActPath())
+	assert.Equal(t, "MyPath", env.GetPathVariableName())
+	assert.Equal(t, "C:\\Tmp", env.DefaultPathVariable())
+	assert.Equal(t, "/a;/b", env.JoinPathVariable("/a", "/b"))
+	assert.Equal(t, true, env.IsEnvironmentCaseInsensitive())
+	assert.Equal(t, map[string]any{
+		"arch":       "riscv5",
+		"os":         "plan9",
+		"temp":       "/my-tmp-path",
+		"tool_cache": "/my-tool-cache-path",
+	}, env.GetRunnerContext(t.Context()))
 }
 
 func TestPluginEnvironment_CreatePassesInput(t *testing.T) {
@@ -274,7 +322,8 @@ func TestPluginEnvironment_CreatePassesInput(t *testing.T) {
 
 	err := env.Create([]string{"NET_ADMIN"}, []string{"MKNOD"})(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, "test-env-123", env.envID)
+	require.NotNil(t, env.envCreated)
+	assert.Equal(t, "test-env-123", env.envCreated.envID)
 	assert.Equal(t, "/test/root", env.GetRoot())
 	assert.Equal(t, "/test/root/act", env.GetActPath())
 	rc := env.GetRunnerContext(t.Context())
@@ -299,8 +348,8 @@ func TestPluginEnvironment_CreatePassesInput(t *testing.T) {
 	assert.Equal(t, "secret", req.Services[0].Env["REDIS_PASS"])
 	assert.Equal(t, []string{"6379"}, req.Services[0].Ports)
 
-	assert.Contains(t, env.addtEnv, "RUNNER_TOOL_CACHE=/test/root/toolcache")
-	assert.Contains(t, env.addtEnv, "RUNNER_TEMP=/tmp")
+	assert.Contains(t, env.envCreated.envVariables, "RUNNER_TOOL_CACHE=/test/root/toolcache")
+	assert.Contains(t, env.envCreated.envVariables, "RUNNER_TEMP=/tmp")
 }
 
 func TestPluginEnvironment_Lifecycle(t *testing.T) {

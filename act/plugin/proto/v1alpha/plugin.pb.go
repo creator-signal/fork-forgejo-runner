@@ -118,21 +118,7 @@ type CapabilitiesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// name identifies the backend (e.g. "kubernetes"); used in logs and as the
 	// container back-end name.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// path_variable_name is the search-path environment variable; the runner uses
-	// "PATH" when unset.
-	PathVariableName *string `protobuf:"bytes,2,opt,name=path_variable_name,json=pathVariableName,proto3,oneof" json:"path_variable_name,omitempty"`
-	// default_path_variable is the search path used when a job sets none.
-	DefaultPathVariable *string `protobuf:"bytes,3,opt,name=default_path_variable,json=defaultPathVariable,proto3,oneof" json:"default_path_variable,omitempty"`
-	// path_separator joins path entries; the runner uses ":" when unset.
-	PathSeparator *string `protobuf:"bytes,4,opt,name=path_separator,json=pathSeparator,proto3,oneof" json:"path_separator,omitempty"`
-	// environment_case_insensitive marks environments whose variable names are
-	// case-insensitive (Windows), so the runner de-duplicates accordingly.
-	EnvironmentCaseInsensitive bool `protobuf:"varint,5,opt,name=environment_case_insensitive,json=environmentCaseInsensitive,proto3" json:"environment_case_insensitive,omitempty"`
-	// os populates the RUNNER_OS environment variable exposed to the job.
-	Os string `protobuf:"bytes,6,opt,name=os,proto3" json:"os,omitempty"`
-	// arch populates the RUNNER_ARCH environment variable exposed to the job.
-	Arch          string `protobuf:"bytes,7,opt,name=arch,proto3" json:"arch,omitempty"`
+	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -170,48 +156,6 @@ func (*CapabilitiesResponse) Descriptor() ([]byte, []int) {
 func (x *CapabilitiesResponse) GetName() string {
 	if x != nil {
 		return x.Name
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetPathVariableName() string {
-	if x != nil && x.PathVariableName != nil {
-		return *x.PathVariableName
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetDefaultPathVariable() string {
-	if x != nil && x.DefaultPathVariable != nil {
-		return *x.DefaultPathVariable
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetPathSeparator() string {
-	if x != nil && x.PathSeparator != nil {
-		return *x.PathSeparator
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetEnvironmentCaseInsensitive() bool {
-	if x != nil {
-		return x.EnvironmentCaseInsensitive
-	}
-	return false
-}
-
-func (x *CapabilitiesResponse) GetOs() string {
-	if x != nil {
-		return x.Os
-	}
-	return ""
-}
-
-func (x *CapabilitiesResponse) GetArch() string {
-	if x != nil {
-		return x.Arch
 	}
 	return ""
 }
@@ -411,7 +355,21 @@ type CreateResponse struct {
 	// tool_cache_path is exposed to jobs as RUNNER_TOOL_CACHE.
 	ToolCachePath string `protobuf:"bytes,4,opt,name=tool_cache_path,json=toolCachePath,proto3" json:"tool_cache_path,omitempty"`
 	// temp_path is exposed to jobs as RUNNER_TEMP.
-	TempPath      string `protobuf:"bytes,5,opt,name=temp_path,json=tempPath,proto3" json:"temp_path,omitempty"`
+	TempPath string `protobuf:"bytes,5,opt,name=temp_path,json=tempPath,proto3" json:"temp_path,omitempty"`
+	// path_variable_name is the search-path environment variable; the runner uses
+	// "PATH" when unset.
+	PathVariableName *string `protobuf:"bytes,6,opt,name=path_variable_name,json=pathVariableName,proto3,oneof" json:"path_variable_name,omitempty"`
+	// default_path_variable is the search path used when a job sets none.
+	DefaultPathVariable *string `protobuf:"bytes,7,opt,name=default_path_variable,json=defaultPathVariable,proto3,oneof" json:"default_path_variable,omitempty"`
+	// path_separator joins path entries; the runner uses ":" when unset.
+	PathSeparator *string `protobuf:"bytes,8,opt,name=path_separator,json=pathSeparator,proto3,oneof" json:"path_separator,omitempty"`
+	// environment_case_insensitive marks environments whose variable names are
+	// case-insensitive (Windows), so the runner de-duplicates accordingly.
+	EnvironmentCaseInsensitive bool `protobuf:"varint,9,opt,name=environment_case_insensitive,json=environmentCaseInsensitive,proto3" json:"environment_case_insensitive,omitempty"`
+	// os populates the RUNNER_OS environment variable exposed to the job.
+	Os string `protobuf:"bytes,10,opt,name=os,proto3" json:"os,omitempty"`
+	// arch populates the RUNNER_ARCH environment variable exposed to the job.
+	Arch          string `protobuf:"bytes,11,opt,name=arch,proto3" json:"arch,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -477,6 +435,48 @@ func (x *CreateResponse) GetToolCachePath() string {
 func (x *CreateResponse) GetTempPath() string {
 	if x != nil {
 		return x.TempPath
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetPathVariableName() string {
+	if x != nil && x.PathVariableName != nil {
+		return *x.PathVariableName
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetDefaultPathVariable() string {
+	if x != nil && x.DefaultPathVariable != nil {
+		return *x.DefaultPathVariable
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetPathSeparator() string {
+	if x != nil && x.PathSeparator != nil {
+		return *x.PathSeparator
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetEnvironmentCaseInsensitive() bool {
+	if x != nil {
+		return x.EnvironmentCaseInsensitive
+	}
+	return false
+}
+
+func (x *CreateResponse) GetOs() string {
+	if x != nil {
+		return x.Os
+	}
+	return ""
+}
+
+func (x *CreateResponse) GetArch() string {
+	if x != nil {
+		return x.Arch
 	}
 	return ""
 }
@@ -1263,18 +1263,9 @@ var File_act_plugin_proto_v1alpha_plugin_proto protoreflect.FileDescriptor
 const file_act_plugin_proto_v1alpha_plugin_proto_rawDesc = "" +
 	"\n" +
 	"%act/plugin/proto/v1alpha/plugin.proto\x12\x0eplugin.v1alpha\x1a\x1egoogle/protobuf/duration.proto\"\x15\n" +
-	"\x13CapabilitiesRequest\"\xec\x02\n" +
+	"\x13CapabilitiesRequest\"N\n" +
 	"\x14CapabilitiesResponse\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x121\n" +
-	"\x12path_variable_name\x18\x02 \x01(\tH\x00R\x10pathVariableName\x88\x01\x01\x127\n" +
-	"\x15default_path_variable\x18\x03 \x01(\tH\x01R\x13defaultPathVariable\x88\x01\x01\x12*\n" +
-	"\x0epath_separator\x18\x04 \x01(\tH\x02R\rpathSeparator\x88\x01\x01\x12@\n" +
-	"\x1cenvironment_case_insensitive\x18\x05 \x01(\bR\x1aenvironmentCaseInsensitive\x12\x0e\n" +
-	"\x02os\x18\x06 \x01(\tR\x02os\x12\x12\n" +
-	"\x04arch\x18\a \x01(\tR\x04archB\x15\n" +
-	"\x13_path_variable_nameB\x18\n" +
-	"\x16_default_path_variableB\x11\n" +
-	"\x0f_path_separator\"\xc7\x01\n" +
+	"\x04name\x18\x01 \x01(\tR\x04nameJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\a\x10\b\"\xc7\x01\n" +
 	"\x10ServiceContainer\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05image\x18\x02 \x01(\tR\x05image\x12;\n" +
@@ -1295,13 +1286,23 @@ const file_act_plugin_proto_v1alpha_plugin_proto_rawDesc = "" +
 	" \x01(\v2\x19.google.protobuf.DurationR\x12environmentTimeout\x1aA\n" +
 	"\x13BackendOptionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"\xb4\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"\xf6\x03\n" +
 	"\x0eCreateResponse\x12%\n" +
 	"\x0eenvironment_id\x18\x01 \x01(\tR\renvironmentId\x12\x1b\n" +
 	"\troot_path\x18\x02 \x01(\tR\brootPath\x12\x19\n" +
 	"\bact_path\x18\x03 \x01(\tR\aactPath\x12&\n" +
 	"\x0ftool_cache_path\x18\x04 \x01(\tR\rtoolCachePath\x12\x1b\n" +
-	"\ttemp_path\x18\x05 \x01(\tR\btempPath\"5\n" +
+	"\ttemp_path\x18\x05 \x01(\tR\btempPath\x121\n" +
+	"\x12path_variable_name\x18\x06 \x01(\tH\x00R\x10pathVariableName\x88\x01\x01\x127\n" +
+	"\x15default_path_variable\x18\a \x01(\tH\x01R\x13defaultPathVariable\x88\x01\x01\x12*\n" +
+	"\x0epath_separator\x18\b \x01(\tH\x02R\rpathSeparator\x88\x01\x01\x12@\n" +
+	"\x1cenvironment_case_insensitive\x18\t \x01(\bR\x1aenvironmentCaseInsensitive\x12\x0e\n" +
+	"\x02os\x18\n" +
+	" \x01(\tR\x02os\x12\x12\n" +
+	"\x04arch\x18\v \x01(\tR\x04archB\x15\n" +
+	"\x13_path_variable_nameB\x18\n" +
+	"\x16_default_path_variableB\x11\n" +
+	"\x0f_path_separator\"5\n" +
 	"\fStartRequest\x12%\n" +
 	"\x0eenvironment_id\x18\x01 \x01(\tR\renvironmentId\"\x90\x01\n" +
 	"\vStartOutput\x12/\n" +
@@ -1452,7 +1453,7 @@ func file_act_plugin_proto_v1alpha_plugin_proto_init() {
 	if File_act_plugin_proto_v1alpha_plugin_proto != nil {
 		return
 	}
-	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[1].OneofWrappers = []any{}
+	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[4].OneofWrappers = []any{}
 	file_act_plugin_proto_v1alpha_plugin_proto_msgTypes[6].OneofWrappers = []any{
 		(*StartOutput_Data)(nil),
 		(*StartOutput_StartComplete)(nil),

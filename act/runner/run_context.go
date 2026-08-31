@@ -1084,13 +1084,6 @@ func (rc *RunContext) startPluginEnvironment(name string) common.Executor {
 		containerName := rc.jobContainerName()
 		rc.Env["JOB_CONTAINER_NAME"] = containerName
 
-		caps := pluginClient.Capabilities()
-		envList := []string{
-			fmt.Sprintf("RUNNER_OS=%s", caps.GetOs()),
-			fmt.Sprintf("RUNNER_ARCH=%s", caps.GetArch()),
-			"LANG=C.UTF-8",
-		}
-
 		image, err := rc.containerImage(ctx)
 		if err != nil {
 			return err
@@ -1099,7 +1092,7 @@ func (rc *RunContext) startPluginEnvironment(name string) common.Executor {
 		env := pluginClient.NewEnvironment(&container.NewContainerInput{
 			Image:           image,
 			Name:            containerName,
-			Env:             envList,
+			Env:             []string{},
 			WorkingDir:      rc.Config.Workdir,
 			DefaultPlatform: rc.dockerImagePlatform(ctx),
 			Stdout:          logWriter,

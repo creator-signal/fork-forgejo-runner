@@ -75,10 +75,7 @@ func resolveValue(env *environment, value string) string {
 
 func (s *Server) Capabilities(_ context.Context, _ *pluginv1alpha.CapabilitiesRequest) (*pluginv1alpha.CapabilitiesResponse, error) {
 	return &pluginv1alpha.CapabilitiesResponse{
-		Name:                       "test",
-		EnvironmentCaseInsensitive: runtime.GOOS == "windows",
-		Os:                         "Linux",
-		Arch:                       "x86_64",
+		Name: "test",
 	}, nil
 }
 
@@ -111,11 +108,14 @@ func (s *Server) Create(_ context.Context, req *pluginv1alpha.CreateRequest) (*p
 	s.mu.Unlock()
 
 	return &pluginv1alpha.CreateResponse{
-		EnvironmentId: envID,
-		RootPath:      "/shared",
-		ActPath:       "/shared/act",
-		ToolCachePath: "/shared/toolcache",
-		TempPath:      "/tmp",
+		EnvironmentId:              envID,
+		RootPath:                   "/shared",
+		ActPath:                    "/shared/act",
+		ToolCachePath:              "/shared/toolcache",
+		TempPath:                   "/tmp",
+		EnvironmentCaseInsensitive: runtime.GOOS == "windows",
+		Os:                         "Linux",
+		Arch:                       "x86_64",
 	}, nil
 }
 

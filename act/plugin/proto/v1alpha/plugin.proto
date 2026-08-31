@@ -83,23 +83,10 @@ service BackendPlugin {
 message CapabilitiesRequest {}
 
 message CapabilitiesResponse {
+  reserved 2, 3, 4, 5, 6, 7; // variables moved to create to allow one plugin to support different OSes
   // name identifies the backend (e.g. "kubernetes"); used in logs and as the
   // container back-end name.
   string name = 1;
-  // path_variable_name is the search-path environment variable; the runner uses
-  // "PATH" when unset.
-  optional string path_variable_name = 2;
-  // default_path_variable is the search path used when a job sets none.
-  optional string default_path_variable = 3;
-  // path_separator joins path entries; the runner uses ":" when unset.
-  optional string path_separator = 4;
-  // environment_case_insensitive marks environments whose variable names are
-  // case-insensitive (Windows), so the runner de-duplicates accordingly.
-  bool environment_case_insensitive = 5;
-  // os populates the RUNNER_OS environment variable exposed to the job.
-  string os = 6;
-  // arch populates the RUNNER_ARCH environment variable exposed to the job.
-  string arch = 7;
 }
 
 message ServiceContainer {
@@ -149,6 +136,21 @@ message CreateResponse {
   string tool_cache_path = 4;
   // temp_path is exposed to jobs as RUNNER_TEMP.
   string temp_path = 5;
+
+  // path_variable_name is the search-path environment variable; the runner uses
+  // "PATH" when unset.
+  optional string path_variable_name = 6;
+  // default_path_variable is the search path used when a job sets none.
+  optional string default_path_variable = 7;
+  // path_separator joins path entries; the runner uses ":" when unset.
+  optional string path_separator = 8;
+  // environment_case_insensitive marks environments whose variable names are
+  // case-insensitive (Windows), so the runner de-duplicates accordingly.
+  bool environment_case_insensitive = 9;
+  // os populates the RUNNER_OS environment variable exposed to the job.
+  string os = 10;
+  // arch populates the RUNNER_ARCH environment variable exposed to the job.
+  string arch = 11;
 }
 
 message StartRequest {

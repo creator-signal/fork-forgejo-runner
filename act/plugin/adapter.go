@@ -35,17 +35,27 @@ type pluginEnvironment struct {
 	imageEnv    map[string]string
 
 	// State that is only initialized after an environment is created:
-	envID         string
-	rootPath      string
-	actPath       string
-	toolCachePath string
-	tempPath      string
-	addtEnv       []string // env variables defined by the runner after an image is created, to be passed into each exec
+	envCreated *createdEnvironment
 
 	// mu guards stdout/stderr swaps against in-flight Exec writes.
 	mu     sync.Mutex
 	stdout io.Writer
 	stderr io.Writer
+}
+
+type createdEnvironment struct {
+	envID                        string
+	rootPath                     string
+	actPath                      string
+	toolCachePath                string
+	tempPath                     string
+	envVariables                 []string // env variables defined by the runner after an image is created, to be passed into each exec
+	pathVariableName             string
+	defaultPathVariable          string
+	pathSeparator                string
+	environmentOS                string
+	environmentArch              string
+	isEnvironmentCaseInsensitive bool
 }
 
 // ExecError carries the remote exit code and optional message from Exec.
@@ -96,35 +106,44 @@ func (p *pluginEnvironment) GetName() string {
 }
 
 func (p *pluginEnvironment) GetRoot() string {
-	if p.rootPath == "" {
-		panic("accessed pluginEnvironment.GetRoot() but rootPath was uninitialized")
+	if p.envCreated == nil {
+		panic("accessed pluginEnvironment.GetRoot() before environment creation")
 	}
-	return p.rootPath
+	return p.envCreated.rootPath
 }
 
 func (p *pluginEnvironment) GetActPath() string {
-	if p.actPath == "" {
-		panic("accessed pluginEnvironment.GetActPath() but actPath was uninitialized")
+	if p.envCreated == nil {
+		panic("accessed pluginEnvironment.GetActPath() before environment creation")
 	}
-	return p.actPath
+	return p.envCreated.actPath
 }
 
 func (p *pluginEnvironment) GetPathVariableName() string {
-	if v := p.caps.GetPathVariableName(); v != "" {
+	if p.envCreated == nil {
+		panic("accessed pluginEnvironment.GetPathVariableName() before environment creation")
+	}
+	if v := p.envCreated.pathVariableName; v != "" {
 		return v
 	}
 	return "PATH"
 }
 
 func (p *pluginEnvironment) DefaultPathVariable() string {
-	if v := p.caps.GetDefaultPathVariable(); v != "" {
+	if p.envCreated == nil {
+		panic("accessed pluginEnvironment.DefaultPathVariable() before environment creation")
+	}
+	if v := p.envCreated.defaultPathVariable; v != "" {
 		return v
 	}
 	return "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 }
 
 func (p *pluginEnvironment) JoinPathVariable(paths ...string) string {
-	sep := p.caps.GetPathSeparator()
+	if p.envCreated == nil {
+		panic("accessed pluginEnvironment.JoinPathVariable() before environment creation")
+	}
+	sep := p.envCreated.pathSeparator
 	if sep == "" {
 		sep = ":"
 	}
@@ -132,22 +151,22 @@ func (p *pluginEnvironment) JoinPathVariable(paths ...string) string {
 }
 
 func (p *pluginEnvironment) GetRunnerContext(_ context.Context) map[string]any {
-	if p.toolCachePath == "" {
-		panic("accessed pluginEnvironment.GetRunnerContext() but toolCachePath was uninitialized")
-	}
-	if p.tempPath == "" {
-		panic("accessed pluginEnvironment.GetRunnerContext() but tempPath was uninitialized")
+	if p.envCreated == nil {
+		panic("accessed pluginEnvironment.GetRunnerContext() before environment creation")
 	}
 	return map[string]any{
-		"os":         p.caps.GetOs(),
-		"arch":       p.caps.GetArch(),
-		"temp":       p.tempPath,
-		"tool_cache": p.toolCachePath,
+		"os":         p.envCreated.environmentOS,
+		"arch":       p.envCreated.environmentArch,
+		"temp":       p.envCreated.tempPath,
+		"tool_cache": p.envCreated.toolCachePath,
 	}
 }
 
 func (p *pluginEnvironment) IsEnvironmentCaseInsensitive() bool {
-	return p.caps.GetEnvironmentCaseInsensitive()
+	if p.envCreated == nil {
+		panic("accessed IsEnvironmentCaseInsensitive before environment creation")
+	}
+	return p.envCreated.isEnvironmentCaseInsensitive
 }
 
 func (p *pluginEnvironment) ToContainerPath(path string) string {
@@ -182,6 +201,9 @@ func envSliceToMap(env []string) map[string]string {
 
 func (p *pluginEnvironment) Create(capAdd, capDrop []string) common.Executor {
 	return func(ctx context.Context) error {
+		if p.envCreated != nil {
+			panic("Create()() invoked on a plugin environment that has already had Create invoked")
+		}
 		req := newCreateRequest(p.input, p.backendOpts, p.labelArg, p.timeout)
 		req.CapAdd = capAdd
 		req.CapDrop = capDrop
@@ -190,27 +212,41 @@ func (p *pluginEnvironment) Create(capAdd, capDrop []string) common.Executor {
 		if err != nil {
 			return fmt.Errorf("plugin create: %w", err)
 		}
-		p.envID = resp.GetEnvironmentId()
-		p.rootPath = resp.GetRootPath()
-		p.actPath = resp.GetActPath()
-		p.toolCachePath = resp.GetToolCachePath()
-		p.tempPath = resp.GetTempPath()
-		// bit hacky; other RUNNER_* variables are initialized by the plugin capabilities, but this one is deferred so
-		// that paths can be created dynamically by the plugin:
-		p.addtEnv = append(p.addtEnv, fmt.Sprintf("RUNNER_TOOL_CACHE=%s", resp.GetToolCachePath()))
-		p.addtEnv = append(p.addtEnv, fmt.Sprintf("RUNNER_TEMP=%s", resp.GetTempPath()))
+		p.envCreated = &createdEnvironment{
+			envID:         resp.GetEnvironmentId(),
+			rootPath:      resp.GetRootPath(),
+			actPath:       resp.GetActPath(),
+			toolCachePath: resp.GetToolCachePath(),
+			tempPath:      resp.GetTempPath(),
+			envVariables: []string{
+				fmt.Sprintf("RUNNER_TOOL_CACHE=%s", resp.GetToolCachePath()),
+				fmt.Sprintf("RUNNER_TEMP=%s", resp.GetTempPath()),
+				fmt.Sprintf("RUNNER_OS=%s", resp.GetOs()),
+				fmt.Sprintf("RUNNER_ARCH=%s", resp.GetArch()),
+			},
+			pathVariableName:             resp.GetPathVariableName(),
+			defaultPathVariable:          resp.GetDefaultPathVariable(),
+			pathSeparator:                resp.GetPathSeparator(),
+			environmentOS:                resp.GetOs(),
+			environmentArch:              resp.GetArch(),
+			isEnvironmentCaseInsensitive: resp.GetEnvironmentCaseInsensitive(),
+		}
 		return nil
 	}
 }
 
 func (p *pluginEnvironment) Start(_ bool) common.Executor {
 	return func(ctx context.Context) error {
+		if p.envCreated == nil {
+			panic("accessed pluginEnvironment.Start()(...) before environment creation")
+		}
+
 		// Cancel on early return so the client-side stream goroutines exit.
 		streamCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
 		stream, err := p.client.Start(streamCtx, &pluginv1alpha.StartRequest{
-			EnvironmentId: p.envID,
+			EnvironmentId: p.envCreated.envID,
 		})
 		if err != nil {
 			return fmt.Errorf("plugin start: request error %w", err)
@@ -266,18 +302,22 @@ func (p *pluginEnvironment) ConnectToNetwork(_ string) common.Executor {
 
 func (p *pluginEnvironment) Exec(command []string, env map[string]string, user, workdir string) common.Executor {
 	return func(ctx context.Context) error {
+		if p.envCreated == nil {
+			panic("accessed pluginEnvironment.Exec()(...) before environment creation")
+		}
+
 		// Cancel on early return so the client-side stream goroutines exit.
 		streamCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		// Start with `addtEnv` which are the static values the runner defines, and then add in the environment-level
+		// Start with `envVariables` which are the static values the runner defines, and then add in the environment-level
 		// env vars, and then the specific env settings requested for this exec.
-		finalEnv := envSliceToMap(p.addtEnv)
+		finalEnv := envSliceToMap(p.envCreated.envVariables)
 		maps.Copy(finalEnv, envSliceToMap(p.input.Env))
 		maps.Copy(finalEnv, env)
 
 		req := &pluginv1alpha.ExecRequest{
-			EnvironmentId: p.envID,
+			EnvironmentId: p.envCreated.envID,
 			Command:       command,
 			Env:           finalEnv,
 		}
@@ -401,6 +441,10 @@ func (p *pluginEnvironment) CopyTarStream(ctx context.Context, destPath string, 
 }
 
 func (p *pluginEnvironment) streamCopyIn(ctx context.Context, destPath string, r io.Reader) error {
+	if p.envCreated == nil {
+		panic("accessed pluginEnvironment.streamCopyIn() before environment creation")
+	}
+
 	stream, err := p.client.CopyIn(ctx)
 	if err != nil {
 		return fmt.Errorf("plugin copyin: %w", err)
@@ -423,7 +467,7 @@ func (p *pluginEnvironment) streamCopyIn(ctx context.Context, destPath string, r
 
 	// Send the header unconditionally so empty payloads still convey envID/dest.
 	if err := sendChunk(&pluginv1alpha.CopyInChunk{
-		EnvironmentId: &p.envID,
+		EnvironmentId: &p.envCreated.envID,
 		DestPath:      &destPath,
 	}); err != nil {
 		return err
@@ -452,9 +496,13 @@ func (p *pluginEnvironment) streamCopyIn(ctx context.Context, destPath string, r
 }
 
 func (p *pluginEnvironment) GetContainerArchive(ctx context.Context, srcPath string) (io.ReadCloser, error) {
+	if p.envCreated == nil {
+		panic("accessed pluginEnvironment.streamCopyIn() before environment creation")
+	}
+
 	streamCtx, cancel := context.WithCancel(ctx)
 	stream, err := p.client.CopyOut(streamCtx, &pluginv1alpha.CopyOutRequest{
-		EnvironmentId: p.envID,
+		EnvironmentId: p.envCreated.envID,
 		SrcPath:       srcPath,
 	})
 	if err != nil {
@@ -499,7 +547,7 @@ func (p *pluginEnvironment) UpdateFromImageEnv(env *map[string]string) common.Ex
 		}
 		envMap := *env
 		pathVar := p.GetPathVariableName()
-		sep := p.caps.GetPathSeparator()
+		sep := p.envCreated.pathSeparator
 		if sep == "" {
 			sep = ":"
 		}
@@ -527,8 +575,12 @@ func (p *pluginEnvironment) IsHealthy(_ context.Context) (time.Duration, error) 
 
 func (p *pluginEnvironment) Remove() common.Executor {
 	return func(ctx context.Context) error {
+		if p.envCreated == nil {
+			return nil
+		}
+
 		_, err := p.client.Remove(ctx, &pluginv1alpha.RemoveRequest{
-			EnvironmentId: p.envID,
+			EnvironmentId: p.envCreated.envID,
 		})
 		if err != nil {
 			return fmt.Errorf("plugin remove: %w", err)
