@@ -25,7 +25,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24
 	github.com/moby/go-archive v0.3.3
 	github.com/moby/moby/api v1.56.0
-	github.com/moby/moby/client v0.5.1
+	github.com/moby/moby/client v0.6.0
 	github.com/moby/patternmatcher v0.6.1
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/selinux v1.15.1
