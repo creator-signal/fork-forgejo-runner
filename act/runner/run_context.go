@@ -44,6 +44,7 @@ type RunContext struct {
 	GlobalEnv           map[string]string // to pass env changes of GITHUB_ENV correctly, due to dirty Env field
 	ExtraPath           []string
 	CurrentStep         string
+	stepSummarySizes    map[string]int
 	StepResults         map[string]*model.StepResult
 	IntraActionState    map[string]map[string]string
 	ExprEval            ExpressionEvaluator

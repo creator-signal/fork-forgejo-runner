@@ -52,6 +52,9 @@ type Reporter struct {
 	issuedLocalCancel   bool
 	retry               *config.Retry
 
+	summaries            *stepSummaryCollector
+	summariesUnsupported bool
+
 	log *logrus.Entry
 }
 
@@ -83,6 +86,9 @@ func NewReporter(ctx context.Context, cancel context.CancelFunc, c client.Client
 		state: &runnerv1.TaskState{
 			Id: task.Id,
 		},
+		summaries: newStepSummaryCollector(runner.MaxStepSummarySizeBytes, func(content string) string {
+			return masker.getReplacer().Replace(content)
+		}),
 		log: logrus.WithFields(logrus.Fields{
 			"task_id": task.Id,
 		}),
@@ -121,6 +127,15 @@ func (r *Reporter) Fire(entry *logrus.Entry) error {
 	defer r.stateMu.Unlock()
 
 	r.log.WithFields(entry.Data).Trace(entry.Message)
+
+	if cmd, ok := entry.Data["command"].(string); ok && cmd == "summary" {
+		if content, ok := entry.Data["content"].(string); ok && content != "" {
+			if stepNumber, ok := entry.Data["stepNumber"].(int); ok {
+				r.summaries.Append(int64(stepNumber), content)
+			}
+		}
+		return nil
+	}
 
 	timestamp := entry.Time
 	if r.state.StartedAt == nil {
@@ -199,6 +214,61 @@ func (r *Reporter) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
+// appendToLogOfStep adds a log row attributed to a step.
+// This allows the runner to append a technical log to an executing step.
+func (r *Reporter) appendToLogOfStep(stepNumber int64, content string) {
+	if stepNumber < 0 || stepNumber >= int64(len(r.state.Steps)) {
+		return
+	}
+	step := r.state.Steps[stepNumber]
+	if step.LogLength == 0 {
+		step.LogIndex = int64(r.logOffset + len(r.logRows))
+	}
+	step.LogLength++
+	r.logRows = append(r.logRows, &runnerv1.LogRow{
+		Time:    timestamppb.Now(),
+		Content: content,
+	})
+}
+
+// ReportStepSummaries uploads all changed StepSummaries
+func (r *Reporter) ReportStepSummaries() error {
+	r.clientM.Lock()
+	defer r.clientM.Unlock()
+
+	r.stateMu.RLock()
+	unsupported := r.summariesUnsupported
+	summaries := r.summaries.Collect()
+	r.stateMu.RUnlock()
+
+	if unsupported || len(summaries) == 0 {
+		return nil
+	}
+
+	_, err := r.client.UpdateStepSummary(r.ctx, connect.NewRequest(&runnerv1.UpdateStepSummaryRequest{
+		TaskId:    r.state.Id,
+		Summaries: summaries,
+	}))
+	if err != nil {
+		if connect.CodeOf(err) == connect.CodeUnimplemented {
+			r.stateMu.Lock()
+			r.summariesUnsupported = true
+			for _, summary := range summaries {
+				r.appendToLogOfStep(summary.StepNumber, "::warning::This Forgejo instance does not support job summaries. This job summary will be discarded.")
+			}
+			r.stateMu.Unlock()
+			r.log.Warnf("discarding this steps summary as this forgejo server does not support it")
+			return nil
+		}
+		return err
+	}
+
+	r.stateMu.Lock()
+	r.summaries.Commit(summaries)
+	r.stateMu.Unlock()
+	return nil
+}
+
 func (r *Reporter) RunDaemon() {
 	if r.closed {
 		return
@@ -212,6 +282,10 @@ func (r *Reporter) RunDaemon() {
 	err := r.ReportLog(false)
 	if err != nil {
 		r.log.Warnf("ReportLog error: %v", err)
+	}
+	err = r.ReportStepSummaries()
+	if err != nil {
+		r.log.Warnf("ReportStepSummaries error: %v", err)
 	}
 	err = r.ReportState(false)
 	if err != nil {
@@ -316,6 +390,12 @@ func (r *Reporter) Close(runErr error) error {
 	}
 	r.state.StoppedAt = timestamppb.Now()
 	r.stateMu.Unlock()
+
+	// A failure in uploading the summaries should be only logged and not make the whole job fail.
+	// They are possibly still valid summaries and just the upload has issues (body limits for example)
+	if err := retry.Do(r.ReportStepSummaries, r.makeRetryOption()...); err != nil {
+		r.log.Warnf("failed to upload the step summaries: %v", err)
+	}
 
 	return retry.Do(func() error {
 		if err := r.ReportLog(true); err != nil {

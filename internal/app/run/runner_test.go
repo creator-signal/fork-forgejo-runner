@@ -15,6 +15,7 @@ import (
 
 	pingv1 "code.forgejo.org/forgejo/actions-proto/ping/v1"
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
+	actrunner "code.forgejo.org/forgejo/runner/v13/act/runner"
 	"code.forgejo.org/forgejo/runner/v13/internal/pkg/config"
 	"code.forgejo.org/forgejo/runner/v13/internal/pkg/labels"
 	"code.forgejo.org/forgejo/runner/v13/internal/pkg/report"
@@ -150,7 +151,11 @@ func (m *forgejoClientMock) UpdateTask(ctx context.Context, request *connect.Req
 }
 
 func (m *forgejoClientMock) UpdateStepSummary(ctx context.Context, request *connect.Request[runnerv1.UpdateStepSummaryRequest]) (*connect.Response[runnerv1.UpdateStepSummaryResponse], error) {
-	return nil, errors.New("not implemented")
+	args := m.Called(ctx, request)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*connect.Response[runnerv1.UpdateStepSummaryResponse]), args.Error(1)
 }
 
 func rowsToString(rows []*runnerv1.LogRow) string {
@@ -1393,4 +1398,120 @@ jobs:
 `
 		runWorkflow(ctx, cancel, workflow, "", "", "")
 	})
+}
+
+func TestRunnerStepSummary(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
+
+	forgejoClient := &forgejoClientMock{}
+	forgejoClient.On("Address").Return("https://127.0.0.1:8080") // not expected to be used in this test
+	forgejoClient.On("UpdateLog", mock.Anything, mock.Anything).Return(nil, nil)
+	forgejoClient.On("UpdateTask", mock.Anything, mock.Anything).
+		Return(connect.NewResponse(&runnerv1.UpdateTaskResponse{}), nil)
+
+	summaryTaskIDs := []int64{}
+	summaries := map[int64]string{}
+	forgejoClient.On("UpdateStepSummary", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			msg := args.Get(1).(*connect.Request[runnerv1.UpdateStepSummaryRequest]).Msg
+			summaryTaskIDs = append(summaryTaskIDs, msg.TaskId)
+			for _, summary := range msg.Summaries {
+				summaries[summary.StepNumber] = summary.Content
+			}
+		}).
+		Return(connect.NewResponse(&runnerv1.UpdateStepSummaryResponse{}), nil)
+
+	workflow := `
+on:
+  pull_request:
+jobs:
+  job-summary:
+    runs-on: docker
+    container:
+      image: code.forgejo.org/oci/node:latest
+    steps:
+      # the steps mirror the examples of the GITHUB_STEP_SUMMARY documentation:
+      # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-job-summary
+      - name: Adding a job summary
+        run: echo "### Hello world! :rocket:" >> $GITHUB_STEP_SUMMARY
+      - name: Multiline markdown content
+        run: |
+          echo "This is the lead in sentence for the list" >> $FORGEJO_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Lets add a bullet point" >> $GITHUB_STEP_SUMMARY
+      - name: Overwriting a job summary
+        run: |
+          echo "Overwrite this content" >> $GITHUB_STEP_SUMMARY
+          echo "Adding some Markdown content" > $GITHUB_STEP_SUMMARY
+      - name: Removing a job summary
+        run: |
+          echo "to be removed" >> $GITHUB_STEP_SUMMARY
+          rm "$GITHUB_STEP_SUMMARY"
+      - name: Secrets are masked
+        run: echo "Upload using secret ${{ secrets.STEP_SUMMARY_SECRET }}" >> "$FORGEJO_STEP_SUMMARY"
+      - name: Truncates oversized summaries
+        run: head -c 1200000 /dev/zero | tr '\0' 'd' >> "$GITHUB_STEP_SUMMARY"
+`
+	task := &runnerv1.Task{
+		Id:              123,
+		WorkflowPayload: []byte(workflow),
+		Secrets:         map[string]string{"STEP_SUMMARY_SECRET": "S€cr3t"},
+		Context: &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"event_name":                  structpb.NewStringValue("pull_request"),
+				"forgejo_default_actions_url": structpb.NewStringValue("https://data.forgejo.org"),
+				"repository":                  structpb.NewStringValue("forgejo/runner"),
+				"run_id":                      structpb.NewStringValue("150"),
+			},
+		},
+	}
+
+	runner := NewRunner(
+		&config.Config{
+			Log: config.Log{
+				JobLevel: "trace",
+			},
+			Host: config.Host{
+				WorkdirParent: t.TempDir(),
+			},
+			Container: config.Container{
+				DockerHost: os.Getenv("DOCKER_HOST"),
+			},
+		},
+		"runner-name",
+		[]*labels.Label{labels.MustParse("docker:docker://code.forgejo.org/oci/node:latest")},
+		forgejoClient,
+		nil,
+	)
+	require.NotNil(t, runner)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	reporter := report.NewReporter(ctx, cancel, forgejoClient, task, time.Second, &config.Retry{})
+	require.NoError(t, runner.run(ctx, task, reporter))
+	require.NoError(t, reporter.Close(nil))
+
+	require.NotEmpty(t, summaryTaskIDs)
+	for _, taskID := range summaryTaskIDs {
+		assert.Equal(t, int64(123), taskID)
+	}
+	truncated := summaries[5]
+	delete(summaries, 5)
+	assert.Equal(t, map[int64]string{
+		0: "### Hello world! :rocket:\n",
+		1: "This is the lead in sentence for the list\n\n- Lets add a bullet point\n",
+		2: "Adding some Markdown content\n",
+		// the removed summary of the fourth step must neither be uploaded nor fail the job
+		4: "Upload using secret ***\n",
+	}, summaries)
+
+	// the oversized summary is truncated to the size limit and the step log carries the warning,
+	// emitted as a workflow command by act where the summary file is read
+	assert.Len(t, truncated, actrunner.MaxStepSummarySizeBytes)
+	assert.True(t, strings.HasPrefix(truncated, "ddd"))
+	assert.True(t, strings.HasSuffix(truncated, "…"))
+	assert.Contains(t, forgejoClient.sent, "::warning::The step summary exceeds the allowed size")
 }

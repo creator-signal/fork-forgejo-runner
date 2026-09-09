@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	cerrdefs "github.com/containerd/errdefs"
 
 	"code.forgejo.org/forgejo/runner/v13/act/common"
 	"code.forgejo.org/forgejo/runner/v13/act/container"
@@ -43,6 +46,15 @@ const (
 // Controls how many symlinks are resolved for local and remote Actions
 const maxSymlinkDepth = 10
 
+// MaxStepSummarySizeBytes is the maximum size in bytes of the summary content of a single step.
+// The value of 1MiB mirrors the per-step limit GitHub enforces on GITHUB_STEP_SUMMARY as of August 2026
+// and matches the size at which the runner truncates a step summary before uploading it,
+// making this cap apply for other consumers.
+// Lowering this value poses the risk of compatibility problems - as in composite actions that directly append to the summary -
+// while increasing this value should be fine.
+// If this value is altered it must be updated in the forgejo (models/actions/task_step_summary.go).
+const MaxStepSummarySizeBytes = 1024 * 1024
+
 func (s stepStage) String() string {
 	switch s {
 	case stepStagePre:
@@ -61,6 +73,12 @@ func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunCo
 	}
 	pathTar, err := rc.JobContainer.GetContainerArchive(ctx, path.Join(rc.JobContainer.GetActPath(), fileName))
 	if err != nil {
+		// A workflow may remove the summary file (`rm "$FORGEJO_STEP_SUMMARY"`) to discard the summary.
+		// This is explicitly mentioned like this in the github docs (https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#removing-job-summaries)
+		// A missing summary file indicates that the author does not wish for a summary, even if some part of the step already appended something.
+		if cerrdefs.IsNotFound(err) || errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
 		return err
 	}
 	defer pathTar.Close()
@@ -70,13 +88,27 @@ func processRunnerSummaryCommand(ctx context.Context, fileName string, rc *RunCo
 	if err != nil && err != io.EOF {
 		return err
 	}
-	summary, err := io.ReadAll(reader)
+	// The reporter truncates each step summary to the size limit.
+	// Reading just 1B beyond indicates this.
+	summary, err := io.ReadAll(io.LimitReader(reader, MaxStepSummarySizeBytes+1))
 	if err != nil {
 		return err
 	}
 	if len(summary) == 0 {
 		return nil
 	}
+
+	// The step summary file is freshly created for each step
+	// to prevent it from bleeding into other steps
+	if rc.stepSummarySizes == nil {
+		rc.stepSummarySizes = map[string]int{}
+	}
+	written := rc.stepSummarySizes[rc.CurrentStep]
+	rc.stepSummarySizes[rc.CurrentStep] = written + len(summary)
+	if written <= MaxStepSummarySizeBytes && written+len(summary) > MaxStepSummarySizeBytes {
+		rc.commandHandler(ctx)(fmt.Sprintf("::warning::The step summary exceeds the allowed size of %d bytes and has been truncated\n", MaxStepSummarySizeBytes))
+	}
+
 	common.Logger(ctx).WithFields(logrus.Fields{"command": "summary", "content": string(summary)}).Infof("  \U00002699  Summary - %s", string(summary))
 	return nil
 }

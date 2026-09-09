@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	runnerv1 "code.forgejo.org/forgejo/actions-proto/runner/v1"
 	connect_go "connectrpc.com/connect"
@@ -323,6 +324,170 @@ func TestReporter_Fire(t *testing.T) {
 		assert.NoError(t, reporter.Fire(&log.Entry{Message: "skipped!", Data: dataStep0}))
 
 		assert.EqualValues(t, runnerv1.Result_RESULT_SKIPPED, reporter.state.Result)
+	})
+}
+
+func TestReporter_BuildStepSummary(t *testing.T) {
+	stepSummaryContent := func(reporter *Reporter, stepNumber int64) string {
+		reporter.stateMu.RLock()
+		defer reporter.stateMu.RUnlock()
+		summary := reporter.summaries.summaries[stepNumber]
+		if summary == nil {
+			return ""
+		}
+		return summary.content.String()
+	}
+	withSummaryLimit := func(reporter *Reporter, limit int) {
+		reporter.summaries = newStepSummaryCollector(limit, reporter.summaries.mask)
+	}
+
+	t.Run("isolates summary content between steps and is not logged", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		reporter.ResetSteps(2)
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "## first", "stepNumber": 0},
+		}))
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "## second", "stepNumber": 1},
+		}))
+
+		assert.Equal(t, "## first", stepSummaryContent(reporter, 0))
+		assert.Equal(t, "## second", stepSummaryContent(reporter, 1))
+		assert.Empty(t, reporter.logRows)
+	})
+
+	// Summaries may appear at multiple stages and have to be accumulated accordingly.
+	// For example the setup.js of an action.yml can write to the summary as well.
+	t.Run("accumulates summary content across the stages of a step", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		reporter.ResetSteps(1)
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "pre\n", "stepNumber": 0, "stage": "Pre"},
+		}))
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "main\n", "stepNumber": 0, "stage": "Main"},
+		}))
+
+		assert.Equal(t, "pre\nmain\n", stepSummaryContent(reporter, 0))
+	})
+
+	t.Run("truncates summary at the size limit without touching the log", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		reporter.ResetSteps(1)
+		withSummaryLimit(reporter, 10)
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": strings.Repeat("x", 50), "stepNumber": 0},
+		}))
+		assert.Len(t, stepSummaryContent(reporter, 0), 10)
+		// the truncation warning is emitted by act where the summary file is actually read,
+		// the collector only enforces the budget.
+		assert.Empty(t, reporter.logRows)
+	})
+
+	t.Run("truncates to valid UTF-8 for stuff like diacritics", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		reporter.ResetSteps(1)
+		withSummaryLimit(reporter, 5)
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "ééé", "stepNumber": 0},
+		}))
+		summary := stepSummaryContent(reporter, 0)
+		assert.True(t, utf8.ValidString(summary))
+		assert.Equal(t, "é…", summary)
+	})
+
+	t.Run("truncates at a word boundary", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		reporter.ResetSteps(1)
+		withSummaryLimit(reporter, 20)
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "This summary is way too long", "stepNumber": 0},
+		}))
+		assert.Equal(t, "This summary is…", stepSummaryContent(reporter, 0))
+	})
+
+	t.Run("replaces invalid UTF-8 so the summary stays uploadable", func(t *testing.T) {
+		reporter, _, _ := mockReporter(t)
+		reporter.ResetSteps(1)
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "binary \xff in the summary\n", "stepNumber": 0},
+		}))
+		summary := stepSummaryContent(reporter, 0)
+		assert.True(t, utf8.ValidString(summary))
+		assert.Equal(t, "binary ? in the summary\n", summary)
+	})
+
+	t.Run("masks secrets in summary", func(t *testing.T) {
+		taskCtx, err := structpb.NewStruct(map[string]any{})
+		require.NoError(t, err)
+		reporter, _, _ := mockReporterWithTask(t, &runnerv1.Task{
+			Context: taskCtx,
+			Secrets: map[string]string{"DOCKER_PASSWORD": "leaked_again"},
+		})
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "logged in with docker:leaked_again\n", "stepNumber": 0},
+		}))
+		assert.Equal(t, "logged in with docker:***\n", stepSummaryContent(reporter, 0))
+	})
+}
+
+func TestReporter_UploadStepSummary(t *testing.T) {
+	setupFinalReports := func(client *mocks.MockClient) {
+		client.On("UpdateLog", mock.Anything, mock.Anything).Return(func(_ context.Context, req *connect_go.Request[runnerv1.UpdateLogRequest]) (*connect_go.Response[runnerv1.UpdateLogResponse], error) {
+			return connect_go.NewResponse(&runnerv1.UpdateLogResponse{
+				AckIndex: req.Msg.Index + int64(len(req.Msg.Rows)),
+			}), nil
+		})
+		client.On("UpdateTask", mock.Anything, mock.Anything).
+			Return(connect_go.NewResponse(&runnerv1.UpdateTaskResponse{}), nil)
+	}
+
+	t.Run("skips the upload on empty summary", func(t *testing.T) {
+		reporter, client, _ := mockReporter(t)
+		setupFinalReports(client)
+
+		assert.NoError(t, reporter.Close(nil))
+		client.AssertNotCalled(t, "UpdateStepSummary")
+	})
+
+	t.Run("discards the summaries on unsupporting instances", func(t *testing.T) {
+		reporter, client, _ := mockReporter(t)
+		reporter.ResetSteps(1)
+		setupFinalReports(client)
+		client.On("UpdateStepSummary", mock.Anything, mock.Anything).
+			Return(nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("unimplemented"))).
+			Once()
+
+		assert.NoError(t, reporter.Fire(&log.Entry{
+			Message: "summary",
+			Data:    map[string]any{"command": "summary", "content": "## didnotapply\n", "stepNumber": 0},
+		}))
+		assert.NoError(t, reporter.ReportStepSummaries())
+
+		// the workflows author might not be aware why the summary is missing.
+		// it's thus emitted as workflow warning inside the step's log
+		require.Len(t, reporter.logRows, 1)
+		assert.True(t, strings.HasPrefix(reporter.logRows[0].Content, "::warning::"), reporter.logRows[0].Content)
+		assert.Contains(t, reporter.logRows[0].Content, "does not support job summaries")
+		assert.Equal(t, int64(1), reporter.state.Steps[0].LogLength)
+
+		assert.NoError(t, reporter.Close(nil))
 	})
 }
 
