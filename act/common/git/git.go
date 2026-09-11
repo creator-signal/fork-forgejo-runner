@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
@@ -200,7 +201,7 @@ type CloneInput struct {
 	InsecureSkipTLS bool   // when true, TLS verification will be skipped on remote operations
 }
 
-func cloneIfRequired(ctx context.Context, input CloneInput, logger log.FieldLogger, repoDir string) error {
+func initRepoIfRequired(ctx context.Context, input CloneInput, logger log.FieldLogger, repoDir string) error {
 	// Check whether cloning can be skipped or whether we have to remove an existing clone. We're not attempting to
 	// figure out whether cloning can succeed. That's why errors are ignored.
 	if url, err := getRemoteURL(ctx, repoDir, "origin"); err == nil {
@@ -231,19 +232,78 @@ func cloneIfRequired(ctx context.Context, input CloneInput, logger log.FieldLogg
 		workingDirectory:          "",
 		remoteURL:                 input.URL,
 	}
-	_, err := git(ctx, &options, "clone", "--bare", input.URL, repoDir)
+	objectFormat, err := ProbeObjectFormat(ctx, options)
+	if err != nil {
+		return fmt.Errorf("unable to probe object format for %s: %w", input.URL, err)
+	}
+	_, err = git(ctx, &options, "init", "--bare", repoDir, "--object-format", string(objectFormat))
 	if err != nil {
 		var exitError *exec.ExitError
 		if errors.As(err, &exitError) {
 			stderr := strings.TrimSpace(string(exitError.Stderr))
-			return fmt.Errorf("unable to clone '%s' to '%s': %s: %w", input.URL, repoDir, stderr, err)
+			return fmt.Errorf("unable to init git repo at %s: %s: %w", repoDir, stderr, err)
 		}
-		return fmt.Errorf("unable to clone '%s' to '%s': %w", input.URL, repoDir, err)
+		return fmt.Errorf("unable to init git repo at %s: %w", repoDir, err)
+	}
+	_, err = git(ctx, &options, "-C", repoDir, "remote", "add", "origin", input.URL)
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return fmt.Errorf("unable to add remote %s to repo %s: %s: %w", input.URL, repoDir, stderr, err)
+		}
+		return fmt.Errorf("unable to add remote %s to repo %s: %w", input.URL, repoDir, err)
 	}
 
 	logger.Debugf("Cloned %s to %s", input.URL, repoDir)
 
 	return nil
+}
+
+type ObjectFormat string
+
+const (
+	ObjectFormatSHA1   ObjectFormat = "sha1"
+	ObjectFormatSHA256 ObjectFormat = "sha256"
+)
+
+// Discover remote repo object format via commit hash size.
+func ProbeObjectFormat(ctx context.Context, options gitOptions) (ObjectFormat, error) {
+	output, err := git(ctx, &options, "ls-remote", "--", options.remoteURL, "HEAD")
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			stderr := strings.TrimSpace(string(exitError.Stderr))
+			return "", fmt.Errorf("ls-remote failed %s: %s: %w", options.remoteURL, stderr, err)
+		}
+		return "", fmt.Errorf("ls-remote failed %s: %w", options.remoteURL, err)
+	}
+
+	for line := range strings.SplitSeq(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 || fields[1] != "HEAD" {
+			continue
+		}
+
+		oid := fields[0]
+		if _, err := hex.DecodeString(oid); err != nil {
+			return "", fmt.Errorf("invalid object ID %q", oid)
+		}
+
+		switch len(oid) {
+		case 40:
+			return ObjectFormatSHA1, nil
+		case 64:
+			return ObjectFormatSHA256, nil
+		default:
+			return "", fmt.Errorf(
+				"unrecognized object ID length %d",
+				len(oid),
+			)
+		}
+	}
+
+	return "", fmt.Errorf("remote has no HEAD")
 }
 
 type Worktree interface {
@@ -293,9 +353,10 @@ func (t *gitWorktree) WorktreeDir() string {
 	return t.worktreeDir
 }
 
-// Clones a git repo.  The repo contents are stored opaquely in the provided `CacheDir`, and may be reused by future
-// clone operations.  The returned value contains a path to the working tree that can be used to interact with the
-// requested ref; it must be closed to indicate operations against it are complete.
+// Perform a shallow clone-like operation, ensuring that the latest code at the `input.Ref` revision are fetched
+// from the remote.  Fetched repo contents are stored opaquely in the provided `CacheDir`, and may be reused by future
+// shallow-clone operations.  The returned value contains a path to the working tree that can be used to interact with
+// the requested ref; it must be closed to indicate operations against it are complete.
 func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	if input.CacheDir == "" {
 		return nil, errors.New("missing CacheDir to Clone()")
@@ -303,6 +364,10 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 		// `git -C repoDir ...` will change the working directory -- to ensure consistency between all operations and
 		// irrelevant of any change in $PWD, require an absolute CacheDir.
 		return nil, errors.New("relative CacheDir is not supported")
+	}
+
+	if input.Ref == "" {
+		return nil, errors.New("missing Ref to Clone()")
 	}
 
 	// worktreeDir's format is /[0-9a-f]{2}/[0-9a-f]{62}.  Originally this was a hash of a step's `uses:` text, and the
@@ -321,7 +386,7 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 
 	defer cloneLock.Lock(repoDir)()
 
-	err := cloneIfRequired(ctx, input, logger, repoDir)
+	err := initRepoIfRequired(ctx, input, logger, repoDir)
 	if err != nil {
 		return nil, err
 	}
@@ -336,20 +401,25 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 		logger.Infof("  \u2601\ufe0f  git fetch '%s' skipped; ref=%s cached", input.URL, input.Ref)
 	}
 
+	if hash != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash, input.Ref) {
+		return nil, &Error{
+			err:    ErrShortRef,
+			commit: hash,
+		}
+	}
+
 	if !skipFetch {
 		isOfflineMode := input.OfflineMode
 
 		if !isOfflineMode {
 			logger.Infof("  \u2601\ufe0f  git fetch '%s' # ref=%s", input.URL, input.Ref)
 
-			// Force (indicated by +) update of all branches (even the one that is currently checked out) and tags
-			// during `git fetch`. That does only work because the cloned repository is bare.
 			fetchInput := FetchInput{
 				token:                     input.Token,
 				ignoreInvalidCertificates: input.InsecureSkipTLS,
 				repoPath:                  repoDir,
 				remote:                    "origin",
-				refspec:                   "+refs/*:refs/*",
+				refspec:                   input.Ref,
 				remoteURL:                 input.URL,
 			}
 			err = Fetch(ctx, fetchInput)
@@ -362,13 +432,6 @@ func Clone(ctx context.Context, input CloneInput) (Worktree, error) {
 	if hash, err = ResolveRevision(ctx, repoDir, fmt.Sprintf("%s^{commit}", input.Ref)); err != nil {
 		logger.Errorf("Unable to resolve %s: %v", input.Ref, err)
 		return nil, err
-	}
-
-	if hash != input.Ref && len(input.Ref) >= 4 && strings.HasPrefix(hash, input.Ref) {
-		return nil, &Error{
-			err:    ErrShortRef,
-			commit: hash,
-		}
 	}
 
 	logger.Debugf("  git worktree create for ref=%s (sha=%s) to %s", input.Ref, hash, worktreeDir)
@@ -415,9 +478,9 @@ func Fetch(ctx context.Context, input FetchInput) error {
 		return errors.New("mandatory argument remote is empty")
 	}
 
-	args := []string{"fetch", input.remote}
+	args := []string{"fetch", "--depth=1", input.remote}
 	if input.refspec != "" {
-		args = append(args, input.refspec)
+		args = append(args, "--refmap=+refs/heads/*:refs/heads/*", "--refmap=+refs/tags/*:refs/tags/*", "--end-of-options", input.refspec)
 	}
 
 	options := gitOptions{

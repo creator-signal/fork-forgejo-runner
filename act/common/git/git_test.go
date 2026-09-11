@@ -214,11 +214,6 @@ func TestClone(t *testing.T) {
 			URL: "https://github.com/actions/checkout",
 			Ref: "5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f", // v2
 		},
-		"short-sha": {
-			Err: &Error{ErrShortRef, "5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f"},
-			URL: "https://github.com/actions/checkout",
-			Ref: "5a4ac90", // v2
-		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if testing.Short() {
@@ -240,11 +235,86 @@ func TestClone(t *testing.T) {
 		})
 	}
 
+	t.Run("Does not resolve cached short SHAs", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		remoteDir := makeTestRepo(t)
+		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
+
+		// Pull the full 5a4ac90 commit into the cache.
+		_, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      fullSHA,
+		})
+		require.NoError(t, err)
+		_, err = Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      fullSHA[:7], // v2
+		})
+		// Verify short prefix does not resolve.
+		assert.Error(t, err)
+		assert.Equal(t, &Error{ErrShortRef, fullSHA}, err)
+	})
+
+	t.Run("Does not resolve remote commit via short SHA", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		remoteDir := makeTestRepo(t)
+
+		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
+
+		_, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      fullSHA[:7],
+		})
+		require.Error(t, err)
+		assert.ErrorContains(t, err, fmt.Sprintf("couldn't find remote ref %s", fullSHA[:7]))
+	})
+
 	t.Run("Fetches New Commit", func(t *testing.T) {
 		cacheDir := t.TempDir()
 
 		// Create a local repo that will act as the remote to be cloned.
 		remoteDir := makeTestRepo(t)
+
+		// Create a commit and get its full SHA
+		firstCommit := makeTestCommit(t, remoteDir, "initial commit")
+
+		// Clone the repo, referencing firstCommit
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      firstCommit,
+		})
+		require.NoError(t, err)
+		defer wt1.Close(t.Context())
+
+		// Verify firstCommit is the HEAD of the clone.
+		firstHead := getTestRepoHead(t, wt1.WorktreeDir())
+		assert.Equal(t, firstCommit, firstHead)
+
+		// Create a new commit in the "remote".
+		secondCommit := makeTestCommit(t, remoteDir, "second commit")
+
+		// Run the clone again, this time referencing the new commit.
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      secondCommit,
+		})
+		require.NoError(t, err)
+		defer wt2.Close(t.Context())
+
+		// The clone should have the new commit as its HEAD
+		secondHead := getTestRepoHead(t, wt2.WorktreeDir())
+		assert.Equal(t, secondCommit, secondHead)
+	})
+
+	t.Run("sha256/Fetches New Commit", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
+		remoteDir := makeTestRepo(t, "--object-format=sha256")
 
 		// Create a commit and get its full SHA
 		firstCommit := makeTestCommit(t, remoteDir, "initial commit")
@@ -364,6 +434,18 @@ func TestClone(t *testing.T) {
 		// The clone should be updated to the new tag ref
 		clonedSHA = getTestRepoHead(t, wt2.WorktreeDir())
 		assert.Equal(t, newCommitSHA, clonedSHA)
+	})
+
+	t.Run("Ref is required", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		remoteDir := makeTestRepo(t)
+		_, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteDir,
+			Ref:      "",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "missing Ref")
 	})
 
 	t.Run("Clones Annotated Tag", func(t *testing.T) {
@@ -559,6 +641,81 @@ func TestClone(t *testing.T) {
 		assert.Equal(t, commit1, clonedSHA)
 	})
 
+	t.Run("Fetches only requested ref", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		remoteDir := makeTestRepo(t)
+		remoteURL := "file://" + remoteDir
+
+		_ = makeTestCommit(t, remoteDir, "initial commit")
+		wt1, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteURL,
+			Ref:      "main",
+		})
+		require.NoError(t, err)
+		require.NoError(t, wt1.Close(t.Context()))
+
+		// Advance main and created an unrelated branch.
+		require.NoError(t, gitCmd("-C", remoteDir, "checkout", "main"))
+		requestedCommit := makeTestCommit(t, remoteDir, "requested commit")
+		require.NoError(t, gitCmd("-C", remoteDir, "checkout", "-b", "unrelated"))
+		unrelatedCommit := makeTestCommit(t, remoteDir, "unrelated commit")
+
+		wt2, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteURL,
+			Ref:      "main",
+		})
+		require.NoError(t, err)
+		defer wt2.Close(t.Context())
+
+		// Verify that HEAD is the requested commit.
+		assert.Equal(t, requestedCommit, getTestRepoHead(t, wt2.WorktreeDir()))
+		// Verify unrequested commit was not fetched.
+		exists, err := objectExists(t.Context(), wt2.WorktreeDir(), unrelatedCommit)
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("Fetches only the requested shallow history", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		remoteDir := makeTestRepo(t)
+		remoteURL := "file://" + remoteDir
+
+		commits := make([]string, 5)
+		for i := range commits {
+			commits[i] = makeTestCommit(t, remoteDir, fmt.Sprintf("commit %d", i+1))
+		}
+		makeTestBranch(t, remoteDir, commits[1], "unrelated")
+		makeTestTag(t, remoteDir, commits[2], "unrelated-tag")
+
+		wt, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteURL,
+			Ref:      "main",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, commits[4], getTestRepoHead(t, wt.WorktreeDir()))
+		require.NoError(t, wt.Close(t.Context()))
+
+		remoteURLHash := common.Sha256(remoteURL)
+		repoDir := filepath.Join(cacheDir, remoteURLHash[:2], remoteURLHash[2:])
+
+		objects, err := gitCmdWithStdout(
+			"-C", repoDir, "cat-file", "--batch-all-objects", "--batch-check=%(objecttype)",
+		)
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{"commit", "tree"}, strings.Fields(string(objects)))
+
+		refs, err := gitCmdWithStdout("-C", repoDir, "for-each-ref", "--format=%(refname)")
+		require.NoError(t, err)
+		assert.Equal(t, []string{"refs/heads/main"}, strings.Fields(string(refs)))
+
+		commitCount, err := gitCmdWithStdout("-C", repoDir, "rev-list", "--all", "--count")
+		require.NoError(t, err)
+		assert.Equal(t, "1", strings.TrimSpace(string(commitCount)))
+	})
+
 	t.Run("Does not create spurious refs", func(t *testing.T) {
 		cacheDir := t.TempDir()
 
@@ -584,7 +741,7 @@ func TestClone(t *testing.T) {
 
 		// Verify no spurious branches were created during cloning due to an invalid refspec.
 		branches := getTestRepoBranches(t, wt1.WorktreeDir())
-		assert.Equal(t, []string{"* (no branch)", "+ main"}, branches)
+		assert.Equal(t, []string{"* (no branch)"}, branches)
 
 		// Verify no spurious tags were created during cloning due to an invalid refspec.
 		tags := getTestRepoTags(t, wt1.WorktreeDir())
@@ -630,6 +787,54 @@ func TestClone(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("Offline mode tag/branch/sha works after cloning", func(t *testing.T) {
+		remoteDir := makeTestRepo(t)
+		fullSHA := makeTestCommit(t, remoteDir, "initial commit")
+		makeTestTag(t, remoteDir, fullSHA, "tag-1")
+		makeTestBranch(t, remoteDir, fullSHA, "branch-1")
+
+		for name, ref := range map[string]string{
+			"tag":    "tag-1",
+			"branch": "branch-1",
+			"sha":    fullSHA,
+		} {
+			t.Run(name, func(t *testing.T) {
+				cacheDir := t.TempDir()
+
+				wt, err := Clone(t.Context(), CloneInput{CacheDir: cacheDir, URL: remoteDir, Ref: ref})
+				require.NoError(t, err)
+				require.NoError(t, wt.Close(t.Context()))
+
+				wt, err = Clone(t.Context(), CloneInput{CacheDir: cacheDir, URL: remoteDir, Ref: ref, OfflineMode: true})
+				require.NoError(t, err)
+				require.NoError(t, wt.Close(t.Context()))
+			})
+		}
+	})
+
+	t.Run("Updates cached ref", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		remoteDir := makeTestRepo(t)
+		firstCommit := makeTestCommit(t, remoteDir, "initial commit")
+
+		wt, err := Clone(t.Context(), CloneInput{CacheDir: cacheDir, URL: remoteDir, Ref: "main"})
+		require.NoError(t, err)
+		require.NoError(t, wt.Close(t.Context()))
+
+		remoteURLHash := common.Sha256(remoteDir)
+		repoDir := filepath.Join(cacheDir, remoteURLHash[:2], remoteURLHash[2:])
+
+		secondCommit := makeTestCommit(t, remoteDir, "second commit")
+		require.NotEqual(t, firstCommit, secondCommit)
+		wt, err = Clone(t.Context(), CloneInput{CacheDir: cacheDir, URL: remoteDir, Ref: "main"})
+		require.NoError(t, err)
+		require.NoError(t, wt.Close(t.Context()))
+
+		resolved, err := ResolveRevision(t.Context(), repoDir, "main^{commit}")
+		require.NoError(t, err)
+		assert.Equal(t, secondCommit, resolved)
+	})
+
 	// These tests protects against a potential security vulnerability in pinned actions references. If an action
 	// reference is pinned such as `uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98`, it is possible
 	// that the remote `actions/checkout` repository is compromised, and a reference (branch or tag) could be created
@@ -647,12 +852,10 @@ func TestClone(t *testing.T) {
 		{
 			refType:    "tag",
 			refCreator: makeTestTag,
-			refChecker: verifyTag,
 		},
 		{
 			refType:    "annotated-tag",
 			refCreator: makeTestAnnotatedTag,
-			refChecker: verifyTag,
 		},
 	}
 	for _, ref := range refTypes {
@@ -676,25 +879,17 @@ func TestClone(t *testing.T) {
 				URL:      remoteDir,
 				Ref:      originalSHA,
 			})
-			// Either an error, or a correct checkout with the right commit, are fine -- as long as we're not tricked
-			// into the wrong commit:
-			if err != nil {
-				assert.ErrorContains(t, err, "ambiguous git reference such as a tag shadowing a legitimate git commit")
-			} else {
-				require.NoError(t, err)
-				defer wt1.Close(t.Context())
+			require.NoError(t, err)
+			defer wt1.Close(t.Context())
 
-				// Verify that the head in cloneDir is correct.
-				clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
-				assert.Equal(t, originalSHA, clonedSHA)
-
-				// Although it isn't what we checked out, verify that we did get the shadow reference into our cloned
-				// repo in order to ensure our test was valid.
-				ref.refChecker(t, wt1.WorktreeDir(), secondSHA, originalSHA)
-			}
+			// Verify that the head in cloneDir is correct.
+			clonedSHA := getTestRepoHead(t, wt1.WorktreeDir())
+			assert.Equal(t, originalSHA, clonedSHA)
 		})
 
-		t.Run(fmt.Sprintf("%s replaces a commit", ref.refType), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s shadows a non-existent/deleted commit", ref.refType), func(t *testing.T) {
+			// Even if the targetSHA doesn't exist in remote or was deleted, clone should still refuse to
+			// use it as a valid reference.
 			cacheDir := t.TempDir()
 
 			// Create a local repo that will act as the remote to be cloned.
@@ -713,8 +908,11 @@ func TestClone(t *testing.T) {
 				URL:      remoteDir,
 				Ref:      targetSHA,
 			})
-			assert.Error(t, err)
-			assert.ErrorContains(t, err, fmt.Sprintf("ambiguous argument '%s^{commit}'", targetSHA))
+			require.Error(t, err)
+
+			// Verify that Git fetch does not implicitly resolve refs/.../targetSHA.
+			assert.ErrorContains(t, err, "could not fetch remote 'origin'")
+			assert.ErrorContains(t, err, fmt.Sprintf("not our ref %s", targetSHA))
 		})
 	}
 
@@ -741,19 +939,95 @@ func TestClone(t *testing.T) {
 		require.NoError(t, gitCmd("-C", remoteDir, "replace", targetSHA, maliciousSHA))
 
 		// Clone the repo by the pinned full SHA.
-		_, err := Clone(t.Context(), CloneInput{
+		wt, err := Clone(t.Context(), CloneInput{
 			CacheDir: cacheDir,
 			URL:      remoteURL,
 			Ref:      targetSHA,
 		})
-		require.ErrorContains(t, err, fmt.Sprintf("ambiguous argument '%s^{commit}'", targetSHA))
+		require.NoError(t, err)
+		defer wt.Close(t.Context())
+		clonedSHA := getTestRepoHead(t, wt.WorktreeDir())
+		require.Equal(t, targetSHA, clonedSHA)
+		assert.NotEqual(t, maliciousSHA, clonedSHA)
+
+		// Verify the resolved HEAD is the legitimate commit.
+		_, resolvedSHA, err := ResolveHead(t.Context(), wt.WorktreeDir())
+		require.NoError(t, err)
+		assert.Equal(t, targetSHA, resolvedSHA)
+		assert.NotEqual(t, maliciousSHA, resolvedSHA)
+
+		// Verify the replacement ref was not loaded.
+		replaceRefs, err := gitCmdWithStdout("-C", wt.WorktreeDir(), "replace", "--list")
+		require.NoError(t, err)
+		assert.Empty(t, strings.TrimSpace(string(replaceRefs)))
+	})
+
+	t.Run("cached refs/replace substitutes a commit", func(t *testing.T) {
+		cacheDir := t.TempDir()
+
+		remoteDir := makeTestRepo(t)
+		remoteURL := "file://" + remoteDir // file:// is needed to avoid git optimizations on local clones which invalidate the test
+
+		// Legitimate commit, target of the pin:
+		targetSHA := makeTestCommit(t, remoteDir, "legitimate content")
+
+		// Unrelated commit carrying malicious content becomes the sole commit on `main`, leaving the legitimate commit
+		// unreachable from any branch or tag:
+		require.NoError(t, gitCmd("-C", remoteDir, "checkout", "--orphan", "evil"))
+		maliciousSHA := makeTestCommit(t, remoteDir, "malicious content")
+		require.NoError(t, gitCmd("-C", remoteDir, "branch", "-D", "main"))
+		require.NoError(t, gitCmd("-C", remoteDir, "branch", "-m", "main"))
+
+		// Add a replace reference from the old to the new malicious commit:
+		require.NoError(t, gitCmd("-C", remoteDir, "replace", targetSHA, maliciousSHA))
+
+		// Populate the bare cache and simulate the legacy broad fetch which imported refs/replace/*.
+		wt, err := Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteURL,
+			Ref:      "main",
+		})
+		require.NoError(t, err)
+		require.NoError(t, wt.Close(t.Context()))
+		remoteURLHash := common.Sha256(remoteURL)
+		repoDir := filepath.Join(cacheDir, remoteURLHash[:2], remoteURLHash[2:])
+		require.NoError(t, Fetch(t.Context(), FetchInput{
+			repoPath:  repoDir,
+			remote:    "origin",
+			refspec:   "+refs/*:refs/*",
+			remoteURL: remoteURL,
+		}))
+
+		// Clone to targetSHA with malicious replace ref.
+		wt, err = Clone(t.Context(), CloneInput{
+			CacheDir: cacheDir,
+			URL:      remoteURL,
+			Ref:      targetSHA,
+		})
+		require.NoError(t, err)
+		defer wt.Close(t.Context())
+
+		// Verify the malicious replace ref is present.
+		replaceRefs, err := gitCmdWithStdout("-C", repoDir, "replace", "--list")
+		require.NoError(t, err)
+		require.Equal(t, targetSHA, strings.TrimSpace(string(replaceRefs)))
+
+		// Verify the resolved HEAD is the legitimate commit.
+		_, resolvedSHA, err := ResolveHead(t.Context(), wt.WorktreeDir())
+		require.NoError(t, err)
+		assert.Equal(t, targetSHA, resolvedSHA)
+		assert.NotEqual(t, maliciousSHA, resolvedSHA)
 	})
 }
 
-func makeTestRepo(t *testing.T) string {
+func makeTestRepo(t *testing.T, initOptions ...string) string {
 	t.Helper()
 	repoPath := t.TempDir()
-	require.NoError(t, gitCmd("-C", repoPath, "init", "--initial-branch=main"))
+	args := []string{
+		"-C", repoPath, "init", "--initial-branch=main",
+	}
+	args = append(args, initOptions...)
+	require.NoError(t, gitCmd(args...))
 	require.NoError(t, gitCmd("-C", repoPath, "config", "user.name", "test"))
 	require.NoError(t, gitCmd("-C", repoPath, "config", "user.email", "test@test.com"))
 	return repoPath
@@ -868,7 +1142,7 @@ func gitCmdWithStdout(args ...string) ([]byte, error) {
 	return stdoutBuffer.Bytes(), nil
 }
 
-func TestCloneIfRequired(t *testing.T) {
+func TestInitRepoIfRequired(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
@@ -877,14 +1151,14 @@ func TestCloneIfRequired(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("clone", func(t *testing.T) {
-		err := cloneIfRequired(t.Context(), CloneInput{
+		err := initRepoIfRequired(t.Context(), CloneInput{
 			URL: "https://github.com/actions/checkout",
 		}, common.Logger(ctx), tempDir)
 		assert.NoError(t, err)
 	})
 
 	t.Run("clone different remote", func(t *testing.T) {
-		err := cloneIfRequired(t.Context(), CloneInput{
+		err := initRepoIfRequired(t.Context(), CloneInput{
 			URL: "https://github.com/actions/setup-go",
 		}, common.Logger(ctx), tempDir)
 		require.NoError(t, err)
@@ -972,26 +1246,6 @@ func TestResolveHead(t *testing.T) {
 		assert.Equal(t, fullSHA, sha)
 		assert.Equal(t, fullSHA[:7], short)
 	})
-}
-
-func TestDescribeHeadOnClone(t *testing.T) {
-	cacheDir := t.TempDir()
-	remoteDir := makeTestRepo(t)
-
-	fullSHA := makeTestCommit(t, remoteDir, "initial commit")
-	makeTestTag(t, remoteDir, fullSHA, "tag-1")
-
-	wt, err := Clone(t.Context(), CloneInput{
-		CacheDir: cacheDir,
-		URL:      remoteDir,
-		Ref:      fullSHA,
-	})
-	require.NoError(t, err)
-	defer wt.Close(t.Context())
-
-	ref, err := DescribeHead(t.Context(), wt.WorktreeDir())
-	require.NoError(t, err)
-	assert.Equal(t, "refs/tags/tag-1", ref)
 }
 
 func TestResolveRevision(t *testing.T) {
