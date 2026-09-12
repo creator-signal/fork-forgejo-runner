@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,6 +44,30 @@ func (t *UselessWorktree) Close(_ context.Context) error {
 
 func (t *UselessWorktree) WorktreeDir() string {
 	return ""
+}
+
+// dirWorktree is backed by a directory so that the action it holds can be read
+type dirWorktree struct {
+	dir    string
+	closed bool
+}
+
+func (t *dirWorktree) Close(_ context.Context) error {
+	t.closed = true
+	return nil
+}
+
+func (t *dirWorktree) WorktreeDir() string {
+	return t.dir
+}
+
+// compositeContainerMock adds the log writer swap done while running a composite action
+type compositeContainerMock struct {
+	containerMock
+}
+
+func (cm *compositeContainerMock) ReplaceLogWriter(_, _ io.Writer) (io.Writer, io.Writer) {
+	return nil, nil
 }
 
 func TestStepActionRemoteOK(t *testing.T) {
@@ -336,6 +362,113 @@ func TestStepActionRemotePreThroughAction(t *testing.T) {
 			assert.Equal(t, true, clonedAction)
 
 			sarm.AssertExpectations(t)
+		})
+	}
+}
+
+func TestStepActionRemoteCompositeWorktreeCleanup(t *testing.T) {
+	table := []struct {
+		name    string
+		runMain bool
+	}{
+		{
+			// the composite step is skipped by its `if`
+			name:    "skipped",
+			runMain: true,
+		},
+		{
+			// an earlier step failed, so the composite step never runs
+			name:    "not-executed",
+			runMain: false,
+		},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+
+			nestedDir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(nestedDir, "action.yml"),
+				[]byte("name: nested\nruns:\n  using: node20\n  main: index.js\n"), 0o644))
+			nestedWT := &dirWorktree{dir: nestedDir}
+
+			origStepAtionRemoteGitClone := stepActionRemoteGitClone
+			stepActionRemoteGitClone = func(ctx context.Context, input git.CloneInput) (git.Worktree, error) {
+				return nestedWT, nil
+			}
+			defer func() {
+				stepActionRemoteGitClone = origStepAtionRemoteGitClone
+			}()
+
+			cm := &compositeContainerMock{}
+			wt := &UselessWorktree{}
+			sar := &stepActionRemote{
+				RunContext: &RunContext{
+					Config: &Config{
+						GitHubInstance: "github.com",
+					},
+					Run: &model.Run{
+						JobID: "1",
+						Workflow: &model.Workflow{
+							Jobs: map[string]*model.Job{
+								"1": {},
+							},
+						},
+					},
+					StepResults:  map[string]*model.StepResult{},
+					JobContainer: cm,
+				},
+				Step: &model.Step{
+					ID:   "composite",
+					Uses: "org/composite@v1",
+					If:   yaml.Node{Value: "false"},
+				},
+				remoteAction: newRemoteAction("org/composite@v1"),
+				action: &model.Action{
+					Runs: model.ActionRuns{
+						Using: model.ActionRunsUsingComposite,
+						Steps: []model.Step{
+							{
+								ID:   "nested",
+								Uses: "org/nested@v1",
+							},
+						},
+					},
+				},
+				workTree: wt,
+			}
+			var err error
+			sar.RunContext.ExprEval, err = sar.RunContext.NewExpressionEvaluator(ctx)
+			require.NoError(t, err)
+
+			cm.On("Copy", "/var/run/act", mock.AnythingOfType("[]*container.FileEntry")).Return(func(ctx context.Context) error {
+				return nil
+			})
+			cm.On("UpdateFromEnv", "/var/run/act/workflow/envs.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				return nil
+			})
+			cm.On("UpdateFromEnv", "/var/run/act/workflow/statecmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				return nil
+			})
+			cm.On("UpdateFromEnv", "/var/run/act/workflow/outputcmd.txt", mock.AnythingOfType("*map[string]string")).Return(func(ctx context.Context) error {
+				return nil
+			})
+			cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/SUMMARY.md").Return(io.NopCloser(&bytes.Buffer{}), nil)
+			cm.On("GetContainerArchive", ctx, "/var/run/act/workflow/pathcmd.txt").Return(io.NopCloser(&bytes.Buffer{}), nil)
+
+			err = sar.pre()(ctx)
+			require.NoError(t, err)
+			assert.False(t, nestedWT.closed)
+			if tt.runMain {
+				err = sar.main()(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, model.StepStatusSkipped, sar.RunContext.StepResults["composite"].Conclusion)
+			}
+			err = sar.post()(ctx)
+			require.NoError(t, err)
+			assert.True(t, wt.closed)
+			assert.True(t, nestedWT.closed)
+			cm.AssertExpectations(t)
 		})
 	}
 }

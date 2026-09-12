@@ -167,13 +167,25 @@ func (sar *stepActionRemote) post() common.Executor {
 		If(hasPostStep(sar)).
 		If(shouldRunPostStep(sar)).
 		Finally(func(ctx context.Context) error {
-			if sar.workTree != nil {
-				if err := sar.workTree.Close(ctx); err != nil {
-					common.Logger(ctx).Warnf("non-fatal error cleaning up step work tree: %v", err)
-				}
+			if err := sar.closeWorkTrees(ctx); err != nil {
+				common.Logger(ctx).Warnf("non-fatal error cleaning up step work tree: %v", err)
 			}
 			return nil
 		})
+}
+
+// closeWorkTrees removes the worktree of this step and those of the steps nested in its composite action.
+// The nested worktrees are created in the pre stage, so they exist even if this step was skipped and its
+// post stage, which would have run the nested post steps, did not. Closing a worktree twice is a no-op.
+func (sar *stepActionRemote) closeWorkTrees(ctx context.Context) error {
+	var errs []error
+	if sar.compositeSteps != nil && sar.compositeSteps.cleanup != nil {
+		errs = append(errs, sar.compositeSteps.cleanup(ctx))
+	}
+	if sar.workTree != nil {
+		errs = append(errs, sar.workTree.Close(ctx))
+	}
+	return errors.Join(errs...)
 }
 
 func (sar *stepActionRemote) getRunContext() *RunContext {

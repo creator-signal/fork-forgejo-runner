@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -146,6 +147,12 @@ type compositeSteps struct {
 	pre  common.Executor
 	main common.Executor
 	post common.Executor
+	// cleanup releases the worktrees of the nested steps; unlike post it also runs when the composite step was skipped
+	cleanup common.Executor
+}
+
+type worktreeCloser interface {
+	closeWorkTrees(ctx context.Context) error
 }
 
 // Executor returns a pipeline executor for all the steps in the job
@@ -153,6 +160,7 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 	steps := make([]common.Executor, 0)
 	preSteps := make([]common.Executor, 0)
 	var postExecutor common.Executor
+	closers := make([]worktreeCloser, 0)
 
 	sf := &stepFactoryImpl{}
 
@@ -170,6 +178,10 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 			return &compositeSteps{
 				main: common.NewErrorExecutor(err),
 			}
+		}
+
+		if closer, ok := step.(worktreeCloser); ok {
+			closers = append(closers, closer)
 		}
 
 		stepID := step.getStepModel().ID
@@ -210,6 +222,13 @@ func (rc *RunContext) compositeExecutor(action *model.Action) *compositeSteps {
 			return common.NewPipelineExecutor(steps...)(common.WithJobErrorContainer(ctx))
 		},
 		post: postExecutor,
+		cleanup: func(ctx context.Context) error {
+			var errs []error
+			for _, closer := range closers {
+				errs = append(errs, closer.closeWorkTrees(ctx))
+			}
+			return errors.Join(errs...)
+		},
 	}
 }
 
