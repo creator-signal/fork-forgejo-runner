@@ -18,6 +18,7 @@ import (
 	"code.forgejo.org/forgejo/runner/v13/testutils"
 	"gotest.tools/v3/skip"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -224,6 +225,9 @@ func TestRunContext_GetBindsAndMounts(t *testing.T) {
 						fullBind := testcase.name + ":" + testcase.wantbind
 						if runtime.GOOS == "darwin" {
 							fullBind += ":delegated"
+						}
+						if selinux.GetEnabled() {
+							fullBind += ":z"
 						}
 						assert.Contains(t, gotbind, fullBind)
 					} else {
