@@ -1,0 +1,8 @@
+name: mask1
+description: Register the first mask
+
+runs:
+  using: composite
+  steps:
+    - run: echo "::add-mask::first-secret"
+      shell: bash

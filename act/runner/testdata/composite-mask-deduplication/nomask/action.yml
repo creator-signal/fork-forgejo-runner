@@ -1,0 +1,8 @@
+name: nomask
+description: Run without registering a mask
+
+runs:
+  using: composite
+  steps:
+    - run: echo "No new masks"
+      shell: bash

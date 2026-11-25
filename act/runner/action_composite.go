@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"code.forgejo.org/forgejo/runner/v13/act/common"
@@ -80,7 +81,7 @@ func newCompositeRunContext(ctx context.Context, parent *RunContext, step action
 		ActionPath:   actionPath,
 		Env:          env,
 		GlobalEnv:    parent.GlobalEnv,
-		Masks:        parent.Masks,
+		Masks:        slices.Clone(parent.Masks),
 		ExtraPath:    parent.ExtraPath,
 		Parent:       parent,
 		EventJSON:    parent.EventJSON,
@@ -108,6 +109,8 @@ func execAsComposite(step actionStep) common.Executor {
 			return fmt.Errorf("missing steps in composite action")
 		}
 
+		// Include masks added since this composite context was prepared
+		compositeRC.AddMask(rc.Masks...)
 		ctx = WithCompositeLogger(ctx, &compositeRC.Masks)
 
 		// It is expected that outputs, even in case of an execution error, are propagated.
@@ -126,7 +129,8 @@ func execAsComposite(step actionStep) common.Executor {
 			rc.setOutput(ctx, map[string]string{"name": outputName}, interpolatedOutput)
 		}
 
-		rc.Masks = append(rc.Masks, compositeRC.Masks...)
+		//  Preserve masks for later steps
+		rc.AddMask(compositeRC.Masks...)
 		rc.ExtraPath = compositeRC.ExtraPath
 		// compositeRC.Env is dirty, contains INPUT_ and merged step env, only rely on compositeRC.GlobalEnv
 		mergeIntoMap := mergeIntoMapCaseSensitive

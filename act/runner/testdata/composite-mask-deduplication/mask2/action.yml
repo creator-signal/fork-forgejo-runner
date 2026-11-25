@@ -1,0 +1,8 @@
+name: mask2
+description: Register the second mask
+
+runs:
+  using: composite
+  steps:
+    - run: echo "::add-mask::second-secret"
+      shell: bash

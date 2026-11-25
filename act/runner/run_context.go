@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"text/template"
@@ -78,8 +79,12 @@ func (rc *RunContext) DockerEndpoint(ctx context.Context) (docker.Endpoint, erro
 	return ep, nil
 }
 
-func (rc *RunContext) AddMask(mask string) {
-	rc.Masks = append(rc.Masks, mask)
+func (rc *RunContext) AddMask(masks ...string) {
+	for _, mask := range masks {
+		if !slices.Contains(rc.Masks, mask) {
+			rc.Masks = append(rc.Masks, mask)
+		}
+	}
 }
 
 type MappableOutput struct {

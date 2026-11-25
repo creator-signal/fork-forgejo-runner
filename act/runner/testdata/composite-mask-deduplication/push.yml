@@ -1,0 +1,13 @@
+name: composite-mask-deduplication
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v3
+      - uses: ./composite-mask-deduplication/mask1
+      - uses: ./composite-mask-deduplication/mask2
+      - uses: ./composite-mask-deduplication/mask1
+      - uses: ./composite-mask-deduplication/mask2
+      - uses: ./composite-mask-deduplication/nomask

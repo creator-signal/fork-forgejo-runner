@@ -23,6 +23,7 @@ import (
 	"github.com/moby/moby/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v3"
@@ -572,6 +573,32 @@ func TestRunner_MaskValues(t *testing.T) {
 
 	assertNoSecret(output, "secret value")
 	assertNoSecret(output, "YWJjCg==")
+}
+
+func TestRunner_MaskValuesDeduplication(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	testutils.RequireTestFeatures(t, testutils.TestFeatureDocker)
+
+	tjfi := TestJobFileInfo{
+		eventName:    "push",
+		platforms:    platforms,
+		workdir:      workdir,
+		workflowPath: "composite-mask-deduplication",
+	}
+
+	hook := &test.Hook{}
+	ctx := common.WithLoggerHook(t.Context(), hook)
+	tjfi.runTest(ctx, t, &Config{})
+
+	for _, entry := range hook.AllEntries() {
+		if entry.Data["jobResult"] == "success" {
+			assert.ElementsMatch(t, []string{"first-secret", "second-secret"}, *Masks(entry.Context))
+			return
+		}
+	}
+	t.Fatal("job did not report success")
 }
 
 func TestRunner_RunEventSecrets(t *testing.T) {
