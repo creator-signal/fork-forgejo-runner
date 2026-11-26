@@ -457,6 +457,8 @@ function lxc_apt_install() {
 }
 
 function lxc_apt_install_inside() {
+    # Update sources, they can be out of date
+    apt-get update -qq
     apt-get install -y -qq "$@"
 }
 
@@ -491,7 +493,7 @@ function lxc_install_lxc_inside() {
 
     if ! grep --quiet LXC_ADDR=.$prefix.1. /etc/default/lxc-net; then
         systemctl disable --now dnsmasq
-        apt-get install -y -qq lxc
+        lxc_apt_install_inside lxc
         systemctl stop lxc-net
         sed -i -e '/ConditionVirtualization/d' /usr/lib/systemd/system/lxc-net.service
         systemctl daemon-reload
