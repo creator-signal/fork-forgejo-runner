@@ -91,7 +91,7 @@ jobs:
       - uses: https://data.forgejo.org/actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
-      - uses: https://data.forgejo.org/actions/cascading-pr@b52d5b1f4f7bc3dd8b9f6ceca3a05aea6e9920be # v2.3.2
+      - uses: https://data.forgejo.org/actions/cascading-pr@7a76e93c6887d5bc93986b9b5a8ef6c2b7ac328b # v2.5.0
         with:
           origin-url: ${{ forge.server_url }}
           origin-repo: ${{ forge.repository }}
