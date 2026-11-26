@@ -310,13 +310,16 @@ func (rc *RunContext) stopHostEnvironment(ctx context.Context) error {
 		return err
 	}
 
+	// sudo crashes when called with an empty environment (Debian bug #1154725)
+	lxcEnv := map[string]string{"FORGEJO_RUNNER_LXC": "1"}
+
 	return common.NewPipelineExecutor(
 		rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
 			Name: "workflow/stop-lxc.sh",
 			Mode: 0o755,
 			Body: stopScript.String(),
 		}),
-		rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/stop-lxc.sh"}, map[string]string{}, "root", "/tmp"),
+		rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/stop-lxc.sh"}, lxcEnv, "root", "/tmp"),
 	)(ctx)
 }
 
@@ -420,6 +423,9 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 				return err
 			}
 
+			// sudo crashes when called with an empty environment (Debian bug #1154725)
+			lxcEnv := map[string]string{"FORGEJO_RUNNER_LXC": "1"}
+
 			executors = append(
 				executors,
 				rc.JobContainer.Copy(rc.JobContainer.GetActPath()+"/", &container.FileEntry{
@@ -437,7 +443,7 @@ func (rc *RunContext) startHostEnvironment() common.Executor {
 					Mode: 0o755,
 					Body: startScript.String(),
 				}),
-				rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, map[string]string{}, "root", "/tmp"),
+				rc.JobContainer.Exec([]string{rc.JobContainer.GetActPath() + "/workflow/start-lxc.sh"}, lxcEnv, "root", "/tmp"),
 			)
 		}
 
