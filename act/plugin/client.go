@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -120,13 +119,6 @@ func dial(ctx context.Context, address string, cfg *clientOptions) (*grpc.Client
 			Timeout:             cfg.keepaliveTimeout,
 			PermitWithoutStream: false,
 		}),
-	}
-	if isUnix {
-		socketPath := strings.TrimPrefix(address, "unix://")
-		opts = append(opts, grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
-		}))
-		address = "passthrough:///" + socketPath
 	}
 
 	conn, err := grpc.NewClient(address, opts...)
