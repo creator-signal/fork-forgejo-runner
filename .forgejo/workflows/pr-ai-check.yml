@@ -9,7 +9,7 @@ jobs:
     runs-on: docker
     container:
       image: data.forgejo.org/oci/ci:3
-    if: "!contains(forgejo.event.pull_request.body, '[x] I confirm that I make this contribution in accordance with [Forgejo''s AI Agreement]') && !contains(fromJSON('[\"viceice-bot\", \"forgejo-backport-action\", \"forgejo-cascading-pr\"]'), forgejo.actor)"
+    if: "!contains(forgejo.event.pull_request.body, '[x] I confirm that I make this contribution in accordance with [Forgejo''s AI Agreement]') && !contains(fromJSON('[\"viceice-bot\", \"cascading-pr\"]'), forgejo.actor)"
     steps:
       - run: |
           body=$(jq -n '{body: "Please ensure that the standard [Forgejo pull request template](https://code.forgejo.org/forgejo/runner/src/branch/main/.forgejo/pull_request_template.md) is included in the pull request description, and that the AI Agreement compliance checkbox has been checked."}')
