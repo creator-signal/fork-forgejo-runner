@@ -10,6 +10,7 @@ jobs:
           echo architecture is $(uname -m)
           [[ "$(uname -m)" = "aarch64" ]] || exit 1
   check-amd64:
+    needs: check-arm64 # otherwise this will be flaky
     runs-on: alpine
     container:
       options: --platform linux/amd64
